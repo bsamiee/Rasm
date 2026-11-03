@@ -21,17 +21,32 @@ private struct BundleInfo: Decodable {
         case version = "CFBundleShortVersionString"
         case scriptingDefinitionFile = "OSAScriptingDefinition"
         case agent = "LSUIElement"
-        case multipleInstancesProhibited = "LSMultipleInstancesProhibited"
     }
 
     let identifier: String?
-    let version: String?
+    let version: Installation.Version?
     let scriptingDefinitionFile: String?
     let agent: InfoFlag?
-    let multipleInstancesProhibited: InfoFlag?
 }
 
 public struct Installation: Encodable, Hashable, Sendable {
+    public struct Version: RawRepresentable, Codable, Hashable, Comparable, Sendable {
+        public let rawValue: String
+
+        private var components: [Int] {
+            let numbers: [Int] = rawValue.split(separator: ".").map { (component: Substring) -> Int in Int(component.prefix(while: \.isNumber)) ?? 0 }
+            return Array(numbers.reversed().drop { (component: Int) -> Bool in component == 0 }.reversed())
+        }
+
+        public init(rawValue: String) { self.rawValue = rawValue }
+
+        public static func == (lhs: Self, rhs: Self) -> Bool { lhs.components == rhs.components }
+
+        public static func < (lhs: Self, rhs: Self) -> Bool { lhs.components.lexicographicallyPrecedes(rhs.components) }
+
+        public func hash(into hasher: inout Hasher) { hasher.combine(components) }
+    }
+
     private enum CodingKeys: CodingKey {
         case url
         case identifier
@@ -45,11 +60,10 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let url: URL
     public let identifier: String
     public let name: String
-    public let version: String?
+    public let version: Version?
     public let scriptable: Bool
     public let scriptingDefinitionFile: String?
     public let agent: Bool
-    public let multipleInstancesProhibited: Bool
 }
 
 extension Installation {
@@ -65,7 +79,7 @@ extension Installation {
         } catch {
             throw ApplicationFailure(subject: path, reason: .host(error))
         }
-        guard let identifier: String = info?.identifier else { throw ApplicationFailure(subject: path, reason: .absent(kCFBundleIdentifierKey as String)) }
+        guard let identifier: String = info?.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
         self.init(
             url: bundle,
             identifier: identifier,
@@ -74,18 +88,18 @@ extension Installation {
             scriptable: values.applicationIsScriptable == true,
             scriptingDefinitionFile: info?.scriptingDefinitionFile,
             agent: info?.agent?.value == true,
-            multipleInstancesProhibited: info?.multipleInstancesProhibited?.value == true,
         )
     }
 
-    public static func single(of identifier: String, among installations: [Self]) throws(ApplicationFailure) -> Self {
-        try Unmatched.single(
-            installations.filter { installation in installation.identifier == identifier },
-            subject: "installation of \(identifier)",
-            query: nil,
+    public static func newest(of name: String, among installations: [Self]) throws(ApplicationFailure) -> Self {
+        let version: Version? = installations.compactMap(\.version).max()
+        return try Unmatched.single(
+            installations.filter { installation in installation.version == version },
+            subject: "newest installation",
+            query: name,
             candidates: [],
         ) { installation in installation.url.path(percentEncoded: false) }
-        .mapError { miss in ApplicationFailure(subject: identifier, reason: .unmatched(miss)) }.get()
+        .mapError { miss in ApplicationFailure(subject: name, reason: .unmatched(miss)) }.get()
     }
 
     public func runs(_ instance: NSRunningApplication) -> Bool {

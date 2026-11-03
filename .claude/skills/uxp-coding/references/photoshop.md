@@ -7,7 +7,10 @@ Photoshop's UXP DOM uses Action Manager descriptors. `action.batchPlay` plays ch
 `core.executeAsModal` holds Photoshop's one modal scope for a body, and a refused command resolves as an error descriptor in the reply array:
 
 ```ts
-import { type ActionDescriptor, action, core, type ExecutionContext } from 'adobe:photoshop';
+import { type ActionDescriptor, action, app, core, type ExecutionContext } from 'adobe:photoshop';
+
+const REJECTIONS = { Cancelled: 2, Unavailable: 9 } as const;
+const Rejected = Schema.Struct({ number: Schema.Union(Record.collect(REJECTIONS, (tag, code) => Schema.Literal(code).transform(tag))) });
 
 const played = (commands: ActionDescriptor[]) =>
     Effect.flatMap(Effect.tryPromise({ try: () => action.batchPlay(commands, {}), catch: HostError.refused(Array.map(commands, Struct.get('_obj')).join(', ')) }), (replies) =>
@@ -16,19 +19,35 @@ const played = (commands: ActionDescriptor[]) =>
             { onNone: () => Effect.succeed(replies), onSome: Effect.fail },
         ),
     );
+const cancelled = (context: ExecutionContext) =>
+    Effect.callback<never>((resume) => {
+        Object.assign(context, { onCancel: () => resume(Effect.interrupt) });
+        return Effect.sync(() => Object.assign(context, { onCancel: undefined }));
+    });
 const modal = <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>) =>
-    Effect.flatMap(Effect.context<R>(), (services) => Effect.flatten(Effect.tryPromise({ try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(body(context), { signal }), { commandName }), catch: HostError.refused(commandName) })));
-const committed = (documentID: number, name: string, commands: ActionDescriptor[]) =>
+    Effect.flatMap(Effect.context<R>(), (services) =>
+        Effect.flatten(
+            Effect.tryPromise({
+                try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(Effect.raceFirst(body(context), cancelled(context)), { signal }), { commandName }),
+                catch: (cause) => Option.match(Schema.decodeUnknownOption(Rejected)(cause), { onNone: () => HostError.refused(commandName)(cause), onSome: ({ number: _tag }) => HostError.make({ reason: { _tag }, subject: commandName, cause }) }),
+            }),
+        ),
+    );
+const committed = <A, E, R>(name: string, body: Effect.Effect<A, E | HostError, R>) =>
     modal(name, ({ hostControl }) =>
-        Effect.acquireUseRelease(
-            Effect.tryPromise({ try: () => hostControl.suspendHistory({ documentID, name }), catch: HostError.refused(name) }),
-            () => played(commands),
-            (suspension, exit) => Effect.promise(() => hostControl.resumeHistory(suspension, Exit.isSuccess(exit))),
+        app.documents.reduce<Effect.Effect<A, E | HostError, R>>(
+            (inner, { id }) =>
+                Effect.acquireUseRelease(
+                    Effect.tryPromise({ try: () => hostControl.suspendHistory({ documentID: id, name }), catch: HostError.refused(`suspendHistory of document ${id}`) }),
+                    () => inner,
+                    (suspension, exit) => Effect.tryPromise({ try: () => hostControl.resumeHistory(suspension, Exit.isSuccess(exit)), catch: HostError.refused(`resumeHistory of document ${id}`) }),
+                ),
+            body,
         ),
     );
 ```
 
-`committed` plays commands as one history state named `name`, or fails with the first refused command's error descriptor and leaves no change. `resumeHistory` commits on the body's success and drops every change on failure or interruption. Suspensions left open commit when their body resolves. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. `Effect.flatten` unwraps the `Exit` the body returns as a value.
+`played` fails with the first refused command's error descriptor. `committed` runs `body` under one suspended history state per open document, or unsuspended with none open. Each resume commits on success and drops every change on failure or interruption, and a refused resume fails `HostError`. Suspensions left open commit when their body resolves. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. `Effect.raceFirst` resumes with the first exit, and a progress-window cancel interrupts the body through `onCancel`. `Rejected` decodes documented rejection codes into `Cancelled` and `Unavailable`, and every other rejection stays `Refused`. `Effect.flatten` unwraps the `Exit` the body returns as a value.
 
 | [INDEX] | [CALL]                                                    | [REPLY]                                                         |
 | :-----: | :-------------------------------------------------------- | :-------------------------------------------------------------- |
@@ -99,6 +118,9 @@ DOM members are JavaScript over descriptors, and a getter plays a synchronous `g
 |  [05]   | Element by name               | `getByName`, then a null check               | Returns `null` for no match                        |
 |  [06]   | Element held across edits     | Its DOM object or `id`                       | One object per id, members of a deleted one throw  |
 
+- DOM objects hold `typename` typed as their class literal (`'Layer'`, `'TextFont'`, `'Layers'`), the discriminant of a union of DOM classes
+- DOM objects name their container through `document` or `parent` (`null` at top level), and collections extend `Array` with `parent` naming their owner
+- Returned objects derive a specifier: `String.uncapitalize(typename)` names the kind, and `id`, then name or PostScript name, then index the selector
 - `document.layers` and a group's `layers` hold the ids one `getLayerTreeSync` or `getLayerGroupContentsSync` call read
 - `getByName` on a layer list gets each layer's `name`
 - `app.documents` and `app.fonts` play a get at each `length` and index read, and an array method on either plays one list read
@@ -192,6 +214,9 @@ name	readwrite	get name(): string
 
 - Rows list what the installed build holds, and a member the declarations lack reads `undeclared` with its parameters
 - Members' `app.js` bodies name their plays
+- Running hosts return method shorthand from `Function.prototype.toString.call(method)`, parsing wrapped as `(class { <source> })`
+- Parsed `params` (acorn) mark an optional parameter as `AssignmentPattern` (its `left` span names it) or `RestElement`
+- Native methods yield no parse, and `method.length` counts their parameters
 - `rg -o 'class \w+' "<app>/Contents/Required/UXP/app.js"` lists every class, and `constants.js` beside it holds each `constants` group's values
 - `strings -n 6 "<app>/Contents/MacOS/<executable>" | rg -o -m1 '/<event> \[\(.*?\)[^<\]]*(<<.*?>>)?\]'` prints a command's terminology keys
 - Terminology keys are the Actions panel's vocabulary, typed as scalar, class, enumerated, or unit, and `/list` marks a list

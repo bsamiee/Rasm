@@ -1,12 +1,12 @@
 import type { Installation } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
-import { Array, Effect, FileSystem, Option, Path, Schema, String } from 'effect';
+import { Effect, FileSystem, Option, Path, Schema } from 'effect';
 import jsesc from 'jsesc';
-import { ADOBE_CRASH_REPORTER, checked, plist, printed } from '#/instance';
+import { crashes, REPORTER, uxp } from '#/adobe';
+import { checked, Launched, plist, printed } from '#/instance';
 import { Encoded, Engine, fields, HostCase, type Placed, type Quit, Reply, SURVEY, Survey } from '#/photoshop/contract';
 import { precondition } from '#/photoshop/precondition';
 import { copied } from '#/precondition';
-import { replied } from '#/results';
 import { type Batch, type Host as Harness, type Installed, installation, type Live } from '#/session';
 import { assembled, EXTENDSCRIPT, engineOf } from '#/source';
 
@@ -21,16 +21,15 @@ const ENGINE = new URL('extendscript.jsxinc', import.meta.url);
 const Info = Schema.Struct({
     'Adobe Product Build': Schema.String.annotate({ description: 'Build each release and channel states, 20260929.r.26' }),
     RELEASECHANNEL: Schema.String.annotate({ description: 'public or beta' }),
+    CFBundleDisplayName: Schema.String.annotate({ description: 'Adobe Photoshop 2026 or Adobe Photoshop (Beta), naming the folder its UXP logs sit in' }),
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [INSTALLATIONS]
 const released = Effect.fn('released')(function* (row: Installation, rows: readonly Installation[]) {
-    const path = yield* Path.Path;
-    const app = yield* path.fromFileUrl(row.url);
-    const [own, nested] = yield* Effect.all([plist(app, Info), printed('find', [path.join(app, 'Contents'), '-name', '*.app', '-prune'])], { concurrency: 'unbounded' });
-    const held = yield* installation(row, rows, [ADOBE_CRASH_REPORTER, ...Array.fromIterable(String.linesIterator(nested)).filter(String.isNonEmpty)]);
+    const held = yield* installation(row, rows, [REPORTER]);
+    const own = yield* plist(held.app, Info);
     return { ...held, version: `${held.version}+${own['Adobe Product Build']}.${own.RELEASECHANNEL}` } satisfies Installed;
 });
 const installed = Effect.gen(function* () {
@@ -62,7 +61,7 @@ const executed = Effect.fn('executed')(function* (live: Live, argument: string) 
 });
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
     const reply = yield* executed(live, yield* Schema.encodeEffect(Encoded)({ records: batch.records, label: batch.label, survey: Option.isNone(batch.survey), cases: batch.cases }));
-    return yield* replied(`${Engine.literal} batch`)(yield* Schema.decodeUnknownEffect(Reply)(reply));
+    return yield* Reply.replied(`${Engine.literal} batch`)(reply);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -72,15 +71,15 @@ const Host = {
     survey: { question: SURVEY, Schema: Survey },
     Case: HostCase,
     fields,
-    shown: ['alerts', 'activations', 'errors'],
     engine,
     precondition,
     placed: copied,
     installed,
-    launch: () => Effect.succeed({}),
+    launch: () => Effect.succeed(new Launched({})),
     send,
     quit: (live) => Effect.asVoid(executed(live, JSON.stringify({ quit: true } satisfies typeof Quit.Type))),
     canonical,
+    logs: (instance) => Effect.zipWith(plist(instance.chosen.app, Info), crashes(instance), ({ CFBundleDisplayName: folder }, found) => [uxp(folder), ...found]),
 } as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type, typeof fields>;
 
 // --- [EXPORTS] -------------------------------------------------------------------------

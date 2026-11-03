@@ -3,16 +3,16 @@ revision = 5
 requires-python = ">=3.13"
 resolution-markers = [
     "python_full_version >= '3.15' and platform_machine == 'arm64' and sys_platform == 'darwin'",
-    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version >= '3.15' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.15' and platform_machine == 'AMD64' and sys_platform == 'win32'",
+    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'AMD64' and sys_platform == 'win32'",
 ]
 supported-markers = [
@@ -30,7 +30,9 @@ members = [
     "background",
     "blender",
     "darkroom",
+    "foundry",
     "rasm",
+    "typography",
 ]
 constraints = [
     { name = "attrs", marker = "python_full_version < '3.15'", specifier = "==25.3.0" },
@@ -618,12 +620,12 @@ version = "25.3.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'AMD64' and sys_platform == 'win32'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5a/b0/1367933a8532ee6ff8d63537de4f1177af4bff9f3e829baf7331f595bb24/attrs-25.3.0.tar.gz", hash = "sha256:75d7cefc7fb576747b2c81b4442d4d4a1ce0900973527c011d1030fd3bf4af1b", size = 812032, upload-time = "2025-03-13T11:10:22.779Z" }
@@ -2099,7 +2101,7 @@ wheels = [
 
 [[package]]
 name = "cyclopts"
-version = "5.3.2"
+version = "5.3.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs", version = "25.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.15'" },
@@ -2108,9 +2110,9 @@ dependencies = [
     { name = "rich" },
     { name = "rich-rst" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fe/43/65f29e6cd5356f4a7910a80fce5df317b3edf1a6594525ec4c3a388c22cd/cyclopts-5.3.2.tar.gz", hash = "sha256:0b5c0975361c5eb8a65a98de358b10349a88fab74f8bd9f0c966ae6cf41a8c82", size = 254163, upload-time = "2026-10-27T14:28:41.694Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/af/8254627de20f769193afde3b4fdffd0f3b5c5c0e8a756b6088b6e308ec2c/cyclopts-5.3.3.tar.gz", hash = "sha256:86182ba223839686d52178c2b6151b28de8fe9d02cb64d290fbc86341a4a5b76", size = 255373, upload-time = "2026-11-02T16:01:51.559Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a2/82/fbb7d04cfd2afaf3e8eb9715f71b2899313cea9a205e5099959e8296ba43/cyclopts-5.3.2-py3-none-any.whl", hash = "sha256:0e1a1615b42da7af1c9cebd285578fa003f4d6bef8b65de9e77c2faf645c2df7", size = 297090, upload-time = "2026-10-27T14:28:39.858Z" },
+    { url = "https://files.pythonhosted.org/packages/71/03/a5b9e6fe5420461af7166e0d9f3b120e42383b14bc84edec9d696439b51d/cyclopts-5.3.3-py3-none-any.whl", hash = "sha256:b16ae3619f9447f6b7e42834586e2def254b940ce0b39f82eaf3cfee788a924f", size = 298068, upload-time = "2026-11-02T16:01:49.463Z" },
 ]
 
 [[package]]
@@ -2913,6 +2915,25 @@ woff = [
     { name = "brotli", marker = "platform_python_implementation == 'CPython'" },
     { name = "brotlicffi", marker = "platform_python_implementation != 'CPython'" },
     { name = "zopfli" },
+]
+
+[[package]]
+name = "foundry"
+version = "1.0.0"
+source = { editable = "tools/foundry" }
+dependencies = [
+    { name = "cyclopts" },
+    { name = "expression" },
+    { name = "msgspec" },
+    { name = "typography" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cyclopts" },
+    { name = "expression" },
+    { name = "msgspec" },
+    { name = "typography", editable = "libs/python/typography" },
 ]
 
 [[package]]
@@ -5602,12 +5623,12 @@ version = "2.3.4"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'AMD64' and sys_platform == 'win32'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b5/f4/098d2270d52b41f1bd7db9fc288aaa0400cb48c2a3e2af6fa365d9720947/numpy-2.3.4.tar.gz", hash = "sha256:a7d018bfedb375a8d979ac758b120ba846a7fe764911a64465fd87b8729f4a6a", size = 20582187, upload-time = "2025-10-15T16:18:11.77Z" }
@@ -5709,12 +5730,12 @@ version = "20260602.2.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'AMD64' and sys_platform == 'win32'",
 ]
 dependencies = [
@@ -5989,12 +6010,12 @@ version = "2.5.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'AMD64' and sys_platform == 'win32'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/63/79/d197a3a86ad16dcffac117a01866e35f160adad5ab25f8af097d90f74d59/opencolorio-2.5.0.tar.gz", hash = "sha256:f9efb2bccff83c0dc18b87a6947aa2f3e8fdec98a483c5433d24f09f56f1d8fd", size = 13884655, upload-time = "2025-10-01T07:01:05.282Z" }
@@ -6084,12 +6105,12 @@ version = "3.1.16.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'AMD64' and sys_platform == 'win32'",
 ]
 dependencies = [
@@ -6677,12 +6698,12 @@ version = "25.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version < '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
     "python_full_version < '3.14' and platform_machine == 'AMD64' and sys_platform == 'win32'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a1/d4/1fc4078c65507b51b96ca8f8c3ba19e6a61c8253c72794544580a7b6c24d/packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f", size = 165727, upload-time = "2025-04-19T11:48:59.673Z" }
@@ -9252,6 +9273,8 @@ source = { virtual = "." }
 default-groups = "all"
 dependencies = [
     { name = "blender" },
+    { name = "foundry" },
+    { name = "typography" },
 ]
 
 [package.dev-dependencies]
@@ -9558,6 +9581,7 @@ workspace = [
     { name = "sympy", marker = "python_full_version >= '3.15'" },
     { name = "tblib", marker = "python_full_version >= '3.15'" },
     { name = "trimesh", marker = "python_full_version >= '3.15'" },
+    { name = "ttfautohint-py", marker = "python_full_version >= '3.15'" },
     { name = "typst", marker = "python_full_version >= '3.15'" },
     { name = "ufo2ft", marker = "python_full_version >= '3.15'" },
     { name = "ufolib2", marker = "python_full_version >= '3.15'" },
@@ -9576,6 +9600,7 @@ workspace = [
     { name = "xlsxwriter", marker = "python_full_version >= '3.15'" },
     { name = "xvec", marker = "python_full_version >= '3.15'" },
     { name = "xxhash", marker = "python_full_version >= '3.15'" },
+    { name = "youseedee", marker = "python_full_version >= '3.15'" },
     { name = "zarr", marker = "python_full_version >= '3.15'" },
     { name = "ziafont", marker = "python_full_version >= '3.15'" },
     { name = "ziamath", marker = "python_full_version >= '3.15'" },
@@ -9588,7 +9613,11 @@ workspace = [
 workspace = ">=3.15"
 
 [package.metadata]
-requires-dist = [{ name = "blender", editable = "libs/python/blender" }]
+requires-dist = [
+    { name = "blender", editable = "libs/python/blender" },
+    { name = "foundry", editable = "tools/foundry" },
+    { name = "typography", editable = "libs/python/typography" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -9889,6 +9918,7 @@ workspace = [
     { name = "sympy", marker = "python_full_version >= '3.15'", specifier = ">=1.14.0" },
     { name = "tblib", marker = "python_full_version >= '3.15'" },
     { name = "trimesh", marker = "python_full_version >= '3.15'" },
+    { name = "ttfautohint-py", marker = "python_full_version >= '3.15'" },
     { name = "typst", marker = "python_full_version >= '3.15'" },
     { name = "ufo2ft", marker = "python_full_version >= '3.15'" },
     { name = "ufolib2", marker = "python_full_version >= '3.15'" },
@@ -9907,6 +9937,7 @@ workspace = [
     { name = "xlsxwriter", marker = "python_full_version >= '3.15'" },
     { name = "xvec", marker = "python_full_version >= '3.15'" },
     { name = "xxhash", marker = "python_full_version >= '3.15'" },
+    { name = "youseedee", marker = "python_full_version >= '3.15'" },
     { name = "zarr", marker = "python_full_version >= '3.15'" },
     { name = "ziafont", marker = "python_full_version >= '3.15'" },
     { name = "ziamath", marker = "python_full_version >= '3.15'" },
@@ -11133,6 +11164,17 @@ wheels = [
 ]
 
 [[package]]
+name = "ttfautohint-py"
+version = "0.6.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/83/5c/d33e63056c795903c44b0f62766052c7d2a3e4d1114b5aab03c457129e5e/ttfautohint_py-0.6.1.tar.gz", hash = "sha256:c413522ed77cb16c262a1d748113a6d9e7fb9e565775ed57a7657ce7323e23e4", size = 48814563, upload-time = "2026-07-15T11:49:15.517Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0f/92/4cda76fa204369dc53971d12de1bda794f0c45391346ed008dcb73685aba/ttfautohint_py-0.6.1-py3-none-macosx_10_9_universal2.whl", hash = "sha256:a7d621dcdebd5a6ca09f8068e8192e624514d503029dc6dd3d63837bf3891c2e", size = 1995403, upload-time = "2026-07-15T11:49:02.652Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/bd/8f31064345cd131a7d4d9f1442c7c2fe5796c6e0325afb0f3011c11fd0b4/ttfautohint_py-0.6.1-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:90250631e8646c96a01fdae1736191b021811e41923a7b8259b07690466b7e7d", size = 13847790, upload-time = "2026-07-15T11:49:04.588Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/6b/d6263027913a1e75c5d41577370463352cccb648ccdc490e4cc27574d04a/ttfautohint_py-0.6.1-py3-none-win_amd64.whl", hash = "sha256:5eb9448184c1d53ff891f1b09c388bf69578e5f66321474f17a93e8cd96eebd3", size = 18201110, upload-time = "2026-07-15T11:49:11.252Z" },
+]
+
+[[package]]
 name = "ty"
 version = "0.0.95"
 source = { registry = "https://pypi.org/simple" }
@@ -11347,6 +11389,37 @@ wheels = [
 ]
 
 [[package]]
+name = "typography"
+version = "1.0.0"
+source = { editable = "libs/python/typography" }
+dependencies = [
+    { name = "expression" },
+    { name = "fonttools" },
+    { name = "msgspec" },
+    { name = "opentype-sanitizer" },
+    { name = "skia-pathops" },
+    { name = "ttfautohint-py" },
+    { name = "ufo2ft" },
+    { name = "ufolib2" },
+    { name = "uharfbuzz" },
+    { name = "youseedee" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "expression" },
+    { name = "fonttools" },
+    { name = "msgspec" },
+    { name = "opentype-sanitizer" },
+    { name = "skia-pathops" },
+    { name = "ttfautohint-py" },
+    { name = "ufo2ft" },
+    { name = "ufolib2" },
+    { name = "uharfbuzz" },
+    { name = "youseedee" },
+]
+
+[[package]]
 name = "typst"
 version = "0.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -11386,7 +11459,7 @@ wheels = [
 
 [[package]]
 name = "ufo2ft"
-version = "3.10.0"
+version = "3.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "booleanoperations" },
@@ -11394,9 +11467,9 @@ dependencies = [
     { name = "fontmath" },
     { name = "fonttools" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/be/c8/5f05adb6dc92fd7b1e42f86aabefff1b316d9dd61204a81ca865e08c669f/ufo2ft-3.10.0.tar.gz", hash = "sha256:4767e2f69b7e904227cd54cc9ab37ebe08298c0778f8b34fc04ebb8625e69aa4", size = 478869, upload-time = "2026-10-29T16:08:53.143Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2a/a3/3902416b61ea5cf60a597b8df924d1e8ba6a9c7c3e417d68fdc94717cf71/ufo2ft-3.11.0.tar.gz", hash = "sha256:11543a02e121cae0d498e2358fbaf9ad03101ed53a600a9e0c196ec0e151dc41", size = 479008, upload-time = "2026-11-02T18:41:49.74Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/91/22/5b5e01cbd94a6eefcb27453e7f55f228ea2d41ddaa0ee891261f33a5569e/ufo2ft-3.10.0-py3-none-any.whl", hash = "sha256:3449f43df6e4fa710160b25b7f7ce8e869253ab61f2cc823b71e7fd41758bb01", size = 173476, upload-time = "2026-10-29T16:08:51.2Z" },
+    { url = "https://files.pythonhosted.org/packages/70/ea/b6bcfa8b221f778d89265883ba3f3b4595ec507b547f128a8558e8c33609/ufo2ft-3.11.0-py3-none-any.whl", hash = "sha256:2797f4128f29e04e3881593be5da3b99b003748b7c5c3d5321c94f08fc82dd4e", size = 173635, upload-time = "2026-11-02T18:41:47.973Z" },
 ]
 
 [[package]]
@@ -11404,7 +11477,8 @@ name = "ufolib2"
 version = "0.19.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "attrs", version = "26.1.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "attrs", version = "25.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.15'" },
+    { name = "attrs", version = "26.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.15'" },
     { name = "fonttools" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b4/81/d4b1bd9c1bddd8877e26ce66294235e990982512155676ff589ffdce589b/ufolib2-0.19.1.tar.gz", hash = "sha256:febb497364813092b7692e5453e763b4b2df4909fc87ae54a2dcc4eb0419c8a4", size = 104488, upload-time = "2026-10-13T15:19:49.481Z" }
@@ -12122,6 +12196,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/2b/80/c386593035ee3f9c6c6af0847b5578f2830c674794a9d7701b744a3ebd42/yarl-1.25.1-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:dfbf531053a0935f2e871bcd4753f90313688772ff8c017f5ea402e315a78c1f", size = 115570, upload-time = "2026-09-15T19:34:52.628Z" },
     { url = "https://files.pythonhosted.org/packages/38/02/eef443559563ef8f2e10469387b8b1e97cb5efee95b288a56da60801f7ee/yarl-1.25.1-cp315-cp315t-win_amd64.whl", hash = "sha256:b13b88747769537f3d32e89e3a735da10c0a9e35d7322928c701b5f93d3afffd", size = 106811, upload-time = "2026-09-15T19:34:54.935Z" },
     { url = "https://files.pythonhosted.org/packages/54/22/318c7980066769c6bcd9221ed2248294f5698811da099013098c670565ed/yarl-1.25.1-py3-none-any.whl", hash = "sha256:681c758b0490f9e96b78e5fa8e8dc6e648e9185bb6eaebe73183c33ea0c445f3", size = 63617, upload-time = "2026-09-15T19:34:59.616Z" },
+]
+
+[[package]]
+name = "youseedee"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "filelock" },
+    { name = "platformdirs" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7d/65/ed9a80c88307d2b045152e3a70630a6a522ee914fe55db5865555e4f7ee0/youseedee-0.7.0.tar.gz", hash = "sha256:6f9831048aff9a8c33946e3f3740b6d92d574ead0d0064ead7ffa23147f10f5f", size = 17805, upload-time = "2025-07-24T11:28:56.869Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2a/ee/e4940673e084c35cb1c3a7d308ef2234df8dc86a1df0453318e976e437a7/youseedee-0.7.0-py3-none-any.whl", hash = "sha256:f32efda938a839edeeaf93ae7013f8d3ed99541304b37e1006037ea286f7bef7", size = 11220, upload-time = "2025-07-24T11:28:55.083Z" },
 ]
 
 [[package]]

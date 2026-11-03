@@ -1,6 +1,7 @@
 import ghidra.app.script.GhidraScript;
 import ghidra.app.script.GhidraState;
 import ghidra.framework.model.DomainFile;
+import ghidra.framework.model.ProjectLocator;
 import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.exception.VersionException;
@@ -10,120 +11,140 @@ import rasm.Report;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.net.StandardProtocolFamily;
+import java.net.UnixDomainSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.regex.Pattern;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Serve extends GhidraScript {
-    // --- [PROGRAMS]
-
-    private static final Pattern SPACE = Pattern.compile("\\s+");
-
-    private final Map<String, Program> programs = new ConcurrentHashMap<>();
-
     // --- [REQUESTS]
 
-    private Report.Result<String> execute(List<String> tokens, Program program) {
-        String[] arguments = tokens.subList(3, tokens.size()).toArray(String[]::new);
+    private static final Pattern CELL = Pattern.compile("\t");
+
+    private static final String STOP = "stop";
+
+    record Request(String program, String script, List<String> arguments) {
+        static Report.Result<Request> of(String line) {
+            List<String> cells =
+                    CELL.splitAsStream(line.strip()).filter(cell -> !cell.isEmpty()).toList();
+            return cells.size() < 2
+                    ? new Report.Failure<>(
+                            "Request `%s` matches no form <program> <script> <argument>..."
+                                    .formatted(line))
+                    : new Report.Success<>(
+                            new Request(
+                                    cells.get(0), cells.get(1), cells.subList(2, cells.size())));
+        }
+    }
+
+    private final Map<String, Program> programs = new HashMap<>();
+
+    private Report.Result<Program> open(String name) {
+        String path = name.startsWith("/") ? name : "/" + name;
+        if (programs.get(path) instanceof Program program) {
+            return new Report.Success<>(program);
+        }
+        DomainFile file = state.getProject().getProjectData().getFile(path);
+        if (file == null) {
+            return new Report.Failure<>("Project holds no program `%s`".formatted(path));
+        }
+        try {
+            Program opened = (Program) file.getDomainObject(this, true, false, monitor);
+            programs.put(path, opened);
+            return new Report.Success<>(opened);
+        } catch (VersionException | IOException | CancelledException exception) {
+            return new Report.Failure<>("Program `%s` did not open, %s".formatted(path, exception));
+        }
+    }
+
+    private Report.Result<Optional<DomainFile>> execute(Request request, Program program) {
         try {
             runScript(
-                    tokens.get(2),
-                    arguments,
+                    request.script(),
+                    request.arguments().toArray(String[]::new),
                     new GhidraState(
                             state.getTool(), state.getProject(), program, null, null, null));
             if (!program.isChanged()) {
-                return new Report.Success<>("");
+                return new Report.Success<>(Optional.empty());
             }
-            program.save(String.join(" ", tokens.subList(2, tokens.size())), monitor);
-            return new Report.Success<>(" saved " + program.getDomainFile().getPathname());
+            program.save(request.script() + " " + String.join(" ", request.arguments()), monitor);
+            return new Report.Success<>(Optional.of(program.getDomainFile()));
         } catch (Exception exception) {
             return new Report.Failure<>(String.valueOf(exception.getMessage()));
         }
     }
 
-    private String answer(List<String> tokens) {
+    private String answer(String line) {
         long start = System.nanoTime();
-        Function<String, Report.Result<Program>> resolved =
-                name -> {
-                    String path = name.startsWith("/") ? name : "/" + name;
-                    return Optional.ofNullable(programs.get(path))
-                            .<Report.Result<Program>>map(Report.Success::new)
-                            .orElseGet(() -> {
-                                DomainFile file = state.getProject().getProjectData().getFile(path);
-                                if (file == null) {
-                                    return new Report.Failure<>(
-                                            "Project holds no program `%s`".formatted(path));
-                                }
-                                try {
-                                    Program opened =
-                                            (Program)
-                                                    file.getDomainObject(
-                                                            this, true, false, monitor);
-                                    programs.put(path, opened);
-                                    return new Report.Success<>(opened);
-                                } catch (VersionException
-                                        | IOException
-                                        | CancelledException exception) {
-                                    return new Report.Failure<>(
-                                            "Program `%s` did not open, %s"
-                                                    .formatted(path, exception));
-                                }
-                            });
-                };
-        Report.Result<String> outcome =
-                tokens.size() < 3
-                        ? new Report.Failure<>(
-                                "Request matches no form <reply> <program> <script> <argument>...")
-                        : switch (resolved.apply(tokens.get(1))) {
-                            case Report.Success<Program>(Program program) ->
-                                    execute(tokens, program);
-                            case Report.Failure<Program>(String cause) ->
-                                    new Report.Failure<>(cause);
-                        };
+        Report.Result<Optional<DomainFile>> outcome =
+                Request.of(line)
+                        .flatMap(request ->
+                                open(request.program()).flatMap(program -> execute(request, program)));
         String elapsed = "%.1fs".formatted((System.nanoTime() - start) / 1e9);
         return switch (outcome) {
-            case Report.Success<String>(String saved) -> "ok %s%s\n".formatted(elapsed, saved);
-            case Report.Failure<String>(String cause) -> "failed %s %s\n".formatted(elapsed, cause);
+            case Report.Success<Optional<DomainFile>>(Optional<DomainFile> saved) ->
+                    "ok %s%s\n"
+                            .formatted(
+                                    elapsed,
+                                    saved.map(file -> " saved " + file.getPathname()).orElse(""));
+            case Report.Failure<Optional<DomainFile>>(String cause) ->
+                    "failed %s %s\n".formatted(elapsed, cause);
         };
     }
 
     // --- [RUN]
 
-    private boolean session(Path requests) throws IOException {
-        try (BufferedReader reader = Files.newBufferedReader(requests)) {
-            for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-                List<String> tokens =
-                        SPACE.splitAsStream(line.strip())
-                                .filter(token -> !token.isEmpty())
-                                .toList();
-                if (List.of("stop").equals(tokens)) {
-                    return false;
-                }
-                if (!tokens.isEmpty()) {
-                    Files.writeString(Path.of(tokens.getFirst()), answer(tokens));
-                }
+    private boolean session(ServerSocketChannel server) throws IOException {
+        SocketChannel client = server.accept();
+        try (client;
+                BufferedReader reader =
+                        new BufferedReader(Channels.newReader(client, StandardCharsets.UTF_8))) {
+            String line = Objects.requireNonNullElse(reader.readLine(), "");
+            if (STOP.equals(line.strip())) {
+                return false;
             }
-            return true;
+            client.write(ByteBuffer.wrap(answer(line).getBytes(StandardCharsets.UTF_8)));
+        } catch (IOException exception) {
+            printerr("Request connection closed, %s".formatted(exception.getMessage()));
         }
+        return true;
     }
 
     @Override
     public void run() throws Exception {
-        Path requests = new Arguments.Usage(getScriptName(), "<requests>").only(getScriptArgs());
+        new Arguments.Usage(getScriptName(), "")
+                .values(
+                        Arrays.stream(getScriptArgs())
+                                .<Report.Result<String>>map(argument ->
+                                        new Report.Failure<>(
+                                                "Argument `%s` follows the script name"
+                                                        .formatted(argument))));
+        ProjectLocator locator = state.getProject().getProjectLocator();
+        Path socket = locator.getMarkerFile().toPath().resolveSibling(locator.getName() + ".sock");
         end(true);
         programs.put(currentProgram.getDomainFile().getPathname(), currentProgram);
-        try {
-            while (session(requests)) {
+        Files.deleteIfExists(socket);
+        try (ServerSocketChannel server = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
+            server.bind(UnixDomainSocketAddress.of(socket));
+            while (session(server)) {
                 monitor.checkCancelled();
             }
         } finally {
+            Files.deleteIfExists(socket);
             programs.values().stream()
                     .filter(program -> !program.equals(currentProgram))
                     .forEach(program -> program.release(this));

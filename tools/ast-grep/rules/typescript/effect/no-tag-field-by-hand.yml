@@ -12,6 +12,7 @@ utils:
                 any:
                     - {kind: string, pattern: $TAG}
                     - {kind: as_expression, has: {kind: string, pattern: $TAG}}
+            - not: {has: {regex: '^static$'}}
     tagged-class:
         kind: class_declaration
         all:

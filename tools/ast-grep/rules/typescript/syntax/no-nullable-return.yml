@@ -77,6 +77,9 @@ utils:
             inside: {kind: call_expression, has: {field: function, regex: '^((globalThis|window|self)\.)?JSON\.stringify$', matches: typescript-global-reference}}
     host-contract:
         any: [{matches: component}, {matches: replacer}]
+    void-branch:
+        kind: ternary_expression
+        has: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^forEach$'}}}
 rule:
     any:
         - kind: return_statement
@@ -96,7 +99,12 @@ rule:
         - kind: arrow_function
           all:
             - has: {field: body, matches: undefined-result, pattern: $VALUE}
-            - has: {field: return_type, matches: value-annotation}
+            - any:
+                - has: {field: return_type, matches: value-annotation}
+                - all:
+                    - has: {field: body, any: [{kind: &branching 'ternary_expression, binary_expression'}, {matches: typescript-expression-wrapper, has: {stopBy: {not: {matches: typescript-expression-wrapper}}, kind: *branching}}]}
+                    - not: {has: {field: body, any: [{matches: void-branch}, {has: {stopBy: {not: {matches: typescript-expression-wrapper}}, matches: void-branch}}]}}
+                    - inside: {kind: variable_declarator, field: value, inside: {matches: typescript-module-constant}}
             - not: {matches: host-contract}
 message: 'Function returns absence through `$VALUE`'
 note: 'Return an `Option`, with `Option.fromNullishOr` or `Option.liftPredicate` lifting a host value at its boundary'

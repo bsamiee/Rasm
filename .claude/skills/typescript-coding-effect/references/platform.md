@@ -9,9 +9,11 @@
 - `stdin` takes a `Stream`, and `stdout` and `stderr` take `'inherit'`, `'ignore'`, `'pipe'`, or a `Sink`
 - `killSignal` defaults to `SIGTERM`, and `forceKillAfter` sends `SIGKILL` after a delay
 - `ChildProcess.pipeTo(next, { from })` builds a pipeline, and `prefix`, `setCwd`, and `setEnv` transform a whole one
-- `ChildProcessSpawner` members `string`, `lines`, `streamLines`, and `exitCode` own a handle and drain unread output, `string` ignoring exit code
+- `ChildProcessSpawner` members `string`, `lines`, `streamString`, and `streamLines` read stdout without exit code, `includeStderr: true` interleaving stderr
+- `ChildProcessSpawner.exitCode` returns on process exit, ignoring pipes descendants hold
 - `CommandLine.display(words)` renders a command for logs and errors, each `Redacted` word as `<redacted>`
-- Commands run in their machine format (`--json`, NUL-separated `-z`) for a schema to decode, line splits of display text restating it
+- Commands run in their machine format (`--json`, `-z`) for a schema to decode, records split on its separator (`'\0'` for `git -z`)
+- Text tables of commands without a machine format slice rows by column spans their ruler line marks, keying cells by heading
 
 Commands failing on a non-zero exit read output and exit code in one scope:
 
@@ -54,8 +56,10 @@ Command.make(
 
 `FileSystem` and `Path` are services a platform layer provides, and `Glob` matches paths without the disk:
 - `fs.glob(pattern, { root, exclude, dot })` returns sorted paths, and `Glob.make(pattern)` with `Glob.match` tests a path
-- `fs.makeTempDirectoryScoped()` owns scratch space for a scope, `fs.stream` and `fs.sink` stream bytes, and `fs.watch(path)` streams changes
+- `fs.makeTempFileScoped({ suffix })` owns one file a host writes and `makeTempDirectoryScoped()` a folder, each deleted when its scope closes
+- `fs.stream` and `fs.sink` stream bytes, and `fs.watch(path)` streams changes
 - `Url.fromString('../Resources/<file>', base)` resolves a bundle resource, `base` from `path.toFileUrl(executable)`, in place of `dirname` chains
+- `import.meta.resolve('<pkg>/<file>')` locates a dependency file through `path.fromFileUrl` in an effect and `fileURLToPath` in a build config
 - `FileSystem.layerNoop({ ...overrides })` stubs the service for a test
 
 ## [04]-[CRYPTO]
@@ -70,8 +74,12 @@ Command.make(
 
 `effect/encoding` holds byte and text codecs and streaming channels for line, event, and archive formats:
 - `Hex.decode`, `Base64.decode`, and `Base64Url.decode` return a `Result`, and schema boundaries use `Schema.Uint8ArrayFrom*` schemas
-- `Ndjson.decodeSchema(S)()`, `Csv.decodeSchema(S)`, and `Sse.decodeDataSchema(S)` are `Stream.pipeThroughChannel` channels with matching encoders
-- `Yaml.parse`, `Toml.parse`, `Ini.parse`, and `Xml.decodeString` read configuration formats for a schema to decode
+- `Ndjson.decodeSchema(S)()` and `Csv.decodeSchema(S)()` read bytes, `decodeSchemaString` and `Sse.decodeDataSchema(S)` text, each with an encoder
+- `Csv.decodeSchemaString(S)({ headers: true })` keys cells by header, an empty optional cell decoding as a missing key
+- Caller-named CSV fields map to columns through `Schema.encodeKeys` on the row schema
+- `Toml.parse`, `Jsonc.parse`, and `Json5.parse` return a `Result`, `Yaml.parse` throws `SyntaxError` into `Effect.try`, and `Ini.parse` is total
+- `Xml.decodeString` piped through `Xml.elements(path)` reads XML trees for a schema, and `Xml.encodeString` writes an `Xml.Event` stream unindented
+- Indented documents build from a tree through one module-scope `fast-xml-builder` `Builder({ ignoreAttributes: false, format: true })` reading `@_` keys
 - `Tar` and `Zip` stream archive entries
 - `NodeStream.fromReadable` enters a Node readable stream as a `Stream`
 

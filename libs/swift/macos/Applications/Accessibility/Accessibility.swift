@@ -6,6 +6,8 @@ import Foundation
 
 private let labelAttributes: [String] = [kAXTitleAttribute, kAXDescriptionAttribute]
 private let absentAttribute: Set<AXError> = [.noValue, .attributeUnsupported, .invalidUIElement]
+private let menuMark: Data = Data("menu".utf8)
+let messagingTimeout: Duration = .seconds(1)
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -47,7 +49,30 @@ extension AXUIElement {
     // --- [IDENTITY]
     var token: Data { unsafe remoteToken(self).takeRetainedValue() as Data }
 
-    static func element(_ token: Data) -> AXUIElement? { unsafe remoteElement(token as CFData)?.takeRetainedValue() }
+    static func menuItem(of process: pid_t, at path: [Int]) -> Data {
+        ([UInt32(bitPattern: process)] + path.map { index in UInt32(truncatingIfNeeded: index) }).reduce(into: menuMark) { id, word in
+            id.append(contentsOf: stride(from: 24, through: 0, by: -8).map { shift in UInt8(truncatingIfNeeded: word >> shift) })
+        }
+    }
+
+    static func element(_ id: Data) throws(ApplicationFailure) -> AXUIElement? {
+        guard id.starts(with: menuMark), id.count > menuMark.count, (id.count - menuMark.count).isMultiple(of: 4) else {
+            return unsafe remoteElement(id as CFData)?.takeRetainedValue().timed
+        }
+        let words: [Int] = stride(from: id.startIndex + menuMark.count, to: id.endIndex, by: 4).map { start in id[start..<(start + 4)].reduce(0) { word, byte in word << 8 | Int(byte) } }
+        var node: AXUIElement? = try application(pid_t(truncatingIfNeeded: words[0])).values([kAXMenuBarAttribute])[kAXMenuBarAttribute].flatMap(checked)
+        for index: Int in words.dropFirst() {
+            node = try node.flatMap { parent throws(ApplicationFailure) in try parent.elements(kAXChildrenAttribute).dropFirst(index).first }
+        }
+        return node
+    }
+
+    static func application(_ process: pid_t) -> AXUIElement { AXUIElementCreateApplication(process).timed }
+
+    private var timed: AXUIElement {
+        AXUIElementSetMessagingTimeout(self, Float(messagingTimeout / .seconds(1)))
+        return self
+    }
 
     var process: pid_t? {
         var pid: pid_t = 0
@@ -55,7 +80,7 @@ extension AXUIElement {
     }
 
     static func checked(_ slot: CFTypeRef) -> AXUIElement? {
-        CFGetTypeID(slot) == AXUIElementGetTypeID() ? unsafe unsafeDowncast(slot, to: AXUIElement.self) : nil
+        CFGetTypeID(slot) == AXUIElementGetTypeID() ? unsafe unsafeDowncast(slot, to: AXUIElement.self).timed : nil
     }
 
     // --- [READS]
@@ -66,7 +91,7 @@ extension AXUIElement {
     }
 
     func failure(_ error: AXError, reading reads: [String]) -> ApplicationFailure {
-        let subject: String = "element \(token.base64EncodedString())"
+        let subject: String = token.base64EncodedString()
         return ApplicationFailure(error, subject: subject, process: process) {
             let read: [String: CFTypeRef] = Dictionary(uniqueKeysWithValues: copied([kAXRoleAttribute] + labelAttributes).slots)
             return ApplicationFailure(subject: subject, reason: .unreadable(FailedRead(reads: reads, role: read[kAXRoleAttribute] as? String, label: ownLabel(read), error: error)))
@@ -138,7 +163,7 @@ extension AXUIElement {
         var settable: DarwinBoolean = false
         return switch unsafe AXUIElementIsAttributeSettable(self, attribute as CFString, &settable) {
             case .success where settable.boolValue: AXUIElementSetAttributeValue(self, attribute as CFString, value)
-            case .success, .noValue, .attributeUnsupported: throw ApplicationFailure(subject: "element \(token.base64EncodedString())", reason: .absent("settable \(attribute)"))
+            case .success, .noValue, .attributeUnsupported: throw ApplicationFailure(subject: token.base64EncodedString(), reason: .notSettable(attribute))
             case let error: error
         }
     }

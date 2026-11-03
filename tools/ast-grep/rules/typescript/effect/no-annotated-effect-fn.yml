@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-annotated-effect-fn
+language: tsx
+severity: error
+rule:
+    kind: variable_declarator
+    all:
+        - has: {field: type, has: {kind: function_type, has: {field: return_type, regex: '^Effect\.Effect\b'}}}
+        - has: {field: name, pattern: $NAME}
+        - has:
+            field: value
+            kind: call_expression
+            any:
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^fnUntraced$'}}}}
+                - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^fn$'}}}}}
+message: '`$NAME` restates the parameters and result of its `Effect.fn` body in a function type'
+note: 'Annotate the generator `function* (<parameters>): Effect.fn.Return<A, E, R>` and drop the binding type'

@@ -24,7 +24,7 @@ extension Integration {
         @Test(.application(FixtureApplication.self, launches: false))
         func slowLaunchHoldsLaunchingUntilLaunchFinishes() async throws {
             try checkAccessibilityTrust()
-            let instance: NSRunningApplication = try await NSWorkspace.shared.launch(try installation(), configuration: configuration(Settings(scenario: .slowLaunch))).instance
+            let instance: NSRunningApplication = try await NSWorkspace.shared.launch(try installation(), arguments: Settings(scenario: .slowLaunch).arguments).instance
             let seen: [InstanceState] = try await observe(
                 instance,
                 until: { seen in seen.last?.elements.contains { element in element.title == "Fixture 0" } == true },

@@ -43,18 +43,20 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 ```
 
 - Cases differing in data are field sets of one tagged union, cases differing in values no rule decides are rows of an `as const` table
-- Tables crossing varying axes are one `Array.cartesianWith` over the axes, each row computed from its pair
+- Tables crossing axes are nested `Record.map` over each axis's record where a nested domain value reads them, else one `Array.cartesianWith`
 - Members differing in a number, flag, literal, or applied function are one member taking that value alone
 - Parameters default to a value an owner states (a host's resolved option, a standard), and every other parameter is required
 - Parameters every caller passes one value for fold into their owner, and fields no caller acts on go
-- Declarations read once sit inline, a value read twice is a `const` named for its fact
+- Parameters another parameter determines (a project's manifest, daemon, or release from its folder) derive from it inside the function
+- Values read once are a local in their reader named for their fact, inline where the value is another name, and a value read twice is a `const`
 - Constants one relation joins (a width and height, a minimum and maximum, names and their order) are one value
+- Names a client and a server both spell (multipart fields, header keys) are one `as const` table, members keyed by `[table.key]`
 - Numbers come from the package member, standard, or measured property stating them, else from a parameter
-- Schemas declare at module scope, and each parser caches by its schema's AST
+- Schemas declare at module scope and parsers cache by AST, a schema over a caller value building once through `Function.memoize` or a field initializer
 
 ## [02]-[FUNCTIONS]
 
-Signatures state every value a function accepts and every outcome its caller handles. Parameters and fields are `readonly`, arrays `readonly A[]`, or `Array.NonEmptyReadonlyArray<A>` where the rule needs an element.
+Signatures state every value a function accepts and every outcome its caller handles. Parameters and fields are `readonly`, arrays `readonly A[]`, or `Array.NonEmptyReadonlyArray<A>` where the rule needs an element, and `Effect.forEach` over a non-empty input (`Array.range`, `Array.makeBy`) returns one.
 
 ### [02.1]-[TOTAL_FUNCTIONS]
 
@@ -78,8 +80,11 @@ const summary = (lines: Array.NonEmptyReadonlyArray<Line>) => ({
 ```
 
 Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no absent case:
-- Native array methods state a direct `filter`, `every`, `join`, or `reduce`, other traversals `Array`, `Record`, `Struct`, and `Iterable` functions
-- `Record.collect` maps entries to an array and `Record.filterMap` keeps entries a lookup finds, `Object.entries` pairs restating both
+- Native methods state a direct `filter`, `every`, `join`, `reduce`, or `Set` relation (`isSupersetOf`), other traversals Effect modules
+- `Record.collect` maps entries to an array and `Record.keys` lists keys, a `Record.filter` selecting entries first, `Object.entries` pairs restating them
+- `Record.filterMap` maps through a `Result`: `Result.failVoid` drops an entry, `Result.fromOption` enters a lookup, `Schema.decodeResult` validates
+- `Record.getSomes({ key: option })` spreads the present entries of optional ones, a conditional spread or `Option.toArray` entry list restating it
+- Resources shared across cases build once as an `Option` over the non-empty set of cases needing them, each case joining through `Option.toArray`
 - `Struct.renameKeys` maps keys to the spelling a host reads, `Struct.evolveKeys` computes them, a destructure rebuilding the object restating both
 - Named reductions (`BigDecimal.sumAll`, `Array.max`, `Array.groupBy`) state their fold
 - `reduce` with a seed folds a reduction no member names, `Array.mapAccum(xs, seed, (state, x) => [next, y])` maps under a running state
@@ -98,13 +103,15 @@ const route = Match.type<Request>().pipe(Match.when({ method: 'GET', cached: tru
 
 `fromCache`, `fromOrigin`, and `reject` are handlers taking the narrowed `Request`:
 - `Match.exhaustive` closes a decision over a closed union, `Match.orElse` closes an open one with a fallback outcome
-- `Match.when` takes a partial object pattern or a refinement, `Match.not` an exclusion, `Match.whenOr` alternatives
-- Arms sharing one result collapse into `matchOrElse` or `Match.orElse` with the exceptions as arms
+- `Match.option` closes a match where unmatched input means absence and `Match.result` one `filterMap` takes, `Match.orElse` to none or `[]` restating them
+- `Match.when` takes a refinement or a partial pattern with a value or refinement per field (`Schema.is(X.fields.f)`), `Match.whenOr` alternatives
+- `Match.not` takes an exclusion, and arms sharing one result collapse into `matchOrElse` or `Match.orElse` with the exceptions as arms
 - `Match.valueTags(value, handlers)` folds a `_tag` union with one handler per tag
-- Fields every case derives from the input join once outside the fold, and arms return what their case adds, one value or many through `Array.ensure`
+- Fields a rule derives from the input join once outside the fold as defaults, an arm overriding one only where its host departs from the rule
+- Arms return what their case adds, one value or many through `Array.ensure`
 - Host enums match with an arm per member once decoded
 - Host unions with a discriminant match through `Match.discriminatorsExhaustive(key)`, a `'k' in x` or `type !==` branch restating it
-- Refinements come from `Predicate` (`isRecord`, `hasProperty`, `isTagged`) composed through `Predicate.and`, `or`, and `not`
+- Refinements come from `Predicate` (`isObject`, `hasProperty`, `isTagged`) composed through `Predicate.and`, `or`, and `not`
 
 ### [03.2]-[RECURSION]
 
@@ -118,9 +125,11 @@ TypeScript runs tail calls on the stack, and a recursion's depth bound selects i
 |  [04]   | `Stream.paginate`     | Each step fetches page and cursor            |
 |  [05]   | `Graph` traversal     | Shared or cyclic successors                  |
 
+`Graph.topo` throws on a cycle. Orders over cyclic references sort without edges inside one `Graph.stronglyConnectedComponents` set, applying in-set edges as a later step.
+
 ## [04]-[IMMUTABILITY]
 
-Data crossing a boundary is `Schema.Class` and `Schema.TaggedUnion`, data inside the process `Data.Class` and `Data.taggedEnum`.
+Data crossing a boundary is `Schema.Class` and `Schema.TaggedUnion`, data inside the process `Data.Class` and `Data.taggedEnum` where it carries a name or operations, and a module-private record stays a readonly object `Equal` compares by its keys.
 
 ## [05]-[RESULTS]
 
@@ -135,7 +144,7 @@ Every function returns an explicit outcome type, and one type serves one concern
 |  [05]   | `Exit<A, E>`      | Completed outcome a host reads                       |
 |  [06]   | `Cause<E>`        | Every failure, defect, and interruption of one fiber |
 
-Input boundaries select the outcome type, functions preserve it, and one conversion point uses the function named for its target (`Effect.fromOption`, `Effect.fromResult`, `Option.fromNullishOr`, `Result.fromOption`). `null` and `undefined` appear at a host API alone, a host field whose absence means a default reads `field ?? default` at the read, and `Option` stands where a consumer acts on absence. Empty arrays are values, `Option<readonly A[]>` stands where a consumer treats no collection and an empty one differently.
+Input boundaries select the outcome type, functions preserve it, and one conversion point uses the function named for its target (`Effect.fromOption`, `Effect.fromResult`, `Option.fromNullishOr`, `Result.fromOption`). `null` and `undefined` appear at a host API alone, a host field whose absence means a default reads `field ?? default` at the read, an optional value passes directly to a host prop accepting `undefined` and through a conditional spread to one refusing it, and `Option` stands where a consumer acts on absence. Empty arrays are values, `Option<readonly A[]>` stands where a consumer treats no collection and an empty one differently.
 
 Each package declares one error class for the expected failures its producers report, holding a `reason` case for each response a caller gives with the data that response reads, the `subject` that failed, and a foreign `cause` where one exists, with a message derived from them:
 
@@ -145,19 +154,23 @@ class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
 }) {
-    static readonly of = (reason: StoreError['reason'], subject: string) => (cause?: unknown) => StoreError.make({ reason, subject, cause });
+    static readonly of = (reason: StoreError['reason'], subject: string) => (cause?: unknown) => StoreError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
 
     override get message() {
-        return [`${this.reason._tag}: ${this.subject}`, ...(this.cause === undefined ? [] : [String(this.cause)])].join(': ');
+        return [`${this.reason._tag}: ${this.subject}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
     }
 }
 ```
 
-`StoreError.of({ _tag: 'Unavailable' }, key)` is the `catch` of every host call reaching the store, and the message renders a foreign cause beside reason and subject:
+`StoreError.of({ _tag: 'Unavailable' }, key)` is the `catch` of every host call reaching the store. `of` omits an absent `cause`, a `cause: undefined` key decoding as `null` across a JSON wire, and `Formatter.format` renders a foreign cause with its nested chain:
 - Instances are effects failing with themselves, `return yield*` raises one in a generator and a handler returning one fails with it
 - Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged
 - Codecs over a value the program built die through `Effect.orDie`
-- Absences and refused arguments fail with the `Cause` error naming them (`NoSuchElementError`, `IllegalArgumentError`) and a message from their values
+- Absences and refused arguments fail with the `Cause` error naming them (`NoSuchElementError`, `IllegalArgumentError`)
+- Refusal messages name received and accepted kinds, class names from the constructor, and a bound's range solved from the operation's relation
+- Values no package error owns (an entry script's refusal) fail with `new Cause.UnknownError(value, message)`, refused value as `cause` and message naming the refusal
+- Messages render a schema-typed field through `Schema.encodeResult(Schema.fromJsonString(Schema.toCodecJson(S)))`, `String` printing `[object Object]`
+- Pure checks return finding lists that concatenate into one error over `Schema.NonEmptyArray(Finding)`, its `raise` static failing on a non-empty list
 - Foreign failures become a `cause` where the package adds a subject a caller acts on
 
 ### [05.1]-[COMPOSITION]
@@ -185,6 +198,7 @@ Dependency structure and concurrency bound select a traversal over many effects:
 |  [05]   | Every effect, failures kept  | `Effect.partition`                                         | Runs all, returns successes and failures  |
 |  [06]   | Every outcome kept in order  | `Effect.all` with `mode: 'result'`                         | Runs all, returns one `Result` per effect |
 |  [07]   | Every effect, causes joined  | `Effect.forEach` over `Effect.exit`, then `Exit.asVoidAll` | Runs all, fails with every cause in `E`   |
+|  [08]   | Effectful predicate          | `Effect.filter(items, (item) => Effect<boolean>)`          | Keeps items whose predicate yields `true` |
 
 ### [05.2]-[UNIONS]
 
@@ -233,9 +247,10 @@ Consumers receive the narrowest dependency they read: a value for a stable snaps
 
 Failure policies are distinct operations:
 - Fallback runs a lower-priority effect after the preferred one fails, `Effect.catch`
-- Timeout bounds a wait, `Effect.timeout` fails with `Cause.TimeoutError` and `Effect.timeoutOption` returns `Option.none()`
+- Timeout bounds a wait: `timeout` fails with `TimeoutError`, `timeoutOrElse` with a package reason naming what never arrived, `timeoutOption` returns none
 - Recovery maps a final failure to a value at the host
 - Compensation runs a failed step's inverse, `Effect.onError(step, () => Effect.orDie(inverse))`, keeping the step's failure in `E`
+- Inverses a later failure in scope triggers run as `Effect.acquireRelease(step, (_, exit) => Exit.isFailure(exit) ? inverse : Effect.void)`
 - Failure causes stay in `E`, and a fallback, default, or retry hiding one is a defect
 
 Libraries return their outcome type with their own error, and the application composes retry schedule, fallback order, and cache around it.
@@ -243,25 +258,40 @@ Libraries return their outcome type with their own error, and the application co
 ## [07]-[VALUES]
 
 Quantities with a unit are values of their module, a plain number holds a count or a dimensionless ratio:
-- `Duration` holds every elapsed time and timeout, a millisecond number appears at an API taking one
+- `Duration` holds elapsed times, a millisecond number at an API taking one, and text typed `` `${number} ${Duration.Unit}` `` is an undecoded input
 - `DateTime` holds instants and zoned times, `Date` appears at an API taking one
-- `BigDecimal` holds money and exact decimal arithmetic, `ByteSize` holds sizes, and `Duration.format` and `ByteSize.format` render both
+- `BigDecimal` holds money and exact decimal arithmetic and `ByteSize` sizes, `Duration.format` and `ByteSize.format` rendering fixed English for logs
 - `SecureRandom.SecureRandom` service's `uuidV7` creates identifiers, module `uuidV7Unsafe` where code reads no service (an event handler)
-- `Intl` instances segment words and format numbers, dates, lists, and plurals in a caller locale, else the host's, each built once outside its reader
-- Plural forms are an `Intl.LDMLPluralRule` record of whole phrases over the formatted count, `other` required, a count comparison or suffix rule restating it
-- `Intl.Collator(locale, { usage: 'search', sensitivity: 'accent' }).compare(a, b) === 0` states name equality ignoring case alone
+- `Intl` instances built once outside their reader segment words and format numbers, lists, plurals, sizes, and times in a caller locale, else the host's
+- `Intl` `format` and `compare` are bound getters a step takes by reference (`Array.makeBy(n, formatter.format)`)
+- Sizes render through a `style: 'unit'` `NumberFormat` per byte unit over `ByteSize.toUnit`, at the largest unit the rounded value reaches
+- Instants render through `DateTime.formatIntl`, offsets through `RelativeTimeFormat` at the largest `Duration.to<Unit>` reaching 1
+- Durations render through `DurationFormat` over `Duration.parts`, its sub-millisecond `nanos` split into `microseconds` and `nanoseconds`
+- Plural forms are an `Intl.LDMLPluralRule` record of functions over the formatted count, `other` required, one `PluralRules` per `Intl.PluralRuleType`
+- Non-negative counts pad to their formatted total's length with formatter's `format(0)`, a fixed `minimumIntegerDigits` restating the width
+- Name equality ignoring case alone is one `Equivalence` static over a module `Intl.Collator(locale, { usage: 'search', sensitivity: 'accent' })`
+- Patterns under `u` match digits through `\p{Nd}`, `\d` reading ASCII alone, and search folds text and query to one numbering system first
 
 ## [08]-[MODULES]
 
-Modules hold one concept, and a class holds the concept's data with its operations as statics and getters:
+Modules hold one concept, and a class holds its data with operations reading one instance as methods and getters, statics building or relating instances. Concepts caller data configures are a `Schema.Class` of the data with each use a method:
 - Packages hold their capability and the host facts it detects, app values (names, paths, timeouts, prose) enter as composition root arguments
+- Bundled programs root at their build config, which bundles the package's entry export and defines app values as an `ImportMetaEnv` member
+- App entry modules that only call a package entry restate it
 - Package types pass whole, and consumers read returned host handles and the context a host passes its callback, a re-read from source restating them
+- Host process-global defaults (`GlobalWorkerOptions.workerSrc`) stay unset, each instance taking the value through its constructor option
+- Resources a caller passes to a host handle release with the caller
+- Values a renderer escapes for its context pass unescaped, a hand `<` escape in React `<style>` text restating it
 - Packages export the values consumers compose
+- Project `dependencies` rows and `imports` entries name what the project's own files import, a package a builder or dependency loads staying out
+- JSON fixed at build (a repository or dependency manifest) imports `with { type: 'json' }`, a read and decode standing for files changing after build
 - Modules loaded by name are a table of `() => import('<path>')` thunks typed by the import, a schema over the loaded module restating it
 - Wrappers, forwarders, re-exports, and aliases merge into the declaration they pass through
 - Modules export named declarations, a default export stands where a host loads one
-- Union schemas hold their operations as members `Object.assign` puts on them, `erasableSyntaxOnly` refusing a `namespace`
+- Union schemas, components, and functions hold their parts as members `Object.assign` or an expando sets, `erasableSyntaxOnly` refusing a `namespace`
+- Members only their owner reads stay module-private, a published one letting a consumer change the owner's state
 - Types, schemas, and operations of one concept share one name under one `export { X }`, a `thing`, `ThingView`, or `thingFor` beside it restating them
-- Imports name the paths package `exports` entries declare, a `paths` mapping or file path into a dependency restating them
-- Modules load without side effects, a registry, cache, or connection builds in the layer that owns it
+- Imports name the paths dependency `exports` entries declare, a `paths` mapping or file path into a dependency restating them
+- Layered host configuration merges through the host's function (`mergeConfig`), a spread standing where a concatenated array must be replaced
+- Modules load without side effects, a registry, cache, or connection building in its layer, and a package entry export a build takes runs at load
 - Use `typescript-coding-effect` for Effect module families, tests, and telemetry

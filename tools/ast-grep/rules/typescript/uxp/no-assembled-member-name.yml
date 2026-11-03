@@ -8,6 +8,7 @@ utils:
             - inside: {kind: subscript_expression, field: index}
             - inside: {matches: typescript-expression-wrapper, inside: {kind: subscript_expression, field: index}}
             - inside: {kind: binary_expression, field: left, has: {field: operator, regex: '^in$'}}
+            - inside: {kind: computed_property_name}
             - nthChild: {position: 2, ofRule: {not: {kind: comment}}}
               inside:
                 kind: arguments
@@ -38,9 +39,9 @@ utils:
                     matches: key-position
 rule:
     kind: template_string, binary_expression, call_expression, parenthesized_expression
-    matches: typescript-built-text
     pattern: $NAME
     all:
+        - matches: typescript-built-text
         - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?(indesign|photoshop|premierepro|uxp)$'}}}}
         - any:
             - matches: key-position

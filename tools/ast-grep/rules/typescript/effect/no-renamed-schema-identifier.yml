@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-renamed-schema-identifier
+language: tsx
+severity: error
+utils:
+    schema-class:
+        kind: member_expression
+        regex: '\.(Class|Error|TaggedClass|TaggedError)$'
+        any:
+            - matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(Class|Error|TaggedClass|TaggedError)$'}}}
+            - matches: {effect-module-member: {module: {regex: '\bModel$'}, member: {regex: '^Class$'}}}
+    identifier: {nthChild: 1, kind: string, has: {kind: string_fragment, pattern: $ID}}
+rule:
+    kind: class_declaration
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has:
+            kind: class_heritage
+            has:
+                kind: extends_clause
+                has:
+                    field: value
+                    kind: call_expression
+                    any:
+                        - has:
+                            field: function
+                            kind: call_expression
+                            all:
+                                - has: {field: arguments, has: {matches: identifier}}
+                                - has: {field: function, matches: schema-class}
+                        - all:
+                            - has: {field: arguments, has: {matches: identifier}}
+                            - has:
+                                field: function
+                                kind: call_expression
+                                all:
+                                    - has: {field: arguments, not: {has: {nthChild: 1}}}
+                                    - has: {field: function, regex: '\.Tagged(Class|Error)$', matches: schema-class}
+        - not: {has: {field: name, pattern: $ID}}
+message: '`$NAME` renames schema identifier `$ID`'
+note: 'Name the class after its schema identifier'

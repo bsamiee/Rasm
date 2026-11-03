@@ -1,7 +1,7 @@
 import { Schema, Struct } from 'effect';
 import { answers, Expression } from '#/cases';
-import { Assignments, added, Copy, documents, Steps } from '#/precondition';
-import { Common, Enumerated, hostCase, Records, recorded, reply, Surveying } from '#/results';
+import { Assignments, added, Copy, documents, Enumerated, Steps } from '#/precondition';
+import { hostCase, Outcome, Records, recorded, reply, Surveying } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -69,7 +69,7 @@ const State = Schema.Struct({
 }).annotate({ description: 'Instance state at batch start' });
 const Reply = reply({ state: State, survey: Schema.optionalKey(Survey) });
 const fields = {
-    ...Common.fields,
+    ...Outcome.common,
     writes: recorded(
         Schema.Struct({
             target: Schema.optionalKey(Schema.String.annotate({ description: 'object:/document[@id=N] with /layer[@id=M], /<part>[n], or /json under it, or customOptions, the application when absent' })),

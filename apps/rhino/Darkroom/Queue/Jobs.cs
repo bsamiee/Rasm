@@ -15,8 +15,8 @@ namespace Darkroom.Queue;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class WorkerPlatform {
-    public static readonly WorkerPlatform MacOs = new("darwin", static script => [$"-runscript={script}"]);
-    public static readonly WorkerPlatform Windows = new("windows", static script => [$"/runscript={script}"]);
+    public static readonly WorkerPlatform MacOs = new("darwin", static script => ["-nosplash", $"-runscript={script}"]);
+    public static readonly WorkerPlatform Windows = new("windows", static script => ["/nosplash", $"/runscript={script}"]);
 
     public static WorkerPlatform Current() => OperatingSystem.IsWindows() ? Windows : MacOs;
 

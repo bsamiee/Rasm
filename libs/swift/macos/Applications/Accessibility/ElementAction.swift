@@ -1,4 +1,5 @@
 import ApplicationServices
+public import CoreGraphics
 public import Foundation
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -24,29 +25,32 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension ElementAction {
+    public var process: pid_t {
+        get throws(ApplicationFailure) {
+            guard let owner: pid_t = try AXUIElement.element(element)?.process else { throw ApplicationFailure(subject: element.base64EncodedString(), reason: .unresolved) }
+            return owner
+        }
+    }
+
     @concurrent
     @discardableResult
-    public func perform(in process: pid_t? = nil) async throws(ApplicationFailure) -> pid_t {
-        try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) -> pid_t in
-            let subject: String = "element \(element.base64EncodedString())"
-            guard let node: AXUIElement = AXUIElement.element(element), let owner: pid_t = node.process else { throw ApplicationFailure(subject: subject, reason: .unresolved) }
+    public func perform(in process: pid_t? = nil) async throws(ApplicationFailure) -> CGWindowID? {
+        try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) -> CGWindowID? in
+            let subject: String = element.base64EncodedString()
+            guard let node: AXUIElement = try AXUIElement.element(element), let owner: pid_t = node.process else { throw ApplicationFailure(subject: subject, reason: .unresolved) }
             if let process, owner != process { throw ApplicationFailure(subject: subject, reason: .foreign(process)) }
-            let read: [String: CFTypeRef] = try node.values([kAXRoleAttribute, kAXWindowAttribute, kAXEnabledAttribute])
-            let window: AXUIElement? = read[kAXRoleAttribute] as? String == kAXWindowRole ? node : read[kAXWindowAttribute].flatMap(AXUIElement.checked)
-            let open: Bool? = try window.map { window throws(ApplicationFailure) in
-                try AXUIElementCreateApplication(owner).elements(kAXWindowsAttribute).contains(window)
-            }
-            guard open != false else { throw ApplicationFailure(subject: subject, reason: .closed) }
+            let read: [String: CFTypeRef] = try node.values([kAXEnabledAttribute, kAXWindowAttribute])
+            let window: CGWindowID? = try read[kAXWindowAttribute].flatMap(AXUIElement.checked)?.window()
             let outcome: AXError =
                 switch (self, read[kAXEnabledAttribute] as? Bool) {
-                    case (.perform(_, kAXRaiseAction), _): throw ApplicationFailure(subject: description, reason: .activating)
-                    case (.perform, false): throw ApplicationFailure(subject: description, reason: .disabled)
+                    case (.perform(_, kAXRaiseAction), _): throw ApplicationFailure(subject: subject, reason: .activating)
+                    case (.perform, false): throw ApplicationFailure(subject: subject, reason: .disabled)
                     case (.perform(_, let action), _): AXUIElementPerformAction(node, action as CFString)
                     case (.set(_, let value), _): try node.write(value as CFString, to: kAXValueAttribute)
                 }
-            guard outcome != .success else { return owner }
-            throw ApplicationFailure(outcome, subject: description, process: owner, answering: self) {
-                outcome == .invalidUIElement ? ApplicationFailure(subject: subject, reason: .unresolved) : ApplicationFailure(subject: description, reason: .refused(outcome))
+            guard outcome != .success else { return window }
+            throw ApplicationFailure(outcome, subject: subject, process: owner, answering: self) {
+                ApplicationFailure(subject: subject, reason: outcome == .invalidUIElement ? .unresolved : .refused(outcome))
             }
         }
     }

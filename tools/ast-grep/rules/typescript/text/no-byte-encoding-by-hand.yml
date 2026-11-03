@@ -2,20 +2,21 @@
 id: no-byte-encoding-by-hand
 language: tsx
 severity: error
+ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 utils:
     byte-string:
         any:
             - kind: member_expression
-              regex: '^String\.from(CharCode|CodePoint)$'
+              all: [{has: {field: property, regex: '^from(CharCode|CodePoint)$'}}, {has: {field: object, regex: '^String$'}}]
             - kind: call_expression
-              has: {field: function, regex: '^unescape$'}
+              has: {field: function, kind: identifier, regex: '^unescape$'}
     holds-byte-string:
         any:
             - matches: byte-string
             - has: {stopBy: end, matches: byte-string}
     radix:
-        kind: 'number, identifier, member_expression'
-        regex: '^(16|0x10|[A-Za-z_$][\w$.]*)$'
+        kind: number
+        regex: '^(16|0x10)$'
     hex-digits:
         kind: call_expression
         pattern: $OP
@@ -26,19 +27,17 @@ utils:
         any:
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^padStart$'}}, {has: {field: object, matches: hex-digits}}]}
+                - has: {field: function, kind: member_expression, has: {field: property, regex: '^padStart$'}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, regex: '^2$'}}, {has: {nthChild: 2, regex: '^[''"`]0[''"`]$'}}, {not: {has: {nthChild: 3}}}]}
+                - has: {field: function, has: {field: object, matches: hex-digits}}
             - kind: call_expression
               all:
-                - has:
-                    field: function
-                    kind: member_expression
-                    all:
-                        - has: {field: property, regex: '^slice$'}
-                        - has: {field: object, regex: '^\(?\s*([''"]0+[''"]|`0)', has: {stopBy: end, matches: hex-digits}}
+                - has: {field: function, kind: member_expression, has: {field: property, regex: '^slice$'}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, regex: '^-2$'}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: function, has: {field: object, regex: '^\(?\s*([''"]0+[''"]|`0)', has: {stopBy: end, matches: hex-digits}}}
             - kind: binary_expression
               all:
+                - has: {field: operator, regex: '^\+$'}
                 - has: {field: right, matches: hex-digits}
                 - has: {field: left, has: {stopBy: end, kind: ternary_expression, has: {kind: string, regex: '^[''"]0[''"]$'}}}
     joining-callback:
@@ -57,6 +56,7 @@ rule:
     any:
         - kind: call_expression
           all:
+            - has: {field: function, any: [{kind: identifier, regex: '^btoa$'}, {kind: member_expression, has: {field: property, regex: '^btoa$'}}]}
             - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?btoa$', matches: typescript-global-reference}
             - has:
                 field: arguments
@@ -78,13 +78,14 @@ rule:
                                       all: [{has: {field: left, pattern: $S}}, {has: {field: right, matches: holds-byte-string}}]
         - kind: call_expression
           all:
+            - has: {field: function, any: [{kind: identifier, regex: '^atob$'}, {kind: member_expression, has: {field: property, regex: '^atob$'}}]}
             - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?atob$', matches: typescript-global-reference}
             - any:
                 - inside:
                     stopBy: {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition, expression_statement, lexical_declaration, variable_declaration, return_statement'}
                     kind: 'call_expression, new_expression'
                     has: {stopBy: end, kind: property_identifier, regex: '^(charCodeAt|codePointAt)$'}
-                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^escape$'}}}
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: identifier, regex: '^escape$'}}}
                 - inside:
                     kind: variable_declarator
                     has: {field: name, pattern: $S}
@@ -95,20 +96,27 @@ rule:
                             stopBy: end
                             kind: member_expression
                             all: [{has: {field: object, pattern: $S}}, {has: {field: property, regex: '^(charCodeAt|codePointAt)$'}}]
-        - matches: hex-pair
-          any:
-            - inside: {field: body, matches: joining-callback}
-            - inside: {kind: return_statement, inside: {kind: statement_block, inside: {field: body, matches: joining-callback}}}
-            - inside:
-                kind: augmented_assignment_expression
-                field: right
-                all:
-                    - has: {field: operator, regex: '^\+=$'}
-                    - inside: {stopBy: &boundary {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}, kind: 'for_in_statement, for_statement, while_statement, do_statement'}
+        - all:
+            - any:
+                - kind: call_expression
+                  has: {field: function, kind: member_expression, has: {field: property, regex: '^(padStart|slice)$'}}
+                - kind: binary_expression
+                  has: {field: operator, regex: '^\+$'}
+            - matches: hex-pair
+            - any:
+                - inside: {field: body, matches: joining-callback}
+                - inside: {kind: return_statement, inside: {kind: statement_block, inside: {field: body, matches: joining-callback}}}
+                - inside:
+                    kind: augmented_assignment_expression
+                    field: right
+                    all:
+                        - has: {field: operator, regex: '^\+=$'}
+                        - inside: {stopBy: &boundary {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}, kind: 'for_in_statement, for_statement, while_statement, do_statement'}
         - kind: call_expression
           all:
-            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', matches: typescript-global-reference}
+            - has: {field: function, any: [{kind: identifier, regex: '^parseInt$'}, {kind: member_expression, has: {field: property, regex: '^parseInt$'}}]}
             - has: {field: arguments, all: [{has: {nthChild: 2, matches: radix}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', matches: typescript-global-reference}
             - any:
                 - has:
                     field: arguments

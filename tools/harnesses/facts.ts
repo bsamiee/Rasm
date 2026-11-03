@@ -1,6 +1,5 @@
-import { rank } from '@rasm/search/rank';
 import { Array, Effect, FileSystem, flow, Option, Schema, String } from 'effect';
-import { Answer, Common, Completion, deciding, type Outcome } from '#/results';
+import { Answer, deciding, Halted, Outcome } from '#/results';
 import type { Any } from '#/session';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -10,6 +9,7 @@ const RUNTIME = /^\S+\.dylib /u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Alerted = Schema.Struct({ alerts: Outcome.common.alerts });
 const Interrupted = Schema.TemplateLiteral([Schema.Literals(['crashed', 'hung']), ' ', Schema.String]).annotate({ description: 'Thrown answer of a case that ended or stalled its instance' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -45,31 +45,28 @@ const facts = (engine: Any) => {
 const answerOf = (row: typeof Outcome.Type): Option.Option<typeof Answer.Type> => {
     const held: Schema.Json = row.value ?? null;
     const value = Option.match(
-        Option.filter(Schema.decodeUnknownOption(Common.fields.alerts)(row.alerts), (alerts) => alerts.length > 0),
-        { onNone: (): Schema.Json => held, onSome: (alerts): Schema.Json => ({ value: held, alerts: alerts.map(({ text }) => text) }) },
+        Option.filter(Schema.decodeUnknownOption(Alerted)(row), ({ alerts }) => alerts.length > 0),
+        { onNone: (): Schema.Json => held, onSome: ({ alerts }): Schema.Json => ({ value: held, alerts: alerts.map(({ text }) => text) }) },
     );
-    return Option.firstSomeOf([
-        Option.map(Option.fromUndefinedOr(row.crashed), ({ signal, status, type, report }) => ({ thrown: `crashed ${[signal === undefined ? `status ${status}` : `signal ${signal}`, type, report].filter((part) => part !== undefined).join(' ')}` })),
-        Option.map(
-            Option.filter(
-                Option.fromUndefinedOr(row.hung),
-                ({ frames }) =>
-                    !Option.exists(
-                        Array.findFirst(frames, (frame) => !RUNTIME.test(frame)),
-                        flow(String.match(MACHINE), Option.isSome),
-                    ),
-            ),
-            ({ cpu, sample }) => ({ thrown: `hung ${cpu} ${sample}` }),
-        ),
-        Completion.match(row.completion, { Ran: () => Option.some({ value }), Exited: () => Option.some({ value }), Thrown: ({ message }) => Option.some({ thrown: message }), Failed: () => Option.none() }),
-    ]);
+    const halted = Option.flatMap(
+        Option.fromUndefinedOr(row.halted),
+        Halted.match({
+            Crashed: ({ signal, status, type, report }) => Option.some({ thrown: `crashed ${[signal === undefined ? `status ${status}` : `signal ${signal}`, type, report].filter((part) => part !== undefined).join(' ')}` }),
+            Hung: ({ cpu, sample, frames }) =>
+                Option.liftPredicate(
+                    { thrown: `hung ${cpu} ${sample}` },
+                    () =>
+                        !Option.exists(
+                            Array.findFirst(frames, (frame) => !RUNTIME.test(frame)),
+                            flow(String.match(MACHINE), Option.isSome),
+                        ),
+                ),
+            Dialog: () => Option.none(),
+        }),
+    );
+    return Option.firstSomeOf([halted, Outcome.fields.completion.match(row.completion, { Ran: () => Option.some({ value }), Exited: () => Option.some({ value }), Thrown: ({ message }) => Option.some({ thrown: message }), Failed: () => Option.none() })]);
 };
-const statements = Effect.fn('statements')(function* (files: readonly string[]) {
-    const fs = yield* FileSystem.FileSystem;
-    const lines = Array.flatMap(yield* Effect.forEach(files, (file) => fs.readFileString(file)), (text) => Array.fromIterable(String.linesIterator(text)).filter((line) => line.trim() !== ''));
-    return (question: string) => rank(question, lines);
-});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answerOf, facts, statements };
+export { answerOf, facts };

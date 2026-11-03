@@ -30,6 +30,22 @@ utils:
                         all:
                             - has: {field: function, matches: {effect-module-member: {module: {regex: '\bLayer$'}, member: {regex: '^succeed$'}}}}
                             - has: {field: arguments, has: {nthChild: 1, pattern: $OWNER}}
+    member-object:
+        kind: variable_declarator
+        all:
+            - has: {field: value, kind: object, has: {kind: shorthand_property_identifier, pattern: $NAME}}
+            - has: {field: name, kind: identifier, pattern: $OWNER}
+    module-member:
+        kind: variable_declarator
+        inside:
+            kind: lexical_declaration
+            inside:
+                kind: program
+                any:
+                    - has: {kind: export_statement, has: {field: declaration, kind: lexical_declaration, has: {matches: member-object}}}
+                    - all:
+                        - has: {kind: lexical_declaration, has: {matches: member-object}}
+                        - has: {kind: export_statement, has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $OWNER}}}}
 rule:
     kind: string
     pattern: $SPAN
@@ -44,7 +60,12 @@ rule:
                     kind: call_expression
                     field: function
                     any:
-                        - inside: {kind: variable_declarator, field: value, has: {field: name, kind: identifier, pattern: $NAME}}
+                        - inside:
+                            kind: variable_declarator
+                            field: value
+                            all:
+                                - has: {field: name, kind: identifier, pattern: $NAME}
+                                - any: [{matches: module-member}, {kind: variable_declarator}]
                         - inside:
                             kind: pair
                             field: value
@@ -59,13 +80,13 @@ rule:
                                 - inside: {kind: class_body, inside: {kind: 'class_declaration, abstract_class_declaration, class', has: {field: name, pattern: $OWNER}}}
         - any:
             - all:
-                - inside: {stopBy: &binding {kind: 'variable_declarator, pair, public_field_definition'}, kind: variable_declarator}
+                - inside: {stopBy: &binding {kind: 'variable_declarator, pair, public_field_definition'}, kind: variable_declarator, not: {matches: module-member}}
                 - not: {has: {kind: string_fragment, pattern: $NAME}}
             - all:
-                - not: {inside: {stopBy: *binding, kind: variable_declarator}}
+                - not: {inside: {stopBy: *binding, kind: variable_declarator, not: {matches: module-member}}}
                 - any: [{has: {kind: string_fragment, pattern: $NAME}}, {not: {regex: '\.'}}]
 transform:
     QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '${1}.'}}
 fix: "'$QUALIFIER$NAME'"
 message: '`Effect.fn($SPAN)` names the span of `$QUALIFIER$NAME` with another name'
-note: 'Name the span after its binding, `<Class>.<member>` for a class field and `<Service>.<key>` for a service key'
+note: 'Name the span after its binding, `<Owner>.<member>` for a class field, a service key, or a member of an exported module object'

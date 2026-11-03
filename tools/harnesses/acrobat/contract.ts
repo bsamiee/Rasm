@@ -1,6 +1,6 @@
 import { Effect, Schema, Struct } from 'effect';
 import { answers } from '#/cases';
-import { Common, hostCase, outcome, record, recorded } from '#/results';
+import { hostCase, Outcome, Records, recorded } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -54,7 +54,7 @@ const HostCase = hostCase({ precondition: Placed, folder: Schema.String.annotate
 const Parameter = Schema.Struct({ name: Schema.String, type: Schema.String, optional: Schema.Boolean });
 const Model = Schema.Struct({
     members: Schema.Record(Schema.String, Schema.Array(Schema.String)).annotate({ description: 'Member names each object kind enumerates, keyed by its Object.prototype.toString kind' }),
-    signatures: Schema.Record(Schema.String, Schema.Array(Parameter)).annotate({ description: 'acrohelp parameters of each member the engine answers or guards, keyed <Kind>.<member>' }),
+    signatures: Schema.Record(Schema.String, Schema.Array(Parameter)).annotate({ description: 'acrohelp parameters of each member the engine answers or guards, keyed <Kind>.<member>, a member refusing acrohelp absent and every one of its arguments vetted as a path' }),
     modal: Schema.Array(Schema.String).annotate({ description: 'Menu item names whose dictionary title ends in an ellipsis' }),
 }).annotate({ description: 'Object model of the installation' });
 const Viewer = Schema.Struct({
@@ -72,7 +72,7 @@ const batch = {
 };
 const Request = Schema.TaggedUnion({ Survey: batch, Case: { ...batch, signatures: Model.fields.signatures, case: HostCase } });
 const fields = {
-    ...Common.fields,
+    ...Outcome.common,
     alerts: recorded(Schema.Struct({ text: Schema.String, title: Schema.optionalKey(Schema.String), checkbox: Schema.optionalKey(Schema.String) })),
     confirms: recorded(Schema.String.annotate({ description: 'app.alert question or closeDoc save prompt the confirms answered' })),
     prompts: recorded(Schema.String.annotate({ description: 'app.response question or popUpMenu items the prompts answered' })),
@@ -81,13 +81,13 @@ const fields = {
     events: recorded(Schema.Json.annotate({ description: 'Field event the attached source ran in: type, name, rc, value, change, willCommit' })),
     opened: recorded(Schema.Json.annotate({ description: 'Case document starting state: path, page boxes and rotation, info, XMP, annotations, fields, OCGs, bookmarks, data objects' })),
 };
-const Outcome = outcome(fields);
-const Recorded = record(Outcome);
+const HostOutcome = Schema.Struct({ ...Outcome.fields, ...fields });
+const Recorded = Records.line(HostOutcome);
 const Reason = Schema.Struct({ reason: Schema.String.annotate({ description: 'Failure around the case, or the syntax error the eval wrapper caught' }) });
 const replied = <A extends Schema.Top>(answer: A) => Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(answer, Reason))))).annotate({ description: 'URI-encoded JSON result the engine returns, ASCII through the Mac Roman reply' });
 const Surveyed = replied(Schema.Struct({ viewer: Viewer, model: Model.mapFields(Struct.omit(['modal'])) }));
-const Answered = replied(Schema.Struct({ outcome: Outcome, kept: Schema.Array(Schema.String.annotate({ description: 'Made document file the case never saved over' })) }));
+const Answered = replied(Schema.Struct({ outcome: HostOutcome, kept: Schema.Array(Schema.String.annotate({ description: 'Made document file the case never saved over' })) }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answered, BOXES, Engine, fields, HostCase, Lockdown, Model, Outcome, Page, Placed, Recorded, Request, Staged, Survey, Surveyed };
+export { Answered, BOXES, Engine, fields, HostCase, HostOutcome, Lockdown, Model, Page, Placed, Recorded, Request, Staged, Survey, Surveyed };

@@ -1,0 +1,56 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "typography"
+version         = "1.0.0"
+description     = "Font capability over fontTools, ufo2ft, HarfBuzz and skia-pathops, with the pipeline that reconciles a declared font set from its originals"
+requires-python = ">=3.13"
+
+dependencies = [
+    # --- [CORE]
+    "expression",         # Results, options, and collections of every library package
+    "msgspec",            # Records, tagged unions, field bounds, and TOML and JSON codecs
+
+    # --- [FONTS]
+    "fonttools",          # Font tables, feature AST, subsetting, WOFF2, pens, and the test font builder
+    "ufo2ft",             # UFO to TrueType compile with its mark, cursive, kern and GDEF writers and filters
+    "ufoLib2",            # UFO source object model the compile reads
+    "youseedee",          # Unicode Character Database rows for joining type and joining group
+
+    # --- [GEOMETRY]
+    "skia-pathops",       # Path booleans, simplify and stroke over glyph outlines
+
+    # --- [SHAPING]
+    "uharfbuzz",          # HarfBuzz shaping with the `ot` and `coretext` shapers and glyph drawing
+
+    # --- [VERIFICATION]
+    "opentype-sanitizer", # OTS acceptance of a built binary
+    "ttfautohint-py",     # TrueType hinting where a face's plan asks for it
+]
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["hatchling"]
+build-backend = "hatchling.build"
+
+# --- [HATCH] ----------------------------------------------------------------------------
+
+[tool.hatch.build]
+dev-mode-dirs = [".."] # Editable installs expose the folder holding the import root
+
+[tool.hatch.build.targets.wheel]
+only-include = ["faces", "outlines", "shaping", "rules", "verification", "builds"] # Import packages under the `typography` root, the manifest left out
+
+[tool.hatch.build.targets.wheel.sources]
+"" = "typography"
+
+# --- [RUFF] -----------------------------------------------------------------------------
+
+[tool.ruff]
+extend = "../../../pyproject.toml"
+
+# --- [DEPTRY] ---------------------------------------------------------------------------
+
+[tool.deptry]
+experimental_namespace_package = true # The `typography` import root is a namespace package holding no top-level module

@@ -18,13 +18,21 @@ utils:
     uses-read:
         matches: value-substitution
         has: {stopBy: end, kind: identifier, pattern: $READ}
+    guarded-write:
+        kind: call_expression
+        has:
+            field: arguments
+            has:
+                kind: template_substitution
+                follows: {stopBy: end, kind: string_fragment, regex: '(?i)\bwhere\b'}
+                has: {stopBy: end, kind: identifier, pattern: $READ}
 rule:
     kind: lexical_declaration
     all:
         - has:
             kind: variable_declarator
             all:
-                - has: {field: value, kind: yield_expression, has: {stopBy: end, matches: read}}
+                - has: {field: value, kind: 'yield_expression, subscript_expression', has: {stopBy: end, matches: read}}
                 - has:
                     field: name
                     any:
@@ -34,11 +42,11 @@ rule:
         - precedes:
             stopBy: end
             any:
-                - has: {stopBy: end, matches: write, pattern: $WRITE, has: {field: arguments, has: {matches: uses-read}}}
+                - has: {stopBy: end, matches: write, pattern: $WRITE, has: {field: arguments, has: {matches: uses-read}}, not: {matches: guarded-write}}
                 - all:
                     - kind: lexical_declaration
                     - has: {kind: variable_declarator, all: [{has: {field: name, kind: identifier, pattern: $FRAGMENT}}, {has: {field: value, matches: tagged, has: {field: arguments, has: {matches: uses-read}}}}]}
-                    - precedes: {stopBy: end, has: {stopBy: end, matches: write, pattern: $WRITE, has: {field: arguments, has: {matches: value-substitution, has: {kind: identifier, pattern: $FRAGMENT}}}}}
+                    - precedes: {stopBy: end, has: {stopBy: end, matches: write, pattern: $WRITE, has: {field: arguments, has: {matches: value-substitution, has: {kind: identifier, pattern: $FRAGMENT}}}, not: {matches: guarded-write}}}
 labels:
     WRITE: {style: secondary, message: Write taking a value from the read}
 message: '`$READ` holds a read the later write takes a value from'

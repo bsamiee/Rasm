@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-schema-top-intersection
+language: tsx
+severity: error
+rule:
+    kind: intersection_type
+    pattern: $TYPE
+    all:
+        - has: {kind: nested_type_identifier, regex: '^Schema\.Top$'}
+        - has:
+            kind: object_type
+            has: {kind: property_signature}
+            not: {has: {kind: property_signature, not: {has: {field: name, regex: '^(Type|Encoded|DecodingServices|EncodingServices)$'}}}}
+message: '`$TYPE` restates a schema interface through `Schema.Top`'
+note: 'Write `Schema.Schema<T>`, `Schema.Decoder<T, RD>` or `Schema.Codec<T, E, RD, RE>`'

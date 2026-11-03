@@ -1,0 +1,54 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "foundry"
+version         = "1.0.0"
+description     = "Command line over the typography pipeline: source, build, check, approve, run and publish a declared font set"
+requires-python = ">=3.13"
+
+dependencies = [
+    # --- [CORE]
+    "expression", # Results each command returns
+    "msgspec",    # JSON encoding of command results
+
+    # --- [COMMANDS]
+    "cyclopts",   # Command parser from typed signatures
+
+    # --- [LIBRARY]
+    "typography", # Font set pipeline every command runs
+]
+
+[project.scripts]
+foundry = "foundry.app:app"
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["hatchling"]
+build-backend = "hatchling.build"
+
+# --- [HATCH] ----------------------------------------------------------------------------
+
+[tool.hatch.build]
+dev-mode-dirs = [".."] # Editable installs expose the folder holding the import root
+
+[tool.hatch.build.targets.wheel]
+only-include = ["app.py", "commands.py", "py.typed"] # Modules under the `foundry` root, the manifest left out
+
+[tool.hatch.build.targets.wheel.sources]
+"" = "foundry"
+
+# --- [UV] -------------------------------------------------------------------------------
+
+[tool.uv.sources]
+typography = { workspace = true }
+
+# --- [RUFF] -----------------------------------------------------------------------------
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+
+# --- [DEPTRY] ---------------------------------------------------------------------------
+
+[tool.deptry]
+experimental_namespace_package = true # The `foundry` import root is a namespace package holding no top-level module

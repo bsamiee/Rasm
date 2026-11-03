@@ -9,12 +9,18 @@ utils:
             - has: {field: property, regex: '^[A-Z][A-Z0-9_]*$'}
             - has: {field: object, matches: indesign-enumeration-reference}
     rendered:
-        kind: call_expression
         any:
-            - has: {field: function, regex: '^String$'}
-            - all:
+            - kind: call_expression
+              has: {field: function, regex: '^String$'}
+            - kind: call_expression
+              all:
                 - has: {field: function, kind: member_expression, has: {field: property, regex: '^toString$'}}
                 - not: {has: {field: arguments, has: {pattern: $_, not: {kind: comment}}}}
+            - kind: template_string
+              all:
+                - has: {kind: template_substitution}
+                - not: {has: {kind: 'string_fragment, escape_sequence'}}
+                - not: {has: {kind: template_substitution, nthChild: 2}}
     member-name:
         kind: string
         regex: '^.[A-Z][A-Z0-9_]*.$'
@@ -43,7 +49,9 @@ rule:
           pattern: $CALL
           all:
             - has: {field: function, regex: '(^(Array\.contains|Object\.is|Equal\.equals|Match\.(when|not|is))|\.(includes|indexOf|lastIndexOf|has))$'}
-            - has: {field: arguments, has: {matches: enumerator}}
+            - any:
+                - has: {field: arguments, has: {matches: enumerator}}
+                - has: {field: function, kind: member_expression, has: {field: object, kind: array, has: {matches: enumerator}}}
 transform:
     CALL_HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: '`$COMPARISON$CALL_HEAD` compares InDesign objects by identity or rendered text'

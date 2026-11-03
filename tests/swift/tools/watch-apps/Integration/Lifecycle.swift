@@ -16,24 +16,30 @@ import WatchAppsWire
 private struct Ended: Equatable {
     let status: Int32?
     let signal: Int32?
+    let detail: [String]?
     let reported: Bool
     let reportFailure: String?
     let statusFailure: String?
+    let next: WatchAppsLine.Next?
 
     init(status: Int32? = nil, signal: Int32? = nil) {
         self.status = status
         self.signal = signal
+        detail = nil
         reported = false
         reportFailure = nil
         statusFailure = nil
+        next = nil
     }
 
     init(_ exit: WatchAppsLine.Exit) {
         status = exit.status
         signal = exit.signal
+        detail = exit.detail
         reported = exit.report != nil
         reportFailure = exit.reportFailure
         statusFailure = exit.statusFailure
+        next = exit.next
     }
 }
 
@@ -81,11 +87,14 @@ extension Integration {
             let launchPhases: [Phase] = phases(of: launched.pid, in: launched.lines)
             let launching: [Phase] = Array(repeating: .launching, count: max(launched.lines.count - 1, 0))
             let outline: [Outline]? = transcript.last?.elements(of: launched.pid)?.map(Outline.init)
+            let running: [WatchAppsLine.Running?] = launched.lines.map { line in line.entry.instances?[launched.pid]?.running }
             expectNoDifference(start.map(\.key), ["system", fixture.identifier])
             expectNoDifference(start.last?.entry, .instances([:]))
             expectNoDifference(Set(launched.lines.map(\.key)), [fixture.identifier])
             expectNoDifference(Set(pids(in: launched.lines)), [[launched.pid]])
             expectNoDifference(launchPhases, launching + [.responding])
+            expectNoDifference(running.dropLast().map { line in line?.next }, Array(repeating: WatchAppsLine.Next.wait, count: launching.count))
+            expectNoDifference(Set(running.map { line in line?.created }), [true])
             expectNoDifference(Array(phases(of: launched.pid, in: transcript).drop { phase in phase == .launching }), [.responding])
             expectNoDifference(outline, [Outline(role: kAXWindowRole, subrole: kAXStandardWindowSubrole, title: "Fixture 0", requiresAnswer: false, numbered: true, detailed: false)])
         }
@@ -171,19 +180,24 @@ extension Integration {
         func launchReusesRunningInstanceUnlessNew() async throws {
             let fixture: Fixture = try Fixture()
             let first: Int32 = try await launch(fixture).pid
-            let (outcome, transcript): ((again: [WatchAppsLine], second: Int32), [WatchAppsLine]) = try await watching([fixture.identifier]) { lines in
+            let (outcome, transcript): ((again: [WatchAppsLine], second: (pid: Int32, lines: [WatchAppsLine])), [WatchAppsLine]) = try await watching([fixture.identifier]) {
+                lines in
                 _ = try await lines.next { line in line.key == fixture.identifier }
                 let again: (pid: Int32, lines: [WatchAppsLine]) = try await launch(fixture)
-                let second: Int32 = try await launch(fixture, flags: ["--new"], running: [first]).pid
-                _ = try await lines.next { line in line.entry.instances?[second]?.phase == .responding }
+                let second: (pid: Int32, lines: [WatchAppsLine]) = try await launch(fixture, flags: ["--new"], running: [first])
+                _ = try await lines.next { line in line.entry.instances?[second.pid]?.phase == .responding }
                 return (again.lines, second)
             }
-            let start: [String: Phase]? = transcript.dropFirst().first?.entry.instances?.mapValues(\.phase).reduce(into: [:]) { all, entry in all[String(entry.key)] = entry.value }
-            let end: [String: Phase]? = transcript.last?.entry.instances?.mapValues(\.phase).reduce(into: [:]) { all, entry in all[String(entry.key)] = entry.value }
+            let created: [Bool?] = [
+                outcome.again.last?.entry.instances?[first]?.running?.created, outcome.second.lines.last?.entry.instances?[outcome.second.pid]?.running?.created,
+            ]
+            let start: [Int32: Phase]? = transcript.dropFirst().first?.entry.instances?.mapValues(\.phase)
+            let end: [Int32: Phase]? = transcript.last?.entry.instances?.mapValues(\.phase)
             expectNoDifference(Set(pids(in: outcome.again)), [[first]])
             expectNoDifference(transcript.prefix(2).map(\.key), ["system", fixture.identifier])
-            expectNoDifference(start, [String(first): .responding])
-            expectNoDifference(end, [String(first): .responding, String(outcome.second): .responding])
+            expectNoDifference(start, [first: .responding])
+            expectNoDifference(end, [first: .responding, outcome.second.pid: .responding])
+            expectNoDifference(created, [false, true])
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
@@ -192,7 +206,7 @@ extension Integration {
             let pid: Int32 = try await launch(fixture).pid
             let quit: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
                 of: .product(named: "watch-apps"),
-                arguments: ["quit", fixture.identifier, "--pid", String(pid)],
+                arguments: ["quit", "--pid", String(pid)],
                 as: WatchAppsLine.self,
             )
             let again: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(

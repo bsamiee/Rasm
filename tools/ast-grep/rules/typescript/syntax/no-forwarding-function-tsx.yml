@@ -8,35 +8,59 @@ utils:
         all:
             - has: {field: object, matches: {effect-module: {name: {regex: '\bAtom$'}}}}
             - has: {field: property, regex: '^(make|subscriptionRef|fn|fnSync)$'}
+    receiver-static:
+        has: {field: object, regex: '^(Promise|(Int8|Uint8|Uint8Clamped|Int16|Uint16|Int32|Uint32|Float16|Float32|Float64|BigInt64|BigUint64)Array)$', matches: typescript-global-reference}
+    root-declaration:
+        any:
+            - {kind: lexical_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $ROOT}}}
+            - {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $ROOT}}
+    inner-declaration:
+        any:
+            - {kind: lexical_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $INNER}}}
+            - {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $INNER}}
     named-callee:
         any:
             - kind: identifier
               pattern: $ROOT
               not:
-                inside:
-                    matches: typescript-function-boundary
-                    stopBy: {matches: typescript-function-boundary}
-                    any:
-                        - has: {field: name, pattern: $ROOT}
-                        - has: {field: parameter, kind: identifier, pattern: $ROOT}
-                        - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $ROOT}}
+                any:
+                    - inside:
+                        matches: typescript-function-boundary
+                        stopBy: {matches: typescript-function-boundary}
+                        any:
+                            - has: {field: name, pattern: $ROOT}
+                            - has: {field: parameter, kind: identifier, pattern: $ROOT}
+                            - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $ROOT}}
+                    - all:
+                        - inside: {matches: typescript-function-boundary, stopBy: {matches: typescript-function-boundary}, not: {inside: {matches: typescript-function-boundary, stopBy: end}}}
+                        - inside:
+                            stopBy: end
+                            inside: {kind: program}
+                            precedes: {stopBy: end, any: [{matches: root-declaration}, {kind: export_statement, has: {matches: root-declaration}}]}
             - kind: member_expression
-              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}]}
+              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}, {matches: receiver-static}]}
               has: {field: object, matches: named-callee, regex: '^[A-Z]'}
     inner-callee:
         any:
             - kind: identifier
               pattern: $INNER
               not:
-                inside:
-                    matches: typescript-function-boundary
-                    stopBy: {matches: typescript-function-boundary}
-                    any:
-                        - has: {field: name, pattern: $INNER}
-                        - has: {field: parameter, kind: identifier, pattern: $INNER}
-                        - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $INNER}}
+                any:
+                    - inside:
+                        matches: typescript-function-boundary
+                        stopBy: {matches: typescript-function-boundary}
+                        any:
+                            - has: {field: name, pattern: $INNER}
+                            - has: {field: parameter, kind: identifier, pattern: $INNER}
+                            - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $INNER}}
+                    - all:
+                        - inside: {matches: typescript-function-boundary, stopBy: {matches: typescript-function-boundary}, not: {inside: {matches: typescript-function-boundary, stopBy: end}}}
+                        - inside:
+                            stopBy: end
+                            inside: {kind: program}
+                            precedes: {stopBy: end, any: [{matches: inner-declaration}, {kind: export_statement, has: {matches: inner-declaration}}]}
             - kind: member_expression
-              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}]}
+              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}, {matches: receiver-static}]}
               has: {field: object, matches: inner-callee, regex: '^[A-Z]'}
     dual-operation:
         kind: member_expression
@@ -104,6 +128,27 @@ utils:
             - matches: indexed-callback
             - not: {matches: parameters-rest}
             - not: {has: {field: body, any: [{matches: host-free-forward}, {kind: statement_block, has: {kind: return_statement, has: {matches: host-free-forward}}}]}}
+    reflect-trap:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, pattern: $TRAP}
+                - has: {field: object, regex: '^((globalThis|window|self)\.)?Reflect$', matches: typescript-global-reference}
+    proxy-trap:
+        all:
+            - inside:
+                kind: pair
+                field: value
+                has: {field: key, kind: property_identifier, pattern: $TRAP}
+                inside:
+                    kind: object
+                    nthChild: 2
+                    inside:
+                        kind: arguments
+                        inside: {kind: new_expression, has: {field: constructor, regex: '^((globalThis|window|self)\.)?Proxy$', matches: typescript-global-reference}}
+            - has: {field: body, any: [{matches: reflect-trap}, {kind: statement_block, has: {kind: return_statement, has: {matches: reflect-trap}}}]}
     single-return:
         kind: statement_block
         not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
@@ -127,7 +172,7 @@ rule:
             - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
             - all: [{matches: parameters-rest}, {has: {field: body, matches: result-rest}}]
         - not: {matches: host-arguments-dropped}
-        - not: {matches: typescript-default-proxy-trap}
+        - not: {matches: proxy-trap}
 transform:
     HEAD: {replace: {source: $BODY, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: 'Function forwards its parameters unchanged to `$HEAD`'

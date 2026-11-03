@@ -10,6 +10,18 @@ utils:
             - any:
                 - inside: {kind: jsx_expression, stopBy: {matches: typescript-function-boundary}}
                 - has: {field: arguments, has: {stopBy: end, kind: 'jsx_element, jsx_self_closing_element'}}
+    piped-render:
+        any:
+            - inside:
+                kind: member_expression
+                field: object
+                has: {field: property, regex: '^pipe$'}
+                inside: {kind: call_expression, field: function, has: {field: arguments, has: {matches: option-render}}}
+            - nthChild: 1
+              inside:
+                kind: arguments
+                has: {matches: option-render}
+                inside: {kind: call_expression, has: {field: function, regex: '^pipe$'}}
 rule:
     kind: call_expression
     pattern: $ERROR
@@ -18,6 +30,7 @@ rule:
         - has: {field: arguments, has: {nthChild: 1, pattern: $RESULT}}
         - any:
             - inside: {kind: arguments, inside: {matches: option-render}}
+            - matches: piped-render
             - inside:
                 kind: variable_declarator
                 all:
@@ -25,6 +38,13 @@ rule:
                     - inside:
                         stopBy: {matches: typescript-function-boundary}
                         matches: typescript-function-boundary
-                        has: {stopBy: end, matches: option-render, has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $NAME}}}
+                        has:
+                            stopBy: end
+                            kind: identifier
+                            pattern: $NAME
+                            any:
+                                - nthChild: 1
+                                  inside: {kind: arguments, inside: {matches: option-render}}
+                                - matches: piped-render
 message: '`$ERROR` reads the failure of `$RESULT` into an `Option` to render it'
 note: 'Render through `AsyncResult.builder(<result>).onError((error) => <element>).orNull()`, with `onWaiting`, `onSuccess`, or `onDefect` per state'

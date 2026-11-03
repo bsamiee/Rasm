@@ -4,7 +4,7 @@ language: tsx
 severity: error
 utils:
     failure-callback:
-        kind: arrow_function, function_expression
+        kind: &callback arrow_function, function_expression
         any:
             - inside: {kind: pair, field: value, has: {field: key, regex: '^(catch|onFailure)$'}}
             - inside:
@@ -40,6 +40,7 @@ utils:
             - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $ARG}}
             - inside:
                 stopBy: end
+                kind: *callback
                 matches: failure-callback
                 any:
                     - has: {field: parameter, kind: identifier, pattern: $ARG}
@@ -127,25 +128,64 @@ utils:
             - inside: {kind: pair, field: value, has: {field: key, regex: '^message$'}, inside: {matches: protocol-error-fields}}
             - {kind: shorthand_property_identifier, regex: '^message$', inside: {matches: protocol-error-fields}}
             - inside: {kind: pair, field: value, has: {field: key, regex: '^text$'}, inside: {matches: text-content-fields}}
+    reported-callback:
+        kind: *callback
+        any:
+            - inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    has: {field: function, matches: {effect-module-member: {module: {regex: '\b(Effect|Stream|Channel|Sink|Exit|Result)$'}, member: {regex: '^mapError$'}}}}
+            - inside:
+                kind: pair
+                field: value
+                has: {field: key, regex: '^(catch|onFailure)$'}
+                inside:
+                    kind: object
+                    inside:
+                        kind: arguments
+                        inside:
+                            kind: call_expression
+                            has:
+                                field: function
+                                any:
+                                    - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(try|tryPromise|mapBoth)$'}}}
+                                    - matches: {effect-module-member: {module: {regex: '\bResult$'}, member: {regex: '^(try|mapBoth)$'}}}
+                                    - matches: {effect-module-member: {module: {regex: '\b(Exit|Stream)$'}, member: {regex: '^mapBoth$'}}}
+    thunk-result:
+        any:
+            - inside: {field: body, kind: *callback, matches: reported-callback}
+            - inside: {kind: parenthesized_expression, matches: thunk-result}
+            - inside: {kind: return_statement, inside: {stopBy: {matches: typescript-function-boundary}, kind: *callback, matches: reported-callback}}
+    thunk-text:
+        kind: template_string, call_expression
+        any:
+            - kind: template_string
+            - has: {field: function, regex: '^(String|JSON\.stringify)$'}
+        matches: thunk-result
+    untyped-thunk-text:
+        any:
+            - matches: thunk-text
+            - inside: {stopBy: {kind: *callback}, kind: 'template_string, call_expression', matches: thunk-text}
     cause-module:
         matches: {effect-module: {name: {regex: '\bCause$'}}}
     built-cause:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: cause-module}}, {has: {field: property, regex: '^(pretty|prettyErrors)$'}}]}
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(pretty|prettyErrors)$'}}, {has: {field: object, matches: cause-module}}]}
             - has:
                 field: arguments
                 has:
                     nthChild: 1
                     kind: call_expression
-                    has: {field: function, kind: member_expression, all: [{has: {field: object, matches: cause-module}}, {has: {field: property, regex: '^(fail|die)$'}}]}
+                    has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(fail|die)$'}}, {has: {field: object, matches: cause-module}}]}
 rule:
     any:
         - pattern: $TEXT
           all:
             - matches: rendering
-            - inside: {stopBy: end, matches: cause-parameter}
-            - not: {matches: protocol-field}
+            - inside: {stopBy: end, kind: *callback, matches: cause-parameter}
+            - not: {any: [{matches: protocol-field}, {matches: untyped-thunk-text}]}
         - matches: relayed-failure
           pattern: $TEXT
           inside: {stopBy: end, kind: 'statement_block, program', has: {matches: relay-declaration}}

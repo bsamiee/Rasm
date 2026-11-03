@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-sql-schema-per-call
+language: tsx
+severity: error
+utils:
+    sql-client:
+        matches: {effect-module-member: {module: {regex: '\bSqlClient$'}, member: {regex: '^SqlClient$'}}}
+rule:
+    kind: call_expression
+    all:
+        - has:
+            field: function
+            kind: call_expression
+            has:
+                field: function
+                kind: member_expression
+                pattern: $QUERY
+                all:
+                    - has: {field: property, regex: '^(findAll|findOne|findOneOption|findNonEmpty|void)$'}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '\bSqlSchema$'}}}}
+        - any:
+            - inside:
+                stopBy: end
+                kind: call_expression
+                has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^use$'}}, {has: {field: object, matches: sql-client}}]}
+            - inside:
+                stopBy: end
+                kind: generator_function, generator_function_declaration
+                has: {field: body, has: {stopBy: end, kind: yield_expression, has: {stopBy: end, matches: sql-client}}}
+message: '`$QUERY` builds its request encoder and row decoder on every call'
+note: 'Declare the query at module scope with `execute` reading `SqlClient.SqlClient.use`, caller values entering as `Request` fields'

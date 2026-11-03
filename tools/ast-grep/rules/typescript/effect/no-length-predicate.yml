@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-length-predicate
+language: tsx
+severity: error
+ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
+rule:
+    kind: arrow_function
+    all:
+        - any:
+            - pattern: '($X) => $X.length > 0'
+            - pattern: '$X => $X.length > 0'
+            - pattern: '($X) => $X.length !== 0'
+            - pattern: '$X => $X.length !== 0'
+            - pattern: '($X) => $X.length >= 1'
+            - pattern: '$X => $X.length >= 1'
+        - inside: {kind: arguments}
+message: '`$X.length` restates a non-empty predicate by hand'
+note: 'Pass `String.isNonEmpty` for text or `Array.isReadonlyArrayNonEmpty` for a list'

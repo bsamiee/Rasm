@@ -4,15 +4,43 @@ UXP cannot listen, and a plugin serving calls to a process outside its host dial
 
 ## [01]-[SERVING]
 
-`RpcServer` reads its transport from a `SocketServer` service's `run` member, and a dialing `SocketServer` makes the plugin the server. Plugins stack `RpcServer.layer` over `layerProtocolSocketServer` over that service.
+`RpcServer` reads its transport from a `SocketServer` service's `run` member, and a dialing `SocketServer` makes the plugin the server. Plugins stack `RpcServer.layer(group, { concurrency: 1 })` over `layerProtocolSocketServer` over that service, its `WebSocket` from `Socket.layerWebSocketConstructorGlobal`:
 
-Plugin runtime scopes own socket serving independently of document operations:
-- `run` acquires the reader in one scope per connection before the handler, and a dial refused as a close waits the retry spacing
-- `Effect.retry` with a spaced schedule surrounds that scoped connection, and `Effect.forever` redials at once after a clean close
-- `RpcServer` turns every socket error but a close into a defect, and the loop logs each defect, then sandboxes it before `Effect.retry`
-- Retries inside one scope keep each failed dial's WebSocket and finalizers until that scope closes
-- One `RpcGroup` is the whole contract, imported by both ends, and a typed failure reaches the caller through its schema
-- Calls run one at a time over synchronous DOM calls and modal scopes, and a handler returning `Rpc.fork` answers while a host call runs
+```ts
+declare global {
+    interface ImportMetaEnv {
+        readonly LINK: { readonly endpoint: string; readonly redial: `${number} ${Duration.Unit}` };
+    }
+}
+
+const dialing = (query: Record.ReadonlyRecord<string, string>) =>
+    Layer.effect(SocketServer.SocketServer)(
+        Effect.gen(function* () {
+            const endpoint = yield* Effect.fromResult(Url.fromString(import.meta.env.LINK.endpoint));
+            const { reader, writer } = yield* Socket.makeWebSocket(Url.setUrlParams(endpoint, query).href);
+            return {
+                address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Loopback, Number(endpoint.port)),
+                run: (handler) =>
+                    reader.pipe(
+                        Effect.flatMap((opened) => handler(Socket.make({ reader: Effect.succeed(opened), writer }))),
+                        Effect.scoped,
+                        Effect.tapCauseIf(Cause.hasDies, Uxp.logged),
+                        Effect.exit,
+                        Effect.andThen(Effect.sleep(import.meta.env.LINK.redial)),
+                        Effect.forever,
+                    ),
+            };
+        }),
+    );
+```
+
+`query` holds the plugin's encoded identity. Builds define `import.meta.env.LINK` from the app's one link value (route path, redial spacing) and the port the peer daemon's route listens on, and no plugin passes link values at runtime. Each `reader` run opens one WebSocket that its `Effect.scoped` closes, and one `redial` sleep follows a refused dial and a clean close alike.
+
+- `RpcServer` turns every socket error but a close into a defect, and `run` logs each die before `Effect.exit` ends the connection
+- One `RpcGroup` is the whole contract, and typed failures reach the caller through its error schema, `Cause` errors through a `Schema.declare` with `toCodecJson`
+- Host packages split a `contract` entry the peer and build import in Node, holding no host module, from a `host` entry exporting the link layer
+- Served calls and panel actions run one at a time through the permit and preference scope the group middleware applies
+- Handlers returning `Rpc.fork` answer while a host call runs
 - Group middleware holds host state for each call and covers calls added before `middleware`, and a forked call joins with `add` after it
 - Calls a client sends while another call runs go in `requiredForClient` middleware, and every client builds it with `layerClient`
 - Each stream holds its call's concurrency permit until it ends, and streams a peer follows for the link's lifetime return `Rpc.fork`
@@ -31,6 +59,7 @@ Peers accept the socket and hold one `RpcClient` per accepted connection:
 |  [03]   | Serialization  | Plugin's layer       | Ends that differ fail every call                                        |
 
 - UXP dials with `Origin: file://`, and peers upgrade a request from that origin alone
-- Plugins send their identity as the dial URL's query, and peers decode it through their identity schema
-- Socket close alone reports a dead plugin
+- Plugins send their application bundle URL and extension id as the dial URL's query, and peers decode it through their identity schema
+- Socket close alone reports a dead plugin, and a redial naming a held extension and application replaces that link before its stale socket closes
+- Calls select the link serving an application by bundle URL, and a miss fails with every linked URL as candidate
 - Calls that fail with `RpcClientError` may have taken effect in the host, and callers read host state before repeating one

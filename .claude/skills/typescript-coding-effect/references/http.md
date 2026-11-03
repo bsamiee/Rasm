@@ -23,7 +23,7 @@ class Api extends HttpApi.make('ledger').add(
 - Payloads derive from the model through `Model.jsonCreate`, `jsonUpdate`, or `Class.mapFields`
 - `HttpApiSchema.WithHeaders(Success, headers)` types headers that handlers set through `withHeaders` and clients resolve as `{ body, headers }`
 - `HttpApiSchema.asText`, `asUint8Array`, `asFormUrlEncoded`, `asMultipart(limits)`, and `asMultipartStream(limits)` select a body encoding
-- `.middleware(M)`, `.prefix(p)`, and `annotateEndpoints` reach the endpoints added before the call, and close a group or API
+- `.middleware(M)`, `.prefix(p)`, and `annotateEndpoints` reach only endpoints added before the call
 - `HttpApi.ParseOptions` annotates the API for server, client, and URL builder alike, with `ParamsParseOptions` through `ErrorParseOptions` per slot
 - `HttpApiGroup.make('g', { topLevel: true })` places a group's methods at the client root, and `.addHttpApi(other)` merges another API's groups
 
@@ -41,12 +41,17 @@ HttpApi sends each declared error with its status and decodes it back to the sam
 ## [03]-[MIDDLEWARE]
 
 Middleware are services keyed per API, group, or endpoint, each providing a service to handlers and declaring its errors and security schemes:
+
+```ts
+const GuardLive = Layer.effect(Guard, Effect.map(Effect.context<Exclude<Effect.Services<typeof check>, HttpServerRequest.HttpServerRequest>>(), (context) => (effect) => check.pipe(Effect.provideContext(context), Effect.andThen(effect))));
+```
+
+`Guard` is an `HttpApiMiddleware.Service` and `check` its per-request effect. `GuardLive` captures at build every service `check` reads beside the request, and `Effect.provideContext` merges them over each request's context:
 - `HttpApiMiddleware.Service<M, { provides, requires }>()(id, { error, security, requiredForClient })` layers hold a handler per security key
 - Security handlers run in declaration order, a missing credential arriving as an empty `Redacted` the handler rejects
 - `HttpApiSecurity.apiKey({ in: 'cookie', key })` reads a validated cookie, and `HttpApiSecurity.basic` decodes `{ username, password }`
 - Middleware wraps decoding, and a timeout it applies bounds body receipt and the handler together
 - Middleware that `requires` a service sits before middleware that `provides` it
-- Services beside `requires` and provided ones are read at layer build and closed over
 - `requiredForClient: true` makes derived clients require `HttpApiMiddleware.layerClient(M, handler)`, taking a handler or an effect reading `Config`
 
 ## [04]-[HANDLERS]
@@ -103,25 +108,30 @@ class Ledger extends Context.Service<Ledger>()('@app/ledger/Ledger', {
 
 `transformClient` holds request policies. Declared error statuses decode after `execute` into their classes, and `ledger.holds.release({ params: { id } })` fails with `Missing` for `Effect.catchTag`:
 - `HttpApiClient.group` and `endpoint` derive one group's or endpoint's client, and `responseMode` returns the raw response beside the decoded value
-- `HttpApiClient.urlBuilder(Api, { baseUrl })` derives typed URLs for a consumer outside Effect (an upload widget, a link)
+- `HttpApiClient.urlBuilder(Api, { baseUrl })` encodes typed links through endpoint schemas, an omitted `baseUrl` returning a relative href
+- Optional `:name?` segments typed `Schema.OptionFromOptionalKey(S)` drop out of a URL on `Option.none()`
 - `HttpApiTest.groups(Api, ['g'])` runs a typed client in memory over real encoding, routing, and decoding
 - `NodeHttpServer.layerTest` serves on an ephemeral port with a prefixed `HttpClient`
 - `HttpClient.mapRequest(flow(HttpClientRequest.prependUrl(base), HttpClientRequest.acceptJson))` sets a base once on a plain client
-- URLs build through `Url.setUrlParams(url, UrlParams.fromInput(params))`, a template joining `?` and `&` restating it
+- `Url.setUrlParams(url, UrlParams.fromInput(params))` sets an absolute URL's query, `` `${path}?${UrlParams.toString(record)}` `` a relative href's
 - `HttpIncomingMessage.schemaBodyJson(S)` decodes bodies, and `HttpClientResponse.matchStatus({ 200: ..., '4xx': ..., orElse })` folds by status
-- `HttpClient.retryTransient` retries transport failures and 408, 429, and 5xx gateway statuses, reading `Retry-After`
+- `HttpClient.retryTransient` reads `Retry-After` and retries `isTransientError` cases (transport failures, 408, 429, 500, 502, 503, 504)
 - `HttpClient.timeout` before `retryTransient` bounds each attempt, after it the whole loop, and a timeout is a transient `TransportError`
 - `HttpClient.withRateLimiter` adapts to rate-limit headers with `times` bounding 429 retries, and `withCircuitBreaker` follows it and the retry
 
 ## [07]-[ROUTER]
 
 Raw routes are layers registered on `HttpRouter`, for answers a contract cannot type:
-- `HttpRouter.add(method, path, handler)` registers one route, `HttpRouter.use((router) => ...)` a set, and `router.prefixed(p)` a prefix
-- `HttpRouter.middleware(fn, { global: true })` wraps responses, `cors(options)` adds CORS, and `provideRequest(layer)` supplies per-request services
+- `HttpRouter.add(method, path, handler)` registers a route with an effect or constant `HttpServerResponse` handler, `HttpRouter.use` a set
+- `router.prefixed(p)` adds a prefix, and `HttpRouter.cors(options)` adds CORS
+- `HttpRouter.middleware(build, { global: true })` builds in the layer scope, where `Layer.build(layer)` holds services that middleware alone reads
+- Middleware rewriting a response is `Effect.map(rewrite)`, and one supplying built services runs `Effect.provideContext(app, services)`
+- `HttpRouter.provideRequest(layer)` supplies built `layer` services to wrapped routes, discharging their `Request.From<'Requires', A>` markers
+- `Layer.provide(layer)` beside `provideRequest(layer)` serves group and middleware builds, the memo map building `layer` once for both
 - `HttpMiddleware.xForwardedHeaders({ trustedProxies })` sets protocol, host, and remote address from trusted proxy hops
 - `HttpMiddleware.compression({ algorithms })` negotiates encodings, and `Cache-Control: no-transform` exempts a secret-bearing route
 - `HttpStaticServer.layer({ root, prefix, spa, cacheControl })` serves files with ranges and validators
 - `toWeb` keeps a web `Response` in `HttpServerResponse.raw(response)` unchanged unless it drops body or `content-length` or merges outer headers
-- `HttpServerResponse.fromWeb` re-streams a web `Response` body
+- Node servers write a `Raw` body by piping or `end` alone, and global middleware re-streams a raw web `Response` through `fromWeb(toWeb(response))`
 - `HttpStatus.fromLiteral('PreconditionFailed')` derives a status number, `Mime.getType(path)` a media type, and `Etag.toString` a header value
 - `HttpRouter.schemaPathParams(S)` and `HttpServerRequest.schemaSearchParams(S)` decode raw string records through `Schema.toCodecStringTree`

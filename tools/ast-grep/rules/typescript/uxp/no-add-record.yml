@@ -2,13 +2,37 @@
 id: no-add-record
 language: tsx
 severity: error
+utils:
+    record:
+        kind: object
+        has: {kind: 'pair, shorthand_property_identifier, spread_element'}
 rule:
     kind: call_expression
     pattern: $CALL
     all:
         - has: {field: function, kind: member_expression, has: {field: property, regex: '^add$'}, not: {has: {field: object, regex: '(^|\.)documents$'}}}
-        - has: {field: arguments, has: {kind: object, has: {kind: pair}}}
-    inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
+        - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
+        - has:
+            field: arguments
+            has:
+                any:
+                    - matches: record
+                    - kind: identifier
+                      pattern: $RECORD
+                      inside:
+                        kind: statement_block, program
+                        stopBy: end
+                        has:
+                            kind: lexical_declaration
+                            has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RECORD}}, {has: {field: value, matches: record}}]}
+        - has:
+            field: function
+            has:
+                field: object
+                not:
+                    any:
+                        - matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}
+                        - matches: {typescript-collection-receiver: {collection: {regex: '^(Weak)?Set$'}}}
 transform:
     HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: '`$HEAD` sets keys from a record with no error naming a refused key'

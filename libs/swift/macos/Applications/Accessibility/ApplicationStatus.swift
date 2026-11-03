@@ -6,6 +6,14 @@ public import CoreGraphics
 public import Processes
 import Synchronization
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+private let notifications: [String] = [
+    kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXUIElementDestroyedNotification, kAXFocusedWindowChangedNotification, kAXTitleChangedNotification,
+    kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification,
+]
+private let beatAttributes: [String] = [kAXWindowsAttribute, kAXFocusedWindowAttribute]
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct Window: Encodable, Hashable, Sendable {
@@ -38,9 +46,24 @@ extension Window {
 
 @CasePathable
 public enum ApplicationStatus: Encodable, Equatable, Sendable {
-    case launching
+    case launching(windows: [Window])
     case responding(elements: [Element], windows: [Window])
     case unresponsive(process: ProcessStatus, windows: [Window])
+
+    var onScreen: Self {
+        switch self {
+            case .launching(let windows): .launching(windows: windows.filter(\.onScreen))
+            case .responding(let elements, let windows): .responding(elements: elements, windows: windows.filter(\.onScreen))
+            case .unresponsive(let process, let windows): .unresponsive(process: process, windows: windows.filter(\.onScreen))
+        }
+    }
+
+    static func changed(_ previous: Result<Self, ApplicationFailure>, _ next: Result<Self, ApplicationFailure>) -> Bool {
+        switch (previous, next) {
+            case (.success(.unresponsive(let held, let shown)), .success(.unresponsive(let process, let windows))): (held == .stopped) != (process == .stopped) || shown != windows
+            case (_, _): previous != next
+        }
+    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -50,8 +73,7 @@ final class Observer: Sendable {
     let ticks: AsyncStream<Void>.Continuation
     let observed: Mutex<(observer: AXObserver, unregistered: [String], launch: NSKeyValueObservation?)>
 
-    init(_ instance: NSRunningApplication, notifications: Set<String>, ticks: AsyncStream<Void>.Continuation) throws(ApplicationFailure) {
-        let element: AXUIElement = AXUIElementCreateApplication(instance.processIdentifier)
+    init(_ instance: NSRunningApplication, ticks: AsyncStream<Void>.Continuation) throws(ApplicationFailure) {
         var created: AXObserver?
         let creation: AXError = unsafe AXObserverCreate(
             instance.processIdentifier,
@@ -61,15 +83,14 @@ final class Observer: Sendable {
             },
             &created,
         )
-        guard let observer: AXObserver = created else { throw element.failure(creation, reading: ["AXObserverCreate"]) }
+        guard let observer: AXObserver = created else { throw AXUIElement.application(instance.processIdentifier).failure(creation, reading: ["AXObserverCreate"]) }
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
         self.instance = instance
         self.ticks = ticks
-        observed = Mutex((observer, Array(notifications), instance.observe(\.isFinishedLaunching) { _, _ in ticks.yield(()) }))
+        observed = Mutex((observer, notifications, instance.observe(\.isFinishedLaunching) { _, _ in ticks.yield(()) }))
     }
 
-    func register() throws(ApplicationFailure) {
-        let element: AXUIElement = AXUIElementCreateApplication(instance.processIdentifier)
+    func register(on element: AXUIElement) throws(ApplicationFailure) {
         try observed.withLock { observed throws(ApplicationFailure) in
             observed.unregistered = try observed.unregistered.map { notification throws(ApplicationFailure) -> String? in
                 let added: AXError = unsafe AXObserverAddNotification(observed.observer, element, notification as CFString, Unmanaged.passUnretained(self).toOpaque())
@@ -106,22 +127,32 @@ extension NSRunningApplication {
         after last: (elements: [Element], windows: [Data?])? = nil,
     ) async -> (status: Result<ApplicationStatus, ApplicationFailure>, windows: [Data?]?) {
         await withTaskExecutorPreference(accessibility) { () -> (status: Result<ApplicationStatus, ApplicationFailure>, windows: [Data?]?) in
-            let owned: [Window] = Window.owned(by: processIdentifier)
+            let owned: [Window] = Window.owned(by: processIdentifier).filter { window in !window.frame.isEmpty && (window.onScreen || isHidden) }
             let responding: ([Element]) -> ApplicationStatus = { elements in
-                let described: Set<CGWindowID> = Set(elements.compactMap(\.window))
+                let described: Set<CGWindowID> = Set((elements + (last?.elements ?? [])).compactMap(\.window))
                 return .responding(elements: elements, windows: owned.filter { window in !described.contains(window.number) })
             }
             do throws(ApplicationFailure) {
-                guard try processStatus() != .stopped else { return (.success(.unresponsive(process: .stopped, windows: owned)), nil) }
-                try observer?.get().register()
-                let read: [String: CFTypeRef] = try AXUIElementCreateApplication(processIdentifier).values([kAXWindowsAttribute, kAXFocusedWindowAttribute, kAXMenuBarAttribute])
+                let process: ProcessStatus = try processStatus()
+                guard process != .stopped else { return (.success(.unresponsive(process: .stopped, windows: owned)), nil) }
+                let application: AXUIElement = AXUIElement.application(processIdentifier)
+                try observer?.get().register(on: application)
+                let read: [String: CFTypeRef] = try application.values(last == nil ? beatAttributes + [kAXMenuBarAttribute] : beatAttributes)
                 let windows: [Data?] =
                     (read[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(AXUIElement.checked).map(\.token) + [read[kAXFocusedWindowAttribute].flatMap(AXUIElement.checked)?.token]
                 if let last, last.windows == windows { return (.success(responding(last.elements)), windows) }
-                let elements: [Element] = try AXUIElement.candidates(read).map { candidate throws(ApplicationFailure) in try candidate.described(walking: walked) }.compactMap(\.self)
-                return (.success(isFinishedLaunching || elements.contains(where: \.requiresAnswer) ? responding(elements) : .launching), windows)
+                let full: [String: CFTypeRef] = last == nil ? read : try read.merging(application.values([kAXMenuBarAttribute])) { _, menu in menu }
+                let elements: [Element] = try AXUIElement.candidates(full).map { candidate throws(ApplicationFailure) in try candidate.described(walking: walked) }
+                    .compactMap(\.self)
+                return (.success(isFinishedLaunching || elements.contains(where: \.requiresAnswer) ? responding(elements) : .launching(windows: owned)), windows)
             } catch let failure where failure.reason.is(\.unanswered) {
-                return (Result { () throws(ApplicationFailure) in isFinishedLaunching ? .unresponsive(process: try processStatus(), windows: owned) : .launching }, nil)
+                return (
+                    Result { () throws(ApplicationFailure) in
+                        let process: ProcessStatus = try processStatus()
+                        return isFinishedLaunching ? .unresponsive(process: process, windows: owned) : .launching(windows: owned)
+                    },
+                    nil,
+                )
             } catch {
                 return (.failure(error), nil)
             }
@@ -132,12 +163,10 @@ extension NSRunningApplication {
         walking walked: @escaping @Sendable (Element) -> Bool,
         observer: Result<Observer, ApplicationFailure>,
         ticks: AsyncStream<Void>,
-        polling interval: Duration,
         clock: some Clock<Duration> & Sendable,
     ) -> some AsyncSequence<Result<ApplicationStatus, ApplicationFailure>, Never> {
-        let reason: @Sendable (ApplicationFailure) -> PartialCaseKeyPath<ApplicationFailure.Reason> = { failure in ApplicationFailure.Reason.allCasePaths[failure.reason] }
-        return merge(chain([()].async, ticks).map { _ in false }, AsyncTimerSequence(interval: interval, clock: clock).map { _ in true })
-            .reductions((status: Result<ApplicationStatus, ApplicationFailure>.success(.launching), windows: [Data?]?.none)) { last, beat in
+        merge(chain([()].async, ticks).map { _ in false }, AsyncTimerSequence(interval: messagingTimeout, clock: clock).map { _ in true })
+            .reductions((status: Result<ApplicationStatus, ApplicationFailure>.success(.launching(windows: [])), windows: [Data?]?.none)) { last, beat in
                 let seen: (elements: [Element], windows: [Data?])? =
                     switch (beat, last.status, last.windows) {
                         case (true, .success(.responding(let elements, _)), .some(let windows)): (elements, windows)
@@ -145,14 +174,8 @@ extension NSRunningApplication {
                     }
                 return await self.status(walking: walked, observer: observer, after: seen)
             }
-            .map(\.status)
+            .map { read in read.status.map(\.onScreen) }
             .prefix { read in read[case: \.failure]?.reason.is(\.noProcess) != true }
-            .removeDuplicates { last, next in
-                switch (last, next) {
-                    case (.success(let last), .success(let next)): last == next
-                    case (.failure(let last), .failure(let next)): last.subject == next.subject && reason(last) == reason(next)
-                    case (_, _): false
-                }
-            }
+            .removeDuplicates { previous, next in !ApplicationStatus.changed(previous, next) }
     }
 }

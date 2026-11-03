@@ -1,4 +1,4 @@
-import { none, type Option, some } from '../composition.ts';
+import { Option } from '../composition.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -112,6 +112,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         time: { valued: ['-o'], runs: [[]] },
         xargs: { valued: ['-E', '-I', '-J', '-L', '-n', '-P', '-R', '-S', '-s'], stdin: 'always', runs: [[]], repeats: true },
         kill: { valued: ['-s', '-n'] },
+        ps: { valued: ['-p', '-o', '-O', '-U', '-u', '-G', '-g', '-t', '-M', '-N'] },
         pgrep: PROCESSES,
         pkill: PROCESSES,
         sleep: { timer: true },
@@ -195,6 +196,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         },
         poetry: { runs: [['run']] },
         hatch: { runs: [['run']] },
+        pixi: { valued: ['-e', '--environment', '--manifest-path', '--auth-file', '--pypi-keyring-provider', '--concurrent-solves', '--concurrent-downloads', '--color'], runs: [['run']] },
         mise: { runs: '--' },
         doppler: { runs: '--' },
         op: { runs: '--' },
@@ -237,6 +239,70 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         tree: { valued: ['-L', '--level', '-I', '--ignore-glob', '-s', '--sort', '-t', '--time', '-w', '--width'], walks: {} },
         du: { valued: ['-B', '-d', '-I', '-t', '-X', '--block-size', '--max-depth', '--threshold', '--exclude', '--exclude-from', '--files0-from', '--time-style'], walks: {} },
         git: { valued: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
+        rsync: {
+            valued: [
+                '-B',
+                '-e',
+                '-f',
+                '-M',
+                '-T',
+                '-@',
+                '--info',
+                '--debug',
+                '--backup-dir',
+                '--suffix',
+                '--confine-root',
+                '--chmod',
+                '--checksum-choice',
+                '--block-size',
+                '--rsh',
+                '--rsync-path',
+                '--max-delete',
+                '--max-size',
+                '--min-size',
+                '--max-alloc',
+                '--partial-dir',
+                '--usermap',
+                '--groupmap',
+                '--chown',
+                '--timeout',
+                '--contimeout',
+                '--modify-window',
+                '--temp-dir',
+                '--compare-dest',
+                '--copy-dest',
+                '--link-dest',
+                '--compress-choice',
+                '--compress-level',
+                '--compress-threads',
+                '--skip-compress',
+                '--filter',
+                '--exclude',
+                '--exclude-from',
+                '--include',
+                '--include-from',
+                '--files-from',
+                '--copy-as',
+                '--address',
+                '--port',
+                '--sockopts',
+                '--outbuf',
+                '--remote-option',
+                '--out-format',
+                '--log-file',
+                '--log-file-format',
+                '--password-file',
+                '--early-input',
+                '--bwlimit',
+                '--stop-after',
+                '--write-batch',
+                '--only-write-batch',
+                '--read-batch',
+                '--protocol',
+                '--iconv',
+                '--checksum-seed',
+            ],
+        },
         grep: {
             valued: [
                 '-A',
@@ -491,6 +557,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         },
         osascript: { valued: ['-e', '-l', '-s'] },
         open: { valued: ['-a', '-b', '-s', '-u', '-i', '-o', '--env', '--stdin', '--stdout', '--stderr', '--arch', '--url'] },
+        xed: { valued: ['-l', '--line'], informational: ['-h', '-v'] },
         analyzeHeadless: { wholeWords: true, informational: ['-help'], valued: ['-log', '-scriptlog', '-scriptPath', '-propertiesPath', '-processor', '-cspec', '-analysisTimeoutPerFile', '-keystore', '-max-cpu', '-librarySearchPaths', '-loader'] },
         Blender: { informational: ['-v', '-h', '--log-list-categories'], headless: ['-b', '--background', '-c', '--command'] },
         'watch-apps': { informational: ['-h', '--help'], valued: ['--document', '--arguments', '--environment', '--pid', '--window', '--longest-side'] },
@@ -586,17 +653,23 @@ const waits = (invocation: Invocation): boolean => {
 // --- [INVOCATIONS]
 
 const placed = (word: string, cwd: Option<string>, home: Option<string>): Option<string> => {
-    const expanded = home.kind === 'none' ? word : word.replace(TILDE, (_match, user: string) => (user === '' ? home.value : `${home.value.slice(0, home.value.lastIndexOf('/'))}/${user}`));
-    const absolute = cwd.kind === 'some' && !expanded.startsWith('/') ? `${cwd.value}/${expanded}` : expanded;
+    const expanded = home.match(
+        (folder) => word.replace(TILDE, (_match, user: string) => (user === '' ? folder : `${folder.slice(0, folder.lastIndexOf('/'))}/${user}`)),
+        () => word,
+    );
+    const absolute = cwd.match(
+        (folder) => (expanded.startsWith('/') ? expanded : `${folder}/${expanded}`),
+        () => expanded,
+    );
     return absolute.startsWith('/')
-        ? some(
+        ? Option.some(
               `/${absolute
                   .split('/')
                   .filter((part) => part !== '' && part !== '.')
                   .reduce<readonly string[]>((kept, part) => (part === '..' ? kept.slice(0, -1) : kept.concat(part)), [])
                   .join('/')}`,
           )
-        : none;
+        : Option.none;
 };
 
 const within = (path: string, folder: string): boolean => path === folder || path.startsWith(folder === '/' ? '/' : `${folder}/`);

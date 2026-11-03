@@ -6,6 +6,8 @@ ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
 utils:
     collection:
         matches: {effect-module: {name: {regex: '\b(Array|Chunk|HashSet)$'}}}
+    native-receiver:
+        not: {any: [{kind: 'string, template_string'}, {matches: {effect-module: {name: {regex: '\w'}}}}]}
     membership:
         kind: call_expression
         all:
@@ -16,7 +18,7 @@ utils:
                 - pattern: $OWNER.contains($SEEN, $X)
                   has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}}}
                 - pattern: $OWNER.includes($X)
-                  has: {field: function, has: {field: object, pattern: $SEEN, not: {any: [{kind: 'string, template_string'}, {matches: {effect-module: {name: {regex: '\w'}}}}]}}}
+                  has: {field: function, has: {field: object, pattern: $SEEN, matches: native-receiver}}
     predicate:
         kind: arrow_function
         all:
@@ -42,7 +44,7 @@ rule:
                     - has: {field: function, has: {field: object, pattern: $OWNER}}
             - all:
                 - pattern: $KEPT
-                - has: {field: function, has: {field: object, not: {matches: collection}}}
+                - has: {field: function, has: {field: object, matches: native-receiver}}
                 - has: {field: arguments, has: {matches: predicate, nthChild: 1}, not: {has: {nthChild: 2}}}
                 - not: {has: {field: arguments, has: {matches: set-predicate}}}
 constraints:

@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -22,6 +23,24 @@ public final class Report {
             return switch (this) {
                 case Success<T>(T value) -> new Success<>(mapper.apply(value));
                 case Failure<T>(String cause) -> new Failure<>(cause);
+            };
+        }
+
+        default <R> Result<R> flatMap(Function<? super T, Result<R>> mapper) {
+            return switch (this) {
+                case Success<T>(T value) -> mapper.apply(value);
+                case Failure<T>(String cause) -> new Failure<>(cause);
+            };
+        }
+
+        default <U, R> Result<R> zip(
+                Result<U> other, BiFunction<? super T, ? super U, ? extends R> combine) {
+            return switch (this) {
+                case Success<T>(T value) -> other.map(each -> combine.apply(value, each));
+                case Failure<T>(String cause) ->
+                        new Failure<>(
+                                Stream.concat(Stream.of(cause), other.failures())
+                                        .collect(Collectors.joining("\n")));
             };
         }
 

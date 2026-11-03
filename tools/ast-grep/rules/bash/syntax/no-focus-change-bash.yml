@@ -25,4 +25,4 @@ rule:
             - has: {field: name, regex: '^(/usr/bin/)?osascript$'}
             - has: {kind: 'word, string, raw_string, concatenation', regex: '\bactivate\b|\bset\s+frontmost\b|AXRaise'}
 message: '`$SITE` takes focus from the frontmost application'
-note: 'Pass `-g` to `open` ahead of `--args`, and send no AppleScript `activate`, `AXRaise`, or `frontmost` write'
+note: '`watch-apps launch <app>` opens apps unfocused, run it and drop AppleScript `activate`, `AXRaise`, and `frontmost` writes'

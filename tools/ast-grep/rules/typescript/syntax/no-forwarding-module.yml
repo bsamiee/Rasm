@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-module
+language: tsx
+severity: error
+utils:
+    callee:
+        any:
+            - {kind: identifier, pattern: $ROOT}
+            - {kind: member_expression, has: {field: object, matches: callee}}
+rule:
+    kind: program
+    all:
+        - not: {has: {pattern: $_, not: {kind: 'hash_bang_line, comment, import_statement, expression_statement'}}}
+        - not: {has: {kind: expression_statement, nthChild: {position: 2, ofRule: {kind: expression_statement}}}}
+        - has:
+            kind: expression_statement
+            has:
+                stopBy: {not: {kind: 'await_expression, unary_expression'}}
+                kind: call_expression
+                pattern: $CALL
+                all:
+                    - has: {field: arguments, not: {has: {pattern: $_, not: {kind: comment}}}}
+                    - has: {field: function, pattern: $F, matches: callee}
+        - has: {kind: import_statement, has: {kind: import_clause, has: {stopBy: end, kind: identifier, pattern: $ROOT}}}
+message: 'Module forwards to `$F`'
+note: 'Make the package entry the build input and delete the module'
+labels:
+    CALL: {style: primary, message: Forwarded call}

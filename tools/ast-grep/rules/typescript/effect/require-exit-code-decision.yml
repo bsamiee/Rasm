@@ -173,7 +173,11 @@ rule:
                         - any:
                             - has: {field: parameter, kind: identifier, pattern: $SPAWNER}
                             - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $SPAWNER}}}
-                        - inside: {kind: arguments, has: {nthChild: 1, matches: spawner-service}}
+                        - inside:
+                            kind: arguments
+                            any:
+                                - has: {nthChild: 1, matches: spawner-service}
+                                - inside: {kind: call_expression, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^use$'}}, {has: {field: object, matches: spawner-service}}]}}
 message: '`$STREAM` reads process output with no decision on `exitCode`'
 note: 'Read `exitCode` beside `stdout` and `stderr` from the handle `spawner.spawn` returns and fail a non-zero exit with `stderr` as its reason'
 labels:

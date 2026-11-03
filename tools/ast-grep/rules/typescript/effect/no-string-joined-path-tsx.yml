@@ -11,41 +11,44 @@ utils:
             - kind: identifier
               regex: '^__(dirname|filename)$'
               matches: typescript-global-reference
-    path-source:
-        any:
-            - matches: directory-read
-            - kind: identifier
-              pattern: $DIR
-              inside:
-                kind: program
-                stopBy: end
-                has:
-                    stopBy: end
-                    kind: variable_declarator
-                    all:
-                        - has: {field: name, kind: identifier, pattern: $DIR}
-                        - has: {field: value, matches: directory-read}
-    separator: {kind: string, regex: '^[''"]/'}
-rule:
-    pattern: $JOINED
-    any:
-        - kind: call_expression
-          all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: array, has: {matches: path-source}}}, {has: {field: property, regex: '^join$'}}]}
+    slash-join:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^join$'}}
             - has: {field: arguments, all: [{has: {nthChild: 1, kind: string, regex: '^[''"]/[''"]$'}}, {not: {has: {nthChild: 2}}}]}
-        - kind: template_string
+    directory-use: {kind: 'identifier, member_expression', pattern: $DIR}
+    joined:
+        any:
+            - matches: slash-join
+              has: {field: function, has: {field: object, kind: array, has: {matches: directory-use}}}
+            - kind: template_string
+              all:
+                - has:
+                    kind: template_substitution
+                    has: {matches: directory-use}
+                    precedes: {kind: string_fragment, regex: '^/'}
+                - not: {has: {kind: string_fragment, regex: '[*{}]|://'}}
+                - not: {inside: {kind: call_expression, field: arguments}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\+$'}
+                - has: {field: left, any: [{matches: directory-use}, {kind: binary_expression, has: {field: left, matches: directory-use}}]}
+                - has: {stopBy: end, kind: string, regex: '^[''"]/'}
+                - not: {inside: {kind: binary_expression, field: left}}
+rule:
+    any:
+        - matches: directory-read
+          pattern: $DIR
+          inside: {stopBy: end, matches: joined, pattern: $JOINED}
+        - kind: variable_declarator
           all:
-            - not: {inside: {kind: call_expression, field: arguments}}
-            - not: {has: {kind: string_fragment, regex: '[*{}]|://'}}
-            - has:
-                kind: template_substitution
-                has: {matches: path-source}
-                precedes: {kind: string_fragment, regex: '^/'}
-        - kind: binary_expression
-          all:
-            - has: {field: operator, regex: '^\+$'}
-            - has: {field: left, any: [{matches: path-source}, {kind: binary_expression, has: {field: left, matches: path-source}}]}
-            - has: {stopBy: end, matches: separator}
-            - not: {inside: {kind: binary_expression, field: left}}
+            - has: {field: name, kind: identifier, pattern: $DIR}
+            - has: {field: value, matches: directory-read}
+            - inside:
+                kind: statement_block, program
+                stopBy: {kind: 'statement_block, program'}
+                has: {stopBy: end, matches: joined, pattern: $JOINED}
 message: '`$JOINED` joins a file-system path with a `/` literal'
 note: 'Call `path.join(<directory>, <segment>)` on the yielded `Path.Path` service'
+labels:
+    JOINED: {style: primary}

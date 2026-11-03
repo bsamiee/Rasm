@@ -14,6 +14,13 @@ public struct ExitDetail: OptionSet, Sendable {
     public init(rawValue: Int32) { self.rawValue = rawValue }
 }
 
+extension ExitDetail: Encodable {
+    public func encode(to encoder: any Encoder) throws {
+        var names: any SingleValueEncodingContainer = encoder.singleValueContainer()
+        try names.encode([(Self.memory, "memory"), (Self.csError, "codeSigning"), (Self.decryptFail, "decryption")].filter { option, _ in contains(option) }.map(\.1))
+    }
+}
+
 public struct ProcessExit: Equatable, Sendable {
     public let status: TerminationStatus
     public let detail: ExitDetail

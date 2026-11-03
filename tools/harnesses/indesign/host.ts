@@ -2,15 +2,16 @@ import { pathToFileURL } from 'node:url';
 import { Automation } from '@rasm/automation/automation';
 import { parse } from 'acorn';
 import { findNodeAt } from 'acorn-walk';
-import { Array, Effect, Option, Result, Schema, String } from 'effect';
+import { Array, Effect, Option, Record, Result, Schema, String } from 'effect';
+import { crashes, HOME, REPORTER, uxp } from '#/adobe';
 import { HarnessError, thrown } from '#/error';
 import { ENGINES, Encoded, Engine, fields, HostCase, type Placed, Reply, Survey } from '#/indesign/contract';
 import { precondition } from '#/indesign/precondition';
 import uxpscript from '#/indesign/uxpscript/script.config';
-import { ADOBE_CRASH_REPORTER, checked, printed } from '#/instance';
+import { checked, Launched, plist, printed } from '#/instance';
 import { copied } from '#/precondition';
-import { replied } from '#/results';
-import { type Batch, type Host as Harness, installation, type Live } from '#/session';
+import type { Rule } from '#/report';
+import { type Batch, type Host as Harness, type Instance, installation, type Live } from '#/session';
 import { assembled, engineOf } from '#/source';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -23,6 +24,7 @@ const ENGINE = new URL('extendscript.jsxinc', import.meta.url);
 const Continuing = Schema.Union([Schema.Struct({ type: Schema.Literal('AwaitExpression') }), Schema.Struct({ async: Schema.Literal(true) }), Schema.Struct({ type: Schema.Literal('MemberExpression'), property: Schema.Struct({ name: Schema.Literals(['then', 'catch', 'finally']) }) })]).annotate({
     description: 'Syntax tree node whose work runs after the script answered',
 });
+const Bundle = Schema.Struct({ CFBundleName: Schema.String.annotate({ description: 'InDesign or InDesign (Beta), naming the cache folder Adobe <name>' }) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -34,7 +36,7 @@ const bundle = Effect.map(
 const installed = Effect.gen(function* () {
     const [automation, toOpen] = yield* Effect.all([Automation, bundle]);
     const [opening, rows] = yield* Effect.all([automation.opening(toOpen), automation.installed]);
-    return yield* Effect.forEach(opening, (row) => installation(row, rows, [ADOBE_CRASH_REPORTER]));
+    return yield* Effect.forEach(opening, (row) => installation(row, rows, [REPORTER]));
 });
 
 // --- [SOURCE]
@@ -64,6 +66,20 @@ const unpacked = Effect.fn('unpacked')(function* (file: string) {
     return (yield* Effect.forEach(entries, (entry) => Effect.map(checked('unzip', ['-p', file, entry]), (bytes) => [entry, bytes] as const))).flat();
 });
 
+// --- [LOGS]
+const logs = Effect.fn('logs')(function* (instance: Instance) {
+    const { CFBundleName: name } = yield* plist(instance.chosen.app, Bundle);
+    const [major] = String.split(instance.chosen.version, '.');
+    const cache = `Library/Caches/Adobe ${name}/Version ${major}.*/*`;
+    const folders: Record.ReadonlyRecord<string, string> = { '21': 'Adobe InDesign 2024', '22': 'Adobe InDesign' };
+    return [
+        { kind: 'shutdown', pattern: `${cache}/InDesign Recovery/ProtectiveShutdownLog`, root: HOME },
+        { kind: 'recovery', pattern: `${cache}/InDesign Recovery/{DBSharingShi,DBTmp}${instance.pid}*`, root: HOME },
+        ...Option.toArray(Option.map(Record.get(folders, major), uxp)),
+        ...(yield* crashes(instance)),
+    ] satisfies readonly Rule[];
+});
+
 // --- [TRANSPORT]
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
     const automation = yield* Automation;
@@ -72,7 +88,7 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
     const encoded = yield* Schema.encodeEffect(Encoded)({ records: batch.records, label: batch.label, enumerations: Option.match(batch.survey, { onNone: () => ({}), onSome: ({ enumerations }) => enumerations }), survey: Option.isNone(batch.survey), cases: batch.cases });
     const direct = held === 'extendscript' ? yield* assembled(ENGINE) : { _tag: 'file' as const, url: (yield* bundle).href };
     const { reply } = yield* automation.script({ pid: live.pid, direct, values: [encoded], language: ENGINES[held].language });
-    return yield* replied(`${held} batch`)(yield* Schema.decodeUnknownEffect(Reply)(reply));
+    return yield* Reply.replied(`${held} batch`)(reply);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -82,16 +98,16 @@ const Host = {
     survey: { question: 'Enumerations, working space profiles, languages, locale, and feature set the installation declares', Schema: Survey },
     Case: HostCase,
     fields,
-    shown: ['alerts', 'activations', 'console'],
     engine,
     precondition,
     placed: copied,
     refusal,
     installed,
-    launch: () => Effect.succeed({ fresh: false }),
+    launch: () => Effect.succeed(new Launched({ fresh: false })),
     send,
     quit: (live) => Effect.flatMap(Automation, (automation) => Effect.asVoid(automation.execute({ pid: live.pid, command: 'quit', arguments: { saving: { _tag: 'enumerator', name: 'no' } } }))),
     canonical: (file, bytes) => (file.endsWith('.idml') ? unpacked(file) : Effect.succeed([bytes])),
+    logs,
 } as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type, typeof fields>;
 
 // --- [EXPORTS] -------------------------------------------------------------------------

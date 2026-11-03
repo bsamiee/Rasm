@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-optional-key-by-match
+language: tsx
+severity: error
+rule:
+    kind: spread_element
+    has:
+        nthChild: 1
+        kind: call_expression
+        all:
+            - has: {field: function, pattern: $MATCH, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^match$'}}}}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 2
+                    kind: object
+                    all:
+                        - has: {kind: pair, all: [{has: {field: key, regex: '^onNone$'}}, {has: {field: value, any: [{pattern: '() => ({})'}, {pattern: 'Function.constant({})'}]}}]}
+                        - has:
+                            kind: pair
+                            all:
+                                - has: {field: key, regex: '^onSome$'}
+                                - has: {field: value, kind: arrow_function, has: {field: body, kind: parenthesized_expression, has: {kind: object, has: {kind: 'pair, shorthand_property_identifier', nthChild: 1, not: {has: {kind: computed_property_name}}}, not: {has: {nthChild: 2}}}}}
+message: '`$MATCH` spreads `{}` or one key to write an optional key by hand'
+note: 'Spread `Record.getSomes({ <key>: <option> })`, mapping the option first where the key holds a derived value'

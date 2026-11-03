@@ -31,6 +31,13 @@ utils:
         any:
             - has: {field: parameter, kind: identifier, pattern: $ERROR}
             - has: {field: parameters, has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $ERROR}}}
+    reads-error:
+        has: {field: arguments, has: {stopBy: end, kind: 'identifier, shorthand_property_identifier', pattern: $ERROR}}
+    annotated-error:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^annotateLogs$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}]}
+            - matches: reads-error
     failure-callback:
         kind: arrow_function, function_expression
         all: [{matches: handler-argument}, {matches: handler-parameter}]
@@ -47,6 +54,13 @@ rule:
             - any:
                 - inside: {matches: failure-callback, stopBy: end}
                 - inside: {matches: cause-callback, stopBy: end}
-            - has: {field: arguments, has: {kind: identifier, pattern: $ERROR}}
-message: '`$LOG` logs a failure inside a recovery handler'
+            - any:
+                - matches: reads-error
+                - inside: {kind: arguments, inside: {matches: annotated-error}}
+                - inside:
+                    kind: member_expression
+                    field: object
+                    has: {field: property, regex: '^pipe$'}
+                    inside: {kind: call_expression, field: function, has: {field: arguments, has: {matches: annotated-error}}}
+message: '`$LOG` logs a failure inside a failure handler'
 note: 'Log through `Effect.tapCause(Effect.logError)` before recovery, discard through `Effect.ignore({ log })` or `Effect.ignoreCause({ log })`'

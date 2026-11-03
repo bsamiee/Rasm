@@ -2,6 +2,7 @@
 id: no-replace-all-by-hand
 language: tsx
 severity: error
+ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 utils:
     string-module:
         matches: {effect-module: {name: {regex: '\bString$'}}}
@@ -55,10 +56,13 @@ rule:
           all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(replace|replaceAll)$'}}, {not: {has: {field: object, matches: string-module}}}]}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: fixed-regex}}, {has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
-        - matches: joined-split
-          any:
-            - {pattern: $FIXABLE, has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: plain-text}}}
-            - pattern: $KEPT
+            - not: {has: {field: arguments, regex: '^\(\s*(/-/[a-z]*\s*,\s*[''"]_|/_/[a-z]*\s*,\s*[''"]-)[''"]\s*\)$'}}
+        - all:
+            - matches: joined-split
+            - not: {regex: '\.split\(\s*([''"]-[''"]\s*\)\s*\.join\(\s*[''"]_|[''"]_[''"]\s*\)\s*\.join\(\s*[''"]-)[''"]\s*\)$'}
+            - any:
+                - {pattern: $FIXABLE, has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: plain-text}}}
+                - pattern: $KEPT
         - all:
             - matches: piped-split
             - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(pipe|flow|compose)$'}}}

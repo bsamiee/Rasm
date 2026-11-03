@@ -61,6 +61,37 @@ utils:
             - kind: call_expression
               has: {field: function, matches: terminal-member}
             - matches: terminal-member
+    result-failing:
+        any:
+            - kind: call_expression
+              has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^fail$'}}, {has: {field: object, matches: result-module}}]}
+            - kind: member_expression
+              all: [{has: {field: property, regex: '^failVoid$'}}, {has: {field: object, matches: result-module}}]
+    failing-result:
+        any: [{matches: terminal-arm}, {matches: result-failing}]
+    failing-declaration:
+        kind: variable_declarator
+        all:
+            - has: {field: name, kind: identifier, pattern: $FAILER}
+            - has: {field: value, kind: arrow_function, has: {field: body, matches: failing-result}}
+    refused-arm:
+        kind: arrow_function
+        has:
+            field: body
+            any:
+                - matches: failing-result
+                - kind: call_expression
+                  all:
+                    - has: {field: function, kind: identifier, pattern: $FAILER}
+                    - inside: {kind: program, stopBy: end, has: {kind: lexical_declaration, has: {matches: failing-declaration}}}
+    succeeded-arm:
+        kind: arrow_function
+        has:
+            field: body
+            kind: call_expression
+            all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^succeed$'}}, {has: {field: object, kind: identifier, pattern: $M, matches: {effect-module: {name: {regex: '\b(Effect|Result)$'}}}}}]}
+                - has: {field: arguments, not: {has: {nthChild: 2}}}
     discriminant-test:
         kind: binary_expression
         any:
@@ -142,6 +173,13 @@ rule:
                 - all:
                     - has: {field: consequence, matches: failing-arm}
                     - not: {has: {field: alternative, matches: terminal-arm}}
+        - kind: call_expression
+          pattern: $MATCHED
+          all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $V}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: arguments, has: {nthChild: 2, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onNonEmpty$'}}, {has: {field: value, matches: succeeded-arm}}]}}}
+            - has: {field: arguments, has: {nthChild: 2, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onEmpty$'}}, {has: {field: value, matches: refused-arm}}]}}}
 constraints:
     PIPE: {matches: effect-pipe-function}
 rewriters:
@@ -183,6 +221,6 @@ rewriters:
 transform:
     LIFTED: rewrite($CALL, rewriters=[direct, pipe, pipe-function-steps, pipe-method-steps])
     TESTED: rewrite($KEPT, rewriters=[option-test, result-test])
-fix: $LIFTED$TESTED$TERNARY
+fix: $LIFTED$TESTED$TERNARY$MATCHED
 message: '`$V` enters `$M` through a predicate branch written by hand'
-note: 'Call `Option.liftPredicate(<value>, <predicate>)`, `Result.liftPredicate` with `<orFailWith>`, `Effect.filterOrFail` on an effect, or `Option.map` over `Option.filter(<option>, <enum>.$is(<tag>))` for a field of one case'
+note: 'Call `<module>.liftPredicate(<value>, <predicate>)` with `<orFailWith>` for `Result` and `Array.isReadonlyArrayNonEmpty` for a list, `Effect.filterOrFail` on an effect, or `<module>.map` over `<module>.filter(<option>, <enum>.$is(<tag>))`'

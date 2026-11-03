@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-option-test-branch
+language: tsx
+severity: error
+utils:
+    option-test:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^is(Some|None)$'}}}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $OPTION}}, {not: {has: {nthChild: 2}}}]}
+            - kind: unary_expression
+              all:
+                - has: {field: operator, regex: '^!$'}
+                - has: {field: argument, matches: option-test}
+rule:
+    any:
+        - kind: if_statement
+          has: {field: condition, has: {nthChild: 1, matches: option-test, pattern: $TEST}}
+        - kind: ternary_expression
+          all:
+            - has:
+                field: condition
+                pattern: $TEST
+                any: [{matches: option-test}, {kind: parenthesized_expression, has: {nthChild: 1, matches: option-test}}]
+            - any:
+                - has: {field: consequence, pattern: $OPTION}
+                - has: {field: alternative, pattern: $OPTION}
+                - has: {stopBy: end, kind: member_expression, pattern: $OPTION.value}
+message: '`$TEST` branches on an `Option` outside its fold'
+note: 'Fold with `Option.match(<option>, { onNone, onSome })`, or exit through `Effect.fromOption` or `Option.getOrElse`'

@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-panels-bulk-read
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^(everyItem|itemByRange)$'}
+                - has:
+                    field: object
+                    any:
+                        - {kind: identifier, regex: '^panels$'}
+                        - {kind: member_expression, has: {field: property, regex: '^panels$'}}
+        - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
+message: '`$CALL` reads `undefined` when one `panels` member resolves to nothing'
+note: 'Read `panels.item(<index>)` through `Option.fromUndefinedOr` for each index below `panels.length`'

@@ -21,21 +21,31 @@ utils:
                 kind: program
                 stopBy: end
                 has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $QUOTER}}, {has: {field: value, has: {stopBy: end, matches: hand-quoted}}}]}
+    value-string:
+        kind: string
+        regex: '(?is)^.+(?:''|(?:[=<>]|\bvalues\s*\(|\bin\s*\(|\blimit|\boffset)\s*)[''"]$'
 rule:
-    kind: template_string
-    all:
-        - has: {kind: string_fragment, regex: '(?im)^\s*(begin|commit|delete|end|explain|insert|release|replace|rollback|savepoint|select|update|values|with)\b'}
-        - not: {inside: {kind: call_expression, field: arguments}}
-        - not: {has: {kind: string_fragment, regex: '(?m)^\s*\.param(eter)?\b'}}
-        - has:
-            kind: template_substitution
-            pattern: $VALUE
-            any:
-                - follows: {kind: string_fragment, regex: "'$"}
-                - all:
-                    - follows: {kind: string_fragment, regex: '(?i)(?:[=<>]|\bvalues\s*\(|\blimit|\boffset)\s*$'}
-                    - not: {precedes: {kind: string_fragment, regex: '^\.'}}
-                    - inside: {kind: template_string, regex: '(?i)^`\s*(insert|update|delete|select|with|replace|values)\b'}
-                - has: {stopBy: end, matches: quoting}
+    any:
+        - kind: template_string
+          all:
+            - has: {kind: string_fragment, regex: '(?im)^\s*(begin|commit|delete|end|explain|insert|release|replace|rollback|savepoint|select|update|values|with)\b'}
+            - not: {inside: {kind: call_expression, field: arguments}}
+            - not: {has: {kind: string_fragment, regex: '(?m)^\s*\.param(eter)?\b'}}
+            - has:
+                kind: template_substitution
+                pattern: $VALUE
+                any:
+                    - follows: {kind: string_fragment, regex: "'$"}
+                    - all:
+                        - follows: {kind: string_fragment, regex: '(?i)(?:[=<>]|\bvalues\s*\(|\bin\s*\(|\blimit|\boffset)\s*$'}
+                        - not: {precedes: {kind: string_fragment, regex: '^\.'}}
+                        - inside: {kind: template_string, regex: '(?i)^`\s*(insert|update|delete|select|with|replace|values)\b'}
+                    - has: {stopBy: end, matches: quoting}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {field: right, pattern: $VALUE, not: {kind: 'string, template_string, number'}}
+            - has: {field: left, any: [{matches: value-string}, {kind: binary_expression, has: {field: right, matches: value-string}}]}
+            - has: {stopBy: end, kind: string, regex: '(?i)^[''"]\s*(insert|update|delete|select|with|replace|values)\b'}
 message: '`$VALUE` splices a value into SQL text'
 note: 'Write the statement as a `sql` tagged template to bind each value as a parameter, `sql(<name>)` for an identifier'

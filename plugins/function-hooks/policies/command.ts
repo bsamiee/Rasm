@@ -1,4 +1,4 @@
-import { all, bind, fault, map, none, type Option, ok, type Result, some, toArray } from '../composition.ts';
+import { Option, Result } from '../composition.ts';
 import { declared, type Invocation, invocations, operands, placed, staged, unquoted, waits, within } from './invocation.ts';
 import type { System } from './policies.ts';
 
@@ -11,6 +11,7 @@ interface Span {
 interface Word {
     readonly text: string;
     readonly raw: string;
+    readonly literal: string;
     readonly span: Span;
     readonly unbounded: boolean;
 }
@@ -50,6 +51,7 @@ interface Binding {
     readonly end: number;
     readonly scope: Capture | undefined;
     readonly value: Option<string>;
+    readonly literal: Option<string>;
 }
 
 type Origin = 'call' | 'body' | 'file';
@@ -71,6 +73,7 @@ const NAME = /^[A-Za-z_]\w*/u;
 const LITERAL = /^(?:[\w./~@%+:,=-]+|'[\w./~@%+:,=-]+'|"[\w./~@%+:,=-]+"|"?\$!"?)$/u;
 const REFERENCE = /^\$\{?(?<name>\w+)\}?$/u;
 const REFERENCES = /\$(?:(?<bare>[A-Za-z_]\w*)|\{(?<braced>[A-Za-z_]\w*)\})/gu;
+const SHELLED: ReadonlySet<string> = new Set(['PWD', 'OLDPWD', 'SHLVL', '_']);
 const VALUE = 'word, string, raw_string, concatenation, simple_expansion, expansion, command_substitution, number';
 const OWNER = {
     owner: { any: [{ inside: { kind: 'command', pattern: '$BODY' } }, { inside: { kind: 'heredoc_redirect', inside: { kind: 'redirected_statement', matches: 'statement' } } }, { inside: { kind: 'redirected_statement', matches: 'statement' } }] },
@@ -172,19 +175,19 @@ const SCANNER = [
 
 const exited = (system: System, argv: Invocation, init: { readonly cwd: string; readonly stdin: string }): Promise<Result<string>> =>
     system.run(argv, init).then(
-        ({ exitCode, stdout, stderr }) => (exitCode === 0 ? ok(stdout) : fault({ kind: 'exited', program: argv[0], code: exitCode, output: stderr.trim() })),
-        (cause: unknown) => fault({ kind: 'thrown', program: argv[0], cause }),
+        ({ exitCode, stdout, stderr }) => (exitCode === 0 ? Result.ok(stdout) : Result.fault({ kind: 'exited', program: argv[0], code: exitCode, output: stderr.trim() })),
+        (cause: unknown) => Result.fault({ kind: 'thrown', program: argv[0], cause }),
     );
 
 const decoded = <A>(program: string, output: string): Result<A> => {
     try {
-        return ok(JSON.parse(output));
+        return Result.ok(JSON.parse(output));
     } catch (cause) {
-        return fault({ kind: 'thrown', program, cause });
+        return Result.fault({ kind: 'thrown', program, cause });
     }
 };
 
-const printed = async <A>(system: System, argv: Invocation, cwd: string): Promise<Result<A>> => bind(await exited(system, argv, { cwd, stdin: '' }), (output) => decoded<A>(argv[0], output));
+const printed = async <A>(system: System, argv: Invocation, cwd: string): Promise<Result<A>> => (await exited(system, argv, { cwd, stdin: '' })).bind((output) => decoded<A>(argv[0], output));
 
 const spliced = (source: Uint8Array, base: number, edits: readonly (Span & { readonly text: string })[]): string => {
     const decoder = new TextDecoder();
@@ -195,10 +198,25 @@ const spliced = (source: Uint8Array, base: number, edits: readonly (Span & { rea
 
 const inside = (outer: Capture | undefined, { range: { byteOffset } }: Capture): boolean => outer === undefined || (byteOffset.start >= outer.range.byteOffset.start && byteOffset.end <= outer.range.byteOffset.end);
 
-const resolver = (hits: readonly Hit[], source: Uint8Array): ((capture: Capture) => string) => {
-    const lookup = (known: readonly Binding[], name: string | undefined, at: Capture): Option<string> => {
-        const [bound, ...more] = known.filter((binding) => binding.name === name && inside(binding.scope, at));
-        return bound !== undefined && more.length === 0 && bound.end <= at.range.byteOffset.start ? bound.value : none;
+const resolver = (hits: readonly Hit[], source: Uint8Array, assigned: ReadonlySet<string>, environment: ReadonlyMap<string, string>): { readonly resolved: (capture: Capture) => string; readonly literal: (capture: Capture) => string } => {
+    const lookup = (known: readonly Binding[], name: string | undefined, at: Capture, scoped: boolean): Option<string> => {
+        const [bound, ...more] = known.filter((binding) => binding.name === name && (!scoped || inside(binding.scope, at)));
+        if (name !== undefined && !assigned.has(name)) {
+            return Option.given(environment.get(name));
+        }
+        return bound !== undefined && more.length === 0 && bound.end <= at.range.byteOffset.start ? (scoped ? bound.value : bound.literal) : Option.none;
+    };
+    const valued = (bound: readonly Binding[], hit: Hit, name: string, scoped: boolean): Option<string> => {
+        const values = [...hit.text.slice(name.length + 1).matchAll(REFERENCES)].map((match) => ({ match, value: lookup(bound, match.groups?.bare ?? match.groups?.braced, hit, scoped) }));
+        const value = values.reduce(
+            (text, { match, value: found }) =>
+                found.match(
+                    (replacement) => text.replace(match[0], replacement),
+                    () => text,
+                ),
+            hit.text.slice(name.length + 1),
+        );
+        return hit.ruleId !== 'rebinding' && hit.text[name.length] === '=' && values.every(({ value: found }) => found.toArray().length > 0) && LITERAL.test(value) ? Option.some(unquoted(value)) : Option.none;
     };
     const bindings = hits.reduce<readonly Binding[]>((bound, hit) => {
         if (hit.ruleId !== 'assignment' && hit.ruleId !== 'rebinding' && hit.ruleId !== 'chained') {
@@ -208,23 +226,22 @@ const resolver = (hits: readonly Hit[], source: Uint8Array): ((capture: Capture)
         if (name === undefined) {
             return bound;
         }
-        const values = [...hit.text.slice(name.length + 1).matchAll(REFERENCES)].map((match) => ({ match, value: lookup(bound, match.groups?.bare ?? match.groups?.braced, hit) }));
-        const value = values.reduce((text, { match, value: found }) => (found.kind === 'some' ? text.replace(match[0], found.value) : text), hit.text.slice(name.length + 1));
-        const literal = hit.ruleId !== 'rebinding' && hit.text[name.length] === '=' && values.every(({ value: found }) => found.kind === 'some') && LITERAL.test(value);
-        return bound.concat({ name, end: hit.range.byteOffset.end, scope: hit.ruleId === 'chained' ? hit.metaVariables.single.CHAIN : hit.metaVariables.single.SCOPE, value: literal ? some(unquoted(value)) : none });
+        return bound.concat({ name, end: hit.range.byteOffset.end, scope: hit.ruleId === 'chained' ? hit.metaVariables.single.CHAIN : hit.metaVariables.single.SCOPE, value: valued(bound, hit, name, true), literal: valued(bound, hit, name, false) });
     }, []);
-    const references = hits.flatMap((hit) => {
-        const value = hit.ruleId === 'expansion' ? lookup(bindings, REFERENCE.exec(hit.text)?.groups?.name, hit) : none;
-        return value.kind === 'some' ? [{ ...hit.range.byteOffset, text: value.value }] : [];
-    });
-    return ({ range: { byteOffset } }) =>
-        unquoted(
+    const substituted = (scoped: boolean): ((capture: Capture) => string) => {
+        const references = hits.flatMap((hit) => {
+            const value = hit.ruleId === 'expansion' ? lookup(bindings, REFERENCE.exec(hit.text)?.groups?.name, hit, scoped) : Option.none;
+            return value.toArray().map((text) => ({ ...hit.range.byteOffset, text }));
+        });
+        return ({ range: { byteOffset } }) =>
             spliced(
                 source.subarray(byteOffset.start, byteOffset.end),
                 byteOffset.start,
                 references.filter(({ start, end }) => start >= byteOffset.start && end <= byteOffset.end),
-            ),
-        );
+            );
+    };
+    const [visible, literal] = [substituted(true), substituted(false)];
+    return { resolved: (capture) => unquoted(visible(capture)), literal };
 };
 
 const parse = (system: System, command: string): Promise<Result<Script>> => {
@@ -242,12 +259,18 @@ const parse = (system: System, command: string): Promise<Result<Script>> => {
         return head !== undefined && !head.unbounded && head.text.includes('/') && SCRIPT.test(head.text) ? [head.text] : [];
     };
     const scripted = async (source: string, context: Context): Promise<Result<Script>> =>
-        bind(
-            bind(await exited(system, [system.scanner, ...SCANNER], { cwd: system.plugin, stdin: source }), (output) => decoded<readonly Hit[]>(system.scanner, output)),
-            async (hits) => {
+        (await exited(system, [system.scanner, ...SCANNER], { cwd: system.plugin, stdin: source }))
+            .bind((output) => decoded<readonly Hit[]>(system.scanner, output))
+            .bind(async (hits) => {
                 const sorted = hits.toSorted((left, right) => left.range.byteOffset.start - right.range.byteOffset.start);
                 const unbounded = new Set(sorted.flatMap((hit) => (hit.ruleId === 'unbounded' ? [hit.range.byteOffset.start] : [])));
-                const resolved = resolver(sorted, new TextEncoder().encode(source));
+                const names = sorted.flatMap((hit) => (hit.ruleId === 'assignment' || hit.ruleId === 'rebinding' || hit.ruleId === 'chained' ? (NAME.exec(hit.text)?.slice(0, 1) ?? []) : []));
+                const assigned = new Set(names);
+                const referenced = [
+                    ...new Set(sorted.flatMap((hit) => (hit.ruleId === 'expansion' || hit.ruleId === 'assignment' || hit.ruleId === 'rebinding' || hit.ruleId === 'chained' ? [...hit.text.matchAll(REFERENCES)].flatMap((match) => Option.given(match.groups?.bare ?? match.groups?.braced).toArray()) : []))),
+                ].filter((name) => !(assigned.has(name) || SHELLED.has(name)));
+                const environment = new Map((await Promise.all(referenced.map(async (name) => (await system.environment(name)).toArray().map((value) => [name, value] as const)))).flat());
+                const { resolved, literal } = resolver(sorted, new TextEncoder().encode(source), new Set([...assigned, ...SHELLED]), environment);
                 const owned = Map.groupBy(sorted, (hit) => (hit.ruleId === 'operand' || hit.ruleId === 'heredoc' || hit.ruleId === 'herestring' || hit.ruleId === 'written' || hit.ruleId === 'statement' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start)
                     .values()
                     .flatMap((own) => {
@@ -258,7 +281,7 @@ const parse = (system: System, command: string): Promise<Result<Script>> => {
                         const has = (rule: Hit['ruleId']): boolean => own.some(({ ruleId }) => ruleId === rule);
                         const words = [hit.metaVariables.single.CMD, ...(hit.metaVariables.multi.ARGS ?? []), ...own.filter((other) => other.ruleId === 'operand')]
                             .filter(({ text }) => WORD.test(text))
-                            .map((capture) => ({ text: resolved(capture), raw: capture.text, span: capture.range.byteOffset, unbounded: unbounded.has(capture.range.byteOffset.start) }));
+                            .map((capture) => ({ text: resolved(capture), raw: capture.text, literal: literal(capture), span: capture.range.byteOffset, unbounded: unbounded.has(capture.range.byteOffset.start) }));
                         const chain = invocations(words.map(({ text }) => text));
                         return [
                             {
@@ -270,7 +293,7 @@ const parse = (system: System, command: string): Promise<Result<Script>> => {
                                 stdin: own
                                     .filter((other) => other.ruleId === 'heredoc' || other.ruleId === 'herestring')
                                     .slice(-1)
-                                    .map((given) => (given.ruleId === 'herestring' ? resolved(given) : given.text)),
+                                    .map((redirect) => (redirect.ruleId === 'herestring' ? resolved(redirect) : redirect.text)),
                                 targets: destination(chain),
                                 fed: context.fed || has('fed'),
                                 piping: has('piping'),
@@ -288,39 +311,44 @@ const parse = (system: System, command: string): Promise<Result<Script>> => {
                     cwd: owned
                         .filter(({ hit }) => hit.range.byteOffset.end <= part.hit.range.byteOffset.start && inside(hit.metaVariables.single.SCOPE, part.hit))
                         .flatMap(({ targets }) => targets)
-                        .reduce((folder, target) => (target === undefined || target.includes('$') || STACK.test(target) ? none : placed(target, folder, system.home)), context.cwd),
+                        .reduce((folder, target) => (target === undefined || target.includes('$') || STACK.test(target) ? Option.none : placed(target, folder, system.home)), context.cwd),
                 }));
-                const inner = all(await Promise.all(located.flatMap(({ invocations: chain, parts, stdin, cwd, fed, looped }) => descend(chain, parts.at(-1)?.words[0], stdin, { cwd, fed, looped, origin: context.origin, visited: context.visited }))));
-                const names = sorted.flatMap((hit) => (hit.ruleId === 'assignment' || hit.ruleId === 'rebinding' || hit.ruleId === 'chained' ? (NAME.exec(hit.text)?.slice(0, 1) ?? []) : []));
-                return map(inner, (scripts) => ({
+                const inner = Result.all(await Promise.all(located.flatMap(({ invocations: chain, parts, stdin, cwd, fed, looped }) => descend(chain, parts.at(-1)?.words[0], stdin, { cwd, fed, looped, origin: context.origin, visited: context.visited }))));
+                return inner.map((scripts) => ({
                     commands: [...located.map(({ hit, stdin, targets, ...parsed }) => parsed), ...scripts.flatMap(({ commands }) => commands)],
                     jobs: [...sorted.flatMap((hit) => (hit.ruleId === 'background' ? [{ ...hit.range.byteOffset, origin: context.origin }] : [])), ...scripts.flatMap(({ jobs }) => jobs)],
                     assignments: [...names.map((name) => ({ name, origin: context.origin })), ...scripts.flatMap(({ assignments }) => assignments)],
                 }));
-            },
-        );
+            });
     const tracked = async (file: string): Promise<boolean> =>
         (
             await Promise.all(
-                toArray(system.root)
+                system.root
+                    .toArray()
                     .filter((root) => within(file, root))
                     .map((root) => exited(system, ['git', 'ls-files', '--error-unmatch', '--', file], { cwd: root, stdin: '' })),
             )
-        ).some(({ kind }) => kind === 'ok');
+        ).some((result) => result.toArray().length > 0);
     const filed = async (file: string, context: Context): Promise<Result<Script>> => {
-        const [known, text] = await Promise.all([tracked(file), system.read(file).then(some, () => none)]);
-        return known || text.kind === 'none' ? ok({ commands: [], jobs: [], assignments: [] }) : scripted(text.value, { ...context, origin: 'file', visited: new Set([...context.visited, file]) });
+        const [known, [text]] = await Promise.all([
+            tracked(file),
+            system.read(file).then(
+                (read) => [read],
+                () => [],
+            ),
+        ]);
+        return known || text === undefined ? Result.ok({ commands: [], jobs: [], assignments: [] }) : scripted(text, { ...context, origin: 'file', visited: new Set([...context.visited, file]) });
     };
     const descend = (chain: readonly Invocation[], head: Word | undefined, stdin: readonly string[], context: Context): readonly Promise<Result<Script>>[] => {
         const last = chain.slice(-1);
         const bodies = [...last, ...last.flatMap((invocation) => invocations(operands(invocation).inner))].flatMap((invocation) => [...operands(invocation).bodies, ...(declared(invocation[0]).shell !== undefined && waits(invocation) ? stdin : [])]);
         const files = last
             .flatMap((invocation) => sourced(invocation, head))
-            .flatMap((path) => toArray(placed(path, context.cwd, system.home)))
+            .flatMap((path) => placed(path, context.cwd, system.home).toArray())
             .filter((file) => !context.visited.has(file));
         return [...bodies.map((body) => scripted(body, { ...context, origin: context.origin === 'file' ? 'file' : 'body' })), ...files.map((file) => filed(file, context))];
     };
-    return scripted(command, { cwd: placed(system.cwd, none, none), fed: false, looped: false, origin: 'call', visited: new Set() });
+    return scripted(command, { cwd: placed(system.cwd, Option.none, Option.none), fed: false, looped: false, origin: 'call', visited: new Set() });
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

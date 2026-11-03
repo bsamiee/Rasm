@@ -2,11 +2,25 @@
 id: no-formatter-per-call
 language: tsx
 severity: error
+ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 rule:
-    kind: new_expression
-    all:
-        - has: {field: constructor, pattern: $FORMATTER, regex: '^((globalThis|window|self)\.)?Intl\.[A-Z]\w*$', matches: typescript-global-reference}
-        - not: {has: {field: arguments, has: {pattern: $_, not: {matches: typescript-literal-expression}}}}
-        - inside: {stopBy: end, kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}
-message: '`$FORMATTER` with constant options is rebuilt at each call'
-note: 'Build the formatter once in a module `const` and read it inside the function'
+    any:
+        - kind: new_expression
+          all:
+            - has: {field: constructor, pattern: $FORMATTER, regex: '^((globalThis|window|self)\.)?Intl\.[A-Z]\w*$', matches: typescript-global-reference}
+            - not: {has: {field: arguments, has: {pattern: $_, not: {matches: typescript-literal-expression}}}}
+            - inside: {stopBy: end, kind: &boundary 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, pattern: $FORMATTER, has: {field: property, regex: '^(toLocaleString|toLocaleDateString|toLocaleTimeString)$'}}
+            - has: {field: arguments, has: {nthChild: 1}}
+            - not: {has: {field: arguments, has: {pattern: $_, not: {matches: typescript-literal-expression}}}}
+            - inside: {stopBy: end, kind: *boundary}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, pattern: $FORMATTER, has: {field: property, regex: '^localeCompare$'}}
+            - has: {field: arguments, has: {nthChild: 2}}
+            - not: {has: {field: arguments, has: {nthChild: 'n+2', not: {matches: typescript-literal-expression}}}}
+            - inside: {stopBy: end, kind: *boundary}
+message: '`$FORMATTER` builds an `Intl` object from constant arguments at each call'
+note: 'Build the `Intl` object once in a module `const` and call its `format` or `compare` inside the function'

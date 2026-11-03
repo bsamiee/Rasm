@@ -163,7 +163,7 @@ Algorithms the research proved, kept as pure functions with their correction:
 
 ## [07]-[BOUNDARIES]
 
-- Originals, set declarations, approved shaping JSON and built fonts sit together outside the repository, named by relative paths
+- The set's faces and declaration sit together in `assets/fonts`, and sources, builds, checks and approved shaping JSON under `.artifacts/fonts/<set>`, named by paths relative to the declaration
 - `published` copies built files to a destination argument and compares hashes, deleting nothing
 - Private Use Area ornaments have bidi class L, and the typesetting library that places them inserts the mark that keeps line order
 - Reference faces for Perso-Arabic text are unhinted with `prep` and `gasp` alone, so `Hinting` stays out of every text plan by default

@@ -5,6 +5,12 @@ severity: error
 rule:
     kind: call_expression
     pattern: $DATE
-    has: {field: function, regex: '^((globalThis|window|self)\.)?Date\.(parse|UTC)$', matches: typescript-global-reference}
+    has:
+        field: function
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^(parse|UTC)$'}
+            - has: {field: object, regex: '^((globalThis|window|self)\.)?Date$'}
+        matches: typescript-global-reference
 message: '`$DATE` returns `NaN` on invalid input'
 note: 'Call `DateTime.make(<input>)` for `Option.none()` on invalid input'

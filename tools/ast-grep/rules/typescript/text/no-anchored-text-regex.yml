@@ -2,6 +2,7 @@
 id: no-anchored-text-regex
 language: tsx
 severity: error
+ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 utils:
     affix:
         kind: regex
@@ -35,12 +36,10 @@ utils:
             - inside: {kind: binary_expression, has: {field: operator, regex: '^(&&|\|\|)$'}, matches: condition}
             - inside: {kind: parenthesized_expression, matches: condition}
             - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^((globalThis|window|self)\.)?Boolean$', matches: typescript-global-reference}}}
-rule:
-    pattern: $NODE
-    any:
-        - kind: call_expression
-          all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(test|exec)$'}}, {has: {field: object, matches: source}}, {has: {matches: access}}]}
+    regex-call:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^(test|exec)$'}}
             - has:
                 field: arguments
                 not: {has: {nthChild: 2}}
@@ -48,20 +47,39 @@ rule:
                     - has: {nthChild: 1, pattern: $RECEIVER, kind: &member 'identifier, this, member_expression, subscript_expression, call_expression, parenthesized_expression, non_null_expression, string, template_string'}
                     - pattern: $RECEIVER
                       all: [{has: {nthChild: 1, not: {kind: *member}}}, {not: {has: {kind: spread_element}}}, {not: {has: {regex: '^,$'}}}]
+            - has: {field: function, all: [{has: {matches: access}}, {has: {field: object, matches: source}}]}
+    text-call:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^(match|search)$'}}
+            - has: {field: arguments, not: {has: {nthChild: 2}}}
+            - has: {field: function, all: [{has: {field: object, pattern: $RECEIVER}}, {has: {matches: access}}]}
+            - has: {field: arguments, has: {nthChild: 1, matches: source}}
+rule:
+    pattern: $NODE
+    any:
+        - kind: call_expression
+          all:
+            - matches: regex-call
             - any: [{has: {field: function, has: {field: property, regex: '^test$'}}}, {matches: condition}]
         - kind: call_expression
           all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {has: {field: object, pattern: $RECEIVER}}, {has: {matches: access}}]}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: source}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: function, has: {field: property, regex: '^match$'}}
+            - matches: text-call
             - matches: condition
         - kind: binary_expression
           all:
+            - has: {field: operator, regex: '^[!=]==?$'}
+            - has: {field: right, kind: 'null'}
             - has:
                 field: left
-                kind: call_expression
-                all:
-                    - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^search$'}}, {has: {field: object, pattern: $RECEIVER}}, {has: {matches: access}}]}
-                    - has: {field: arguments, all: [{has: {nthChild: 1, matches: source}}, {not: {has: {nthChild: 2}}}]}
+                any:
+                    - all: [{has: {field: function, has: {field: property, regex: '^exec$'}}}, {matches: regex-call}]
+                    - all: [{has: {field: function, has: {field: property, regex: '^match$'}}}, {matches: text-call}]
+        - kind: binary_expression
+          all:
+            - has: {field: left, kind: call_expression, has: {field: function, has: {field: property, regex: '^search$'}}}
+            - has: {field: left, matches: text-call}
             - any:
                 - all: [{has: {field: operator, regex: '^(!==?|===?|>)$'}}, {has: {field: right, regex: '^-\s*1$'}}]
                 - all: [{has: {field: operator, regex: '^(>=|<)$'}}, {has: {field: right, regex: '^0$'}}]
@@ -75,7 +93,7 @@ transform:
     TEXT: {replace: {source: $UNESCAPED, replace: "'", by: "\\'"}}
     START: {replace: {source: $PATTERN, replace: '^\^.*$', by: startsWith}}
     METHOD: {replace: {source: $START, replace: '^.*\$$', by: endsWith}}
-    NEGATED: {replace: {source: $NODE, replace: '(?s)^.*\s(?:===?\s*-\s*1|!==?\s*0|<\s*0)$', by: '!'}}
+    NEGATED: {replace: {source: $NODE, replace: '(?s)^.*\s(?:===?\s*(?:-\s*1|null)|!==?\s*0|<\s*0)$', by: '!'}}
     NEGATION: {replace: {source: $NEGATED, replace: '(?s)^(?:[^!].*|!.+)$', by: ''}}
 fix: $NEGATION$RECEIVER$ACCESS$METHOD('$TEXT')
 message: '`$NODE` tests a fixed prefix or suffix through a regular expression'

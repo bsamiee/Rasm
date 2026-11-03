@@ -12,16 +12,14 @@ private let subject: String = "perform on AQID"
 private let phrasings: [(reason: ApplicationFailure.Reason, phrases: [String])] = [
     (.activating, [subject, "raising a window"]),
     (.refused(.actionUnsupported), [subject, String(AXError.actionUnsupported.rawValue)]),
-    (.absent("on-screen window"), [subject, "on-screen window"]),
     (.unresolved, [subject, "no longer exists", "read the app again"]),
     (.foreign(4242), [subject, "other than 4242"]),
-    (.closed, [subject, "closed window", "read the app again"]),
     (.unanswered(.perform(element: Data([1, 2, 3]), action: kAXPressAction)), [subject, "can have run"]),
     (.untrusted, ["Accessibility"]),
-    (.hidden(.seconds(5)), [subject, "hidden", "5 seconds"]),
+    (.visibility(hidden: true, limit: .seconds(5)), [subject, "hidden", "5 seconds"]),
 ]
 private let causes: [(reason: ApplicationFailure.Reason, cause: any Error)] = [
-    (.process(.permissionDenied), Errno.permissionDenied),
+    (.system(.permissionDenied), Errno.permissionDenied),
     (.noProcess, Errno.noSuchProcess),
     (.unmatched(Unmatched(subject: "Probe", query: nil, candidates: ["a", "b"])), Unmatched(subject: "Probe", query: nil, candidates: ["a", "b"])),
 ]

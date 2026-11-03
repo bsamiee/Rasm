@@ -1,7 +1,7 @@
 import { Record, Schema, Struct } from 'effect';
 import { answers, Expression } from '#/cases';
-import { Assignments, added, Copy, documents, Steps } from '#/precondition';
-import { Common, Enumerated, hostCase, Records, recorded, reply } from '#/results';
+import { Assignments, added, Copy, documents, Enumerated, Steps } from '#/precondition';
+import { hostCase, Outcome, Records, recorded, reply } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -54,7 +54,7 @@ const Sent = Schema.TaggedUnion({
         records: Records,
         label: Schema.String.annotate({ description: 'Title prefix of every created case document, a document holding it at batch start being a recovered one the engine closes' }),
         colorSettings: Schema.String.annotate({ description: 'Copy of the instance color settings taken before the batch, loaded back after a case loads its own' }),
-        logs: Schema.Array(Schema.String.annotate({ description: 'Log file the instance alone holds open for writing, its lines written during a case recorded as the case logs' })),
+        logs: Schema.Array(Schema.String.annotate({ description: 'AIGeneral, AIHangMonitor or UXP log the instance alone holds open for writing, its lines written during a case recorded as the case logs' })),
         cases: Schema.Array(HostCase),
     },
     Closed: { folders: Schema.Array(Schema.String.annotate({ description: 'Folders whose open documents the engine closes unsaved before the quit' })) },
@@ -88,8 +88,8 @@ const Write = Schema.TaggedUnion({
     Pasteboard: { member: Schema.Literals(PASTEBOARD) },
 }).annotate({ description: 'Application member, preference key, or pasteboard the original changed, restored after the case' });
 const fields = {
-    ...Common.fields,
-    logs: recorded(Schema.Struct({ file: Schema.String, line: Schema.String }).annotate({ description: 'Line written while the case ran to a log file no other process holds open' })),
+    ...Outcome.common,
+    logs: recorded(Schema.Struct({ file: Schema.String, line: Schema.String }).annotate({ description: 'Line written while the case ran to an AIGeneral, AIHangMonitor or UXP log no other process holds open' })),
     writes: recorded(Write),
 };
 

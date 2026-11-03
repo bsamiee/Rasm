@@ -143,7 +143,7 @@ func phases(in lines: some Sequence<WatchAppsLine>) -> Set<Phase> {
 func show(_ fixture: Fixture, pid: Int32) async throws {
     let shown: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
         of: .product(named: "watch-apps"),
-        arguments: ["show", fixture.identifier, "--pid", String(pid)],
+        arguments: ["show", "--pid", String(pid)],
         as: WatchAppsLine.self,
     )
     expectNoDifference(shown.lines, [])
@@ -207,7 +207,7 @@ func launch(
 func status(of fixture: Fixture, pid: Int32) async throws -> WatchAppsLine.Status {
     let read: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
         of: .product(named: "watch-apps"),
-        arguments: ["read", fixture.identifier, "--pid", String(pid)],
+        arguments: ["read", "--pid", String(pid)],
         as: WatchAppsLine.self,
     )
     expectNoDifference(read.status, .exited(0))

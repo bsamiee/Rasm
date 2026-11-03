@@ -195,6 +195,7 @@ Effect.gen(function* () {
         [
             entries(path.join(home, '.dylint_drivers')).pipe(Effect.flatMap(Effect.filter(({ name, path: entry }) => (toolchains.some((toolchain) => toolchain.name === name) ? Effect.succeed(false) : Effect.map(fs.stat(entry), ({ type }) => type === 'Directory')), { concurrency: 'unbounded' }))),
             entries(path.join(home, 'Library', 'Developer', 'Xcode', 'DerivedData')).pipe(Effect.flatMap(Effect.filter(({ path: entry }) => workspace(entry), { concurrency: 'unbounded' }))),
+            entries(ghidra),
             entries(path.join(home, '.lldb')).pipe(Effect.map(Array.filter(({ name }) => Option.exists(Schema.decodeUnknownOption(Registration)(name), ([, pid]) => !processes.has(pid) || gone.has(pid))))),
         ],
         { concurrency: 'unbounded' },
@@ -211,7 +212,6 @@ Effect.gen(function* () {
     const listed = new Set([
         ...RESIDUES.map((entry) => path.join(root, entry)),
         own.build_directory,
-        ghidra,
         ...tasks
             .filter(({ definition }) => definition.outputs !== undefined)
             .flatMap(({ node, target, definition }) => [{ project: node.name, target }, ...Object.keys(definition.configurations ?? {}).map((configuration) => ({ project: node.name, target, configuration }))].flatMap((task) => getOutputsForTargetAndConfiguration(task, {}, node)))

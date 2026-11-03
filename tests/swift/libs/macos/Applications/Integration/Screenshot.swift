@@ -64,13 +64,12 @@ private struct Pixels {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 private func swatch(of instance: NSRunningApplication) async throws -> Element {
-    let seen: [InstanceState] = try await observe(
+    _ = try await observe(
         instance,
-        until: { seen in seen.last?.elements.contains { element in element.title == "Swatch" && element.detail?.frame != nil } == true },
-        walking: { element in element.title == "Swatch" },
+        until: { seen in seen.last?.elements.contains { element in element.title == "Swatch" } == true },
         acting: { try await run(.swatch, in: instance) },
     )
-    return try #require(seen.last?.elements.first { element in element.title == "Swatch" })
+    return try #require(try await read(instance).first { element in element.title == "Swatch" && element.detail?.frame != nil })
 }
 
 private func dismiss(_ swatch: Element) async throws {
@@ -159,8 +158,9 @@ extension Integration {
             let numbered: CGWindowID? = seen.last?.elements.first { element in element.title == "Collapsed" }?.window
             let collapsed: CGWindowID = try #require(numbered)
             let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await instance.screenshot(of: collapsed) }
-            let absent: String = try #require(failure.reason[case: \.absent])
-            expectNoDifference(absent.contains(String(collapsed)), true, absent)
+            let undisplayed: Bool = failure.reason.is(\.noDisplay)
+            #expect(undisplayed, "zero-size capture failed \(failure.reason)")
+            expectNoDifference(failure.subject.contains(String(collapsed)), true, failure.subject)
         }
 
         @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
@@ -179,8 +179,8 @@ extension Integration {
             let scale: CGFloat = CGFloat(image.width) / frame.width
             expectNoDifference(image.height, Int((frame.height * scale).rounded()))
             let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await instance.screenshot(of: ordered) }
-            let absent: Bool = failure.reason.is(\.absent)
-            #expect(absent, "ordered out capture failed \(failure.reason)")
+            let windowless: Bool = failure.reason.is(\.noWindow)
+            #expect(windowless, "ordered out capture failed \(failure.reason)")
             try await dismiss(element)
         }
     }

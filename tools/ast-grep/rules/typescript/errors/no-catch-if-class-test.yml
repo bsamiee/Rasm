@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-catch-if-class-test
+language: tsx
+severity: error
+utils:
+    class-test:
+        kind: call_expression
+        all:
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: 'identifier, member_expression', pattern: $ERROR}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^is$'}}}}
+    applied-test:
+        kind: call_expression
+        all:
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $FAILURE}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: function, matches: class-test}
+    predicate:
+        any:
+            - matches: class-test
+            - kind: arrow_function
+              all:
+                - any:
+                    - has: {field: parameter, kind: identifier, pattern: $FAILURE}
+                    - has: {field: parameters, all: [{has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $FAILURE}}}, {not: {has: {nthChild: 2}}}]}
+                - has: {stopBy: {kind: 'arrow_function, function_expression'}, matches: applied-test}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: '^catchIf$'}}
+        - has: {field: arguments, has: {matches: predicate, pattern: $TEST}}
+        - has: {field: function, matches: {effect-module-member: {module: {regex: '\b(Effect|Stream|Channel)$'}, member: {regex: '^catchIf$'}}}}
+message: '`$TEST` selects `$ERROR` failures by hand in `catchIf`'
+note: 'Call `catchTag(<tag>, <handler>)` and leave every other failure in `E`'
+labels:
+    TEST: {style: primary}

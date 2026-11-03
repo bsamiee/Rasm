@@ -62,22 +62,13 @@ Sessions open in order:
 
 - Files outside the task close through `bpy.ops.wm.read_homefile()`, after `bpy.ops.wm.save_mainfile()` for a named file
 
-Quitting saves preferences, the last GUI to quit overwriting what others saved, and preferences a task GUI changed take their prior values first. One `mcp__blender__execute_blender_code` call quits a task GUI with no save prompt:
-
-```python
-import bpy
-
-bpy.ops.wm.read_homefile()
-with bpy.context.temp_override(window=bpy.context.window_manager.windows[0]):
-    closed = sorted(bpy.ops.wm.window_close())
-result = {"closed": closed}
-```
+Quitting saves preferences, the last GUI to quit overwriting what others saved, so preferences a task GUI changed take their prior values before `watch-apps quit --pid <pid>` ends it. Blender draws its menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone, and quitting an edited file prints `refused` under a save prompt only `capture` shows, so `bpy.ops.wm.read_homefile()` discards a task GUI's edits first.
 
 Script-driven task GUIs run a runner script:
 - `python -m eng.python.blender run <name> -- --python <runner.py>` runs one and returns once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
 - `--enable-event-simulate` enables `window.event_simulate` and discards real keyboard and mouse input, the call otherwise raising `RuntimeError`
-- Runners end with the quit call
+- Runners end with `bpy.ops.wm.quit_blender()` under a `temp_override` naming the first window
 
 Configured startup files open with:
 - Data in meters under an imperial feet display

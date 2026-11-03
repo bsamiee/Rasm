@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-filter-by-option-lookup
+language: tsx
+severity: error
+utils:
+    lookup:
+        kind: call_expression
+        pattern: $FROM($LOOKUP, () => $X)
+        has: {field: function, matches: {effect-module-member: {module: {regex: '\bResult$'}, member: {regex: '^fromOption$'}}}}
+rule:
+    kind: arrow_function
+    all:
+        - has: {field: parameters, all: [{has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $X}}}, {not: {has: {nthChild: 2}}}]}
+        - has:
+            field: body
+            any:
+                - matches: lookup
+                - kind: statement_block
+                  has: {kind: return_statement, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, has: {matches: lookup}}
+message: '`$FROM` fails with the element `$X` itself to build a filter by hand'
+note: 'Pass `Filter.fromPredicateOption((<element>) => <lookup>)`'

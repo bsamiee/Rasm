@@ -1,8 +1,7 @@
 import { Array, Effect, Match, Option, pipe, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { Expression } from '#/cases';
 import { Placed, type Survey } from '#/illustrator/contract';
-import { Application, enumerators, many, member, Open, placings } from '#/precondition';
-import { Enumerator } from '#/results';
+import { Application, Enumerated, enumerators, many, member, Open, placings } from '#/precondition';
 import { JsonObject } from '#/values';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -17,7 +16,7 @@ const NAMED = ['typename', 'title'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Parsed = Schema.Struct({ $: Enumerator });
+const Parsed = Schema.Struct({ $: Enumerated.parts });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

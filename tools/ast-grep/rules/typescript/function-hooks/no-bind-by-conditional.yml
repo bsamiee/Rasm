@@ -6,12 +6,12 @@ files: ['plugins/function-hooks/**']
 utils:
     fault-test:
         kind: binary_expression
-        any: [{pattern: "$R.kind === 'fault'"}, {pattern: "$R.kind !== 'ok'"}]
+        any: [{pattern: "$R.outcome.kind === 'fault'"}, {pattern: "$R.outcome.kind !== 'ok'"}]
     ok-test:
         kind: binary_expression
-        any: [{pattern: "$R.kind === 'ok'"}, {pattern: "$R.kind !== 'fault'"}]
+        any: [{pattern: "$R.outcome.kind === 'ok'"}, {pattern: "$R.outcome.kind !== 'fault'"}]
     propagated:
-        any: [{pattern: $R}, {pattern: {context: "({ kind: 'fault', faults: $R.faults })", selector: object}}]
+        any: [{pattern: $R}, {pattern: Result.fault(...$R.outcome.faults)}]
     propagating-return:
         kind: return_statement
         has: {nthChild: 1, matches: propagated}
@@ -26,18 +26,18 @@ utils:
             - pattern: $STATEMENT
     foreign-use:
         pattern: $R
-        not: {inside: {field: object, pattern: $R.value}}
+        not: {inside: {field: object, pattern: $R.outcome, inside: {field: object, pattern: $R.outcome.value}}}
     combinator:
-        pattern: $G($R.value)
+        pattern: $G($R.outcome.value)
         inside:
             matches: typescript-function-boundary
             stopBy: {matches: typescript-function-boundary}
             has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $G}}}
     ternary-continuation:
         all:
-            - any: [{pattern: ok($X), not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}, {pattern: $Y}]
+            - any: [{pattern: Result.ok($X), not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}, {pattern: $Y}]
             - not: {any: [{matches: combinator}, {has: {stopBy: end, matches: combinator}}, {matches: foreign-use}, {has: {stopBy: end, matches: foreign-use}}]}
-            - any: [{all: [{pattern: $R.value}, {pattern: $USE}]}, {has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}, {not: {has: {stopBy: end, pattern: $R.value}}}]
+            - any: [{all: [{pattern: $R.outcome.value}, {pattern: $USE}]}, {has: {stopBy: end, all: [{pattern: $R.outcome.value}, {pattern: $USE}]}}, {not: {has: {stopBy: end, pattern: $R.outcome.value}}}]
             - any: [{kind: await_expression, pattern: $AWAITED}, {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression, pattern: $AWAITED}}, {not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}]
     single-return:
         kind: return_statement
@@ -49,7 +49,7 @@ utils:
     ok-tail:
         kind: return_statement
         all:
-            - pattern: return ok($OK);
+            - pattern: return Result.ok($OK);
             - not: {precedes: {pattern: $_}}
             - not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}
     map-tail:
@@ -65,11 +65,11 @@ utils:
     statement-continuation:
         all:
             - not: {has: {stopBy: end, matches: foreign-use}}
-            - any: [{has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}, {not: {has: {stopBy: end, pattern: $R.value}}}]
+            - any: [{has: {stopBy: end, all: [{pattern: $R.outcome.value}, {pattern: $USE}]}}, {not: {has: {stopBy: end, pattern: $R.outcome.value}}}]
             - any: [{has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression, pattern: $AWAITS}}, {not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}]
 rewriters:
     - id: unwrapped
-      rule: {kind: member_expression, pattern: $R.value}
+      rule: {kind: member_expression, pattern: $R.outcome.value}
       transform:
         NAME: {replace: {source: $R, replace: '^(?:[\s\S]*\.)?(\w+)$', by: '${1}Value'}}
       fix: $NAME
@@ -94,6 +94,7 @@ rewriters:
         REWRITTEN: {rewrite: {source: $$$INNER, rewriters: [ok-return, statement], joinBy: "\n"}}
       fix: $REWRITTEN
 rule:
+    not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^Result$'}}}
     any:
         - kind: ternary_expression
           all:
@@ -121,7 +122,7 @@ rule:
                             - not: {precedes: {stopBy: end, has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}
                         - precedes: {stopBy: end, matches: last-statement, pattern: $BINDS}
                     - not: {precedes: {stopBy: end, has: {stopBy: end, matches: foreign-use}}}
-                    - any: [{precedes: {stopBy: end, has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}}, {not: {precedes: {stopBy: end, has: {stopBy: end, pattern: $R.value}}}}]
+                    - any: [{precedes: {stopBy: end, has: {stopBy: end, all: [{pattern: $R.outcome.value}, {pattern: $USE}]}}}, {not: {precedes: {stopBy: end, has: {stopBy: end, pattern: $R.outcome.value}}}}]
                     - any: [{precedes: {stopBy: end, has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression, pattern: $AWAITS}}}, {not: {precedes: {stopBy: end, has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}}]
         - kind: if_statement
           all:
@@ -143,7 +144,7 @@ rule:
           all:
             - matches: tail-statement
             - not: {precedes: {pattern: $_}}
-            - has: {field: value, has: {pattern: $R.kind}}
+            - has: {field: value, has: {pattern: $R.outcome.kind}}
             - has:
                 field: body
                 all:
@@ -173,7 +174,7 @@ transform:
     BIND_EXPRESSION: {replace: {source: $Y, replace: '(?s).+', by: bind}}
     MAP_TAIL: {replace: {source: $MAPS, replace: '(?s).+', by: map}}
     BIND_TAIL: {replace: {source: $BINDS, replace: '(?s).+', by: bind}}
-    PARAMETER: {replace: {source: $USE, replace: '^(?:[\s\S]*\.)?(\w+)\.value$', by: '${1}Value'}}
+    PARAMETER: {replace: {source: $USE, replace: '^(?:[\s\S]*\.)?(\w+)\.outcome\.value$', by: '${1}Value'}}
     MAPPED: {rewrite: {source: $X, rewriters: [unwrapped]}}
     BOUND: {rewrite: {source: $Y, rewriters: [unwrapped]}}
     BODY: {rewrite: {source: $CONSEQUENCE, rewriters: [ok-return, unwrapped]}}
@@ -182,7 +183,7 @@ transform:
     TAIL: {replace: {source: $REST, replace: '(?s)^(.+)$', by: "{\n$1\n}"}}
     CASE_TAIL: {replace: {source: $CASE_BODY, replace: '(?s)^(.+)$', by: "{\n$1\n}"}}
 fix:
-    template: '$RETURN$AWAIT$MAP$BIND_EXPRESSION$MAP_TAIL$BIND_TAIL($R, $ASYNC_EXPRESSION$ASYNC_STATEMENT($PARAMETER) => $MAPPED$BOUND$BODY$TAIL$CASE_TAIL)$END'
+    template: '$RETURN$AWAIT$R.$MAP$BIND_EXPRESSION$MAP_TAIL$BIND_TAIL($ASYNC_EXPRESSION$ASYNC_STATEMENT($PARAMETER) => $MAPPED$BOUND$BODY$TAIL$CASE_TAIL)$END'
     expandEnd: {stopBy: end, pattern: $_LAST, inside: {kind: statement_block}, nthChild: {position: 1, reverse: true}}
-message: '`$R.kind` test propagates the fault and continues with `$R.value` by hand'
-note: 'Call `bind(<result>, (<value>) => <continuation>)`, or `map(<result>, (<value>) => <ok value>)` when the continuation returns `ok(<ok value>)`'
+message: '`$R.outcome.kind` test propagates the fault and continues with `$R.outcome.value` by hand'
+note: 'Call `<result>.bind((<value>) => <continuation>)`, or `<result>.map((<value>) => <ok value>)` when the continuation returns `Result.ok(<ok value>)`'

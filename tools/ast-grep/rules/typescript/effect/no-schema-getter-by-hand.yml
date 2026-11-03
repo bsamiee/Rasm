@@ -4,7 +4,7 @@ language: tsx
 severity: error
 utils:
     conversion:
-        regex: '^(String|Number|Boolean|BigInt|encodeURIComponent)$'
+        regex: '^(String|Number|Boolean|BigInt|encodeURIComponent|decodeURIComponent)$'
     string-member:
         regex: '^(trim|toLowerCase|toUpperCase|capitalize|uncapitalize|snakeToCamel|camelToSnake)$'
     string-module:
@@ -13,10 +13,37 @@ utils:
         any:
             - {kind: identifier, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^identity$'}}}}
             - {kind: member_expression, matches: {effect-module-member: {module: {regex: '\bFunction$'}, member: {regex: '^identity$'}}}}
+    decode-to-call:
+        kind: call_expression
+        has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^decodeTo$'}}}}
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
+                inside: {kind: array, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}}}}}
+    union-encode:
+        inside:
+            kind: pair
+            field: value
+            has: {field: key, regex: '^encode$'}
+            inside:
+                kind: object
+                inside:
+                    kind: arguments
+                    inside:
+                        kind: call_expression
+                        any:
+                            - matches: decode-to-call
+                            - inside: {kind: arguments, inside: {matches: decode-to-call}}
 rule:
     kind: identifier, member_expression, arrow_function
     pattern: $FN
     all:
+        - any:
+            - {kind: identifier, any: [{matches: conversion}, {regex: '^identity$'}]}
+            - {kind: member_expression, has: {field: property, any: [{matches: conversion}, {matches: string-member}, {regex: '^identity$'}]}}
+            - kind: arrow_function
         - matches: effect-getter-function
         - any:
             - {kind: identifier, pattern: $NAME, all: [{matches: conversion}, {matches: typescript-global-reference}]}
@@ -39,9 +66,10 @@ rule:
                               pattern: $MODULE.$NAME($P)
                               has: {field: function, all: [{has: {field: object, matches: string-module}}, {has: {field: property, matches: string-member}}]}
             - matches: {typescript-constant-function: {result: {matches: typescript-literal-expression, pattern: $CONSTANT}}}
+              not: {matches: union-encode}
 transform:
     STRING: {replace: {source: $NAME, replace: '^toString$', by: String}}
-    CONVERSION: {replace: {source: $STRING, replace: '^encodeURIComponent$', by: encodeUriComponent}}
+    CONVERSION: {replace: {source: $STRING, replace: '^(en|de)codeURIComponent$', by: '${1}codeUriComponent'}}
     PASSTHROUGH: {replace: {source: $IDENTITY, replace: '(?s)^.*$', by: passthrough}}
     SUCCEED: {replace: {source: $CONSTANT, replace: '(?s)^.*$', by: succeed}}
 message: '`$FN` restates `SchemaGetter.$CONVERSION$PASSTHROUGH$SUCCEED`'

@@ -62,7 +62,7 @@ Project and target settings override root `Xcode.xcconfig`:
 - Automatic signing under the root team gives an Apple Development designated requirement keeping TCC grants, ad hoc signing prompts again
 - Products needing a TCC grant are `application` bundles at `/Applications`, `LSBackgroundOnly` when they show no interface
 - Xcode `install` builds into `DSTROOT=/Applications` with `INSTALL_PATH=/`, a `/` root fails as a cycle through the build folders under it
-- Xcode registers each macOS app it builds with LaunchServices and unregisters it on `clean`, `open -b` resolves the copy `install` registers
+- Xcode registers each macOS app it builds with LaunchServices and unregisters it on `clean`, a bundle id lookup resolves the copy `install` registers
 - Interface apps add `MainActor` default isolation, command-line tools `CREATE_INFOPLIST_SECTION_IN_BINARY` for their Info.plist keys
 - Apple Events senders add `AUTOMATION_APPLE_EVENTS`, Xcode signs the `com.apple.security.automation.apple-events` entitlement from it
 - Settings every package target needs go on `build` and `install` commands, project build settings reach no package target

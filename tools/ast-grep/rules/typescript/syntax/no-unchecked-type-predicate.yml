@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unchecked-type-predicate
+language: tsx
+severity: error
+utils:
+    unbound-parameter:
+        kind: type_identifier
+        pattern: $TYPE
+        inside:
+            stopBy: end
+            kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition, function_signature, method_signature, function_type'
+            all:
+                - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $TYPE}}}
+                - not: {has: {field: parameters, has: {stopBy: end, kind: type_identifier, pattern: $TYPE}}}
+rule:
+    kind: type_predicate
+    pattern: $PREDICATE
+    all:
+        - inside: {kind: 'type_predicate_annotation, asserts_annotation', stopBy: {not: {kind: asserts}}}
+        - has: {field: type, any: [{matches: unbound-parameter}, {has: {stopBy: end, matches: unbound-parameter}}]}
+message: '`$PREDICATE` narrows to `$TYPE`, a type parameter only its caller chooses'
+note: 'Key the narrowed type by an argument: `<K extends keyof <Table>>(key: K, value: unknown): value is <Table>[K]` over a type table'

@@ -1,6 +1,6 @@
 import { Schema, Struct } from 'effect';
 import { answers, Expression, Keywords, Name } from '#/cases';
-import { Common, hostCase, Records, recorded, reply, Surveying } from '#/results';
+import { hostCase, Outcome, Records, recorded, reply, Surveying } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -74,7 +74,7 @@ const Survey = Schema.Struct({
 }).annotate({ description: 'Installation facts the index holds per bundle identifier and version' });
 const Reply = reply({ survey: Schema.optionalKey(Survey) });
 const fields = {
-    ...Struct.pick(Common.fields, ['console', 'files', 'opened']),
+    ...Struct.pick(Outcome.common, ['console', 'files', 'opened']),
     windows: recorded(Schema.Array(Schema.String).annotate({ description: 'Area types of one window the case opened, closed after it' })),
     stderr: recorded(Schema.String.annotate({ description: 'Line the original wrote to the error stream' })),
     log: recorded(Schema.Struct({ category: Schema.String, message: Schema.String }).annotate({ description: 'Blender operator log line of the case body, each call with its properties' })),
@@ -82,12 +82,12 @@ const fields = {
     warnings: recorded(Schema.Struct({ category: Schema.String, message: Schema.String, file: Schema.String, line: Schema.Int }).annotate({ description: 'Python warning the case raised, each category shown' })),
     changes: Schema.optionalKey(
         Schema.Struct({
-            created: Schema.Array(Schema.String),
-            removed: Schema.Array(Schema.String),
-            updated: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-            undo: Schema.Array(Schema.String),
-            dirty: Schema.Boolean,
-        }).annotate({ description: 'IDs created and removed by data path, IDs the depsgraph updated with each update kind, undo steps pushed, and the edited state after the case' }),
+            created: Schema.optionalKey(Schema.Array(Schema.String)),
+            removed: Schema.optionalKey(Schema.Array(Schema.String)),
+            updated: Schema.optionalKey(Schema.Record(Schema.String, Schema.Array(Schema.String))),
+            undo: Schema.optionalKey(Schema.Array(Schema.String)),
+            dirty: Schema.optionalKey(Schema.Boolean),
+        }).annotate({ description: 'IDs created and removed by data path, IDs the depsgraph updated with each update kind, undo steps pushed, and the edited state the case changed, each member present where the case changed it and the whole absent when it changed nothing' }),
     ),
 };
 const Engine = Schema.Literal('python');

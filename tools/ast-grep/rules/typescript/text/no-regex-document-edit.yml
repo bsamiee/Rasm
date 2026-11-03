@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-regex-document-edit
+language: tsx
+severity: error
+rule:
+    kind: pair
+    all:
+        - has: {field: value, kind: regex, has: {field: flags, regex: 'm'}}
+        - has: {field: key, kind: string, pattern: $FILE, regex: '\.(ya?ml|toml|jsonc?|plist|xml)[''"]$'}
+message: '`$FILE` is edited through a line pattern over its text'
+note: 'Set the value on the parsed document through its format library, `parseDocument(<text>).setIn(<path>, <value>)` for YAML, which keeps comments and layout'

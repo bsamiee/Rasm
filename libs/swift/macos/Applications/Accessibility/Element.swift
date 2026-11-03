@@ -100,7 +100,7 @@ extension AXUIElement {
         .flatMap(\.self) + [read[kAXMenuBarAttribute].flatMap(checked)].compactMap(\.self)
     }
 
-    private static func children(_ read: [String: CFTypeRef]) -> [AXUIElement] {
+    private static func children(_ read: [String: CFTypeRef]) -> [(offset: Int, element: AXUIElement)] {
         let role: String? = read[kAXRoleAttribute] as? String
         let nested: CFTypeRef? =
             switch role {
@@ -109,24 +109,31 @@ extension AXUIElement {
                 case kAXListRole: read[kAXVisibleChildrenAttribute] ?? read[kAXChildrenAttribute]
                 case _: read[kAXChildrenAttribute]
             }
-        return (nested as? [CFTypeRef] ?? []).compactMap(checked).dropFirst(role == kAXMenuBarRole ? 1 : 0).map(\.self)
+        return Array((nested as? [CFTypeRef] ?? []).compactMap(checked).enumerated().dropFirst(role == kAXMenuBarRole ? 1 : 0))
     }
 
-    private func walk(marking marked: [(attribute: String, node: AXUIElement)]) throws(ApplicationFailure) -> (role: String?, parts: [Part]) {
+    private func walk(marking marked: [(attribute: String, node: AXUIElement)], menu: (process: pid_t, path: [Int])?) throws(ApplicationFailure) -> (role: String?, parts: [Part]) {
         do throws(ApplicationFailure) {
             let read: [String: CFTypeRef] = try values(nodeAttributes)
             let role: String? = read[kAXRoleAttribute] as? String
             guard role != kAXSheetRole else { return (role, []) }
-            let children: [(role: String?, parts: [Part])] = try Self.children(read).map { child throws(ApplicationFailure) in try child.walk(marking: marked) }
+            let children: [(role: String?, parts: [Part])] = try Self.children(read).map { child throws(ApplicationFailure) in
+                try child.element.walk(marking: marked, menu: menu.map { menu in (menu.process, menu.path + [child.offset]) })
+            }
             let menus: [Part] = children.filter { child in child.role == kAXMenuRole }.flatMap(\.parts)
-            let own: Part? = try part(read, attribute: marked.first { mark in mark.node == self }?.attribute, items: menus.compactMap(\.control))
+            let own: Part? = try part(
+                read,
+                id: menu.map { menu in Self.menuItem(of: menu.process, at: menu.path) } ?? token,
+                attribute: marked.first { mark in mark.node == self }?.attribute,
+                items: menus.compactMap(\.control),
+            )
             return (role, [own].compactMap(\.self) + menus.filter { part in part.is(\.unreadable) } + children.filter { child in child.role != kAXMenuRole }.flatMap(\.parts))
         } catch {
             return (nil, [try Part(error)])
         }
     }
 
-    private func part(_ read: [String: CFTypeRef], attribute: String?, items: [Control]) throws(ApplicationFailure) -> Part? {
+    private func part(_ read: [String: CFTypeRef], id: Data, attribute: String?, items: [Control]) throws(ApplicationFailure) -> Part? {
         do throws(ApplicationFailure) {
             guard let role: String = read[kAXRoleAttribute] as? String, role != kAXMenuRole else { return nil }
             let value: CFTypeRef? =
@@ -146,7 +153,7 @@ extension AXUIElement {
             guard role != kAXMenuItemRole || label != nil else { return nil }
             return .control(
                 Control(
-                    id: token,
+                    id: id,
                     role: role,
                     subrole: read[kAXSubroleAttribute] as? String,
                     label: label,
@@ -185,7 +192,7 @@ extension AXUIElement {
                 subrole: subrole,
                 modal: modal,
                 identifier: read[kAXIdentifierAttribute] as? String,
-                description: read[kAXDescriptionAttribute] as? String,
+                description: (read[kAXDescriptionAttribute] as? String).flatMap { description in description.isEmpty ? nil : description },
                 title: title,
                 document: (read[kAXDocumentAttribute] as? String).flatMap { document in URL(string: document) },
                 edited: edited,
@@ -196,11 +203,14 @@ extension AXUIElement {
             )
         }
         guard walked(element(nil)) else { return menuRoles.contains(role) ? nil : element(nil) }
-        let walk: [Part] = try Self.children(read).map { child throws(ApplicationFailure) in try child.walk(marking: marked).parts }.flatMap(\.self)
+        let walk: [Part] = try Self.children(read).map { child throws(ApplicationFailure) in
+            try child.element.walk(marking: marked, menu: role == kAXMenuBarRole ? process.map { process in (process, [child.offset]) } : nil).parts
+        }
+        .flatMap(\.self)
         let parts: [Part] =
             try walk
             + marked.filter { mark in !walk.contains { part in part.control?.attribute == mark.attribute } }
-            .map { mark throws(ApplicationFailure) in try mark.node.walk(marking: marked).parts }.flatMap(\.self)
+            .map { mark throws(ApplicationFailure) in try mark.node.walk(marking: marked, menu: nil).parts }.flatMap(\.self)
         let origin: CGPoint? = AXValue.unpacked(read[kAXPositionAttribute], .cgPoint, CGPoint.zero)
         let size: CGSize? = AXValue.unpacked(read[kAXSizeAttribute], .cgSize, CGSize.zero)
         return element(

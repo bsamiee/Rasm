@@ -21,13 +21,13 @@ public struct WatchAppsLine: Decodable, Equatable, Sendable {
     @CasePathable
     @dynamicMemberLookup
     public enum Entry: Equatable, Sendable {
-        case fail(reason: String)
+        case fail(Failure)
         case system(memory: MemoryPressure, thermal: ThermalState)
         case instances([Int32: Instance])
     }
 
     private enum EntryKey: String, CodingKey {
-        case fail, reason, memory, thermal
+        case fail, memory, thermal
     }
 
     public let key: String
@@ -43,7 +43,7 @@ public struct WatchAppsLine: Decodable, Equatable, Sendable {
         self.key = key.stringValue
         entry =
             switch Set(fields.allKeys.map { field in EntryKey(stringValue: field.stringValue) }) {
-                case [.fail]: .fail(reason: try entries.nestedContainer(keyedBy: EntryKey.self, forKey: .fail).decode(String.self, forKey: .reason))
+                case [.fail]: .fail(try entries.decode(Failure.self, forKey: .fail))
                 case [.memory, .thermal]: .system(memory: try entries.decode(MemoryPressure.self, forKey: .memory), thermal: try entries.decode(ThermalState.self, forKey: .thermal))
                 default:
                     .instances(
@@ -158,20 +158,50 @@ extension WatchAppsLine {
     @CasePathable
     @dynamicMemberLookup
     public enum Status: Decodable, Equatable, Sendable {
-        case launching
+        case launching(windows: [Window])
         case responding(elements: [Element], windows: [Window])
         case unresponsive(process: ProcessStatus, windows: [Window])
 
-        public var windows: [Window]? {
+        public var windows: [Window] {
             switch self {
-                case .launching: nil
-                case .responding(_, let windows), .unresponsive(_, let windows): windows
+                case .launching(let windows), .responding(_, let windows), .unresponsive(_, let windows): windows
             }
         }
     }
 
+    @CasePathable
+    @dynamicMemberLookup
+    public enum Next: Decodable, Equatable, Sendable {
+        case wait
+        case drive
+        case answer(id: String, accept: String?, discard: String?, cancel: String?)
+        case capture(windows: [Int])
+        case resume
+        case force
+        case grant
+        case report(url: URL)
+    }
+
+    public struct Failure: Decodable, Equatable, Sendable {
+        public let reason: String
+        public let subject: String
+        public let message: String?
+        public let pid: Int32?
+        public let error: Int32?
+        public let attribute: String?
+        public let reads: [String]?
+        public let role: String?
+        public let label: String?
+        public let candidates: [String]?
+        public let limit: Double?
+        public let status: Int32?
+        public let next: Next?
+    }
+
     public struct Running: Decodable, Equatable, Sendable {
         public let status: Status
+        public let next: Next?
+        public let created: Bool?
         public let usage: Usage?
         public let usageFailure: String?
     }
@@ -186,9 +216,11 @@ extension WatchAppsLine {
     public struct Exit: Decodable, Equatable, Sendable {
         public let status: Int32?
         public let signal: Int32?
+        public let detail: [String]?
         public let report: Report?
         public let reportFailure: String?
         public let statusFailure: String?
+        public let next: Next?
     }
 
     public struct Capture: Decodable, Equatable, Sendable {
@@ -200,7 +232,7 @@ extension WatchAppsLine {
     @dynamicMemberLookup
     public enum Instance: Decodable, Equatable, Sendable {
         case running(Running)
-        case failed(reason: String)
+        case failed(Failure)
         case exited(Exit)
         case captured(Capture)
 
@@ -208,7 +240,6 @@ extension WatchAppsLine {
             case running
             case failed
             case exited
-            case reason
             case file
             case windows
         }
@@ -218,7 +249,7 @@ extension WatchAppsLine {
             self =
                 switch Set(container.allKeys) {
                     case [.running]: .running(try container.decode(Running.self, forKey: .running))
-                    case [.failed]: .failed(reason: try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .failed).decode(String.self, forKey: .reason))
+                    case [.failed]: .failed(try container.decode(Failure.self, forKey: .failed))
                     case [.exited]: .exited(try container.decode(Exit.self, forKey: .exited))
                     case [.file, .windows]: .captured(try Capture(from: decoder))
                     default: throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "\(container.allKeys) name no instance state"))

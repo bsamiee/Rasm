@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fixed-plural
+language: tsx
+severity: error
+ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
+utils:
+    one:
+        kind: number
+        regex: '^1$'
+    count:
+        kind: member_expression
+        has: {field: property, regex: '^(length|size)$'}
+    count-test:
+        kind: binary_expression
+        any:
+            - all: [{has: {field: operator, regex: '^(===|!==|==|!=)$'}}, {any: [{all: [{has: {field: left, matches: one}}, {has: {field: right, pattern: $COUNT}}]}, {all: [{has: {field: right, matches: one}}, {has: {field: left, pattern: $COUNT}}]}]}]
+            - all: [{has: {field: operator, regex: '^(>|<=)$'}}, {has: {field: right, matches: one}}, {has: {field: left, pattern: $COUNT}}]
+            - all: [{has: {field: operator, regex: '^(<|>=)$'}}, {has: {field: left, matches: one}}, {has: {field: right, pattern: $COUNT}}]
+    category:
+        kind: member_expression
+        has: {field: property, regex: '^(zero|one|two|few|many|other)$'}
+    text:
+        any:
+            - kind: 'string, template_string'
+            - matches: category
+    plural-form:
+        any:
+            - kind: 'string, template_string'
+              regex: '(?:[^s]s|ren)[''"`]$'
+            - matches: category
+    category-select:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^select$'}
+                - has:
+                    field: object
+                    any:
+                        - pattern: new Intl.PluralRules($$$)
+                        - kind: identifier
+                          pattern: $RULES
+                          inside: {kind: program, stopBy: end, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RULES}}, {has: {field: value, pattern: new Intl.PluralRules($$$)}}]}}
+    category-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(===|!==|==|!=)$'}
+            - has: {kind: string}
+            - has: {matches: category-select}
+rule:
+    pattern: $FORM
+    any:
+        - kind: ternary_expression
+          any:
+            - all:
+                - has: {field: condition, matches: count-test}
+                - has: {field: consequence, matches: text}
+                - has: {field: alternative, matches: text}
+                - any:
+                    - has: {field: consequence, matches: plural-form}
+                    - has: {field: alternative, matches: plural-form}
+                    - inside: {kind: template_substitution, inside: {kind: template_string, has: {kind: template_substitution, has: {pattern: $COUNT}}}}
+            - has: {field: condition, matches: category-test}
+        - kind: template_substitution
+          all:
+            - has: {kind: 'member_expression, identifier', pattern: $COUNT}
+            - precedes:
+                kind: string_fragment
+                pattern: $TEXT
+                regex: '^\s+(?:[a-z][\w-]*\s+)?[a-z]*[^s\W]s\b'
+                not: {regex: '^\s+(?:[a-z][\w-]*\s+)?(?:is|was|has|does|this|its|as|us|yes|plus|less|thus|always|across|equals|exceeds|means|remains|contains|needs)\b'}
+            - any:
+                - has: {matches: count}
+                - has:
+                    kind: identifier
+                    inside:
+                        stopBy: end
+                        kind: 'statement_block, program'
+                        has:
+                            stopBy: end
+                            kind: variable_declarator
+                            all: [{has: {field: name, pattern: $COUNT}}, {has: {field: value, matches: count}}]
+transform:
+    NOUN: {replace: {source: $TEXT, replace: '(?s)^(\s+(?:[a-z][\w-]*\s+)?[a-z]*s)\b.*$', by: '$1'}}
+message: '`$FORM$NOUN` hard-codes the plural form of a count'
+note: 'Index `Intl.LDMLPluralRule` phrases by `new Intl.PluralRules(<locale>).select(<count>)`'

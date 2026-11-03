@@ -61,15 +61,20 @@ extension CrashReport {
         in directory: URL = directory,
         clock: some Clock<Duration> = ContinuousClock(),
     ) async -> Result<Self, ApplicationFailure> {
-        let subject: String = "process \(process)"
-        return await Result { () async throws(ApplicationFailure) in
-            try await withTimeout(limit, expired: ApplicationFailure(subject: subject, reason: .absent("crash report within \(limit)")), clock: clock) { () async throws(ApplicationFailure) in
+        await Result { () async throws(ApplicationFailure) in
+            try await withTimeout(limit, expired: ApplicationFailure(subject: String(process), reason: .noReport(limit)), clock: clock) { () async throws(ApplicationFailure) in
+                var listed: Bool = false
                 for await change: Result<[FileEvent], FileFailure> in FileEvent.events(of: directory) {
-                    if case .failure(let failure) = change { throw ApplicationFailure(subject: failure.subject, reason: .unwatched(failure)) }
-                    let files: [URL] = listing(directory, since: launch).files
+                    let batch: [FileEvent]
+                    switch change {
+                        case .success(let events): batch = events
+                        case .failure(let failure): throw ApplicationFailure(subject: failure.subject, reason: .unwatched(failure))
+                    }
+                    let files: [URL] = listed ? batch.map(\.url).filter { url in url.pathExtension == "ips" } : listing(directory, since: launch).files
+                    listed = true
                     if let report: Self = files.lazy.compactMap({ file in read(file)[case: \.success].flatMap(\.self) }).first(where: { report in report.pid == process }) { return report }
                 }
-                throw ApplicationFailure(subject: "crash report of \(subject)", reason: .cancelled(CancellationError()))
+                throw ApplicationFailure(subject: String(process), reason: .cancelled(CancellationError()))
             }
         }
     }

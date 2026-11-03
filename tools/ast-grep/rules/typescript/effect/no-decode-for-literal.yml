@@ -11,17 +11,28 @@ utils:
             all:
                 - has: {field: property, pattern: $FN, regex: '^(decode|encode)(Unknown)?(Sync|Exit|Option|Result|Effect|Promise)$'}
                 - has: {field: object, pattern: $M, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
+    literal-argument:
+        kind: arguments
+        has: {nthChild: 1, matches: typescript-literal-expression}
 rule:
-    kind: call_expression
-    all:
-        - has: {field: arguments, has: {nthChild: 1, matches: typescript-literal-expression}}
-        - any:
+    any:
+        - kind: call_expression
+          all:
             - has: {field: function, matches: codec}
-            - all:
-                - has: {field: function, kind: identifier, pattern: $CODEC}
-                - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $CODEC}}, {has: {field: value, matches: codec}}]}}
-            - all:
-                - has: {field: function, matches: effect-pipe-function}
-                - has: {field: arguments, has: {nthChild: 2, matches: codec}}
-message: '`$M.$FN` runs over a literal the compiler checks'
-note: 'Write the literal as `typeof <schema>.Type`, `Encoded` for an encode, in the success constructor of the codec result type (`Option.some`)'
+            - has: {field: arguments, matches: literal-argument}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: identifier}
+            - has: {field: arguments, has: {nthChild: 2, matches: codec}}
+            - has: {field: function, matches: effect-pipe-function}
+            - has: {field: arguments, matches: literal-argument}
+        - kind: variable_declarator
+          all:
+            - has: {field: name, kind: identifier, pattern: $CODEC}
+            - has: {field: value, matches: codec}
+            - inside:
+                kind: 'program, statement_block'
+                stopBy: {kind: 'program, statement_block'}
+                has: {stopBy: end, kind: call_expression, all: [{has: {field: function, kind: identifier, pattern: $CODEC}}, {has: {field: arguments, matches: literal-argument}}]}
+message: '`$M.$FN` runs a codec over a literal'
+note: 'Call `<schema>.make(<Type value>)`, `makeOption` or `makeEffect` for an `Option` or `Effect` result, and write an encode as its `Encoded` literal'

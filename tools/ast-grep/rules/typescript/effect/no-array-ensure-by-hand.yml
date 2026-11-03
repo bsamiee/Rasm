@@ -2,22 +2,24 @@
 id: no-array-ensure-by-hand
 language: tsx
 severity: error
-ignores: ['.claude/workflows/*.js']
+ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
 utils:
-    flattened:
+    ensured:
         any:
-            - pattern: '[$X].flat()'
-            - pattern: '[$X].flat(1)'
+            - kind: call_expression
+              any: [{pattern: '[$X].flat()'}, {pattern: '[$X].flat(1)'}, {pattern: '[].concat($X)'}]
+            - kind: ternary_expression
+              any: [{pattern: 'Array.isArray($X) ? $X : [$X]'}, {pattern: '!Array.isArray($X) ? [$X] : $X'}]
 rule:
-    kind: call_expression
     pattern: $CALL
     any:
-        - all:
+        - kind: call_expression
+          all:
             - has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}}
             - any:
                 - pattern: $S.Union([$X, $S.Array($X)])
                 - pattern: $S.Union([$S.Array($X), $X])
-        - matches: flattened
+        - matches: ensured
 rewriters:
     - id: schema
       rule:
@@ -27,7 +29,7 @@ rewriters:
       fix: $S.ArrayEnsure($X)
     - id: value
       rule:
-        matches: flattened
+        matches: ensured
         inside:
             kind: program
             stopBy: end

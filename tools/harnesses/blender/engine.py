@@ -954,19 +954,19 @@ def pushed() -> list[str]:
     return [step.name for step in stack.steps] if (stack := manager().undo_stack) is not None else []
 
 
-def changed(before: Mapping[int, str], steps: int, updates: Updates, /) -> dict[str, Json]:
-    """Returns the IDs, depsgraph updates, undo steps, and edited state the case changed."""
+def changed(before: Mapping[int, str], steps: int, updates: Updates, /, *, dirty: bool) -> dict[str, Json]:
+    """Returns the IDs, depsgraph updates, undo steps, and edited state the case changed, each member present where it changed."""
     after = {item.session_uid: item for item in bpy.data.all_ids}
     updated: dict[str, frozenset[str]] = {}
     for path, flags in updates:
         updated[path] = updated.get(path, frozenset()) | flags
-    return {
+    members: dict[str, list[Json] | dict[str, Json]] = {
         "created": [*sorted(after[uid].path_from_module() for uid in after.keys() - before.keys())],
         "removed": [*sorted(before[uid] for uid in before.keys() - after.keys())],
         "updated": {path: [flag for flag in FLAGS if flag in flags] for path, flags in sorted(updated.items())},
         "undo": [*pushed()[steps:]],
-        "dirty": bpy.data.is_dirty,
     }
+    return {**{key: value for key, value in members.items() if value}, **({"dirty": bpy.data.is_dirty} if bpy.data.is_dirty != dirty else {})}
 
 
 def arranged(case: Case, instance: Instance, folder: Path, stack: ExitStack, /) -> Generator[float, None, tuple[Override, Namespace, Namespace, Namespace]]:
@@ -996,7 +996,7 @@ def acted(case: Case, instance: Instance, stack: ExitStack, timers: Timers, read
     warnings.simplefilter("always")
     instance.updates.clear()
     before, unread = reads(case, override, names)
-    ids, steps = {item.session_uid: item.path_from_module() for item in bpy.data.all_ids}, len(pushed())
+    ids, steps, dirty = {item.session_uid: item.path_from_module() for item in bpy.data.all_ids}, len(pushed()), bpy.data.is_dirty
     completion = ran(case, product, names, made, override)
     for answer in case.get("confirms", []):
         yield from pressed(manager().windows[0], "RET" if answer else "ESC")
@@ -1014,7 +1014,7 @@ def acted(case: Case, instance: Instance, stack: ExitStack, timers: Timers, read
         **readings,
         **refusals,
         "opened": [state],
-        "changes": changed(ids, steps, instance.updates),
+        **({"changes": changes} if (changes := changed(ids, steps, instance.updates, dirty=dirty)) else {}),
         "modal": modal,
         "windows": windows,
         "files": pickers,
@@ -1073,7 +1073,7 @@ def batch(instance: Instance, session: Session, /) -> Steps:
 
 
 def batches(instance: Instance, noted: Callable[[bpy.types.Scene, bpy.types.Depsgraph], None], /) -> Steps:
-    """Runs each session file the scratch folder receives in order until the quit file appears."""
+    """Runs each session file the scratch folder receives in order until the quit file appears, then moves the temporary folder into scratch so the quit's session recovery file leaves the run folder."""
     bpy.app.handlers.depsgraph_update_post.append(noted)
     seen: set[Path] = set()
     while not instance.ended.exists():
@@ -1083,6 +1083,7 @@ def batches(instance: Instance, noted: Callable[[bpy.types.Scene, bpy.types.Deps
             yield from batch(instance, json.loads(path.read_text(encoding="utf-8")))
         yield 0.1
     bpy.app.handlers.depsgraph_update_post.remove(noted)
+    preferences().filepaths.temporary_directory = str(instance.scratch)
 
 
 def stepping(steps: Steps, /) -> float | None:
@@ -1108,6 +1109,7 @@ def main() -> None:
     sys.pycache_prefix = os.environ.get("PYTHONPYCACHEPREFIX")
     held = preferences()
     held.view.show_splash = False
+    held.filepaths.use_auto_save_temporary_files = False
     repository = scratch / "repository"
     repository.mkdir(exist_ok=True)
     held.extensions.repos.new(name=REPOSITORY, module=REPOSITORY, custom_directory=str(repository), source="USER")

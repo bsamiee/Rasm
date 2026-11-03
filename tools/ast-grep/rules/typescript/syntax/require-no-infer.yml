@@ -30,7 +30,7 @@ rule:
                                         - {kind: readonly_type, has: {kind: array_type, has: {kind: type_identifier, pattern: $U}}}
                                         - kind: generic_type
                                           all:
-                                            - has: {field: name, regex: '^(ReadonlyArray|Iterable)$'}
+                                            - has: {field: name, regex: '^(Array|ReadonlyArray|Iterable)$'}
                                             - has: {field: type_arguments, all: [{has: {nthChild: 1, kind: type_identifier, pattern: $U}}, {not: {has: {nthChild: 2}}}]}
                     - not:
                         has:

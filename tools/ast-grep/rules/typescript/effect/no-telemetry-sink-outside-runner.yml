@@ -6,11 +6,12 @@ utils:
     runner:
         any:
             - matches: {effect-module-member: {module: {regex: '\b(NodeRuntime|BunRuntime|BrowserRuntime)$'}, member: {regex: '^runMain$'}}}
-            - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}}}
+            - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^run'}}}
             - matches: {effect-module-member: {module: {regex: '\bManagedRuntime$'}, member: {regex: '^make$'}}}
             - matches: {effect-module-member: {module: {regex: '\bLayer$'}, member: {regex: '^launch$'}}}
             - matches: {effect-module-member: {module: {regex: '\bHttpRouter$'}, member: {regex: '^(serve|toWebHandler)$'}}}
-            - matches: {effect-module-member: {module: {regex: '\bit$'}, member: {regex: '^(effect|live|scoped|scopedLive|layer)$'}}}
+            - matches: {effect-module-member: {module: {regex: '\bit$'}, member: {regex: '^(effect|live|layer)$'}}}
+            - matches: {typescript-import-reference: {source: {regex: '^@effect/vitest$'}, exported: {regex: '^(effect|live|layer)$'}}}
 rule:
     kind: member_expression
     pattern: $SINK

@@ -1,6 +1,5 @@
 import { Effect, FileSystem, Match, Option, Path, type PlatformError, Predicate, Record, Schema, SchemaGetter } from 'effect';
 import { Expression } from '#/cases';
-import { Enumerated, Enumerator } from '#/results';
 import { JsonObject, Tagged } from '#/values';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -27,6 +26,8 @@ const Open = Schema.NonEmptyString.annotate({ description: 'Document path under 
 const Copy = Schema.NonEmptyString.annotate({ description: 'Absolute path of the case copy the engine opens' });
 const Assignments = Schema.optionalKey(Schema.Array(Schema.Tuple([Expression, Schema.Json])).annotate({ description: 'Member path and value written in order, [*] spreading over a collection' }));
 const Steps = Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'Statements run in order after set and add' }));
+const Parsed = Schema.TemplateLiteralParser(['enum:', Schema.String, '.', Schema.String]);
+const Enumerated = Object.assign(Schema.Struct({ $: Schema.TemplateLiteral(Parsed.parts) }).annotate({ description: 'Enumerator the surveyed enumerations declare' }), { parts: Parsed });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -55,7 +56,7 @@ const tags = (value: Schema.Json): readonly string[] =>
         Match.orElse(() => []),
     );
 const enumerators = (enumerations: Record.ReadonlyRecord<string, readonly string[]>) => {
-    const declared = (tag: string) => Option.exists(Schema.decodeUnknownOption(Enumerator)(tag), ([, enumeration, , name]) => Option.exists(Record.get(enumerations, enumeration), (listed) => listed.includes(name)));
+    const declared = (tag: string) => Option.exists(Schema.decodeUnknownOption(Enumerated.parts)(tag), ([, enumeration, , name]) => Option.exists(Record.get(enumerations, enumeration), (listed) => listed.includes(name)));
     return <T extends Schema.Json>() =>
         Schema.makeFilter(
             (value: T) =>
@@ -80,4 +81,4 @@ const placings = <P extends Schema.Top, D extends Schema.Top & Schema.Decoder<un
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, Assignments, added, Copy, copied, documents, enumerators, many, member, merged, Open, placing, placings, Steps, tags };
+export { Application, Assignments, added, Copy, copied, documents, Enumerated, enumerators, many, member, merged, Open, placing, placings, Steps, tags };

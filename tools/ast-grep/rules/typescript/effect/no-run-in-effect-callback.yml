@@ -79,6 +79,7 @@ utils:
             - not: {has: {kind: comment, stopBy: end}}
 rule:
     kind: call_expression
+    regex: '\brun(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)'
     pattern: $CALL
     all:
         - matches: effect-combinator

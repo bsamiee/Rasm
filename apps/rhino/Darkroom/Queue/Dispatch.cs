@@ -213,7 +213,7 @@ public static partial class Dispatch {
                     "-n", "-g", "-a", RhinoApp.GetInstallDirectory().FullName,
                     "--env", $"{JobVariable}={job}", "--env", $"{ParentVariable}={parent}", "--args", .. WorkerPlatform.MacOs.Arguments(script),
                 ]) { UseShellExecute = false }
-                : Conversions.Required(Environment.ProcessPath).Map(path => new ProcessStartInfo(path, ["/nosplash", .. WorkerPlatform.Windows.Arguments(script)]) {
+                : Conversions.Required(Environment.ProcessPath).Map(path => new ProcessStartInfo(path, WorkerPlatform.Windows.Arguments(script)) {
                     Environment = { [JobVariable] = job, [ParentVariable] = parent },
                     UseShellExecute = false,
                 }),

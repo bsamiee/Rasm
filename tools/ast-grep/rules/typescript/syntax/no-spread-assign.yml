@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-spread-assign
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has: {field: function, regex: '^((globalThis|window|self)\.)?Object\.assign$', matches: typescript-global-reference}
+        - has: {field: arguments, has: {kind: spread_element}}
+message: '`$CALL` merges a spread list through the `Object.assign` overload returning `any`'
+note: 'Build the object from typed parts (`Record.getSomes`, `Object.fromEntries`, or a spread of each named part)'

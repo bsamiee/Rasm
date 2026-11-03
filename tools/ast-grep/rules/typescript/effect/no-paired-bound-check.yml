@@ -3,12 +3,8 @@ id: no-paired-bound-check
 language: tsx
 severity: error
 utils:
-    bound:
-        kind: call_expression
-        has:
-            field: function
-            kind: member_expression
-            has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
+    schema-module:
+        matches: {effect-module: {name: {regex: '\bSchema$'}}}
     composer:
         kind: call_expression
         any:
@@ -23,40 +19,49 @@ utils:
               inside: {matches: composer}
             - kind: array
               inside: {kind: arguments, inside: {matches: composer, has: {field: function, has: {field: property, regex: '^makeFilterGroup$'}}}}
-    lower:
-        matches: bound
-        pattern: $LOWER
+    chain:
+        matches: composer
+        not: {inside: {matches: link}}
     upper:
-        matches: bound
+        kind: call_expression
         pattern: $UPPER
+        has: {field: function, kind: member_expression, has: {field: object, matches: schema-module}}
 rule:
-    matches: composer
-    all:
-        - not: {inside: {matches: link}}
-        - any:
-            - all:
-                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^is(MinLength|NonEmpty)$'}}}
-                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isMaxLength$'}}}
-            - all:
-                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isMinSize$'}}}
-                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isMaxSize$'}}}
-            - all:
-                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isMinProperties$'}}}
-                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isMaxProperties$'}}}
-            - all:
-                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isMinCodePoints$'}}}
-                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isMaxCodePoints$'}}}
-            - all:
-                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?$'}}}
-                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?$'}}}
-            - all:
-                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?Date$'}}}
-                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?Date$'}}}
-            - all:
-                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?BigInt$'}}}
-                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?BigInt$'}}}
-            - all:
-                - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?BigDecimal$'}}}
-                - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?BigDecimal$'}}}
+    pattern: $LOWER
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^is(MinLength|NonEmpty|MinSize|MinProperties|MinCodePoints|GreaterThan(OrEqualTo)?(Date|BigInt|BigDecimal)?)$'}}
+            - has: {field: function, has: {field: object, matches: schema-module}}
+            - any:
+                - all:
+                    - has: {field: function, has: {field: property, regex: '^is(MinLength|NonEmpty)$'}}
+                    - inside: {stopBy: &walk {not: {matches: link}}, matches: chain, has: {stopBy: *walk, kind: call_expression, all: [{has: {field: function, has: {field: property, regex: '^isMaxLength$'}}}, {matches: upper}]}}
+                - all:
+                    - has: {field: function, has: {field: property, regex: '^isMinSize$'}}
+                    - inside: {stopBy: *walk, matches: chain, has: {stopBy: *walk, kind: call_expression, all: [{has: {field: function, has: {field: property, regex: '^isMaxSize$'}}}, {matches: upper}]}}
+                - all:
+                    - has: {field: function, has: {field: property, regex: '^isMinProperties$'}}
+                    - inside: {stopBy: *walk, matches: chain, has: {stopBy: *walk, kind: call_expression, all: [{has: {field: function, has: {field: property, regex: '^isMaxProperties$'}}}, {matches: upper}]}}
+                - all:
+                    - has: {field: function, has: {field: property, regex: '^isMinCodePoints$'}}
+                    - inside: {stopBy: *walk, matches: chain, has: {stopBy: *walk, kind: call_expression, all: [{has: {field: function, has: {field: property, regex: '^isMaxCodePoints$'}}}, {matches: upper}]}}
+                - all:
+                    - has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?$'}}
+                    - inside: {stopBy: *walk, matches: chain, has: {stopBy: *walk, kind: call_expression, all: [{has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?$'}}}, {matches: upper}]}}
+                - all:
+                    - has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?Date$'}}
+                    - inside: {stopBy: *walk, matches: chain, has: {stopBy: *walk, kind: call_expression, all: [{has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?Date$'}}}, {matches: upper}]}}
+                - all:
+                    - has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?BigInt$'}}
+                    - inside: {stopBy: *walk, matches: chain, has: {stopBy: *walk, kind: call_expression, all: [{has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?BigInt$'}}}, {matches: upper}]}}
+                - all:
+                    - has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?BigDecimal$'}}
+                    - inside: {stopBy: *walk, matches: chain, has: {stopBy: *walk, kind: call_expression, all: [{has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?BigDecimal$'}}}, {matches: upper}]}}
+        - kind: member_expression
+          all:
+            - has: {field: property, regex: '^NonEmptyString$'}
+            - has: {field: object, matches: schema-module}
+            - inside: {stopBy: *walk, matches: chain, has: {stopBy: *walk, kind: call_expression, all: [{has: {field: function, has: {field: property, regex: '^isMaxLength$'}}}, {matches: upper}]}}
 message: '`$LOWER` and `$UPPER` state one range of one schema as two checks'
 note: 'Replace both with the `Schema.isBetween*` check of their measure, `Schema.isBetween` for numbers'

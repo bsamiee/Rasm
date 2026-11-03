@@ -7,27 +7,40 @@ ignores:
     - libs/typescript/creative-cloud/uxp/**
 utils:
     absent:
-        kind: unary_expression
-        all:
-            - has: {field: operator, regex: '^!$'}
-            - has:
-                field: argument
-                kind: call_expression
-                pattern: $MAP.has($KEY)
-                has: {field: function, has: {field: object, matches: {typescript-collection-receiver: {collection: {regex: '^(Map|WeakMap)$'}}}}}
+        any:
+            - kind: unary_expression
+              pattern: '!$MAP.has($KEY)'
+            - kind: binary_expression
+              any: [{pattern: '$MAP.get($KEY) === undefined'}, {pattern: 'undefined === $MAP.get($KEY)'}]
 rule:
-    kind: if_statement
-    all:
-        - has: {field: condition, has: {matches: absent}}
-        - not: {has: {field: alternative, kind: else_clause}}
-        - has:
-            field: consequence
+    any:
+        - kind: binary_expression
+          any:
+            - pattern: '$MAP.get($KEY) ?? ($MAP.set($KEY, $VALUE), $VALUE)'
+            - pattern: '$MAP.get($KEY) ?? $MAP.set($KEY, $VALUE).get($KEY)'
+        - kind: expression_statement
+          pattern: $STATEMENT
+          has:
+            nthChild: 1
             any:
-                - kind: expression_statement
-                - kind: statement_block
-                  has: {kind: expression_statement}
-                  not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-            has: {stopBy: {kind: call_expression}, kind: call_expression, pattern: '$MAP.set($KEY, $VALUE)'}
-fix: $MAP.getOrInsertComputed($KEY, () => $VALUE);
+                - pattern: '$MAP.has($KEY) || $MAP.set($KEY, $VALUE)'
+                - pattern: '!$MAP.has($KEY) && $MAP.set($KEY, $VALUE)'
+        - kind: if_statement
+          pattern: $STATEMENT
+          all:
+            - has: {field: condition, has: {nthChild: 1, matches: absent}}
+            - not: {has: {field: alternative, kind: else_clause}}
+            - has:
+                field: consequence
+                any:
+                    - kind: expression_statement
+                    - kind: statement_block
+                      has: {kind: expression_statement}
+                      not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                has: {stopBy: {kind: call_expression}, kind: call_expression, pattern: '$MAP.set($KEY, $VALUE)'}
+    has: {stopBy: end, kind: member_expression, has: {field: object, pattern: $MAP, matches: {typescript-collection-receiver: {collection: {regex: '^(Map|WeakMap)$'}}}}}
+transform:
+    TERMINATOR: {replace: {source: $STATEMENT, replace: '(?s)^.*$', by: ';'}}
+fix: $MAP.getOrInsertComputed($KEY, () => $VALUE)$TERMINATOR
 message: '`$MAP.set` inserts under `$KEY` behind its own membership test'
 note: 'Call `<map>.getOrInsertComputed(<key>, () => <value>)`, or `<map>.getOrInsert(<key>, <value>)` for a value that costs nothing to evaluate'

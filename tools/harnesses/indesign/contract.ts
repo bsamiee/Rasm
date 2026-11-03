@@ -1,7 +1,7 @@
 import { Schema, Struct } from 'effect';
 import { answers, Expression } from '#/cases';
-import { Assignments, added, Copy, documents, Steps } from '#/precondition';
-import { Common, Enumerated, hostCase, outcome, Records, record, recorded, reply, Surveying } from '#/results';
+import { Assignments, added, Copy, documents, Enumerated, Steps } from '#/precondition';
+import { hostCase, Outcome, Records, recorded, reply, Surveying } from '#/results';
 import { EXTENDSCRIPT } from '#/source';
 import { JsonObject } from '#/values';
 
@@ -58,15 +58,15 @@ const State = Schema.Struct({
 }).annotate({ description: 'Shared instance state at batch start' });
 const Reply = reply({ state: State, survey: Schema.optionalKey(Survey) });
 const fields = {
-    ...Common.fields,
+    ...Outcome.common,
     dialogs: recorded(Schema.Json.annotate({ description: 'app.dialogs controls with their prefilled values' })),
     menus: recorded(Schema.Json),
     undo: recorded(Schema.String.annotate({ description: 'Undo step a case document recorded during the run, newest first' })),
 };
-const Outcome = outcome(fields);
-const Recorded = record(Outcome);
+const HostOutcome = Schema.Struct({ ...Outcome.fields, ...fields });
+const Recorded = Records.line(HostOutcome);
 const Encoded = Schema.fromJsonString(Batch);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ENGINES, Encoded, Engine, fields, HostCase, Outcome, Placed, Recorded, Reply, Survey };
+export { ENGINES, Encoded, Engine, fields, HostCase, HostOutcome, Placed, Recorded, Reply, Survey };

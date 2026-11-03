@@ -3,6 +3,10 @@ id: no-native-timer-tsx
 language: tsx
 severity: error
 utils:
+    host-import:
+        any:
+            - matches: {typescript-import-reference: {source: {regex: '^(node:)?timers/promises$'}, exported: {regex: '^(set(Timeout|Interval|Immediate)|scheduler)$'}}}
+            - matches: {typescript-import-reference: {source: {regex: '^(node:)?(timers|process)$'}, exported: {regex: '^(setImmediate|clear(Timeout|Interval|Immediate)|nextTick)$'}}}
     listener-callback:
         matches: typescript-function-boundary
         inside:
@@ -12,36 +16,27 @@ utils:
                 has: {field: function, kind: member_expression, has: {field: property, regex: '^(addEventListener|once|on)$'}}
 rule:
     kind: call_expression
-    not:
-        all:
-            - has: {field: function, regex: 'clear(Timeout|Interval|Immediate)$'}
-            - inside: {matches: listener-callback, stopBy: {matches: typescript-function-boundary}}
-    has:
-        field: function
-        pattern: $NAME
-        any:
-            - matches: typescript-global-reference
-              regex: '^((window|self)\.(setTimeout|setInterval)|((globalThis|window|self)\.)?(setImmediate|queueMicrotask|clearTimeout|clearInterval|clearImmediate|AbortSignal\.timeout|process\.nextTick))$'
-            - matches:
-                typescript-import-reference:
-                    source: {regex: '^(node:)?timers$'}
-                    exported: {regex: '^(setImmediate|clearTimeout|clearInterval|clearImmediate)$'}
-            - matches:
-                typescript-import-reference:
-                    source: {regex: '^(node:)?timers/promises$'}
-                    exported: {regex: '^(setTimeout|setInterval|setImmediate)$'}
-            - matches:
-                typescript-import-reference:
-                    source: {regex: '^(node:)?process$'}
-                    exported: {regex: '^nextTick$'}
-            - kind: member_expression
-              all:
-                - has: {field: property, regex: '^(wait|yield)$'}
-                - has:
-                    field: object
-                    matches:
-                        typescript-import-reference:
-                            source: {regex: '^(node:)?timers/promises$'}
-                            exported: {regex: '^scheduler$'}
-message: '`$NAME` schedules on the host timer outside the effect runtime'
+    all:
+        - has:
+            field: function
+            pattern: $NAME
+            any:
+                - kind: identifier
+                  any:
+                    - regex: '^(setImmediate|queueMicrotask|clear(Timeout|Interval|Immediate))$'
+                      matches: typescript-global-reference
+                    - matches: host-import
+                - kind: member_expression
+                  all:
+                    - has: {field: property, regex: '^(set(Timeout|Interval|Immediate)|clear(Timeout|Interval|Immediate)|queueMicrotask|timeout|nextTick|wait|yield)$'}
+                    - any:
+                        - regex: '^((window|self)\.set(Timeout|Interval)|((globalThis|window|self)\.)?(setImmediate|queueMicrotask|clear(Timeout|Interval|Immediate)|AbortSignal\.timeout|process\.nextTick))$'
+                          matches: typescript-global-reference
+                        - matches: host-import
+                        - all: [{has: {field: property, regex: '^(wait|yield)$'}}, {has: {field: object, matches: host-import}}]
+        - not:
+            all:
+                - has: {field: function, regex: 'clear(Timeout|Interval|Immediate)$'}
+                - inside: {matches: listener-callback, stopBy: {matches: typescript-function-boundary}}
+message: '`$NAME` drives the host timer outside the effect runtime'
 note: 'Schedule through `Effect.sleep`, `Effect.repeat` with a `Schedule`, or `Effect.yieldNow`, with interruption in place of each clear call'

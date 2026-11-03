@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-counter-unfold
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: arguments, all: [{has: {nthChild: 1, kind: number}}, {has: {nthChild: 2, kind: arrow_function}}, {not: {has: {nthChild: 3}}}]}
+        - has: {field: function, pattern: $UNFOLD, matches: {effect-module-member: {module: {regex: '\bArray$'}, member: {regex: '^unfold$'}}}}
+        - has:
+            field: arguments
+            has:
+                nthChild: 2
+                any:
+                    - pattern: '($I) => $I < $N ? $SOME([$V, $I + 1] as const) : $NONE()'
+                    - pattern: '($I) => $I < $N ? $SOME([$V, $I + 1]) : $NONE()'
+                    - pattern: '($I) => ($I < $N ? $SOME([$V, $I + 1] as const) : $NONE())'
+                    - pattern: '($I) => ($I < $N ? $SOME([$V, $I + 1]) : $NONE())'
+message: '`$UNFOLD` steps a counter to `$N` to build one element per index'
+note: 'Call `Array.makeBy(<count>, (index) => <value>)` to build a sequence from a length'

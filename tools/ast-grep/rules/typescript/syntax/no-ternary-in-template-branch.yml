@@ -7,10 +7,11 @@ rule:
     pattern: $INNER
     inside:
         kind: template_substitution
+        stopBy: {kind: 'template_substitution, arrow_function, function_expression, statement_block, ternary_expression'}
         inside:
             kind: template_string
             any:
                 - inside: {kind: ternary_expression, field: consequence, stopBy: {not: {kind: parenthesized_expression}}}
                 - inside: {kind: ternary_expression, field: alternative, stopBy: {not: {kind: parenthesized_expression}}}
-message: '`$INNER` nests a ternary inside a template branch of another ternary'
+message: '`$INNER` nests inside a template branch of another ternary'
 note: 'Select the text with one `Match` or lookup over the combined conditions'

@@ -10,8 +10,9 @@ interface Control extends Schema.Struct.Type<typeof controlFields> {
 
 const Pid = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Running process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID' });
+const Seconds = Schema.Finite.pipe(Schema.decodeTo(Schema.Duration, SchemaTransformation.transform({ decode: Duration.seconds, encode: Duration.toSeconds })));
 const LongestSide = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Limit in pixels' });
-const ElementID = Schema.String.annotate({ description: 'Base64 remote token, valid while status lists its element' });
+const ElementID = Schema.String.annotate({ description: 'Base64 element id, a remote token or a menu bar path, valid while status lists its element' });
 const Frame = Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'Origin and size in screen points' });
 const Window = Schema.Struct({
     number: WindowID,
@@ -65,7 +66,7 @@ const elements = {
 const usage = {
     usage: Schema.optionalKey(
         Schema.Struct({
-            cpu: Schema.Finite.pipe(Schema.decodeTo(Schema.Duration, SchemaTransformation.transform({ decode: Duration.seconds, encode: Duration.toSeconds }))).annotate({ description: 'CPU time' }),
+            cpu: Seconds.annotate({ description: 'CPU time' }),
             footprint: Schema.ByteSizeFromNumber.annotate({ description: 'Physical footprint' }),
             threads: Schema.Int,
         }).annotate({ description: 'On read and on turning unresponsive' }),
@@ -78,16 +79,30 @@ const next = {
         Schema.Union([
             Schema.Struct({ wait: Step }),
             Schema.Struct({ drive: Step }),
-            Schema.Struct({ answer: Schema.Struct({ id: ElementID, accept: Schema.optionalKey(ElementID), cancel: Schema.optionalKey(ElementID) }) }),
+            Schema.Struct({
+                answer: Schema.Struct({
+                    id: ElementID,
+                    buttons: Schema.Array(Schema.Struct({ id: ElementID, label: Schema.String })),
+                    accept: Schema.optionalKey(ElementID),
+                    discard: Schema.optionalKey(ElementID),
+                    cancel: Schema.optionalKey(ElementID),
+                }),
+            }),
             Schema.Struct({ capture: Schema.Struct({ windows: Schema.Array(WindowID) }) }),
             Schema.Struct({ resume: Step }),
             Schema.Struct({ force: Step }),
             Schema.Struct({ grant: Step }),
             Schema.Struct({ report: Schema.Struct({ url: Schema.URL }) }),
-        ]).annotate({ description: 'Action state calls for: wait, drive, answer element through accept or cancel control, capture windows, resume stopped process, force quit, grant Accessibility, or read crash report' }),
+        ]).annotate({ description: 'Action state calls for: wait, drive, answer element through one of its buttons, capture windows, resume stopped process, force quit, grant Accessibility, or read crash report' }),
     ),
 };
-const runningFields = { ...usage, ...next };
+const runningFields = {
+    ...usage,
+    hidden: Schema.optionalKey(Schema.Boolean),
+    created: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Launch started the instance' })),
+    ...next,
+};
+const launching = { windows: Schema.Array(Window).annotate({ description: 'Every CoreGraphics window' }) };
 const unresponsive = {
     process: Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread state, sleeping while waiting, stopped by signal or debugger' }),
     windows: Schema.Array(Window).annotate({ description: 'Every CoreGraphics window, modal alerts included' }),
@@ -95,19 +110,34 @@ const unresponsive = {
 const exit = {
     status: Schema.optionalKey(Schema.Int),
     signal: Schema.optionalKey(Schema.Int),
+    detail: Schema.optionalKey(Schema.Array(Schema.Literals(['memory', 'codeSigning', 'decryption'])).annotate({ description: 'Exit cause flags' })),
     statusFailure: Schema.optionalKey(Schema.String),
     report: Schema.optionalKey(Schema.Struct({ url: Schema.URL, pid: Pid, bundleIdentifier: Schema.optionalKey(Schema.String), exception: Schema.optionalKey(Schema.String) })),
     reportFailure: Schema.optionalKey(Schema.String),
     ...next,
 };
-const failure = { reason: Schema.String.annotate({ description: 'Failure case' }), subject: Schema.String, message: Schema.optionalKey(Schema.String), ...next };
+const failure = {
+    reason: Schema.String.annotate({ description: 'Failure case' }),
+    subject: Schema.String,
+    message: Schema.optionalKey(Schema.String),
+    pid: Schema.optionalKey(Pid.annotate({ description: 'Requested process not owning the element' })),
+    error: Schema.optionalKey(Schema.Int.annotate({ description: 'AXError or errno code' })),
+    attribute: Schema.optionalKey(Schema.String),
+    reads: Schema.optionalKey(Schema.Array(Schema.String)),
+    role: Schema.optionalKey(Schema.String),
+    label: Schema.optionalKey(Schema.String),
+    candidates: Schema.optionalKey(Schema.Array(Schema.String)),
+    limit: Schema.optionalKey(Seconds),
+    status: Schema.optionalKey(Schema.Int.annotate({ description: 'Apple event OSStatus' })),
+    ...next,
+};
 const State = Schema.Union([
-    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ launching: Step }), ...runningFields }) }).pipe(
+    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ launching: Schema.Struct(launching) }), ...runningFields }) }).pipe(
         Schema.decodeTo(
-            Schema.toType(Schema.TaggedStruct('Launching', runningFields)),
+            Schema.toType(Schema.TaggedStruct('Launching', { ...launching, ...runningFields })),
             SchemaTransformation.transform({
-                decode: ({ running }) => ({ _tag: 'Launching' as const, ...Struct.pick(running, Struct.keys(runningFields)) }),
-                encode: (launching) => ({ running: { status: { launching: {} }, ...Struct.pick(launching, Struct.keys(runningFields)) } }),
+                decode: ({ running }) => ({ _tag: 'Launching' as const, ...running.status.launching, ...Struct.pick(running, Struct.keys(runningFields)) }),
+                encode: (value) => ({ running: { status: { launching: Struct.pick(value, Struct.keys(launching)) }, ...Struct.pick(value, Struct.keys(runningFields)) } }),
             }),
         ),
     ),
@@ -116,7 +146,7 @@ const State = Schema.Union([
             Schema.toType(Schema.TaggedStruct('Responding', { ...elements, ...runningFields, answering: Schema.Boolean.annotate({ description: 'An element requires an answer' }) })),
             SchemaTransformation.transform({
                 decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding, answering: running.status.responding.elements.some(Struct.get('requiresAnswer')), ...Struct.pick(running, Struct.keys(runningFields)) }),
-                encode: (responding) => ({ running: { status: { responding: Struct.pick(responding, ['elements', 'windows']) }, ...Struct.pick(responding, Struct.keys(runningFields)) } }),
+                encode: (value) => ({ running: { status: { responding: Struct.pick(value, Struct.keys(elements)) }, ...Struct.pick(value, Struct.keys(runningFields)) } }),
             }),
         ),
     ),
@@ -125,11 +155,11 @@ const State = Schema.Union([
             Schema.toType(Schema.TaggedStruct('Unresponsive', { ...unresponsive, ...runningFields })),
             SchemaTransformation.transform({
                 decode: ({ running }) => ({ _tag: 'Unresponsive' as const, ...running.status.unresponsive, ...Struct.pick(running, Struct.keys(runningFields)) }),
-                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, ['process', 'windows']) }, ...Struct.pick(value, Struct.keys(runningFields)) } }),
+                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, Struct.keys(unresponsive)) }, ...Struct.pick(value, Struct.keys(runningFields)) } }),
             }),
         ),
     ),
-    Schema.Struct({ failed: Schema.Struct(failure) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Failed', failure), SchemaTransformation.transform({ decode: ({ failed }) => ({ _tag: 'Failed' as const, ...failed }), encode: (failed) => ({ failed: Struct.omit(failed, ['_tag']) }) }))),
+    Schema.Struct({ failed: Schema.Struct(failure) }).pipe(Schema.decodeTo(Schema.toType(Schema.TaggedStruct('Failed', failure)), SchemaTransformation.transform({ decode: ({ failed }) => ({ _tag: 'Failed' as const, ...failed }), encode: (failed) => ({ failed: Struct.omit(failed, ['_tag']) }) }))),
     Schema.Struct({ exited: Schema.Struct(exit) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Exited', exit), SchemaTransformation.transform({ decode: ({ exited }) => ({ _tag: 'Exited' as const, ...exited }), encode: (value) => ({ exited: Struct.omit(value, ['_tag']) }) }))),
 ])
     .annotate({ description: 'Elements and undescribed windows while responding, process state and every window when unresponsive past Accessibility timeout, failed on status read' })

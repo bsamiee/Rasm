@@ -1,5 +1,5 @@
 import type { Schema } from 'effect';
-import type { HostCase, Model, Outcome, Request } from '#/acrobat/contract';
+import type { HostCase, HostOutcome, Model, Request } from '#/acrobat/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ interface Write {
 }
 interface Session {
     readonly item: Item;
-    readonly records: Listed<Pick<typeof Outcome.Encoded, 'alerts' | 'confirms' | 'prompts' | 'files' | 'windows' | 'console' | 'activations' | 'events' | 'opened' | 'leaked'>>;
+    readonly records: Listed<Pick<typeof HostOutcome.Encoded, 'alerts' | 'confirms' | 'prompts' | 'files' | 'windows' | 'console' | 'activations' | 'events' | 'opened' | 'leaked'>>;
     readonly answers: Listed<Pick<Item, 'confirms' | 'prompts' | 'files' | 'windows'>>;
     readonly writes: Write[];
     readonly docs: Doc[];
@@ -290,7 +290,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 } catch (error) {
                     const fault = faultOf(error);
                     if (fault.name !== 'HelpError') {
-                        throw error;
+                        return;
                     }
                     made[`${kind}.${member}`] = String(fault.extMessage)
                         .split('\n')
@@ -492,7 +492,8 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
     };
     const guarded = (session: Session, signatures: Record<string, Signature>, target: Members, kind: string, member: string, held: Callable) => {
         const own = answered(session, signatures, kind, member, held, target);
-        const pathed = (signatures[`${kind}.${member}`] ?? []).some(({ name }) => pathy(name));
+        const signature = signatures[`${kind}.${member}`];
+        const pathed = signature === undefined ? SIGNED.some(([owner, members]) => owner === kind && has(members, member)) : signature.some(({ name }) => pathy(name));
         return (...args: readonly unknown[]) => {
             if (args[0] === acrohelp) {
                 return held.apply(target, [...args]);

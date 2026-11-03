@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-option-read-twice
+language: tsx
+severity: error
+rule:
+    kind: ternary_expression
+    all:
+        - has:
+            field: condition
+            kind: call_expression
+            pattern: $TEST
+            all:
+                - has: {field: arguments, has: {nthChild: 1, pattern: $OPTION}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^exists$'}}}}
+        - has:
+            stopBy: end
+            kind: call_expression
+            all:
+                - has: {field: arguments, has: {nthChild: 1, pattern: $OPTION}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^(getOrElse|getOrThrow|getOrThrowWith|getOrNull|getOrUndefined)$'}}}}
+message: '`$TEST` tests `$OPTION` and a branch reads it again'
+note: 'Fold `<option>` once with `Option.match({ onNone, onSome })`, with the test inside the value `onSome` returns'

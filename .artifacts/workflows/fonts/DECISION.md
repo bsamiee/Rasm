@@ -6,7 +6,7 @@ Keep: the font tooling becomes a Python library under `libs/python/typography/`,
 
 Third-party and vendor fonts reach verified, standards-complete, script-correct deliverables. Each face is reconciled from its original binary through declared rules into a source, compiled, verified against one set of requirements, and packaged, and a rebuild from the same original and rules yields the same bytes.
 
-InPage originals show what such fonts lack (`observations.toml` `[summary]`, `SPEC.md`, `PLAN.md` [03.8]):
+The research behind the set shows what vendor fonts lack (`observations.toml` `[summary]`, `SPEC.md`, `PLAN.md` [03.8]):
 - GDEF headers OTS rejects in 63 of 87 fonts, `GlyphClassDef` pointing at byte 10 of the 12-byte header
 - Word space of 0.025 em in every kept face against 0.13 to 0.29 em in reference faces
 - Joins abutting within 1 unit with no overlap in 47 of 78 text fonts, printing hairline seams
@@ -18,9 +18,8 @@ Repairs split into design decisions per face class and engineering every face sh
 ## [02]-[DURABILITY]
 
 One font set with a rebuild loop carries the decision, a second set carries none of it:
-- InPage is the one set: 38 text families and 5 ornament sets kept, 11 families tossed (`PLAN.md` [01])
+- `assets/fonts/rasm.toml` is the one set: 38 text families and 5 ornament sets, their faces in `assets/fonts`
 - Rule changes rebuild every face, as fix rounds rebuilt the built families after each shared-pipeline change
-- Originals come from the plug-in's encrypted resources (`fonts/inpage/README.md`), so a plug-in release can carry new font versions
 - `TODO.md` adds plug-in 2.2 for InDesign 2026 and its macOS build to the decompile when they arrive
 - `@rasm/typography`, `@rasm/indesign` and atelier read each installed face as given, so only a build-time requirement catches a face defect
 - Sulus shipped a لا without its lam through OTS, fontbakery and the shaping baseline (`PLAN.md` [04]), so requirements measure geometry
@@ -40,8 +39,8 @@ Library capability with a thin command project, holding only work no tool does:
 - `foundry build <set.toml>` and `foundry check <face>` run from PATH, never through `python -m`
 - Font-set declarations decode through `msgspec.toml` into frozen `Struct` records, pydantic stays out with no untrusted network boundary
 - Command parameters are the library's own scalar types, enums and paths, a `Struct` never binds a token (cyclopts leaves it unchecked)
-- Font sets are inputs: one TOML declaration per set beside its originals, read by path argument
-- InPage's licence allows no copying, so originals and declaration stay on the drive, and the library holds no family name, path or value
+- Font sets are inputs: one TOML declaration per set beside its faces (`assets/fonts/rasm.toml`), read by path argument
+- The library holds no family name, path or value; the declaration states every one, and a rule or requirement reads no other face
 - Tests under `tests/python/libs/typography/<package>/` build their fonts with `fontTools.fontBuilder`, so the repository holds no licensed binary
 
 Face roles, outline geometry, design rules and requirements are domain code with tests, outside the `eng/` machinery root targets call.

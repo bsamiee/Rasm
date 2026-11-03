@@ -23,12 +23,66 @@ utils:
             - all:
                 - has: {field: function, has: {field: property, regex: '^(reduce|reduceRight)$'}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $XS}}, {has: {nthChild: 3}}, {not: {has: {nthChild: 4}}}]}
-    iterable-receiver:
+    array-type:
+        kind: type_annotation
+        has:
+            any:
+                - kind: array_type
+                - kind: readonly_type
+                  has: {kind: array_type}
+                - kind: generic_type
+                  has: {field: name, regex: '^(Readonly)?Array$|^(\w+\.)?NonEmpty(Readonly)?Array$'}
+    array-value:
         any:
-            - kind: new_expression
+            - kind: array
+            - matches: typescript-expression-wrapper
+              has: {nthChild: 1, matches: array-value}
             - kind: call_expression
-              has: {field: function, kind: member_expression, has: {field: property, regex: '^(values|keys|entries|matchAll)$'}}
-            - matches: {typescript-collection-receiver: {collection: {regex: '^(Readonly)?(Set|Map)$|^(Iterable|IterableIterator|Generator|AsyncGenerator|MapIterator|SetIterator|ArrayIterator|IteratorObject)$'}}}
+              has:
+                field: function
+                kind: member_expression
+                any:
+                    - all:
+                        - has: {field: property, regex: '^(map|filter|flatMap|flat|toSorted|toReversed|toSpliced|with)$'}
+                        - has: {field: object, matches: array-receiver}
+                    - all:
+                        - has:
+                            field: property
+                            regex: |-
+                                (?x)^(
+                                    make | of | empty | allocate | range | makeBy | replicate | unfold | fromIterable | fromNullishOr | ensure
+                                  | map | flatMap | flatMapNullishOr | flatten | filter | filterMap | getSomes | getSuccesses | getFailures
+                                  | append | appendAll | prepend | prependAll | pad | intersperse | rotate | copy | remove | extend
+                                  | take | takeRight | takeWhile | drop | dropRight | dropWhile | dropWhileFilter
+                                  | sort | sortBy | sortWith | reverse | dedupe | dedupeWith | dedupeAdjacentWith
+                                  | union | intersection | intersectionWith | difference | differenceWith
+                                  | zip | zipWith | cartesian | cartesianWith | chunksOf | window | split | groupWith | scan | scanRight
+                                  | initNonEmpty | tailNonEmpty | setHeadNonEmpty | setLastNonEmpty | modifyHeadNonEmpty | modifyLastNonEmpty
+                                )$
+                        - has: {field: object, matches: array-module}
+                    - all:
+                        - has: {field: property, regex: '^(from|of)$'}
+                        - has: {field: object, regex: '^Array$', matches: typescript-global-reference}
+                    - all:
+                        - has: {field: property, regex: '^(keys|values|entries)$'}
+                        - has: {field: object, regex: '^Object$', matches: typescript-global-reference}
+    array-receiver:
+        any:
+            - matches: array-value
+            - kind: identifier
+              pattern: $ARRAY
+              inside:
+                kind: program
+                stopBy: end
+                has:
+                    stopBy: end
+                    any:
+                        - kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $ARRAY}
+                            - any: [{has: {field: type, matches: array-type}}, {has: {field: value, matches: array-value}}]
+                        - kind: required_parameter, optional_parameter
+                          all: [{has: {field: pattern, pattern: $ARRAY}}, {has: {field: type, matches: array-type}}]
 rule:
     kind: call_expression
     all:
@@ -39,14 +93,14 @@ rule:
             matches: member
             any:
                 - all:
-                    - has: {field: property, regex: '^(filter|every|forEach|join|reduce|reduceRight|length)$'}
+                    - has: {field: property, regex: '^(every|length)$'}
                     - has: {field: object, matches: array-module}
+                - all:
+                    - has: {field: property, regex: '^(filter|forEach|join|reduce|reduceRight)$'}
+                    - has: {field: object, matches: array-module}
+                    - inside: {kind: call_expression, field: function, has: {field: arguments, has: {nthChild: 1, matches: array-receiver}}}
                 - all:
                     - has: {field: property, regex: '^values$'}
                     - has: {field: object, matches: record-module}
-        - not:
-            all:
-                - has: {field: function, has: {field: property, regex: '^(filter|forEach|join|reduce|reduceRight)$'}}
-                - has: {field: arguments, has: {nthChild: 1, matches: iterable-receiver}}
 message: '`$M.$F` restates a native array or object form'
 note: 'Call the native array member of the same name on `<list>`, or `Object.values(<record>)` for `Record.values`'

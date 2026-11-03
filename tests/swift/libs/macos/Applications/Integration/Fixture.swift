@@ -1,5 +1,4 @@
 import AppKit
-import Applications
 import CasePaths
 import CustomDump
 import Encoding
@@ -11,11 +10,7 @@ import TestSupport
 import Testing
 
 @testable import AppKitFixture
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-let notifications: Set<String> = [kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXTitleChangedNotification, kAXFocusedWindowChangedNotification, kAXUIElementDestroyedNotification]
-let heartbeat: Duration = .seconds(1)
+@testable import Applications
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -36,17 +31,9 @@ func installation() throws -> Installation {
     try Installation(at: try #require(TestApplication.current))
 }
 
-func configuration(_ settings: Settings, new: Bool = false) -> NSWorkspace.OpenConfiguration {
-    let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
-    configuration.arguments = settings.arguments
-    configuration.createsNewApplicationInstance = new
-    return configuration
-}
-
 func launched(_ instance: NSRunningApplication, fileID: StaticString = #fileID, filePath: StaticString = #filePath, line: UInt = #line, column: UInt = #column) async {
-    var last: InstanceState?
-    for await state: InstanceState in instance.states(until: { state in !state.isLaunching }, notifications: notifications, polling: heartbeat) { last = state }
-    expectNoDifference(last?.phase, .responding, fileID: fileID, filePath: filePath, line: line, column: column)
+    let settled: InstanceState? = await instance.states(ending: termination(of: instance.processIdentifier)).first { state in !state.isLaunching }
+    expectNoDifference(settled?.phase, .responding, fileID: fileID, filePath: filePath, line: line, column: column)
 }
 
 func launched() async throws -> (installation: Installation, instance: NSRunningApplication) {
@@ -61,7 +48,7 @@ func launched() async throws -> (installation: Installation, instance: NSRunning
 func launched(_ settings: Settings) async throws -> (installation: Installation, instance: NSRunningApplication) {
     try checkAccessibilityTrust()
     let installation: Installation = try installation()
-    let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(settings)).instance
+    let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, arguments: settings.arguments).instance
     await launched(instance)
     expectNoDifference(instance.activationPolicy, .accessory)
     return (installation, instance)
@@ -69,7 +56,7 @@ func launched(_ settings: Settings) async throws -> (installation: Installation,
 
 func read(_ instance: NSRunningApplication) async throws -> [Element] {
     let state: InstanceState = await instance.state { _ in true }
-    let responding: [Element]? = state[case: \.running]?.0[case: \.responding]?.elements
+    let responding: [Element]? = state[case: \.running]?.status[case: \.responding]?.elements
     return try #require(responding, "read \(state.phase)")
 }
 
@@ -116,12 +103,10 @@ func phases(_ seen: [InstanceState]) -> [Phase] {
 func observe(
     _ instance: NSRunningApplication,
     until done: ([InstanceState]) -> Bool,
-    walking walked: @escaping @Sendable (Element) -> Bool = \.requiresAnswer,
-    notifying watched: Set<String> = notifications,
     acting act: () async throws -> Void = {},
 ) async throws -> [InstanceState] {
     var seen: [InstanceState] = []
-    for await state: InstanceState in instance.states(walking: walked, notifications: watched, polling: heartbeat) {
+    for await state: InstanceState in instance.states(ending: termination(of: instance.processIdentifier)) {
         seen.append(state)
         if seen.count == 1 { try await act() }
         if done(seen) { break }
@@ -130,12 +115,12 @@ func observe(
 }
 
 extension InstanceState {
-    var elements: [Element] { self[case: \.running]?.0[case: \.responding]?.elements ?? [] }
+    var elements: [Element] { self[case: \.running]?.status[case: \.responding]?.elements ?? [] }
 
     var windows: [Window]? {
-        switch self {
-            case .running(.responding(_, let windows), _), .running(.unresponsive(_, let windows), _): windows
-            case .running(.launching, _), .failed, .exited: nil
+        switch self[case: \.running]?.status {
+            case .launching(let windows), .responding(_, let windows), .unresponsive(_, let windows): windows
+            case nil: nil
         }
     }
 
@@ -145,14 +130,17 @@ extension InstanceState {
 
     var phase: Phase {
         switch self {
-            case .running(.launching, _): .launching
-            case .running(.responding, _): .responding
-            case .running(.unresponsive(let process, _), _): .unresponsive(process)
+            case .running(let running):
+                switch running.status {
+                    case .launching: .launching
+                    case .responding: .responding
+                    case .unresponsive(let process, _): .unresponsive(process)
+                }
             case .failed: .failed
             case .exited(.failure, _): .unread
-            case .exited(.success(let status), .none): .exited(status)
-            case .exited(.success(let status), .some(.success(let report))): .reported(status, exception: report.exception)
-            case .exited(.success(let status), .some(.failure)): .reported(status, exception: nil)
+            case .exited(.success(let exit), .none): .exited(exit.status)
+            case .exited(.success(let exit), .some(.success(let report))): .reported(exit.status, exception: report.exception)
+            case .exited(.success(let exit), .some(.failure)): .reported(exit.status, exception: nil)
         }
     }
 }

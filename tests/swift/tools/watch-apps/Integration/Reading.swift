@@ -138,7 +138,7 @@ extension Integration {
             }
             .outcome
             let status: WatchAppsLine.Status = try await status(of: fixture, pid: pid)
-            let listed: [WatchAppsLine.Window] = try #require(status.windows)
+            let listed: [WatchAppsLine.Window] = status.windows
             let undescribed: WatchAppsLine.Window = try #require(listed.first { window in window.title == "Undescribed" })
             let size: CGSize = NSWindow.frameRect(forContentRect: NSRect(origin: .zero, size: undescribedSize), styleMask: [.titled]).size
             expectNoDifference(shown.windows(of: pid)?.contains { window in window.number == described }, false)
@@ -163,13 +163,13 @@ extension Integration {
             for pid: Int32 in [first, second] {
                 let one: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
                     of: .product(named: "watch-apps"),
-                    arguments: ["read", fixture.identifier, "--pid", String(pid)],
+                    arguments: ["read", "--pid", String(pid)],
                     as: WatchAppsLine.self,
                 )
                 expectNoDifference(pids(in: one.lines), [[pid]])
                 expectNoDifference(one.status, .exited(0))
             }
-            try await expectRefusal(["read", fixture.identifier, "--pid", "1"], keyedBy: fixture.identifier)
+            try await expectRefusal(["read", "--pid", "1"], keyedBy: "1")
         }
     }
 }

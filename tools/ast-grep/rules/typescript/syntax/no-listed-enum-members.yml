@@ -6,45 +6,47 @@ utils:
     literal-union:
         kind: union_type
         not: {has: {stopBy: end, pattern: $_, not: {kind: 'union_type, literal_type, string, string_fragment, escape_sequence'}}}
+    member:
+        kind: string
+        inside: {kind: literal_type}
 rule:
-    kind: array
-    pattern: $LIST
+    kind: type_alias_declaration
+    pattern: $DECLARATION
     all:
-        - has: {nthChild: 2, kind: string}
-        - not: {has: {pattern: $_, not: {kind: 'string, comment'}}}
+        - has: {field: value, matches: literal-union}
+        - has: {field: name, pattern: $NAME}
         - inside:
             kind: program
             stopBy: end
             has:
-                stopBy: end
-                kind: type_alias_declaration
-                all:
-                    - has: {field: name, pattern: $NAME}
-                    - has: {field: value, matches: literal-union}
-                    - not:
-                        has:
-                            field: value
+                pattern: $STATEMENT
+                has:
+                    stopBy: end
+                    kind: array
+                    pattern: $LIST
+                    all:
+                        - has: {nthChild: 2, kind: string}
+                        - not: {has: {pattern: $_, not: {kind: 'string, comment'}}}
+                        - not:
                             has:
-                                stopBy: end
                                 kind: string
-                                inside: {kind: literal_type}
-                                all:
-                                    - pattern: $MEMBER
-                                    - not: {inside: {kind: program, stopBy: end, has: {stopBy: end, pattern: $LIST, has: {kind: string, pattern: $MEMBER}}}}
-        - not:
-            has:
-                kind: string
-                all:
-                    - pattern: $ITEM
-                    - not:
-                        inside:
-                            kind: program
-                            stopBy: end
-                            has:
+                                pattern: $ITEM
+                                not: {inside: {kind: program, stopBy: end, has: {stopBy: &top {not: {kind: export_statement}}, pattern: $DECLARATION, has: {field: value, has: {stopBy: end, matches: member, pattern: $ITEM}}}}}
+                        - not:
+                            inside:
+                                kind: program
                                 stopBy: end
-                                kind: type_alias_declaration
-                                all:
-                                    - has: {field: name, pattern: $NAME}
-                                    - has: {field: value, has: {stopBy: end, kind: literal_type, has: {kind: string, pattern: $ITEM}}}
+                                has:
+                                    stopBy: *top
+                                    pattern: $DECLARATION
+                                    has:
+                                        field: value
+                                        has:
+                                            stopBy: end
+                                            matches: member
+                                            pattern: $MEMBER
+                                            not: {inside: {kind: program, stopBy: end, has: {pattern: $STATEMENT, has: {stopBy: end, pattern: $LIST, has: {kind: string, pattern: $MEMBER}}}}}
 message: '`$LIST` lists every member of `$NAME` again'
 note: 'Declare members once in `Schema.Literals([...])` or `<list> = [...] as const`, and derive `typeof <schema>.Type` or `(typeof <list>)[number]`'
+labels:
+    LIST: {style: primary, message: Listed members}

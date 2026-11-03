@@ -23,7 +23,7 @@ private struct Cell: Equatable {
 private func capture(_ fixture: Fixture, pid: Int32, _ flags: [String] = []) async throws -> (capture: WatchAppsLine.Capture, image: CGImage) {
     let run: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
         of: .product(named: "watch-apps"),
-        arguments: ["capture", fixture.identifier, "--pid", String(pid)] + flags,
+        arguments: ["capture", "--pid", String(pid)] + flags,
         as: WatchAppsLine.self,
     )
     let instances: [Int32: WatchAppsLine.Instance] = try #require(run.lines.first?.entry.instances)
@@ -123,14 +123,16 @@ extension Integration {
         }
 
         @Test(.application(FixtureApplication.self, launches: false, activationPolicy: .regular))
-        func hiddenInstancePrintsFailInPlaceOfEntryUntilShown() async throws {
+        func hiddenInstanceCaptureLeavesItHiddenUntilShown() async throws {
             let fixture: Fixture = try Fixture()
             let pid: Int32 = try await launch(fixture).pid
             let elements: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
             let window: Int = try #require(elements.titled("Fixture 0")?.window)
             expectNoDifference(elements.titled("Fixture 0")?.minimized, false)
-            try await expectRefusal(["capture", fixture.identifier], keyedBy: fixture.identifier)
-            try await expectRefusal(["show", fixture.identifier, "--pid", "1"], keyedBy: fixture.identifier)
+            let hidden: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
+            expectNoDifference(hidden.capture.windows, [window])
+            expectNoDifference(NSRunningApplication(processIdentifier: pid)?.isHidden, true)
+            try await expectRefusal(["show", "--pid", "1"], keyedBy: "1")
             try await show(fixture, pid: pid)
             try await show(fixture, pid: pid)
             let shown: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
@@ -152,7 +154,7 @@ extension Integration {
                 return try #require(numbered)
             }
             .outcome
-            try await expectRefusal(["capture", fixture.identifier, "--pid", String(pid), "--window", String(collapsed)], keyedBy: fixture.identifier)
+            try await expectRefusal(["capture", "--pid", String(pid), "--window", String(collapsed)], keyedBy: fixture.identifier)
             let all: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
             expectNoDifference(all.capture.windows, [described])
         }

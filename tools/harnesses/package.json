@@ -13,7 +13,6 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/automation": "workspace:*",
-        "@rasm/search": "workspace:*",
         "@swc/core": "catalog:",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",

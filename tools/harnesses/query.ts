@@ -1,94 +1,69 @@
-import { Array, type Config, DateTime, Effect, LogLevel, Option, Path, Record, Struct } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { HarnessError } from '#/error';
-import { starts } from '#/instance';
-import { LAUNCHED, located, RECORDS, session } from '#/log';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Clause = keyof typeof CLAUSES;
+import { Array, type Config, DateTime, Effect, type Option, Path, Record, Stdio, Stream, String } from 'effect';
+import { printed, starts } from '#/instance';
+import { LAUNCHED, partition, RECORDS } from '#/log';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CLAUSES = {
-    run: (value: string) => `run = ${value}`,
-    newest: (value: string) => `run = (select max(run) from records where session is not distinct from nullif(${value}, ''))`,
-    level: (value: string) => `list_contains(string_split(${value}, ','), level)`,
-    case: (value: string) => `"case" = ${value}`,
-    host: (value: string) => `host = ${value}`,
-    live: (value: string) => `list_contains(string_split(${value}, ','), instance)`,
-    launched: (value: string) => `instance in (select instance from records where message = ${value})`,
-} as const;
+const CURRENT = `host = getenv('HARNESS_HOST') and run = coalesce(
+    (select max(run) from records as held where held.host = getenv('HARNESS_HOST') and held.session = getenv('CLAUDE_CODE_SESSION_ID')),
+    (select max(run) from records as held where held.host = getenv('HARNESS_HOST'))
+)`;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const queried = Effect.fn('queried')(function* (root: Config.Config<string>, mode: readonly string[], statement: (where: string) => string, values: Partial<Record<Clause, Option.Option<string>>>) {
+const queried = Effect.fn('queried')(function* (root: Config.Config<string>, mode: readonly string[], statement: string, values: Record.ReadonlyRecord<string, string>) {
     const [path, folder] = yield* Effect.all([Path.Path, root]);
-    const present = Array.getSomes(Struct.keys(values).map((key) => Option.map(values[key] ?? Option.none(), (value) => [key, `HARNESS_${key.toUpperCase()}`, value] as const)));
-    const where = ['true', ...present.map(([key, variable]) => CLAUSES[key](`getenv('${variable}')`))].join(' and ');
     const selected = `with records as (
     select host, run, ordinality, json->>'session' as session, json->>'at' as "at", json->>'level' as level, json->>'message' as message, json->>'phase' as phase, json->>'state' as state,
-        json->>'tag' as tag, json->>'case' as "case", json->>'version' as version, json->>'completion' as completion, json->>'commit' as commit, json->>'error' as error,
-        concat_ws(' ', json->>'pid', json->>'started') as instance, json_merge_patch(json_object('host', host, 'run', run), json) as json
+        json->>'tag' as tag, json->>'case' as "case", json->>'completion' as completion, json->>'version' as version, json->>'proof' as proof, json->>'app' as app, json->>'commit' as commit, json->>'error' as error,
+        cast(json->>'pid' as integer) as pid, json->>'started' as started, concat_ws(' ', json->>'pid', json->>'started') as instance, json_merge_patch(json_object('host', host, 'run', run), json) as json
     from read_ndjson_objects(getenv('HARNESS_RUNS'), hive_partitioning = true, ignore_errors = true) with ordinality
     where json is not null
 )`;
-    const code = yield* ChildProcessSpawner.ChildProcessSpawner.use((spawner) =>
-        spawner.exitCode(
-            ChildProcess.make('duckdb', ['-no-agent', ...mode, '-c', `${selected} ${statement(where)}`], {
-                stdin: 'ignore',
-                stdout: 'inherit',
-                stderr: 'inherit',
-                env: { HARNESS_RUNS: path.join(located(path, folder, '*', '*'), RECORDS), ...Record.fromIterableWith(present, ([, variable, value]) => [variable, value] as const) },
-                extendEnv: true,
-            }),
-        ),
-    );
-    return yield* code === 0 ? Effect.void : HarnessError.unavailable('duckdb')(`exited with code ${code}`);
+    return yield* printed('duckdb', ['-no-agent', ...mode, '-c', `${selected} ${statement}`], { HARNESS_RUNS: path.join(partition(path, folder, '*', '*'), RECORDS), ...Record.mapKeys(values, (key) => `HARNESS_${key.toUpperCase()}`) });
 });
-const records = (root: Config.Config<string>, read: { readonly run: Option.Option<string>; readonly level: Option.Option<LogLevel.LogLevel>; readonly case: Option.Option<string> }) =>
-    Effect.flatMap(session, (owner) =>
-        queried(root, ['-list', '-noheader'], (where) => `select json from records where ${where} order by ordinality`, {
-            run: read.run,
-            newest: Option.match(read.run, { onNone: () => Option.some(Option.getOrElse(owner, () => '')), onSome: () => Option.none() }),
-            level: Option.map(read.level, (least) => LogLevel.values.filter((held) => LogLevel.isGreaterThanOrEqualTo(held, least)).join(',')),
-            case: read.case,
-        }),
-    );
+const shown = <E, R>(text: Effect.Effect<string, E, R>) => Effect.flatMap(Effect.all([text, Stdio.Stdio]), ([held, stdio]) => Stream.run(Stream.make(held), stdio.stdout()));
+const records = (root: Config.Config<string>, host: string) => shown(queried(root, ['-list', '-noheader'], `select json from records where ${CURRENT} order by ordinality`, { host }));
+const launched = Effect.fn('launched')(function* (root: Config.Config<string>, host: string) {
+    const text = yield* queried(root, ['-jsonlines'], `select run, pid, started, max(app) as app, max(version) as version, max("at") as ended from records where ${CURRENT} and started is not null group by run, pid, started having bool_or(message = getenv('HARNESS_LAUNCHED'))`, { host, launched: LAUNCHED });
+    return Array.fromIterable(String.linesIterator(text)).filter(String.isNonEmpty);
+});
 const failures = (root: Config.Config<string>, host: Option.Option<string>) =>
-    queried(
-        root,
-        ['-jsonlines'],
-        (where) => `, started as (select run, commit from records where commit is not null),
-cleared as (select host, version, "case", run, "at" from records where completion is not null and tag is null),
+    shown(
+        queried(
+            root,
+            ['-jsonlines'],
+            `, started as (select run, commit, session from records where commit is not null),
+cleared as (select host, version, proof, "case", run, "at" from records where completion is not null and tag is null),
 grouped as (
-    select host, version, "case", phase, state, tag, count(*) as seen, min("at") as first, max("at") as last, arg_max(run, "at") as run, arg_max(session, "at") as session, arg_max(error, "at") as error
-    from records where tag is not null and ${where} group by all
+    select host, version, proof, "case", phase, state, tag, count(*) as seen, min("at") as first, max("at") as last, arg_max(run, "at") as run, arg_max(error, "at") as error
+    from records where tag is not null and (getenv('HARNESS_HOST') = '' or host = getenv('HARNESS_HOST')) group by all
 )
-select grouped.*, started.commit, fixed.run as fixed, fixed."at" as "fixedAt", after.commit as "fixedCommit"
+select grouped.*, started.commit, started.session, fixed.run as fixed, fixed."at" as "fixedAt", after.commit as "fixedCommit"
 from grouped
 left join started on started.run = grouped.run
 left join lateral (
     select run, "at" from cleared
-    where cleared.host = grouped.host and cleared.version is not distinct from grouped.version and (grouped."case" is null or cleared."case" = grouped."case") and cleared."at" > grouped.last
+    where cleared.host = grouped.host and cleared.version is not distinct from grouped.version and cleared.proof is not distinct from grouped.proof and (grouped."case" is null or cleared."case" = grouped."case") and cleared."at" > grouped.last
     order by cleared."at" limit 1
 ) as fixed on true
 left join started as after on after.run = fixed.run
 order by grouped.last desc`,
-        { host },
+            Record.getSomes({ host }),
+        ),
     );
 const instances = (root: Config.Config<string>) =>
     Effect.flatMap(starts(['-A']), (live) =>
-        queried(root, ['-list', '-noheader'], (where) => `select arg_max(json, ordinality) from records where ${where} group by instance`, {
-            launched: Option.some(LAUNCHED),
-            live: Option.some(
-                Array.fromIterable(live)
+        shown(
+            queried(root, ['-list', '-noheader'], `select arg_max(json, "at") from records where instance in (select instance from records where message = getenv('HARNESS_LAUNCHED')) and list_contains(string_split(getenv('HARNESS_LIVE'), ','), instance) group by instance`, {
+                launched: LAUNCHED,
+                live: Array.fromIterable(live)
                     .map(([pid, started]) => `${pid} ${DateTime.formatIso(started)}`)
                     .join(','),
-            ),
-        }),
+            }),
+        ),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { failures, instances, records };
+export { failures, instances, launched, records };

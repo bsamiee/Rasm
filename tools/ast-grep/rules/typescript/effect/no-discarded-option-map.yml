@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-discarded-option-map
+language: tsx
+severity: error
+rule:
+    kind: expression_statement
+    has:
+        nthChild: 1
+        kind: call_expression
+        has: {field: function, pattern: $MAP, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^(map|flatMap|tap|andThen)$'}}}}
+message: '`$MAP` runs a side effect and discards the `Option` it returns'
+note: 'Call `Option.match(<option>, { onNone: Function.constVoid, onSome: <effect> })`'

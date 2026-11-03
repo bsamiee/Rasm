@@ -2,6 +2,7 @@ import AppKit
 import AppleEvents
 import Applications
 import Foundation
+import Results
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -18,7 +19,7 @@ let activatingCommands: KeyValuePairs<String, [String]> = [
 func adobeInstallation(at url: URL) throws(ApplicationFailure) -> Installation {
     let installation: Installation = try Installation(at: url)
     guard installation.identifier.hasPrefix(adobePrefix) else {
-        throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .absent("bundle identifier starting \(adobePrefix)"))
+        throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .unmatched(Unmatched(subject: "\(adobePrefix) application", query: installation.identifier, candidates: [])))
     }
     return installation
 }

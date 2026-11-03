@@ -101,6 +101,6 @@ struct CrashReports {
         _ = try copy("Application-2026-11-01-120500.ips", into: directory, as: "Application-2026-11-01-120500.ips")
         let found: Result<CrashReport, ApplicationFailure> = await CrashReport.written(by: pid, since: launch, within: .milliseconds(800), in: directory)
         let failure: ApplicationFailure = try #require(found[case: \.failure])
-        expectNoDifference(failure.subject, "process \(pid)")
+        expectNoDifference(failure.subject, String(pid))
     }
 }

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-extendscript-descriptor-literal
+language: tsx
+severity: error
+rule:
+    kind: object
+    all:
+        - has: {any: [{kind: pair, has: {field: key, regex: '^specifier$'}}, {kind: shorthand_property_identifier, regex: '^specifier$'}]}
+        - has: {any: [{kind: pair, has: {field: key, regex: '^valid$'}}, {kind: shorthand_property_identifier, regex: '^valid$'}]}
+        - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^@rasm/extendscript/handle$'}}}}
+message: 'Literal restates the `{ type, specifier, name, valid }` reply the encoder builds from the `specifier` hook'
+note: 'Return the host object, the encoder supplies its descriptor fields'

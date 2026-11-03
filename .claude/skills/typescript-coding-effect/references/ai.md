@@ -41,9 +41,12 @@ const Server = McpServer.layerHttp({
 `LedgerError` is the package error, `version` the package version, `Accounts` holds `balance` and `freeze`, and `Tokens.resolve` reads a token to a `Caller` or fails with an `McpSchema.McpErrorBase` error. `Server` requires `HttpRouter`, `Accounts`, and `Tokens` alone, the middleware discharging every `Caller` marker:
 - Handler services become `McpServer.McpRequest<'Requires', S>` markers that middleware or the transport discharges, `Layer.provide` keeping them
 - `registrations` build before the transport copies its options, and server `instructions` read every registration made while the layer builds
-- Middleware wraps `tools/call`, `resources/read`, `prompts/get`, and `completion/complete`, reading `{ method, target, payload, headers, sessionId }`
+- Middleware wraps `tools/call`, `resources/read`, `prompts/get`, `completion/complete`, and `skills/get`, and `MiddlewareMethod` matches keep a default arm
+- Middleware reads `{ method, target, payload, requestContext, headers, sessionId }`, `requestContext.requestMetadata` holding protocol `_meta`
+- String entries of `requestMetadata` through `Headers.fromInput` give `HttpTraceContext.fromHeaders` a remote span parent
+- `target` holds tool name, read URI, prompt name, or `completion/complete` prompt or URI template, a `FindMyWay` router mapping read URIs to templates
 - Handler results reach middleware as opaque `MiddlewareSuccess` values `Schema.is` narrows, and one global middleware spans and meters every method
-- `m.layer` scopes middleware to the registrations it reaches, and `a.combine(b)` runs `b` outside `a`
+- `m.layer` scopes middleware to registrations it reaches, `m.layerGlobal` to every one through `McpServer`, and `a.combine(b)` runs `b` outside `a`
 - `McpServer.middleware(fn, { global: true })` runs outside local middleware, middleware provided both ways runs once, and none runs for `initialize`
 - `McpServer.visibility` hides registrations per caller and `McpSchema.EnabledWhen` per client profile
 - List requests run middleware around `visibility` alone
@@ -51,12 +54,14 @@ const Server = McpServer.layerHttp({
 - Declared `failure` errors reach the client as `isError` text and other failures as one generic message, defects going to the log and `ErrorReporter`
 - Tool results send `structuredContent` with one JSON text block, and a tool returns a struct
 - `McpServer.resource` templates take typed `McpSchema.param` path segments alone, with no `{?query}` expansion
+- `McpServer.resource` and `prompt` send `content` failures as `InternalError`, `server.addResource` and `addResourceTemplate` keep `InvalidParams`
 - Completion handlers return typed values the server encodes and counts
 - `McpSchema.optional(S)` declares a field a client omits or sends as `undefined`, encoding `undefined` as no key
 - `McpServer.prompt({ name, parameters, content })` derives argument requirement from field optionality and description from annotations
 - `McpSchema.ProgressToken` decodes `requestMetadata.progressToken` of `Effect.serviceOption(McpSchema.McpRequestContext)`
-- Handlers send each progress step through `server.notifications['notifications/progress']` and drain steps when a caller sends no token
+- Progress steps go through a data-last `Stream` operator sending `server.notifications['notifications/progress']` per element, returning `self` when no `ProgressToken` decodes
 - `Layer.effect(McpServer.McpServer)` returning `McpServer.McpServer.of({ ...server, addTool })` decorates every registration below it
+- Decorating layers install server-wide middleware through `yield* Layer.build(a.combine(b).layerGlobal)`
 - Effects that decorated tools share run once under `Effect.cached`
 - `McpServer.elicit({ message, schema })` decodes an answer and requires the `McpServerClient` a tuple of sessionful protocols supplies
 - `McpServer.layerStdio` needs `References.LogToStderr`, `layerHttp` checks `Origin` alone, and `layerHttpRequestScoped` serves sessionless hosts

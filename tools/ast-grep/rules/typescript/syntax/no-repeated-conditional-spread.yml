@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-conditional-spread
+language: tsx
+severity: error
+utils:
+    conditional-spread:
+        kind: spread_element
+        inside: {kind: object}
+        has:
+            stopBy: {not: {kind: parenthesized_expression}}
+            any:
+                - kind: binary_expression
+                  all:
+                    - has: {field: operator, regex: '^&&$'}
+                    - has: {field: left, pattern: $CONDITION}
+                - kind: ternary_expression
+                  has: {field: condition, pattern: $CONDITION}
+    earlier-spread:
+        follows:
+            stopBy: end
+            any:
+                - matches: conditional-spread
+                - has: {stopBy: {matches: typescript-function-boundary}, matches: conditional-spread}
+rule:
+    kind: spread_element
+    pattern: $SPREAD
+    all:
+        - matches: conditional-spread
+        - any:
+            - matches: earlier-spread
+            - inside: {kind: pair, stopBy: {not: {kind: 'object, pair'}}, matches: earlier-spread}
+message: '`$CONDITION` decides a second spread of one object literal'
+note: 'Branch once on `<condition>` (a ternary, `Option.match`, or the union `match`) and build each complete object'
+labels:
+    SPREAD: {style: primary, message: Repeated condition}

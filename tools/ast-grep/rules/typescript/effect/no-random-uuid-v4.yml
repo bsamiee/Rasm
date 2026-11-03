@@ -2,15 +2,55 @@
 id: no-random-uuid-v4
 language: tsx
 severity: error
+utils:
+    service:
+        matches: {effect-module-member: {module: {regex: '\bSecureRandom$'}, member: {regex: '^SecureRandom$'}}}
+    service-pattern:
+        kind: object_pattern
+        any:
+            - inside:
+                kind: required_parameter
+                field: pattern
+                inside:
+                    kind: formal_parameters
+                    inside:
+                        kind: arrow_function, function_expression
+                        inside:
+                            kind: arguments
+                            inside:
+                                kind: call_expression
+                                has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^use$'}}, {has: {field: object, matches: service}}]}
+            - inside:
+                kind: variable_declarator
+                field: name
+                has: {field: value, kind: yield_expression, has: {matches: service}}
+    v4-binding:
+        matches: service-pattern
+        has: {kind: shorthand_property_identifier_pattern, regex: '^uuidV4$'}
 rule:
-    kind: member_expression
-    pattern: $MEMBER
-    all:
-        - has: {field: property, regex: '^uuidV4(Unsafe)?$', pattern: $NAME}
-        - has: {field: object, pattern: $RANDOM}
-        - inside: {kind: call_expression, field: function}
+    pattern: $NAME
+    any:
+        - kind: property_identifier
+          regex: '^uuidV4(Unsafe)?$'
+          any:
+            - inside: {kind: member_expression, field: property, inside: {kind: call_expression, field: function}}
+            - inside: {kind: pair_pattern, field: key, inside: {matches: service-pattern}}
+        - kind: shorthand_property_identifier_pattern
+          regex: '^uuidV4$'
+          inside: {matches: service-pattern}
+        - kind: identifier
+          regex: '^uuidV4$'
+          all:
+            - inside: {kind: call_expression, field: function}
+            - inside:
+                stopBy: end
+                any:
+                    - kind: arrow_function, function_expression
+                      has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, matches: v4-binding}}}
+                    - kind: statement_block
+                      has: {kind: lexical_declaration, has: {kind: variable_declarator, has: {field: name, matches: v4-binding}}}
 transform:
     ORDERED: replace($NAME, replace='V4', by='V7')
-fix: $RANDOM.$ORDERED
-message: '`$MEMBER` generates identifiers with no time order'
+fix: $ORDERED
+message: '`$NAME` generates identifiers with no time order'
 note: 'Call the `uuidV7` form of the same `SecureRandom` member'

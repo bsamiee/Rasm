@@ -89,6 +89,21 @@ utils:
                     - kind: statement_block
                       has: {kind: return_statement, has: {matches: recovered}}
                       not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    succeeded:
+        kind: call_expression
+        has: {field: function, kind: member_expression, has: {field: property, regex: '^succeed$'}}
+    succeeding-handler:
+        kind: arrow_function, function_expression
+        all:
+            - any: [{has: {field: parameter, kind: identifier}}, {has: {field: parameters, has: {nthChild: 1, kind: required_parameter}}}]
+            - has:
+                field: body
+                any:
+                    - matches: succeeded
+                    - kind: parenthesized_expression
+                      has: {matches: succeeded}
+                    - kind: statement_block
+                      has: {kind: return_statement, has: {matches: succeeded}}
 rule:
     kind: call_expression
     pattern: $CALL
@@ -110,15 +125,14 @@ rule:
                     - has: {field: function, all: [{has: {field: property, regex: '^flatMap$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}]}
                     - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: lifting-callback, not: {matches: void-callback}}}
         - all:
-            - has:
-                field: function
-                kind: member_expression
-                pattern: $M.$F
-                all:
-                    - has: {field: object, matches: {effect-module: {name: {regex: '\bStream$'}}}}
-                    - has: {field: property, regex: '^catch$'}
-            - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: recovering-handler, pattern: $HANDLER}}
+            - has: {field: function, kind: member_expression, pattern: $M.$F, has: {field: property, regex: '^catch$'}}
             - not: {has: {field: type_arguments, kind: type_arguments}}
+            - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: recovering-handler, pattern: $HANDLER}}
+            - any:
+                - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bStream$'}}}}}
+                - all:
+                    - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: succeeding-handler}}
+                    - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}
             - not: {has: {kind: comment, stopBy: end}}
 constraints:
     LIFT: {regex: '^(succeed|fail)$'}

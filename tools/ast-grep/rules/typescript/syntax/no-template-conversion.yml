@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-template-conversion
+language: tsx
+severity: error
+rule:
+    kind: template_string
+    pattern: $TEMPLATE
+    all:
+        - not: {has: {kind: 'string_fragment, escape_sequence'}}
+        - has: {kind: template_substitution, nthChild: 1, has: {pattern: $VALUE}}
+        - not: {has: {kind: template_substitution, nthChild: 2}}
+        - any:
+            - inside: {kind: member_expression, field: object}
+            - inside: {kind: template_substitution}
+message: '`$TEMPLATE` converts `$VALUE` to a string through a template'
+note: 'Call `String(<value>)`, an untagged template substitutes `<value>` itself'

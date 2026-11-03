@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-rendered-emptiness-test
+language: tsx
+severity: error
+utils:
+    rendering:
+        kind: call_expression
+        has: {field: function, kind: member_expression, has: {field: property, regex: '^(format|join)$'}}
+    rendered:
+        any:
+            - matches: rendering
+            - kind: identifier
+              pattern: $TEXT
+              inside:
+                stopBy: end
+                kind: 'statement_block, program'
+                has:
+                    stopBy: end
+                    kind: variable_declarator
+                    all: [{has: {field: name, pattern: $TEXT}}, {has: {field: value, matches: rendering}}, {inside: {kind: lexical_declaration, has: {field: kind, regex: '^const$'}}}]
+rule:
+    kind: binary_expression
+    pattern: $TEST
+    all:
+        - has: {field: operator, regex: '^[!=]==?$'}
+        - any:
+            - all: [{has: {field: right, regex: '^(''''|""|``)$'}}, {has: {field: left, matches: rendered}}]
+            - all: [{has: {field: left, regex: '^(''''|""|``)$'}}, {has: {field: right, matches: rendered}}]
+message: '`$TEST` decides emptiness on rendered text'
+note: 'Test the collection before rendering it, `Array.isReadonlyArrayEmpty(<items>)`'

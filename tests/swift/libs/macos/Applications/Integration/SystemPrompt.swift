@@ -1,11 +1,12 @@
 import AppKit
-import Applications
 import CustomDump
 import Encoding
 import Foundation
 import OrderedCollections
 import TestSupport
 import Testing
+
+@testable import Applications
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -21,11 +22,7 @@ extension Integration {
             let alert: CFUserNotification = try #require(created)
             defer { CFUserNotificationCancel(alert) }
             var shown: (host: String, element: Element)?
-            for await prompt: (host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>) in await NSWorkspace.shared.systemPrompts(
-                naming: [name],
-                notifications: [kAXWindowCreatedNotification],
-                polling: heartbeat,
-            ) {
+            for await prompt: (host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>) in await NSWorkspace.shared.systemPrompts(naming: [name]) {
                 guard let element: Element = prompt.prompts.values.lazy.flatMap(\.elements).first(where: \.requiresAnswer) else {
                     if shown != nil { break }
                     continue

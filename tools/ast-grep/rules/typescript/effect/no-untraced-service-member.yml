@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-untraced-service-member
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^fnUntraced$'}}}}
+        - inside:
+            kind: pair
+            field: value
+            has: {field: key, pattern: $MEMBER}
+            inside:
+                kind: object
+                inside:
+                    kind: return_statement
+                    inside:
+                        stopBy: {kind: 'arrow_function, function_expression, generator_function, function_declaration, generator_function_declaration, method_definition'}
+                        kind: 'generator_function, function_expression, arrow_function'
+                        inside:
+                            stopBy: end
+                            kind: pair
+                            has: {field: key, regex: '^make$'}
+                            inside:
+                                stopBy: end
+                                kind: class_declaration
+                                all:
+                                    - has: {field: name, pattern: $SERVICE}
+                                    - has: {kind: class_heritage, regex: '\bContext\.Service\b'}
+message: '`$SERVICE.$MEMBER` runs untraced as a service member'
+note: 'Wrap each public member in `Effect.fn(''<Service>.<key>'')`, `Effect.fnUntraced` stays for generators a traced function calls'

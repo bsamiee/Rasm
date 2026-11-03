@@ -20,6 +20,7 @@ var shared = (function () {
     function append(path, text) {
         var file = new RealFile(path);
         file.encoding = "UTF-8";
+        file.lineFeed = "Unix";
         if (!file.open("a")) { throw new Error("cannot append " + path); }
         file.write(text);
         file.close();

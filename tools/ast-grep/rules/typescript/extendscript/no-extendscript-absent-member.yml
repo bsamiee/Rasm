@@ -2,27 +2,49 @@
 id: no-extendscript-absent-member
 language: tsx
 severity: error
-rule:
-    pattern: $MEMBER
-    any:
-        - kind: member_expression
-          has: {field: object, kind: identifier, regex: '^JSON$'}
-        - kind: member_expression
-          all:
-            - has: {field: object, kind: identifier, regex: '^(Object|Array|Number|String|Math|Date)$'}
-            - has: {field: property, regex: '^(keys|values|entries|assign|hasOwn|create|defineProperty|defineProperties|getPrototypeOf|setPrototypeOf|getOwnPropertyNames|getOwnPropertyDescriptor|freeze|seal|is|fromEntries|isArray|from|of|parseInt|parseFloat|isInteger|isFinite|isNaN|isSafeInteger|fromCodePoint|raw|trunc|sign|cbrt|log2|log10|hypot|now)$'}
-        - kind: call_expression
-          has:
-            field: function
-            kind: member_expression
-            has: {field: property, regex: '^(map|filter|forEach|reduce|reduceRight|some|every|find|findIndex|findLast|findLastIndex|flat|flatMap|includes|fill|at|trim|trimStart|trimEnd|startsWith|endsWith|padStart|padEnd|repeat|replaceAll|codePointAt|normalize|bind|toISOString)$'}
-        - {kind: spread_element, inside: {kind: object}}
-        - {kind: rest_pattern, inside: {kind: object_pattern}}
-    inside:
+utils:
+    host-file:
         kind: program
-        stopBy: end
+        regex: '@rasm/(?:extendscript/handle|cep/contract)'
         any:
             - matches: {uxp-host-file: {module: {regex: '^@rasm/extendscript/handle$'}}}
             - has: {kind: import_statement, regex: '^import type ', has: {field: source, regex: '^.@rasm/cep/contract.$'}}
-message: '`$MEMBER` compiles to a member ExtendScript lacks, and swc lowers syntax alone'
-note: 'Write the ES3 form: an index loop, `for...in` over own keys, `charAt` and `slice`, or `keys` and `assign` from `@rasm/extendscript/handle`'
+rule:
+    any:
+        - kind: member_expression
+          pattern: $MEMBER
+          has: {field: object, kind: identifier, regex: '^JSON$'}
+        - kind: member_expression
+          pattern: $MEMBER
+          all:
+            - has: {field: object, kind: identifier, regex: '^(Object|Array|Number|String|Math|Date)$'}
+            - has: {field: property, regex: '^(keys|values|entries|assign|hasOwn|create|defineProperty|defineProperties|getPrototypeOf|setPrototypeOf|getOwnPropertyNames|getOwnPropertyDescriptor|getOwnPropertySymbols|freeze|seal|isFrozen|isSealed|isExtensible|preventExtensions|is|fromEntries|groupBy|isArray|from|fromAsync|of|parseInt|parseFloat|isInteger|isFinite|isNaN|isSafeInteger|MAX_SAFE_INTEGER|MIN_SAFE_INTEGER|EPSILON|fromCodePoint|raw|trunc|sign|cbrt|log2|log10|log1p|expm1|hypot|sinh|cosh|tanh|asinh|acosh|atanh|fround|imul|clz32|now)$'}
+        - kind: call_expression
+          pattern: $MEMBER
+          has: {field: function, kind: member_expression, has: {field: property, regex: &method '^(map|filter|forEach|reduce|reduceRight|some|every|find|findIndex|findLast|findLastIndex|flat|flatMap|includes|fill|at|trim|trimStart|trimEnd|startsWith|endsWith|padStart|padEnd|repeat|replaceAll|codePointAt|normalize|bind|toISOString)$'}}
+        - kind: member_expression
+          pattern: $MEMBER
+          all:
+            - has: {field: property, regex: *method}
+            - has: {field: object, kind: member_expression, has: {field: property, regex: '^prototype$'}}
+        - kind: identifier
+          pattern: $MEMBER
+          regex: '^(Map|Set|WeakMap|WeakSet|Promise|Proxy|Reflect|Symbol)$'
+          all: [{inside: {kind: program, stopBy: end, matches: host-file}}, {matches: typescript-global-reference}]
+        - {kind: spread_element, pattern: $MEMBER}
+        - {kind: rest_pattern, pattern: $MEMBER, inside: {kind: object_pattern}}
+        - kind: array_pattern
+          pattern: $MEMBER
+          not:
+            any:
+                - inside: {kind: variable_declarator, field: name, has: {field: value, kind: array}}
+                - inside: {kind: assignment_expression, field: left, has: {field: right, kind: array}}
+        - kind: class_declaration, class
+          all:
+            - any: [{has: {field: name, pattern: $MEMBER}}, {pattern: $MEMBER, not: {has: {field: name, kind: type_identifier}}}]
+            - any:
+                - has: {kind: class_heritage, has: {kind: extends_clause}}
+                - has: {field: body, has: {kind: method_definition, not: {has: {field: name, regex: '^constructor$'}}}}
+    inside: {kind: program, stopBy: end, matches: host-file}
+message: '`$MEMBER` compiles to a member ExtendScript lacks'
+note: 'Write the ES3 form: index loops and reads, `for...in` over own keys, `charAt` and `slice`, functions over a class, or `keys` and `assign` from `@rasm/extendscript/handle`'

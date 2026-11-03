@@ -1,6 +1,6 @@
 import { NodeServices } from '@effect/platform-node';
 import { describe, expect, layer } from '@effect/vitest';
-import { commandDecision, none, type Request, type System, some } from '@rasm/function-hooks';
+import { commandDecision, Option, type Request, type System } from '@rasm/function-hooks';
 import { Config, Duration, Effect, FileSystem, Path, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 
@@ -9,7 +9,7 @@ import { ChildProcess } from 'effect/process';
 const ROOT = new URL('../../../..', import.meta.url).pathname.replace(/\/$/u, '');
 const DEADLINE: Duration.Input = '600 seconds';
 const BLIND = 'Command waits blindly. Use Monitor or run_in_background';
-const FOREGROUND: Request = { kind: 'foreground', timeout: none };
+const FOREGROUND: Request = { kind: 'foreground', timeout: Option.none };
 const BACKGROUND: Request = { kind: 'background' };
 const MONITOR: Request = { kind: 'monitor' };
 
@@ -54,7 +54,15 @@ const hosted = Effect.fn('hosted')(function* (installed: boolean) {
     const folder = yield* fs.makeTempDirectoryScoped();
     return {
         write: (name: string, text: string) => Effect.as(fs.writeFileString(path.join(folder, name), text), path.join(folder, name)),
-        decide: (command: string, request: Request) => Effect.promise(() => commandDecision({ run: spawn, exists: (entry) => run(fs.exists(entry)), read: (entry) => run(fs.readFileString(entry)), scanner, plugin, root: some(ROOT), cwd: ROOT, home: some(home) }, command, 'rasm', some(request))),
+        decide: (command: string, request: Request) =>
+            Effect.promise(() =>
+                commandDecision(
+                    { run: spawn, exists: (entry) => run(fs.exists(entry)), read: (entry) => run(fs.readFileString(entry)), environment: (name) => run(Effect.map(Config.String(name).pipe(Config.withDefault(undefined)), Option.given)), scanner, plugin, root: Option.some(ROOT), cwd: ROOT, home: Option.some(home) },
+                    command,
+                    'rasm',
+                    request,
+                ),
+            ),
     };
 });
 
@@ -87,10 +95,10 @@ layer(NodeServices.layer, { timeout: 60_000 })('function-hooks', (it) => {
             ['/System/Applications/TextEdit.app/Contents/MacOS/TextEdit', 'watch-apps launch com.apple.TextEdit'],
             ['watch-apps perform AAEC AXPress; sleep 2; watch-apps read TextEdit', 'watch-apps perform AAEC AXPress; watch-apps read TextEdit'],
             ['watch-apps perform AAEC AXPress && sleep 2', 'watch-apps perform AAEC AXPress'],
-            ["open -a 'Rhino 8'", "watch-apps launch 'Rhino 8' --arguments=-nosplash"],
+            ["open -a 'Rhino 8'", "watch-apps launch 'Rhino 8'"],
+            [`osascript -e 'tell application "TextEdit" to quit saving no'`, 'watch-apps quit TextEdit'],
             ['open -a Rhino --args -nosplash', 'watch-apps launch Rhino --arguments=-nosplash'],
             ['open -a Rhino model.3dm', 'watch-apps launch Rhino --document model.3dm'],
-            ['watch-apps launch Rhino --new', 'watch-apps launch Rhino --new --arguments=-nosplash'],
             ['tree -L 2 --dirsfirst --noreport plugins', 'tree -L 2 --group-directories-first plugins'],
             ['nx run rasm:typecheck:mypy --skip-nx-cache', 'nx run rasm:typecheck:mypy'],
             ['nx affected -t check --skipNxCache', 'nx affected -t check'],
@@ -104,16 +112,16 @@ layer(NodeServices.layer, { timeout: 60_000 })('function-hooks', (it) => {
             ['caffeinate -i nx run rasm:check', 'nx run rasm:check'],
         ] as const)('%s', ([command, text]) => decided(command, FOREGROUND, false, { kind: 'rewrite', command: text, background: false }));
         it.effect.each([
-            ['trailing & becomes run_in_background', 'nx run portfolio:serve &', FOREGROUND, false, { kind: 'rewrite', command: 'nx run portfolio:serve ', background: true, notice: some('& backgrounded the call. Wait for its completion notice') }],
+            ['trailing & becomes run_in_background', 'nx run portfolio:serve &', FOREGROUND, false, { kind: 'rewrite', command: 'nx run portfolio:serve ', background: true, notice: Option.some('& backgrounded the call. Wait for its completion notice') }],
             ['trailing & drops in a background call', 'nx run portfolio:serve &', BACKGROUND, false, { kind: 'rewrite', command: 'nx run portfolio:serve ', background: false }],
             [
                 'missing timeout becomes call timeout',
                 `timeout ${Duration.toSeconds(DEADLINE)} nx run rasm:check`,
                 FOREGROUND,
                 false,
-                { kind: 'rewrite', command: 'nx run rasm:check', timeout: some(Duration.toMillis(DEADLINE)), notice: some(`timeout is not installed. Call timeout set to ${Duration.toSeconds(DEADLINE)}`) },
+                { kind: 'rewrite', command: 'nx run rasm:check', timeout: Option.some(Duration.toMillis(DEADLINE)), notice: Option.some(`timeout is not installed. Call timeout set to ${Duration.toSeconds(DEADLINE)}`) },
             ],
-            ['missing timeout over the maximum caps the call timeout', 'timeout 2h nx run rasm:check', FOREGROUND, false, { kind: 'rewrite', timeout: some(Duration.toMillis(DEADLINE)), notice: some('timeout is not installed. Call timeout capped at maximum') }],
+            ['missing timeout over the maximum caps the call timeout', 'timeout 2h nx run rasm:check', FOREGROUND, false, { kind: 'rewrite', timeout: Option.some(Duration.toMillis(DEADLINE)), notice: Option.some('timeout is not installed. Call timeout capped at maximum') }],
             ['installed timeout stays', `timeout ${Duration.toSeconds(DEADLINE)} nx run rasm:check`, FOREGROUND, true, { kind: 'allow' }],
             ['read -t leak becomes sleep in Monitor', 'until test -f done; do read -t 1 x < <(tail -f /dev/null); done', MONITOR, false, { kind: 'rewrite', command: 'until test -f done; do sleep 1; done' }],
             [
@@ -155,18 +163,19 @@ layer(NodeServices.layer, { timeout: 60_000 })('function-hooks', (it) => {
             ['a || W=/private/tmp/x && rm -rf $W/p', 'rm $W/p expands at run time'],
             ['S=$(pwd); rm -rf $S/build', 'rm $S/build expands at run time'],
             ['rm -rf .', 'covers repository root'],
-            [`osascript -e 'tell application "Finder" to make new folder'`, 'osascript drives Finder. Use watch-apps perform or atelier'],
+            [`osascript -e 'tell application "Finder" to make new folder'`, 'osascript drives Finder. Use watch-apps perform'],
             [`osascript -e 'tell application "System Events" to keystroke "a"'`, 'System Events hits frontmost app'],
+            [`osascript -e 'tell application "Adobe Illustrator" to do javascript "alert(1)"'`, "osascript scripts 'Adobe Illustrator'. Use Atelier execute_script"],
             ['osascript probe.applescript', 'osascript probe.applescript is opaque'],
-            ['open -W -a Blender scene.blend', 'open -W launches Blender'],
-            ['pkill -f analyzeHeadless', 'pkill ends every match. Kill pids or watch-apps quit'],
+            ['open -W -a Blender scene.blend', 'open -W waits on Blender'],
+            ['pkill -f analyzeHeadless', 'pkill ends every match. Kill one pid pgrep lists'],
             ['killall Rhino', 'killall ends every match'],
             ['kill $(pgrep -x TextEdit)', 'pgrep feeds kill every match'],
             ['pgrep -x TextEdit | xargs kill', 'pgrep feeds kill every match'],
-            [`osascript -e 'tell application "TextEdit" to quit saving no'`, 'osascript drives TextEdit'],
-            [`osascript -l JavaScript -e 'Application("TextEdit").activate()'`, 'JavaScript osascript reaches apps. Use watch-apps or atelier'],
-            ['until watch-apps read TextEdit | grep -q responding; do sleep 5; done', 'Loop polls watch-apps. Run watch-apps watch in Monitor'],
-            ['watch-apps watch TextEdit', 'watch-apps watch never exits. Run it in Monitor'],
+            ['pgrep -f Rhinoceros | xargs kill', 'pgrep feeds kill every match'],
+            [`osascript -l JavaScript -e 'Application("TextEdit").activate()'`, 'JavaScript osascript drives apps. Use watch-apps launch, quit, or perform'],
+            ['until watch-apps read TextEdit | grep -q responding; do sleep 5; done', 'Loop polls TextEdit. Run watch-apps watch TextEdit in Monitor'],
+            ['watch-apps watch TextEdit', 'watch-apps watch never exits. Run watch-apps watch TextEdit in Monitor'],
             ['timeout 600 nx run rasm:check & wait; bash -c "timeout 5 ls"', 'timeout is not installed. Drop it'],
             ['for p in a b; do nx run $p:test; done', 'Loop reruns nx tasks'],
             ['ls libs | xargs -I{} nx run {}:check', 'Loop reruns nx tasks'],
@@ -235,6 +244,7 @@ layer(NodeServices.layer, { timeout: 60_000 })('function-hooks', (it) => {
             ['watch-apps launch Rhino --arguments -nosplash', FOREGROUND],
             ['watch-apps launch Rhino --document model.3dm', FOREGROUND],
             ['watch-apps launch TextEdit', FOREGROUND],
+            ['watch-apps launch Rhino --new', FOREGROUND],
             ['/Applications/Blender.app/Contents/MacOS/Blender --command extension list', FOREGROUND],
         ] as const)('%s', ([command, request]) => decided(command, request, false, { kind: 'allow' }));
     });

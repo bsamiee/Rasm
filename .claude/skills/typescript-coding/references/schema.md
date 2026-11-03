@@ -24,14 +24,21 @@ class Invoice extends Model.Class<Invoice>('Invoice')({
 - Boundaries besides SQL and JSON declare variants in `VariantSchema.make({ variants, defaultVariant })` with `Class`, `Field`, and `FieldExcept`
 - Variants derive through `X.mapFields` with `Struct.assign`, `omit`, `pick`, or `map(Schema.optionalKey)`, a `...X.fields` spread restating them
 - `Schema.fieldsAssign(fields)` takes a `Struct` alone, adding fields to each struct member of a union through `mapMembers`
-- Fields sharing one schema spread from `Struct.Record(keys, S)`, the keys a literal list or `X.literals`
+- Patches are a `mapFields` variant of `optionalKey` fields, `OptionFromNullOr` unsetting an `Option` and `Record(K, NullOr(V))` removing an entry
+- Merges apply a patch through `Struct.evolve` into `X.makeEffect`, rerunning class checks, `new Schema.SchemaError(issue)` lifting its issue
+- Fields sharing one schema spread from `Struct.Record(keys, S)`, fields differing in an annotation from `Record.map` over the table owning the keys
+- `X.fields.<f>.schema` reads the schema under `optionalKey` or `withConstructorDefault`, a re-declared shape restating it
 - Relations no getter derives are one struct `Schema.makeFilter` returning `{ path, issue }` at each field a reader fixes
 - Whole-value fixes decode with `{ errors: 'all' }`, `SchemaIssue.makeFormatterStandardSchemaV1()(error.issue).issues` listing one message per path
+- Formatter paths are always `PropertyKey[]`, the standard's optional `{ key }` segment type needing no default or mapping
+- Issues crossing a wire are a reason case of `Schema.StandardSchemaV1FailureResult.fields` the formatter's result spreads into
 - Struct filters drop from a `mapFields` variant, `{ unsafePreserveChecks: true }` keeps them where the variant holds every field they read
 - Host objects decode at the read through a struct of read members stating every runtime form the host returns, its typings stating fewer
-- Host struct fields take `Schema.instanceOf(C)` and `Schema.declare(Predicate.isFunction)`
+- Host struct fields take `Schema.instanceOf(C)` and `Schema.declare(Predicate.isFunction)`, host enum fields `Schema.Enum(<HostEnum>)` over `Schema.Int`
+- Host records with one supported form among refused ones decode as `StructWithRest` of an optional key and `Record(String, Json)`, naming present keys
+- Caller options for a host call decode through the host's option fields with `{ onExcessProperty: 'error' }`, the default stripping unknown keys
 - `Schema.declare(Schema.is(Struct))` returns the host object itself, its methods keeping their receiver
-- `Struct.pick` reads own enumerable keys, and prototype getters copy through `Record.fromIterableWith(Struct.keys(X.fields), (k) => [k, host[k]])`
+- `Struct.pick` reads own enumerable keys, and host getters read by walking `SchemaAST.toEncoded(View.ast)` by field, `_tag` or array member, at every depth
 
 ## [02]-[UNIONS]
 
@@ -60,6 +67,10 @@ class Activity extends Schema.Class<Activity, { readonly brand: unique symbol }>
 - `Schema.Union(cases).pipe(Schema.toTaggedUnion(key))` over a foreign discriminator derives `match`, `guards`, and `cases`, replacing `key ===` tests
 - Unions keyed by each case's one property (`{ running: {...} }`) decode each case through `decodeTo(TaggedStruct)`, closed by `toTaggedUnion('_tag')`
 - Encoded cases with no tag declare `_tag: Schema.tagDefaultOmit('<Case>')` beside their `encodeKeys`, decoded cases folding through `Match.valueTags`
+- Record cases beside tagged ones declare `_tag: Schema.optionalKey(Schema.Never)` in a `StructWithRest`, a malformed tagged value failing at its case
+- Cases differing in tag alone share one fields record, a check spanning them sits on the union, and a shared-field reader takes `Extract<U, { field }>`
+- Recursive schemas type only the recursing cases by hand, the rest `typeof Leaf.Type` of one schema union, each slot reading one `Schema.suspend` const
+- Recursive consts annotate `Schema.Codec<T, E>`, and `Schema.suspend((): Schema.Codec<T, E> => X)` breaks the inference cycle
 
 ## [03]-[TRANSFORMATIONS]
 
@@ -68,17 +79,18 @@ Transformations pair a decode getter from encoded form to domain type with an en
 | [INDEX] | [CONVERSION]                 | [FORM]                                                                              |
 | :-----: | :--------------------------- | :---------------------------------------------------------------------------------- |
 |  [01]   | Scalar written as text       | `BigDecimalFromString`, `DateTimeUtcFromString`, `DurationFromString`               |
-|  [02]   | Encoded literal to domain    | `Schema.Literals(wire).transform(domain)`                                           |
-|  [03]   | Coercion a getter names      | `{ decode: SchemaGetter.Boolean(), encode: SchemaGetter.Number() }`                 |
-|  [04]   | Delimited list               | `SchemaGetter.split()` decoding, `SchemaGetter.transform(Array.join(','))` encoding |
-|  [05]   | Key-value text               | `decodeTo(Schema.Record(K, V), SchemaTransformation.splitKeyValue({ separator }))`  |
-|  [06]   | Text grammar                 | `Schema.TemplateLiteralParser` piped into `decodeTo`                                |
-|  [07]   | Total conversion             | `decodeTo(to, SchemaTransformation.transform({ decode, encode }))`                  |
-|  [08]   | Change within one type       | `Schema.decode(t)`, `Schema.encode(t)` over encoded form                            |
-|  [09]   | Throwing or service parse    | `SchemaGetter.transformEffect` with `Effect.try` failing `SchemaIssue.InvalidValue` |
-|  [10]   | Constant per source case     | `decode: SchemaGetter.succeed(value)`, filling an absent key                        |
-|  [11]   | Decode-only source           | `encode: SchemaGetter.forbiddenEncoding`                                            |
-|  [12]   | Fallback over a failed parse | `Schema.catchDecoding(f)` around whole parse effect                                 |
+|  [02]   | Number in a unit             | `DurationFromMillis`, `DurationFromNanos`, `ByteSizeFromNumber`                     |
+|  [03]   | Encoded literal to domain    | `Schema.Literals(wire).transform(domain)`                                           |
+|  [04]   | Coercion a getter names      | `{ decode: SchemaGetter.Boolean(), encode: SchemaGetter.Number() }`                 |
+|  [05]   | Delimited list               | `SchemaGetter.split()` decoding, `SchemaGetter.transform(Array.join(','))` encoding |
+|  [06]   | Key-value text               | `decodeTo(Schema.Record(K, V), SchemaTransformation.splitKeyValue({ separator }))`  |
+|  [07]   | Text grammar                 | `Schema.TemplateLiteralParser` piped into `decodeTo`                                |
+|  [08]   | Total conversion             | `decodeTo(to, SchemaTransformation.transform({ decode, encode }))`                  |
+|  [09]   | Change within one type       | `Schema.decode(t)`, `Schema.encode(t)` over encoded form                            |
+|  [10]   | Throwing or service parse    | `SchemaGetter.transformEffect` with `Effect.try` failing `SchemaIssue.InvalidValue` |
+|  [11]   | Constant per source case     | `decode: SchemaGetter.succeed(value)`, filling an absent key                        |
+|  [12]   | Decode-only source           | `encode: SchemaGetter.forbiddenEncoding`                                            |
+|  [13]   | Fallback over a failed parse | `Schema.catchDecoding(f)` around whole parse effect                                 |
 
 ```ts
 const fromText = (expected: string, parse: (text: string) => unknown) =>
@@ -89,20 +101,27 @@ const fromText = (expected: string, parse: (text: string) => unknown) =>
         }),
     );
 
-const Manifest = fromText('TOML', TOML.parse).pipe(Schema.decodeTo(Schema.Struct({ name: Schema.NonEmptyString, items: Schema.Array(Item) })));
+const Manifest = fromText('YAML', Yaml.parse).pipe(Schema.decodeTo(Schema.Struct({ name: Schema.NonEmptyString, items: Schema.Array(Item) })));
 ```
 
-`fromText` holds one throwing parser per text format, its issue keeping the thrown value as `cause`, and every schema over that format decodes through it in place of a `try` around the parse followed by a decode. `TOML.parse` is a host parser and `Item` a row schema:
+`fromText` holds one throwing parser per text format, its issue keeping the thrown value as `cause`, and every schema over that format decodes through it in place of a `try` around the parse followed by a decode. `Yaml` is the `effect/encoding` module, its `parse` throwing a `SyntaxError`, and `Item` a row schema:
 - Decode getters read their source's `Type` and target checks run on their output, `FiniteFromString` rejects `NaN` that `NumberFromString` returns
-- Getter throws die as defects, a `Result` parse fails through `Effect.fromResult` and an `Option` parse through `Option.match`
+- Getter throws die as defects, and a `Result` parse (`Toml.parse`) or an `Option` parse fails the getter through `Result.match` or `Option.match` into `SchemaIssue.InvalidValue`
+- Units without a codec (seconds) decode through `decodeTo(Schema.Duration, transform({ decode: Duration.seconds, encode: Duration.toSeconds }))`
+- Text normalized before a stock codec decodes through `decodeTo(Codec, { decode: SchemaGetter.transform(f), encode: SchemaGetter.passthrough() })`
+- `TemplateLiteralParser` parts decode transformed schemas in place, a trailing `Schema.String` holding the rest of a path a resolver recurses on
+- Host sentinel answers stay a literal member of the decoded union, a caller failing on one through `Effect.filterOrFail(Schema.is(Reply), onSentinel)`
 - `transform` and `transformEffect` skip an absent key, `transformOptional` receives it as `Option.none()` and returns `Option.none()` to omit it
 - `Schema` codecs (`URLFromString`, `DateFromString`) hold a transformation with an encoded-side check, a `decodeTo` restating one lacks it
 - `Schema.Class` holds a transformation constructing its instance, `decodeUnknown(Struct)` followed by `new X(...)` restates it
 - `Schema.Class(id)` takes fields or a `Struct`, `X.pipe(Schema.encodeTo(Wire, t))` adds a whole-object transformation to a class
 - `encodeKeys`, `extendTo`, `withDecodingDefault*`, `tagDefaultOmit`, and `TemplateLiteralParser` hold their own transformation
 - `decodeTo(to)` without a transformation composes schemas, `Schema.decode(t)` targets `Schema.toType(source)` and keeps source checks on output
+- `decodeTo` from a source that ran the target's field transformations targets `Schema.toType(target)`, picking keys through `Struct.keys(fields)`
 - Transformations shared by more than one schema are one value, `composeTransformation` chains transformations in place of an intermediate schema
 - Ids naming a record decode to it through a `transformEffect` lookup and encode back to the id, a stored and a resolved schema pair restating them
+- References to one union case take its kind, decode to `Schema.toType(U.cases[kind])`, and narrow the found record through `filterOrFail(Schema.is)`
+- Fields named for the record keep the id's wire key through `Schema.encodeKeys({ record: 'recordId' })`
 - `Schema.StringFromUriComponent` as a `TemplateLiteralParser` part escapes each URI path segment on encode
 - Services a transformation reads join `DecodingServices` and `EncodingServices`, and the decode effect requires them
 - JSON side output is a `toCodecJson` annotation whose encode getter writes through an `Output` reference, every derived codec writing it
@@ -128,7 +147,8 @@ Absence a host returns decodes to `Option`, absence a domain default fills decod
 - Absence as `null` or `''` decodes by `transform({ decode: flow(Option.fromNullOr, Option.filter(String.isNonEmpty)), encode: Option.getOrNull })`
 - Defaults are effects producing the decoded value, `Schema.withDecodingDefaultTypeKey(DateTime.now)` stamps an instant from the clock
 - `{ encodingStrategy: 'omit' }` drops the key from every encode, a set value included, and the default `'passthrough'` writes it
-- `Schema.withConstructorDefault(effect)` lets `make` omit a key, filled by `Effect.succeedNone` for an `Option` field or the decoding default
+- `Schema.withConstructorDefault(effect)` lets `make` omit a key, `Effect.succeedNone` filling an `Option` field, where a decoding default keeps it required
+- Keys stored documents and `make` both omit pipe `withDecodingDefaultKey` then `withConstructorDefault` over one value typed `S['Type'] & S['Encoded']`
 
 ## [05]-[SERIALIZATION]
 
@@ -142,19 +162,27 @@ const snakeCased = <S extends Schema.Top & { readonly fields: Schema.Struct.Fiel
 
 | [INDEX] | [FORMAT]                  | [CODEC]                                                   |
 | :-----: | :------------------------ | :-------------------------------------------------------- |
-|  [01]   | JSON text                 | `Schema.fromJsonString(Schema.toCodecJson(X))`            |
-|  [02]   | Parsed JSON value         | `Schema.toCodecJson(X)`                                   |
-|  [03]   | JSON a Go service writes  | `Schema.toCodecGoJson(X)`                                 |
-|  [04]   | Query string or fragment  | `Schema.fromURLSearchParams(Schema.toCodecStringTree(X))` |
-|  [05]   | Form body                 | `Schema.fromFormData(Schema.toCodecStringTree(X))`        |
-|  [06]   | Tool, form, or API schema | `Schema.toJsonSchemaDocument(X)`                          |
-|  [07]   | Standard Schema validator | `Schema.toStandardSchemaV1(X)`                            |
+|  [01]   | JSON text, JSON fields    | `Schema.fromJsonString(X)`                                |
+|  [02]   | JSON text, other fields   | `Schema.fromJsonString(Schema.toCodecJson(X))`            |
+|  [03]   | Parsed JSON value         | `Schema.toCodecJson(X)`                                   |
+|  [04]   | JSON a Go service writes  | `Schema.toCodecGoJson(X)`                                 |
+|  [05]   | Query string or fragment  | `Schema.fromURLSearchParams(Schema.toCodecStringTree(X))` |
+|  [06]   | Form body                 | `Schema.fromFormData(Schema.toCodecStringTree(X))`        |
+|  [07]   | Tool, form, or API schema | `Schema.toJsonSchemaDocument(X)`                          |
+|  [08]   | Standard Schema validator | `Schema.toStandardSchemaV1(X)`                            |
 
-- Structured text builds through its encoder (`Schema.encodeEffect(Schema.fromJsonString(X))`, `NetAddress.formatInet`), a template restating it
+- `fromJsonString(X)` keeps `typeof X.Encoded` a peer types against, where `toCodecJson` types it `Json`
+- Structured text builds through its encoder (`encodeEffect(fromJsonString(X, { space }))` for people, `NetAddress.formatInet`), a template restating it
 - Edits to a document go through its format library's concrete syntax tree, keeping comments and layout, a pattern rewrite restating it
+- Source no TypeScript library parses (Swift) edits through `ast-grep scan --inline-rules`, each rule an object typed `@ast-grep/napi` `Rule` that `yaml` `stringify` writes
+- Rule patterns and fixes come from one function, applied to metavariable names for the pattern and to values for the fix
+- Facts a schema holds read from its AST (`SchemaAST.toEncoded(s.ast)`, `SchemaAST.resolveDescription(s.ast)`), a caller argument restating them
+- Values bound for host members encode through a struct reusing the host codec's fields, one `encodeEffect` yielding host units and member names
+- `Cause` errors crossing a wire declare their class through `Schema.declare` with a `toCodecJson` `Schema.link`, `ErrorInstance` dropping their tag
 - `toCodecGoJson` decodes the `null` Go writes for a nil slice, map, or optional field as empty or absent
 - `Schema.toCodecArrayFromSingle` over an array field accepts the lone value a query string or form sends for a one-item list
 - `Schema.Exit(A, E, Schema.Defect())` encodes a finished run, `Schema.Result(A, Schema.ErrorInstance())` a stream item holding its own failure
+- `Schema.Result(A, Schema.Defect())` holds a host read refused with a non-`Error` throw as data beside the other fields
 - Members typed `Schema.instanceOf(C, { toCodecJson: () => undefined })` encode to nothing in JSON
 - `.check(Schema.isMinProperties(1))` on an all-optional struct rejects an empty patch
 - `Schema.ArrayEnsure(S)` normalizes one value or an array of values into an array on decode, an `Array.ensure` over a decoded value restating it

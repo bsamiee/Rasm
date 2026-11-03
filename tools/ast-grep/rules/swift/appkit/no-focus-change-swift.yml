@@ -49,4 +49,4 @@ rule:
             - has: {field: target, regex: '\.activates$'}
             - has: {field: result, regex: '^true$'}
 message: '`$SITE` takes focus from the frontmost application'
-note: 'Open through an `OpenConfiguration` with `activates = false`, act on windows by Accessibility actions except `AXRaise`, and delete each activation'
+note: 'Applications `NSWorkspace.launch` opens apps unfocused, call it, act by Accessibility actions except `AXRaise`, and delete each activation'

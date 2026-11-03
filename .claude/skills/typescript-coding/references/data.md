@@ -38,6 +38,7 @@ const dropped =
 `dropped` builds the next `Down` from the attempt count the case it leaves holds:
 - Steps deciding a value beside the next state return `[value, next]` to `Ref.modify`, `Effect.flatten` running an effect value after the update
 - Loading states are `AsyncResult` from `effect/reactivity`, with a `waiting` flag on every case
+- Tagged enums one class field holds declare cases in its type, `static readonly X = Data.taggedEnum<C['field'][number]>()` deriving constructors and `$match`
 
 ## [03]-[COLLECTIONS]
 
@@ -49,6 +50,9 @@ const byCell = Iterable.reduce(readings, HashMap.empty<Cell, Chunk.Chunk<Reading
 
 `readings` each hold a `{ row, column }` cell, and `HashMap.get(byCell, { row: 0, column: 0 })` reads one group:
 - Rows read by key more than once index once through `Record.fromIterableBy(rows, Struct.get('name'))`, each read a `Record.get` in place of a `find`
+- Records over a key list build through `Record.map(Struct.Record(keys, v), (_, key) => ...)`, `Record.fromIterableWith` widening keys to `string`
+- `Map.groupBy` groups by a number or other non-string key, `Array.groupBy` by a string key
+- Derivations repeated per key within one call fill a local `Map` through `getOrInsertComputed`, passed to their reader as a `(key) => value` parameter
 - `HashMap.mutate` applies a batch of updates to a transient copy no reader sees and returns one new map
 - `Trie` keys strings in key order, reading by prefix through `keysWithPrefix` and by longest prefix through `longestPrefixOf`
 - `Chunk` shares both sides of a concatenation, where a `readonly A[]` copies every element
@@ -80,6 +84,7 @@ const bySeverity = Order.mapInput(Number.Order, (severity: typeof Severity.Type)
 
 `Severity` lists its literals from lowest to highest, and `Alert.order = Order.Struct({ severity: Order.flip(bySeverity), raised: DateTime.Order })` sorts alerts most severe, then oldest, first:
 - `Order.Struct` and `Order.Tuple` compare fields in key or position order until one differs, `Order.mapInput` over one ordering by a nested part
+- `Order.Boolean` ranks a predicate false first and `Order.Struct` orders a host struct whole, a `0 : 1` key or a tuple of its fields restating them
 - `Schema.toEquivalence(X)` derives field equality, `Equivalence.mapInput` builds one by key for a type lacking it (`URL` by `href`) as a static
 - `Array.containsWith`, `dedupeWith`, `differenceWith`, `unionWith`, and `Stream.changesWith` read an `Equivalence` in place of a hand `===` on a key
 - `Array.dedupe` and `HashSet` group through `Equal` and `Hash` in one pass, `Array.dedupeWith` compares each element with every kept one

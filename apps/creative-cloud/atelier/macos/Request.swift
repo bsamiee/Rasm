@@ -1,22 +1,12 @@
 import AppKit
 import AppleEvents
-import ApplicationServices
 import Applications
 import CoreServices
 import Foundation
 import JSONRPC
+import Results
 import ScreenCaptureKit
 import UniformTypeIdentifiers
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-let notifications: Set<String> = [
-    kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification, kAXUIElementDestroyedNotification,
-    kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification, kAXTitleChangedNotification, kAXWindowMiniaturizedNotification,
-    kAXWindowDeminiaturizedNotification, kAXApplicationHiddenNotification, kAXApplicationShownNotification, kAXValueChangedNotification,
-]
-
-let messagingTimeout: Duration = .seconds(1)
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -44,6 +34,7 @@ struct Captured: Encodable, Sendable {
 
 struct Launched: Encodable, Sendable {
     let pid: pid_t
+    let created: Bool
 }
 
 struct RunningInstance: Encodable, Sendable {
@@ -97,23 +88,28 @@ enum Request: Decodable, Sendable {
                 )
             case .instances:
                 return await .stream(
-                    NSWorkspace.shared.instanceStates(
-                        of: { instance in instance.bundleIdentifier?.hasPrefix(adobePrefix) == true },
-                        notifications: notifications,
-                        polling: messagingTimeout,
-                    )
-                    .map { states -> any Encodable & Sendable in
-                        states.compactMap { instance, state in instance.bundleURL.map { url in RunningInstance(instance: instance, url: url, state: state) } }
-                    }
+                    NSWorkspace.shared.instanceStates { instance in instance.bundleIdentifier?.hasPrefix(adobePrefix) == true }
+                        .map { states -> any Encodable & Sendable in
+                            states.compactMap { instance, state in instance.bundleURL.map { url in RunningInstance(instance: instance, url: url, state: state) } }
+                        }
                 )
             case .applications(let file):
                 return .value(NSWorkspace.shared.urlsForApplications(toOpen: file))
             case .status(let pid):
                 return try await .value(running(pid).instance.state(walking: \.requiresAnswer))
             case .launch(let url):
-                let instance: NSRunningApplication = try await NSWorkspace.shared.launch(adobeInstallation(at: url)).instance
-                for await _: InstanceState in instance.states(until: { state in !state.isLaunching }, notifications: notifications, polling: messagingTimeout) {}
-                return .value(Launched(pid: instance.processIdentifier))
+                let installation: Installation = try adobeInstallation(at: url)
+                var launched: Launched?
+                for await observation: Observation in await NSWorkspace.shared.observed(.launch([(installation, [])], arguments: [], environment: [:], newInstance: false)) {
+                    switch observation {
+                        case .instance(let instance, .running(let running)): launched = Launched(pid: instance.processIdentifier, created: running.created ?? false)
+                        case .instance(let instance, _): launched = Launched(pid: instance.processIdentifier, created: launched?.created ?? false)
+                        case .failure(_, let failure): throw failure
+                        case .states: continue
+                    }
+                }
+                guard let launched else { throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .cancelled(CancellationError())) }
+                return .value(launched)
             case .perform(let pid, let actions):
                 _ = try running(pid)
                 for action: ElementAction in actions { try await action.perform(in: pid) }
@@ -131,7 +127,11 @@ enum Request: Decodable, Sendable {
                     target: NSAppleEventDescriptor(processIdentifier: pid),
                     refusing: Set(activatingCommands.first { stem, _ in installation.identifier.hasPrefix(stem) }?.value.compactMap(UInt64.init(sdef:)) ?? []),
                 )
-                return try await .value(Executed(reply: AppleEventValue(event.sent(), in: dictionary), reading: artifacts))
+                do {
+                    return try await .value(Executed(reply: AppleEventValue(event.sent(), in: dictionary), reading: artifacts))
+                } catch  where error.status == OSStatus(errAETimeout) {
+                    throw try await UnansweredEvent(failure: error, pid: pid, state: running(pid).instance.state(walking: \.requiresAnswer))
+                }
             case .screenshot(let pid, let window, let longestSide, let file):
                 let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
                 configuration.showsCursor = false
@@ -143,5 +143,28 @@ enum Request: Decodable, Sendable {
             case .face(let name):
                 return try .value(FontFace(named: name))
         }
+    }
+}
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+struct UnansweredEvent: LocalizedError, TaggedError {
+    private enum CodingKeys: CodingKey {
+        case subject, pid, state
+    }
+
+    static let tag: String = "UnansweredEvent"
+
+    let failure: AppleEventFailure
+    let pid: pid_t
+    let state: InstanceState
+
+    var errorDescription: String? { failure.errorDescription }
+
+    func encode(to encoder: any Encoder) throws {
+        var fields: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        try fields.encode(failure.subject, forKey: .subject)
+        try fields.encode(pid, forKey: .pid)
+        try fields.encode(state, forKey: .state)
     }
 }

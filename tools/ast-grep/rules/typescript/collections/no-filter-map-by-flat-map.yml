@@ -10,12 +10,25 @@ utils:
               any: [{pattern: '$_ ? [] : [$_]'}, {pattern: '$_ ? [$_] : []'}]
               not: {has: {kind: array, has: {kind: spread_element}}}
             - kind: call_expression
-              has: {field: function, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^toArray$'}}}}
+              has:
+                field: function
+                any:
+                    - matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^toArray$'}}}
+                    - matches: {effect-module-member: {module: {regex: '\bArray$'}, member: {regex: '^fromOption$'}}}
+            - kind: call_expression
+              has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^map$'}}, {has: {field: object, matches: one-or-none}}]}
             - kind: parenthesized_expression
               has: {nthChild: 1, matches: one-or-none}
     selecting-callback:
         kind: arrow_function, function_expression
-        has: {field: body, matches: one-or-none}
+        has:
+            field: body
+            any:
+                - matches: one-or-none
+                - kind: statement_block
+                  all:
+                    - has: {kind: return_statement, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, has: {matches: one-or-none}}
+                    - not: {has: {stopBy: {kind: 'arrow_function, function_expression, function_declaration, method_definition, class_body'}, kind: return_statement, not: {has: {matches: one-or-none}}}}
 rule:
     kind: call_expression
     all:

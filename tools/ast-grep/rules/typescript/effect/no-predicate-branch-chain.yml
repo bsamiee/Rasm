@@ -5,11 +5,18 @@ severity: error
 utils:
     option-member:
         matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^(orElse|liftPredicate)$'}}}
+    lift-member:
+        kind: member_expression
+        all: [{has: {field: property, regex: '^liftPredicate$'}}, {matches: option-member}]
     lift:
         kind: call_expression
-        all:
-            - has: {field: function, matches: option-member, has: {field: property, regex: '^liftPredicate$'}}
-            - has: {field: arguments, has: {nthChild: 1, pattern: $X}}
+        any:
+            - all:
+                - has: {field: function, matches: lift-member}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $X}}, {has: {nthChild: 2}}]}
+            - all:
+                - has: {field: function, kind: call_expression, all: [{has: {field: function, matches: lift-member}}, {has: {field: arguments, not: {has: {nthChild: 2}}}}]}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $X}}
     lifted:
         any:
             - matches: lift
@@ -39,4 +46,4 @@ rule:
                     - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: lifted}}]}
                     - has: {field: arguments, has: {pattern: $ALT}}
 message: '`Option.orElse` tests `$X` against one more predicate in a nested branch'
-note: 'Match the value once, `Match.value(<value>).pipe(Match.when(<predicate>, <f>), ..., Match.option)`, one arm per predicate'
+note: 'Lift once through `Option.liftPredicate(<value>, Predicate.or(<p1>, <p2>))`, or for arms that map, `Match.value(<value>).pipe(Match.when(<predicate>, <f>), ..., Match.option)`'

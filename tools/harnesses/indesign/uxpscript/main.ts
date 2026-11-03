@@ -2,7 +2,7 @@ import fs from 'adobe:fs';
 import indesign, { type Enumerator, type ScriptLanguage } from 'adobe:indesign';
 import uxp from 'adobe:uxp';
 import { thrown } from '@rasm/harnesses/error';
-import { Encoded, fields, type HostCase, Outcome, Recorded, Reply } from '@rasm/harnesses/indesign/contract';
+import { Encoded, fields, type HostCase, HostOutcome, Recorded, Reply } from '@rasm/harnesses/indesign/contract';
 import { bury, JsonObject, revive, Tagged } from '@rasm/harnesses/values';
 import { Equal, Iterable, identity, Match, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
 
@@ -596,7 +596,7 @@ const ran = (session: Session, { fake, evaluate }: ReturnType<typeof installed>,
         return { completion: threw(error) };
     }
 };
-const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, codec: Codec): typeof Outcome.Type => {
+const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, codec: Codec): typeof HostOutcome.Type => {
     const session: Session = {
         item,
         batch,
@@ -624,7 +624,7 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
         }
     };
     const shadows = installed(session);
-    const result = ((): Omit<Parameters<typeof Outcome.make>[0], 'name' | 'answered' | 'leaked' | keyof typeof fields> => {
+    const result = ((): Omit<Parameters<typeof HostOutcome.make>[0], 'name' | 'answered' | 'leaked' | keyof typeof fields> => {
         try {
             const docs = opened(session);
             session.record.opened = docs.map((doc) => state(codec, doc));
@@ -670,7 +670,7 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
             (id) => Object.assign(app, { activeDocument: app.documents.itemByID(id) }),
         ),
     );
-    return Outcome.make({ name: item.name, ...result, ...session.record, leaked });
+    return HostOutcome.make({ name: item.name, ...result, ...session.record, leaked });
 };
 const respond = ({ script: host }: typeof Host.Type) => {
     const written = Schema.encodeResult(Recorded);
@@ -695,7 +695,7 @@ const respond = ({ script: host }: typeof Host.Type) => {
             const appended = (line: string) => fs.writeFileSync(batch.records, `${String(fs.readFileSync(batch.records, { encoding: 'utf-8' }))}${line}\n`);
             batch.cases.forEach((item, index) => {
                 appended(Result.getOrThrow(written({ _tag: 'Started', index })));
-                appended(Result.getOrThrow(Result.orElse(written({ _tag: 'Finished', outcome: outcomeOf(item, batch, found, coder) }), ({ message: reason }) => written({ _tag: 'Finished', outcome: Outcome.make({ name: item.name, completion: { _tag: 'Failed', reason } }) }))));
+                appended(Result.getOrThrow(Result.orElse(written({ _tag: 'Finished', outcome: outcomeOf(item, batch, found, coder) }), ({ message: reason }) => written({ _tag: 'Finished', outcome: HostOutcome.make({ name: item.name, completion: { _tag: 'Failed', reason } }) }))));
             });
             return header;
         } catch (error) {

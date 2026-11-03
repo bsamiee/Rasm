@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-function-scoped-schema
+language: tsx
+severity: error
+utils:
+    constructor:
+        kind: member_expression
+        any:
+            - has: {field: property, regex: '^mapFields$'}
+            - all:
+                - has: {field: property, regex: '^(Struct|TaggedStruct|Union|TaggedUnion|Literals|Array|NonEmptyArray|Tuple|Record|fromJsonString)$'}
+                - matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '\w'}}}
+    declared:
+        any:
+            - inside: {kind: formal_parameters, stopBy: end}
+            - inside: {kind: variable_declarator, field: name}
+            - inside: {kind: 'object_pattern, array_pattern', stopBy: end}
+            - inside: {kind: for_in_statement, field: left}
+            - inside: {kind: catch_clause, field: parameter}
+    local:
+        kind: 'identifier, shorthand_property_identifier'
+        pattern: $NAME
+        inside:
+            stopBy: end
+            kind: &function 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'
+            has: {stopBy: end, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $NAME, matches: declared}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, pattern: $SCHEMA, matches: constructor}
+        - inside: {stopBy: end, kind: *function}
+        - not: {inside: {stopBy: {kind: *function}, kind: call_expression, has: {field: function, matches: constructor}}}
+        - not: {inside: {stopBy: end, kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^(suspend|memoize)$'}}}}
+        - not:
+            inside:
+                stopBy: {kind: *function}
+                kind: *function
+                any:
+                    - inside: {kind: pair, field: value, has: {field: key, regex: '^to[A-Z]\w*$'}}
+                    - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: constructor}}}
+        - not: {has: {stopBy: end, kind: this}}
+        - not: {has: {stopBy: end, matches: local}}
+message: '`$SCHEMA` builds a schema inside a function from values its scope does not bind'
+note: 'Declare the schema at module scope, parsers cache by its AST'

@@ -3,9 +3,9 @@ import { Encoded, Engine, fields, HostCase, type Placed, Reply, SURVEY, Survey, 
 import { precondition } from '#/blender/precondition';
 import type { Row } from '#/cases';
 import { HarnessError } from '#/error';
-import { appeared, plist, printed, type Spawned } from '#/instance';
-import { replied } from '#/results';
-import type { Batch, Host as Harness, Installed, Launched, Live, Rebuilt } from '#/session';
+import { appeared, Launched, plist, printed, Spawned } from '#/instance';
+import { Run } from '#/log';
+import type { Batch, Host as Harness, Installed, Live, Rebuilt } from '#/session';
 import { engineOf, prepared } from '#/source';
 import type { JsonObject } from '#/values';
 
@@ -14,7 +14,8 @@ import type { JsonObject } from '#/values';
 const VERSION = /^Blender (?<release>\S+) ?(?<cycle>.*)$[\s\S]*?build hash: (?<hash>\w+)/mu;
 const ENGINE = new URL('engine.py', import.meta.url);
 const HOST = 'host.json';
-const STDERR = 'stderr.txt';
+const LOG = '.blender.log';
+const ERRORS = '.stderr.txt';
 const SESSION = 'session.json';
 const QUIT = 'quit';
 
@@ -63,22 +64,23 @@ const rebuilt = Effect.fn('rebuilt')(function* ({ hosted, fn, args, module }: Re
 });
 
 // --- [TRANSPORT]
+const stemmed = (scratch: string) => Effect.map(Effect.all([Run, Path.Path]), ([{ folder }, path]) => path.join(folder, path.basename(scratch)));
 const launch = Effect.fn('launch')(function* (chosen: Installed, scratch: string, shown: boolean) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const profile = path.join(scratch, 'profile');
+    const [fs, path, { folder }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Run]);
+    const [profile, stem] = [path.join(scratch, 'profile'), yield* stemmed(scratch)];
     yield* fs.makeDirectory(profile, { recursive: true });
-    yield* fs.writeFileString(path.join(scratch, STDERR), '');
+    yield* fs.writeFileString(`${stem}${ERRORS}`, '');
     const { executable } = yield* bundle(chosen.app);
-    const args = ['--log-file', path.join(scratch, 'blender.log'), '--log', 'operator', '--log-level', 'debug', '--python-exit-code', '1', '--python', yield* path.fromFileUrl(ENGINE), '--', scratch, HOST, STDERR, SESSION, QUIT];
-    const environment = { BLENDER_USER_RESOURCES: profile };
-    return shown ? ({ arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment } satisfies Launched) : ({ _tag: 'Spawned', command: executable, arguments: ['--background', ...args], environment } satisfies Spawned);
+    const args = ['--log-file', `${stem}${LOG}`, '--log', 'operator', '--log-level', 'debug', '--python-exit-code', '1', '--python', yield* path.fromFileUrl(ENGINE), '--', scratch, HOST, `${stem}${ERRORS}`, SESSION, QUIT];
+    const environment = { BLENDER_USER_RESOURCES: profile, TMPDIR: folder };
+    return shown ? new Launched({ arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment }) : new Spawned({ command: executable, arguments: ['--background', ...args], environment });
 });
 const opened = Effect.fn('opened')(function* (live: Live) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const written = yield* Effect.raceFirst(
         appeared(path.join(live.scratch, HOST)),
         Deferred.await(live.verdict).pipe(
-            Effect.andThen(fs.readFileString(path.join(live.scratch, STDERR))),
+            Effect.andThen(Effect.flatMap(stemmed(live.scratch), (stem) => fs.readFileString(`${stem}${ERRORS}`))),
             Effect.flatMap((stderr) => HarnessError.unavailable(`${live.chosen.name} ${live.chosen.version}`)([`instance ${live.pid} ended before the engine wrote ${HOST}`, stderr.trim()].filter(String.isNonEmpty).join(': '))),
         ),
     );
@@ -90,7 +92,7 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
     const [session, reply] = [path.join(folder, SESSION), path.join(folder, 'reply.json')];
     yield* fs.writeFileString(`${session}.tmp`, yield* Schema.encodeEffect(Encoded)({ records: batch.records, reply, survey: Option.isNone(batch.survey), cases: batch.cases }));
     yield* fs.rename(`${session}.tmp`, session);
-    return yield* replied(`instance ${live.pid} batch`)(yield* Schema.decodeEffect(Reply)(yield* appeared(reply)));
+    return yield* Reply.replied(`instance ${live.pid} batch`)(yield* appeared(reply));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -100,7 +102,6 @@ const Host = {
     survey: { question: SURVEY, Schema: Survey },
     Case: HostCase,
     fields,
-    shown: ['modal', 'warnings'],
     engine,
     precondition,
     placed,
@@ -109,6 +110,11 @@ const Host = {
     launch,
     opened,
     send,
+    logs: () =>
+        Effect.map(Run, ({ folder }) => [
+            { kind: 'host', pattern: `*{${LOG},${ERRORS}}`, root: folder },
+            { kind: 'crash', pattern: '*.crash.txt', root: folder },
+        ]),
     quit: (live) => Effect.flatMap(Effect.all([FileSystem.FileSystem, Path.Path]), ([fs, path]) => fs.writeFileString(path.join(live.scratch, QUIT), '')),
     rebuilt,
 } as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type, typeof fields>;

@@ -175,6 +175,7 @@ internal sealed record Outcome(string Name, Completion Completion) {
     public ImmutableArray<Executed>? Commands { get; init; }
     public ImmutableArray<Prompt>? Prompts { get; init; }
     public ImmutableArray<Diagnosed>? Diagnostics { get; init; }
+    public string? Unhandled { get; init; }
 }
 
 internal sealed record PlugInLoad(string File, Guid Id, LoadPlugInResult Result, bool Current);
@@ -310,7 +311,7 @@ internal sealed class Captured : IDisposable {
     }
 }
 
-internal sealed class Recorder(string folder) {
+internal sealed class Recorder(Journal journal) {
     private readonly Atom<Recording> state = Atom(Recording.Empty);
 
     // --- [LIFECYCLE]
@@ -322,10 +323,22 @@ internal sealed class Recorder(string folder) {
         from logging in Attached<LoggerEventHandler<LoggerWriteEventArgs>>(static handler => RhinoCode.Logger.MessageLogged += handler, static handler => RhinoCode.Logger.MessageLogged -= handler, Logging)
         select unit;
 
-    public IO<Unit> Begin(string caseFolder) =>
+    public IO<Unit> Start(int index, string name) =>
+        IO.lift(() => {
+            journal.Write(new Started(index));
+            _ = state.Swap(_ => Recording.Empty with { Running = Some(name) });
+        });
+
+    public IO<Unit> Finish(Outcome outcome) =>
+        IO.lift(() => {
+            _ = state.Swap(static held => held with { Running = None });
+            journal.Write(new Finished(outcome));
+        });
+
+    public IO<Unit> Begin() =>
         IO.lift(() => {
             _ = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
-            _ = state.Swap(_ => Recording.Empty with { Running = Some(caseFolder) });
+            _ = state.Swap(static held => Recording.Empty with { Running = held.Running });
             RhinoApp.CommandWindowCaptureEnabled = true;
         });
 
@@ -333,7 +346,7 @@ internal sealed class Recorder(string folder) {
         IO.lift(() => {
             string[] printed = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
             RhinoApp.CommandWindowCaptureEnabled = false;
-            Recording held = state.Swap(static current => current with { Running = None });
+            Recording held = state.Value;
             ImmutableArray<string> console = [.. printed, .. Lines(stdout), .. Lines(stderr)];
             ImmutableArray<Diagnosed> logged = [.. held.Diagnostics, .. canvas];
             return outcome with {
@@ -367,8 +380,15 @@ internal sealed class Recorder(string folder) {
         if (args.Level >= LogLevel.Warn) _ = state.Swap(held => held with { Diagnostics = held.Diagnostics.Add(new Diagnosed("RhinoCode", args.Level.ToString(), args.Message)) });
     }
 
-    private void Unhandled(object? sender, UnhandledExceptionEventArgs args) =>
-        File.WriteAllText(Path.Combine(state.Value.Running.IfNone(folder), "unhandled.txt"), args.ExceptionObject is Exception exception ? exception.ToString() : args.ExceptionObject.GetType().FullName ?? "");
+    private void Unhandled(object? sender, UnhandledExceptionEventArgs args) {
+        Recording held = state.Value;
+        _ = held.Running.Iter(name => journal.Write(new Finished(new Outcome(name, new Completion.Failed(args.IsTerminating ? "unhandled exception terminating the host" : "unhandled exception")) {
+            Commands = held.Commands.IsEmpty ? null : [.. held.Commands],
+            Prompts = held.Prompts.IsEmpty ? null : [.. held.Prompts],
+            Diagnostics = held.Diagnostics.IsEmpty ? null : [.. held.Diagnostics],
+            Unhandled = string.Create(CultureInfo.InvariantCulture, $"{args.ExceptionObject}"),
+        })));
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -442,8 +462,7 @@ public static class Engine {
     // --- [BATCH]
     public static void Run(string[] args, ImmutableArray<Expressions> codes, Func<ICanvases> canvases) =>
         (from paths in IO.lift(() => (File: args[0], Records: args[1], Reply: args[2]))
-         from folder in IO.lift(() => Optional(Path.GetDirectoryName(paths.Records)).ToFin(Error.New($"{paths.Records} sits in no folder")))
-         from reply in Batch(paths.File, paths.Records, folder, codes, canvases)
+         from reply in Batch(paths.File, paths.Records, codes, canvases)
              .Map(static held => new Reply(Plugins(), held.PlugIn.ValueUnsafe(), held.Grasshopper.ValueUnsafe()))
              .Catch(static (Error error) => IO.pure(new Reply(Plugins(), Failed: Message(error)))).As()
          from written in IO.lift(() => Written(paths.Reply, reply))
@@ -471,19 +490,19 @@ public static class Engine {
         .. Optional(exception.InnerException).ToSeq().Map(static inner => $"> {Text(inner)}"),
     ]);
 
-    private static IO<Batched> Batch(string file, string records, string folder, ImmutableArray<Expressions> codes, Func<ICanvases> canvases) =>
+    private static IO<Batched> Batch(string file, string records, ImmutableArray<Expressions> codes, Func<ICanvases> canvases) =>
         (from journal in use(() => new Journal(records))
-         from recorder in IO.pure(new Recorder(folder))
+         from recorder in IO.pure(new Recorder(journal))
          from attached in recorder.Attached()
          from surface in use(() => new Lazy<Fin<ICanvases>>(() => Surface(canvases)), static held => when(held.IsValueCreated, IO.lift(() => held.Value.Iter(static made => made.Stop()))).As())
          from batch in IO.lift(() => Optional(JsonSerializer.Deserialize<Batch>(File.ReadAllText(file), Data)).ToFin(Error.New($"{file} holds no batch")))
          from plugIn in Optional(batch.Plugin).Traverse(static plugin => IO.lift(() => Load(plugin))).As()
          from progress in toSeq(batch.Cases).Map(static (element, index) => (Element: element, Index: index))
-             .FoldM(new Progress(None, []), (held, next) => Cased(next.Element, next.Index, codes, journal, recorder, surface, held)).As()
+             .FoldM(new Progress(None, []), (held, next) => Cased(next.Element, next.Index, codes, recorder, surface, held)).As()
          select new Batched(plugIn, progress.Grasshopper)).Bracket();
 
-    private static IO<Progress> Cased(JsonElement element, int index, ImmutableArray<Expressions> codes, Journal journal, Recorder recorder, Lazy<Fin<ICanvases>> surface, Progress held) =>
-        from started in IO.lift(() => journal.Write(new Started(index)))
+    private static IO<Progress> Cased(JsonElement element, int index, ImmutableArray<Expressions> codes, Recorder recorder, Lazy<Fin<ICanvases>> surface, Progress held) =>
+        from started in recorder.Start(index, Named(element, index))
         from outcome in (
             from row in IO.lift(() => Optional(element.Deserialize<Case>(Data)).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"case {index} is null"))))
             from code in IO.lift(() => Compiled(codes[index]))
@@ -491,7 +510,7 @@ public static class Engine {
             from executed in Execute(row, code, recorder, held.Previous, row.Precondition.Canvas is null ? None : surface.Value.ToOption())
             select (executed.Outcome, executed.Opened, Grasshopper: grasshopper))
             .Catch((Error error) => IO.pure((Outcome: new Outcome(Named(element, index), new Completion.Failed(Message(error))), Opened: held.Previous, held.Grasshopper))).As()
-        from finished in IO.lift(() => journal.Write(new Finished(outcome.Outcome)))
+        from finished in recorder.Finish(outcome.Outcome)
         select new Progress(outcome.Grasshopper, outcome.Opened);
 
     private static string Named(JsonElement element, int index) =>
@@ -543,7 +562,7 @@ public static class Engine {
     private static IO<Outcome> Observed(Case @case, Expressions.Compiled code, Recorder recorder, Option<ICanvases> canvases, Captured captured, Option<RhinoDoc> doc, string folder) =>
         (from observed in (
              from scope in Prepared(@case, code, canvases, doc, folder)
-             from begun in recorder.Begin(@case.Folder)
+             from begun in recorder.Begin()
              from logged in IO.lift(() => scope.Canvas.Map(static shown => shown.Canvases.Logged()))
              from outcome in Observe(@case, code, scope)
              from diagnostics in IO.lift(() => (
@@ -551,7 +570,7 @@ public static class Engine {
                  from since in logged
                  select shown.Canvases.Diagnostics(since)).IfNone([]))
              select (Outcome: outcome, Diagnostics: diagnostics))
-             .Catch((Error error) => recorder.Begin(@case.Folder).Map(_ => (Outcome: new Outcome(@case.Name, new Completion.Failed(Message(error))), Diagnostics: ImmutableArray<Diagnosed>.Empty))).As()
+             .Catch((Error error) => recorder.Begin().Map(_ => (Outcome: new Outcome(@case.Name, new Completion.Failed(Message(error))), Diagnostics: ImmutableArray<Diagnosed>.Empty))).As()
          from ended in recorder.End(observed.Outcome, captured.Output, captured.Errors, observed.Diagnostics)
          select ended).Bracket();
 

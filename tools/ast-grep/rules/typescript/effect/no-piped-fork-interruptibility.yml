@@ -7,6 +7,9 @@ utils:
         matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^uninterruptible$'}}}
     fork-member:
         matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(forkIn|forkChild|forkScoped|forkDetach|runFork)$'}}}
+    fork-options:
+        kind: object
+        not: {has: {any: [{kind: spread_element}, {kind: pair, has: {field: key, regex: '^uninterruptible$'}}, {kind: shorthand_property_identifier, regex: '^uninterruptible$'}]}}
     fork-step:
         any:
             - matches: fork-member
@@ -14,10 +17,13 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, matches: fork-member, not: {has: {field: property, regex: '^runFork$'}}}
-                - not: {has: {field: arguments, has: {kind: object}}}
                 - any:
-                    - has: {field: function, has: {field: property, regex: '^forkIn$'}}
-                    - not: {has: {field: arguments, has: {pattern: $_}}}
+                    - all:
+                        - has: {field: function, has: {field: property, regex: '^forkIn$'}}
+                        - has: {field: arguments, all: [{has: {nthChild: 1, not: {kind: object}}}, {not: {has: {nthChild: 2, not: {matches: fork-options}}}}, {not: {has: {nthChild: 3}}}]}
+                    - all:
+                        - has: {field: function, not: {has: {field: property, regex: '^forkIn$'}}}
+                        - has: {field: arguments, all: [{not: {has: {nthChild: 1, not: {matches: fork-options}}}}, {not: {has: {nthChild: 2}}}]}
     uninterruptible-effect:
         any:
             - kind: call_expression
@@ -35,12 +41,25 @@ rule:
         - kind: call_expression
           pattern: $KEPT
           all:
-            - has: {field: function, matches: fork-member}
+            - has: {field: function, matches: fork-member, pattern: $HEAD}
             - has: {field: arguments, has: {nthChild: 1, matches: uninterruptible-effect}}
+        - kind: call_expression
+          pattern: $KEPT
+          all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: uninterruptible-effect}}]}
+            - has: {field: arguments, has: {nthChild: 1, matches: fork-step, pattern: $HEAD}}
 rewriters:
     - id: empty
       rule: {kind: call_expression, pattern: $M.$F()}
       fix: '$M.$F({ uninterruptible: true })'
+    - id: optioned
+      rule: {kind: call_expression, pattern: '$M.$F({ $$$OPTIONS })'}
+      transform: {LISTED: {replace: {source: $$$OPTIONS, replace: '(?s)^(.+)$', by: ', $1'}}}
+      fix: '$M.$F({ uninterruptible: true$LISTED })'
+    - id: scoped-optioned
+      rule: {kind: call_expression, pattern: '$M.$F($SCOPE, { $$$OPTIONS })'}
+      transform: {LISTED: {replace: {source: $$$OPTIONS, replace: '(?s)^(.+)$', by: ', $1'}}}
+      fix: '$M.$F($SCOPE, { uninterruptible: true$LISTED })'
     - id: scoped
       rule: {kind: call_expression, pattern: $M.$F($SCOPE)}
       fix: '$M.$F($SCOPE, { uninterruptible: true })'
@@ -48,10 +67,9 @@ rewriters:
       rule: {matches: fork-member, pattern: $M.$F}
       fix: '$M.$F({ uninterruptible: true })'
 transform:
-    OPTIONED: rewrite($FORK, rewriters=[empty, scoped, unscoped])
-    KEPT_HEAD: {replace: {source: $KEPT, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
+    OPTIONED: rewrite($FORK, rewriters=[empty, optioned, scoped-optioned, scoped, unscoped])
 fix:
     template: $OPTIONED$KEPT
     expandEnd: {matches: fork-step, stopBy: end}
-message: '`$FORK$KEPT_HEAD` starts its fiber interruptible until its `Effect.uninterruptible` step runs'
+message: '`$FORK$HEAD` starts its fiber interruptible until its `Effect.uninterruptible` step runs'
 note: 'Pass `{ uninterruptible: true }` to the fork call in place of `Effect.uninterruptible`'

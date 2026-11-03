@@ -26,21 +26,22 @@ utils:
               all:
                 - has: {field: constructor, matches: {effect-module-member: {module: {regex: '\bCause$'}, member: {regex: '^UnknownError$'}}}}
                 - has: {field: arguments, has: {nthChild: 1, kind: undefined}}
+            - kind: call_expression
+              has: {field: function, regex: '^(String|JSON\.stringify)$', matches: typescript-global-reference}
+            - matches: text-object
             - any:
                 - kind: new_expression
                   has: {field: 'constructor', not: {matches: typescript-package-reference}}
                 - kind: call_expression
                   has: {field: function, not: {matches: typescript-package-reference}}
-              all:
-                - has:
-                    field: arguments
-                    has:
-                        kind: object
-                        has:
-                            kind: pair
-                            all:
-                                - has: {field: key, regex: '^(message|cause|detail|description|text)$'}
-                                - has: {field: value, kind: 'string, template_string'}
+              has: {field: arguments, has: {matches: text-object}}
+    text-object:
+        kind: object
+        has:
+            kind: pair
+            all:
+                - has: {field: key, regex: '^(message|cause|detail|description|text)$'}
+                - has: {field: value, kind: 'string, template_string'}
     untagged-thunk:
         kind: arrow_function, function_expression, method_definition
         has:
@@ -105,12 +106,13 @@ rule:
     not: {all: [{has: {field: function, matches: effect-channel}}, {has: {stopBy: end, pattern: $ERROR, matches: native-error}}]}
     any:
         - all:
-            - has: {field: arguments, has: {matches: untagged-error, pattern: $ERROR}}
             - has: {field: function, pattern: $FAIL, matches: strict-constructor}
+            - has: {field: arguments, has: {matches: untagged-error, pattern: $ERROR}}
         - all:
-            - has: {field: arguments, has: {matches: untagged-thunk}}
             - has: {field: function, pattern: $FAIL, matches: lazy-constructor}
+            - has: {field: arguments, has: {matches: untagged-thunk}}
         - all:
+            - has: {field: function, pattern: $FAIL, matches: filter-constructor}
             - has:
                 field: arguments
                 all:
@@ -119,9 +121,8 @@ rule:
                         - has: {nthChild: 3}
                         - has: {nthChild: 1, kind: 'arrow_function, function_expression'}
                         - has: {nthChild: {position: 1, reverse: true}, has: {field: body, kind: new_expression}}
-            - has: {field: function, pattern: $FAIL, matches: filter-constructor}
         - all:
-            - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
             - has: {field: function, pattern: $FAIL, matches: options-callee}
-message: '`$FAIL` fails with `$ERROR`, a literal or an error built from text'
-note: 'Fail with a tagged variant of typed fields, the error `Effect.tryPromise` or `Effect.fromOption` types, or an error holding the refused value as `cause`'
+            - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
+message: '`$FAIL` fails with `$ERROR`, a value no `_tag` match reads'
+note: 'Fail with a tagged error of typed fields holding the foreign value as `cause`, or keep the error `Effect.tryPromise` or `Effect.fromOption` types'

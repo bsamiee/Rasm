@@ -42,6 +42,13 @@ public struct AppleEventFailure: CustomNSError, LocalizedError {
         }
     }
 
+    public var status: OSStatus? {
+        switch reason {
+            case .osa(let status), .undelivered(let status), .unanswered(let status), .replied(let status, _): status
+            case .requiresRunning, .host, .unmatched, .unencodable, .activating: nil
+        }
+    }
+
     public var errorUserInfo: [String: Any] {
         switch reason {
             case .host(let error): [NSUnderlyingErrorKey: error]

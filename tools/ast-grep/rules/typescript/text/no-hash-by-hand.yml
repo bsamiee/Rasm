@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-hash-by-hand
+language: tsx
+severity: error
+ignores: ['.claude/workflows/*.js', 'libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
+utils:
+    hash-step:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(%|\||\^|>>>|&)$'}
+            - has:
+                stopBy: end
+                any:
+                    - kind: binary_expression
+                      all: [{has: {field: operator, regex: '^(\*|<<)$'}}, {has: {field: left, pattern: $H}}]
+                    - kind: call_expression
+                      all: [{has: {field: function, regex: '^Math\.imul$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $H}}}]
+    code-unit:
+        kind: property_identifier
+        regex: '^(charCodeAt|codePointAt)$'
+rule:
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^reduce$'}}
+            - has: {field: arguments, all: [{has: {nthChild: 2, kind: number}}, {not: {has: {nthChild: 3}}}]}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 1
+                    kind: 'arrow_function, function_expression'
+                    all:
+                        - has: {field: parameters, has: {nthChild: 1, kind: required_parameter, has: {field: pattern, pattern: $H}}}
+                        - has: {field: body, matches: hash-step}
+            - any:
+                - has: {field: arguments, has: {nthChild: 1, has: {field: body, has: {stopBy: end, matches: code-unit}}}}
+                - has: {field: function, has: {field: object, kind: call_expression, has: {field: function, has: {field: object, kind: new_expression, has: {field: constructor, regex: '^TextEncoder$'}}}}}
+        - kind: assignment_expression
+          all:
+            - has: {field: left, kind: identifier, pattern: $H}
+            - has: {field: right, matches: hash-step, has: {stopBy: end, matches: code-unit}}
+            - inside: {stopBy: {kind: &boundary 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}, kind: 'for_statement, for_in_statement, while_statement, do_statement'}
+message: '`$H` folds text into a hash by hand'
+note: 'Call `Hash.string(<text>)`, or `Digest.sha256` from `effect/crypto` where a cryptographic digest is meant'

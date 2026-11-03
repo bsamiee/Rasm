@@ -47,6 +47,7 @@ import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -68,24 +69,32 @@ public class Apply extends GhidraScript {
         RENAMED
     }
 
-    record Local(String name, String replacement, Optional<String> type) {
-        static Local of(String entry) {
-            String[] sides = entry.split("=", 2);
-            String[] named = (sides.length > 1 ? sides[1] : "").split(":", 2);
-            return new Local(
-                    sides[0].strip(),
-                    named[0].strip(),
-                    named.length > 1 ? Optional.of(named[1].strip()) : Optional.empty());
+    record Local(
+            String name, Predicate<String> matcher, String replacement, Optional<String> type) {
+        static Report.Result<Local> of(String at, String entry) {
+            int split = entry.lastIndexOf('=');
+            String name = (split < 0 ? entry : entry.substring(0, split)).strip();
+            String[] named = (split < 0 ? "" : entry.substring(split + 1)).split(":", 2);
+            try {
+                return new Report.Success<>(
+                        new Local(
+                                name,
+                                name.startsWith("re:")
+                                        ? Pattern.compile(name.substring(3)).asMatchPredicate()
+                                        : name::equals,
+                                named[0].strip(),
+                                named.length > 1
+                                        ? Optional.of(named[1].strip())
+                                        : Optional.empty()));
+            } catch (PatternSyntaxException exception) {
+                return new Report.Failure<>(
+                        "%s locals regex `%s` did not parse (%s)"
+                                .formatted(at, name, exception.getDescription()));
+            }
         }
 
         boolean removes() {
             return replacement.isEmpty();
-        }
-
-        Predicate<String> matcher() {
-            return name.startsWith("re:")
-                    ? Pattern.compile(name.substring(3)).asMatchPredicate()
-                    : name::equals;
         }
     }
 
@@ -115,59 +124,47 @@ public class Apply extends GhidraScript {
                         Optional.of(index < cells.length ? cells[index].strip() : "")
                                 .filter(text -> !text.isEmpty() && !"-".equals(text));
         String at = "%s:%d".formatted(file, number);
-        Optional<Address> address =
-                Optional.ofNullable(
-                        currentProgram.getAddressFactory().getAddress(cells[0].strip()));
-        Optional<Kind> kind =
+        Report.Result<Address> address =
+                Optional.ofNullable(currentProgram.getAddressFactory().getAddress(cells[0].strip()))
+                        .<Report.Result<Address>>map(Report.Success::new)
+                        .orElseGet(() ->
+                                new Report.Failure<>(
+                                        "%s `%s` names no address".formatted(at, cells[0])));
+        Report.Result<Kind> kind =
                 Arrays.stream(Kind.values())
                         .filter(each ->
                                 each.name()
                                         .equalsIgnoreCase(
                                                 cell.apply(6).orElse(Kind.FUNCTION.name())))
-                        .findFirst();
-        List<Local> locals =
-                cell.apply(5).stream()
-                        .flatMap(text -> Arrays.stream(text.split(";")))
-                        .filter(Predicate.not(String::isBlank))
-                        .map(Local::of)
-                        .toList();
-        Optional<String> invalid =
-                locals.stream()
-                        .map(Local::name)
-                        .filter(name -> name.startsWith("re:"))
-                        .flatMap(name -> {
-                            try {
-                                Pattern.compile(name.substring(3));
-                                return Stream.empty();
-                            } catch (PatternSyntaxException exception) {
-                                return Stream.of(exception.getDescription());
-                            }
-                        })
-                        .findFirst();
-        return address.isEmpty()
-                ? new Report.Failure<>("%s `%s` names no address".formatted(at, cells[0]))
-                : kind.isEmpty()
-                        ? new Report.Failure<>(
-                                "%s kind `%s` is no row kind".formatted(at, cells[6]))
-                        : invalid.isPresent()
-                                ? new Report.Failure<>(
-                                        "%s locals regex did not parse (%s)"
-                                                .formatted(at, invalid.get()))
-                                : new Report.Success<>(
-                                        new Row(
-                                                address.get(),
-                                                cell.apply(1)
-                                                        .map(text ->
-                                                                SymbolUtilities.replaceInvalidChars(
-                                                                        text, true)),
-                                                cell.apply(2)
-                                                        .map(text ->
-                                                                SymbolUtilities.replaceInvalidChars(
-                                                                        text, true)),
-                                                cell.apply(3),
-                                                cell.apply(4),
-                                                locals,
-                                                kind.get()));
+                        .findFirst()
+                        .<Report.Result<Kind>>map(Report.Success::new)
+                        .orElseGet(() ->
+                                new Report.Failure<>(
+                                        "%s kind `%s` is no row kind".formatted(at, cells[6])));
+        Report.Result<List<Local>> locals =
+                Report.all(
+                        cell.apply(5).stream()
+                                .flatMap(text -> Arrays.stream(text.split(";")))
+                                .filter(Predicate.not(String::isBlank))
+                                .map(entry -> Local.of(at, entry)));
+        return address.zip(kind, Map::entry)
+                .zip(
+                        locals,
+                        (start, parsed) ->
+                                new Row(
+                                        start.getKey(),
+                                        cell.apply(1)
+                                                .map(text ->
+                                                        SymbolUtilities.replaceInvalidChars(
+                                                                text, true)),
+                                        cell.apply(2)
+                                                .map(text ->
+                                                        SymbolUtilities.replaceInvalidChars(
+                                                                text, true)),
+                                        cell.apply(3),
+                                        cell.apply(4),
+                                        parsed,
+                                        start.getValue()));
     }
 
     // --- [NAMES]
@@ -215,7 +212,7 @@ public class Apply extends GhidraScript {
                                     .orElseThrow(() ->
                                             new InvalidInputException(
                                                     "No function starts or disassembles here"));
-                    if (row.namespace().isPresent() || row.name().isPresent()) {
+                    if (row.namespace().isPresent()) {
                         function.setParentNamespace(namespace);
                     }
                     if (row.name().isPresent()) {
@@ -233,10 +230,49 @@ public class Apply extends GhidraScript {
         }
     }
 
+    // --- [PROTOTYPES]
+
+    private Outcome type(Row row, Function function, String prototype) {
+        try {
+            FunctionDefinitionDataType definition =
+                    CParserUtils.parseSignature(
+                            (DataTypeManagerService) null, currentProgram, prototype, false);
+            if (definition == null) {
+                return new Outcome(
+                        Step.TYPED,
+                        row.address(),
+                        new Report.Failure<>("`%s` holds no function name".formatted(prototype)));
+            }
+            ApplyFunctionSignatureCmd command =
+                    new ApplyFunctionSignatureCmd(
+                            row.address(),
+                            definition,
+                            SourceType.USER_DEFINED,
+                            definition.hasUnknownCallingConventionName(),
+                            false,
+                            DataTypeConflictHandler.DEFAULT_HANDLER,
+                            FunctionRenameOption.NO_CHANGE);
+            return new Outcome(
+                    Step.TYPED,
+                    row.address(),
+                    runCommand(command)
+                            ? new Report.Success<>(function.getPrototypeString(true, false))
+                            : new Report.Failure<>(command.getStatusMsg()));
+        } catch (ParseException exception) {
+            return new Outcome(
+                    Step.TYPED,
+                    row.address(),
+                    new Report.Failure<>(
+                            "`%s` did not parse (%s)"
+                                    .formatted(
+                                            prototype,
+                                            exception.getMessage().lines().findFirst().orElse(""))));
+        }
+    }
+
     // --- [LOCALS]
 
-    private Stream<Outcome> remove(Row row) {
-        Function function = getFunctionAt(row.address());
+    private Stream<Outcome> remove(Row row, Function function) {
         return row.locals().stream()
                 .filter(Local::removes)
                 .flatMap(local -> {
@@ -307,7 +343,7 @@ public class Apply extends GhidraScript {
                                                 .getLocalSymbolMap()
                                                 .getSymbols())
                                 .collect(
-                                        java.util.stream.Collectors.toMap(
+                                        Collectors.toMap(
                                                 HighSymbol::getName,
                                                 symbol -> symbol,
                                                 (first, _) -> first));
@@ -362,89 +398,40 @@ public class Apply extends GhidraScript {
                                         }),
                                 usage.require(!files.isEmpty(), "rows file")));
         List<Outcome> named = rows.stream().map(this::name).toList();
-        List<Row> functions =
+        List<Map.Entry<Row, Function>> functions =
                 rows.stream()
                         .filter(row -> row.kind() == Kind.FUNCTION)
-                        .filter(row -> getFunctionAt(row.address()) != null)
+                        .flatMap(row ->
+                                Stream.ofNullable(getFunctionAt(row.address()))
+                                        .map(function -> Map.entry(row, function)))
                         .toList();
         List<Outcome> typed =
                 functions.stream()
-                        .flatMap(row ->
-                                row
-                                        .prototype()
-                                        .map(prototype -> {
-                                            Function function = getFunctionAt(row.address());
-                                            try {
-                                                FunctionDefinitionDataType definition =
-                                                        CParserUtils.parseSignature(
-                                                                (DataTypeManagerService) null,
-                                                                currentProgram,
-                                                                prototype,
-                                                                false);
-                                                if (definition == null) {
-                                                    return new Outcome(
-                                                            Step.TYPED,
-                                                            row.address(),
-                                                            new Report.Failure<>(
-                                                                    "`%s` holds no function name"
-                                                                            .formatted(prototype)));
-                                                }
-                                                ApplyFunctionSignatureCmd command =
-                                                        new ApplyFunctionSignatureCmd(
-                                                                row.address(),
-                                                                definition,
-                                                                SourceType.USER_DEFINED,
-                                                                definition
-                                                                        .hasUnknownCallingConventionName(),
-                                                                false,
-                                                                DataTypeConflictHandler
-                                                                        .DEFAULT_HANDLER,
-                                                                FunctionRenameOption.NO_CHANGE);
-                                                return new Outcome(
-                                                        Step.TYPED,
-                                                        row.address(),
-                                                        runCommand(command)
-                                                                ? new Report.Success<>(
-                                                                        function.getPrototypeString(
-                                                                                true, false))
-                                                                : new Report.Failure<>(
-                                                                        command.getStatusMsg()));
-                                            } catch (ParseException exception) {
-                                                return new Outcome(
-                                                        Step.TYPED,
-                                                        row.address(),
-                                                        new Report.Failure<>(
-                                                                "`%s` did not parse (%s)"
-                                                                        .formatted(
-                                                                                prototype,
-                                                                                exception
-                                                                                        .getMessage()
-                                                                                        .lines()
-                                                                                        .findFirst()
-                                                                                        .orElse(
-                                                                                                ""))));
-                                            }
-                                        })
-                                        .stream())
+                        .flatMap(entry ->
+                                entry.getKey().prototype().stream()
+                                        .map(prototype ->
+                                                type(entry.getKey(), entry.getValue(), prototype)))
                         .toList();
-        List<Outcome> removed = functions.stream().flatMap(this::remove).toList();
-        List<Row> renaming =
+        List<Outcome> removed =
                 functions.stream()
-                        .filter(row ->
-                                row.locals().stream().anyMatch(Predicate.not(Local::removes)))
+                        .flatMap(entry -> remove(entry.getKey(), entry.getValue()))
+                        .toList();
+        List<Map.Entry<Row, Function>> renaming =
+                functions.stream()
+                        .filter(entry ->
+                                entry.getKey().locals().stream()
+                                        .anyMatch(Predicate.not(Local::removes)))
                         .toList();
         SequencedMap<Function, Report.Result<DecompileResults>> decompiled =
                 Functions.decompile(
                         currentProgram,
-                        renaming.stream()
-                                .map(row -> getFunctionAt(row.address()))
-                                .distinct()
-                                .toList(),
+                        renaming.stream().map(Map.Entry::getValue).distinct().toList(),
                         Arguments.Setting.defaults(),
                         monitor);
         List<Outcome> renamed =
                 renaming.stream()
-                        .flatMap(row -> rename(row, decompiled.get(getFunctionAt(row.address()))))
+                        .flatMap(entry ->
+                                rename(entry.getKey(), decompiled.get(entry.getValue())))
                         .toList();
         List<Outcome> outcomes =
                 Stream.of(named, typed, removed, renamed).flatMap(List::stream).toList();

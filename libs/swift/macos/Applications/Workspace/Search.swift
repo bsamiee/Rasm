@@ -2,7 +2,6 @@ public import AppKit
 import AsyncAlgorithms
 import CasePathsCore
 import CoreServices
-import OrderedCollections
 public import Results
 import UniformTypeIdentifiers
 
@@ -54,9 +53,8 @@ extension Installation {
         guard registered.isEmpty else { return registered }
         let exact: [Self] = try await listing(.equalTo)
         let found: [Self] = try await exact.isEmpty ? listing(.contains) : exact
-        let identifiers: OrderedSet<String> = OrderedSet(found.map(\.identifier))
-        guard identifiers.count != 1 else { return found }
-        throw ApplicationFailure(subject: name, reason: .unmatched(Unmatched(subject: "installed application", query: name, candidates: Array(identifiers))))
+        guard found.isEmpty else { return found }
+        throw ApplicationFailure(subject: name, reason: .unmatched(Unmatched(subject: "installed application", query: name, candidates: [])))
     }
 
     @MainActor
@@ -94,7 +92,7 @@ extension Installation {
     static func listed(_ paths: [String?]) async -> (installations: [Self], failures: [ApplicationFailure]) {
         let reads: [Result<Self, ApplicationFailure>] = paths.enumerated().map { index, path in
             path.map { path in Result { () throws(ApplicationFailure) in try Self(at: URL(filePath: path, directoryHint: .isDirectory)) } }
-                ?? .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .absent(NSMetadataItemPathKey)))
+                ?? .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .noPath))
         }
         return (reads.compactMap { read in read[case: \.success] }, reads.compactMap { read in read[case: \.failure] })
     }

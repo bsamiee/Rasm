@@ -23,54 +23,38 @@ utils:
                 kind: variable_declarator
                 field: value
                 has: {field: type, has: {stopBy: end, kind: nested_type_identifier, regex: '^(Clock\.Clock|Random\.Random)$'}}
-    ambient-function:
+    imported:
+        matches:
+            typescript-import-reference:
+                source: {regex: '^(node:)?(crypto|os|process)$'}
+                exported: {regex: '^(randomUUID|randomUUIDv7|getRandomValues|randomBytes|randomInt|randomFill|randomFillSync|uptime|hrtime)$'}
+    ambient-reference:
         any:
             - matches: typescript-global-reference
               regex: '^((globalThis|window|self)\.)?(Date\.now|Temporal\.Now\.\w+|Math\.random|crypto\.(randomUUID|getRandomValues)|performance\.(now|timeOrigin)|process\.hrtime(\.bigint)?|process\.uptime)$'
-            - matches:
-                typescript-import-reference:
-                    source: {regex: '^(node:)?crypto$'}
-                    exported: {regex: '^(randomUUID|randomUUIDv7|getRandomValues|randomBytes|randomInt|randomFill|randomFillSync)$'}
-            - matches:
-                typescript-import-reference:
-                    source: {regex: '^(node:)?(os|process)$'}
-                    exported: {regex: '^uptime$'}
-            - matches:
-                typescript-import-reference:
-                    source: {regex: '^(node:)?process$'}
-                    exported: {regex: '^hrtime$'}
+            - matches: imported
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^bigint$'}
-                - has:
-                    field: object
-                    matches:
-                        typescript-import-reference:
-                            source: {regex: '^(node:)?process$'}
-                            exported: {regex: '^hrtime$'}
+                - has: {field: object, matches: imported}
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^(now|timeOrigin)$'}
-                - has:
-                    field: object
-                    matches:
-                        typescript-import-reference:
-                            source: {regex: '^(node:)?perf_hooks$'}
-                            exported: {regex: '^performance$'}
+                - has: {field: object, matches: {typescript-import-reference: {source: {regex: '^(node:)?perf_hooks$'}, exported: {regex: '^performance$'}}}}
 rule:
-    not: {inside: {matches: service-implementation, stopBy: end}}
-    any:
-        - kind: call_expression
-          has:
-            field: function
-            not: {regex: '^((globalThis|window|self)\.)?(Date\.now|Math\.random|crypto\.randomUUID)$'}
-            any:
-                - matches: ambient-function
-                - matches: typescript-global-reference
-                  regex: '^((globalThis|window|self)\.)?Date$'
-        - matches: ambient-function
-          not: {any: [{inside: {kind: call_expression, field: function}}, {inside: {kind: member_expression, field: object}}, {inside: {kind: import_specifier}}]}
     pattern: $READ
+    any:
+        - matches: ambient-reference
+          not:
+            any:
+                - inside: {kind: member_expression, field: object}
+                - inside: {kind: import_specifier}
+                - all:
+                    - regex: '^((globalThis|window|self)\.)?(Date\.now|Math\.random|crypto\.randomUUID)$'
+                    - inside: {kind: call_expression, field: function}
+        - kind: call_expression
+          has: {field: function, regex: '^((globalThis|window|self)\.)?Date$', matches: typescript-global-reference}
+    not: {inside: {matches: service-implementation, stopBy: end}}
 message: '`$READ` reads host time or randomness as an ambient value'
 note: 'Read time from `Clock` or `DateTime.now` and randomness from `Random`, or take the value as a parameter'
 labels:

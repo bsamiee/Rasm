@@ -34,6 +34,7 @@ STORYBOOK_DISABLE_TELEMETRY           = "1"
 PLAYWRIGHT_MCP_CONFIG                 = "{{config_root}}/.playwright/cli.config.json"
 PLAYWRIGHT_MCP_OUTPUT_DIR             = "{{config_root}}/.artifacts/playwright"
 HARNESS_LOGS                          = "{{config_root}}/.artifacts/logs/harnesses"
+WATCH_APPS_LOG                        = "{{config_root}}/.artifacts/logs/watch-apps.log"
 RHINO_MCP_URL                         = "http://127.0.0.1:{{ env.RHINO_MCP_PLATFORM_PORT }}/"
 BLENDER_PATH                          = "/Applications/Blender.app/Contents/MacOS/Blender"
 ATELIER_PATH                          = "/Applications/Atelier.app/Contents/MacOS/Atelier"
@@ -137,11 +138,16 @@ case "$(uname -s)" in
     *) ram=$(awk '/MemTotal/ {print $2 * 1024}' /proc/meminfo) ;;
 esac
 sd '^MAXMEM_DEFAULT=.*' "MAXMEM_DEFAULT=$((ram / 8388608))M" "$MISE_TOOL_INSTALL_PATH/support/analyzeHeadless"
-if [ "$(uname -sm)" = "Darwin arm64" ]; then
+case "$(uname -sm)" in
+    'Darwin arm64') platform=mac_arm_64 arch='-arch arm64' ;;
+    'Linux aarch64') platform=linux_arm_64 arch= ;;
+    *) platform= ;;
+esac
+if [ -n "$platform" ]; then
     decompiler="$MISE_TOOL_INSTALL_PATH/Ghidra/Features/Decompiler"
-    make -C "$decompiler/src/decompile/cpp" -j "$(sysctl -n hw.ncpu)" ARCH_TYPE='-arch arm64' ghidra_opt
-    mkdir -p "$decompiler/os/mac_arm_64"
-    mv "$decompiler/src/decompile/cpp/ghidra_opt" "$decompiler/os/mac_arm_64/decompile"
+    make -C "$decompiler/src/decompile/cpp" -j "$(getconf _NPROCESSORS_ONLN)" ARCH_TYPE="$arch" ghidra_opt
+    mkdir -p "$decompiler/os/$platform"
+    mv "$decompiler/src/decompile/cpp/ghidra_opt" "$decompiler/os/$platform/decompile"
     make -C "$decompiler/src/decompile/cpp" clean
 fi
 '''

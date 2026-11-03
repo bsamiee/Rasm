@@ -48,38 +48,32 @@ utils:
             stopBy: end
             has:
                 kind: 'expression_statement, if_statement, for_statement, for_in_statement, while_statement, try_statement, switch_statement'
-                has: {stopBy: end, kind: identifier, pattern: $ENTRY, not: {inside: {stopBy: end, matches: typescript-function-boundary}}}
+                has: {stopBy: {matches: typescript-function-boundary}, kind: identifier, pattern: $ENTRY}
     reader:
         pattern: $READER
         all:
             - matches: typescript-function-boundary
             - not: {inside: {stopBy: end, matches: typescript-function-boundary}}
+            - any: [{pattern: $UNIT, inside: {kind: program}}, {inside: {stopBy: end, pattern: $UNIT, inside: {kind: program}}}]
             - not: {has: {field: name, pattern: $NAME}}
             - not: {inside: {kind: variable_declarator, stopBy: end, has: {field: name, pattern: $NAME}}}
             - not: {matches: entry}
-    read:
-        kind: identifier, shorthand_property_identifier
-        pattern: $NAME
-        matches: reference
-    constant-reader:
-        kind: variable_declarator
+    outside-reader:
+        not: {inside: {stopBy: end, all: [{matches: typescript-function-boundary}, {pattern: $READER}, {any: [{pattern: $UNIT, inside: {kind: program}}, {inside: {stopBy: end, pattern: $UNIT, inside: {kind: program}}}]}]}}
+    holder:
         pattern: $HOLDER
-        inside: {matches: typescript-module-constant}
-    holds-reference:
         any:
-            - matches: reference
-            - has: {stopBy: end, matches: reference}
-    later-reference:
-        all:
-            - matches: reference
-            - any:
-                - follows: {stopBy: end, matches: holds-reference}
-                - inside: {stopBy: end, follows: {stopBy: end, matches: holds-reference}}
+            - kind: variable_declarator
+              inside: {matches: typescript-module-constant}
+            - kind: public_field_definition
+              not: {inside: {stopBy: end, matches: typescript-function-boundary}}
     component:
         kind: arrow_function, function_declaration
         has: {stopBy: end, kind: 'jsx_element, jsx_self_closing_element'}
     level:
         any: [{matches: typescript-control-flow}, {matches: typescript-function-boundary}]
+    nested:
+        any: [{has: {field: value, has: {stopBy: end, matches: level}}}, {has: {field: body, has: {stopBy: end, matches: level}}}]
     nests-twice:
         any:
             - {kind: function_declaration, has: {field: body, has: {stopBy: end, matches: level, has: {stopBy: end, matches: level}}}}
@@ -110,29 +104,9 @@ rule:
                     kind: program
                     stopBy: end
                     all:
-                        - has: {stopBy: end, matches: read, inside: {stopBy: end, matches: reader}}
-                        - not:
-                            has:
-                                stopBy: end
-                                all:
-                                    - matches: reference
-                                    - not: {inside: {stopBy: end, all: [{matches: typescript-function-boundary}, {pattern: $READER}]}}
-                        - not: {has: {stopBy: end, matches: later-reference}}
-                - not:
-                    inside:
-                        kind: program
-                        stopBy: end
-                        has:
-                            stopBy: end
-                            matches: read
-                            inside:
-                                stopBy: &body {kind: statement_block, inside: {matches: typescript-function-boundary}}
-                                matches: level
-                                inside: {stopBy: *body, matches: level}
-                - not:
-                    all:
-                        - any: [{has: {field: value, has: {stopBy: end, matches: level}}}, {has: {field: body, has: {stopBy: end, matches: level}}}]
-                        - inside: {kind: program, stopBy: end, has: {stopBy: end, matches: read, inside: {stopBy: *body, matches: level}}}
+                        - has: {stopBy: end, matches: reference, inside: {stopBy: end, matches: reader}}
+                        - not: {has: {stopBy: end, all: [{matches: reference}, {any: [{matches: outside-reader}, {inside: {stopBy: &body {kind: statement_block, inside: {matches: typescript-function-boundary}}, matches: level, inside: {stopBy: *body, matches: level}}}]}]}}
+                - not: {all: [{matches: nested}, {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: reference, inside: {stopBy: *body, matches: level}}}}]}
             - all:
                 - not: {matches: nests-thrice}
                 - not: {has: {field: value, any: [{kind: number}, {has: {stopBy: end, kind: number}}]}}
@@ -140,11 +114,10 @@ rule:
                     kind: program
                     stopBy: end
                     all:
-                        - has: {stopBy: end, all: [{matches: read}, {not: {inside: {stopBy: end, matches: typescript-function-boundary}}}, {inside: {stopBy: end, matches: constant-reader}}]}
-                        - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, all: [{kind: variable_declarator}, {pattern: $HOLDER}]}}}]}}
-                        - not: {has: {stopBy: end, all: [{kind: variable_declarator}, {pattern: $HOLDER}, {has: {stopBy: end, matches: later-reference}}]}}
+                        - has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, matches: typescript-function-boundary}}}, {inside: {stopBy: end, matches: holder}}]}
+                        - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, kind: 'variable_declarator, public_field_definition', pattern: $HOLDER}}}]}}
 message: '`$NAME` has one reader'
-note: 'Move the declaration into its only reader as a local, inline it only where its value is another name'
+note: 'Move the declaration into its only reader as a local, inlined where the reader is a field initializer or the value is another name'
 labels:
     READER: {style: secondary, message: Only reader}
     HOLDER: {style: secondary, message: Only reader}

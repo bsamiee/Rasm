@@ -11,29 +11,29 @@ import Testing
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let bundles: [(info: [String: any Sendable], line: String, prohibited: Bool)] = [
+private let bundles: [(info: [String: any Sendable], line: String)] = [
     (
         [
             "CFBundleIdentifier": "dev.rasm.installation.full", "CFBundleName": "Full", "CFBundleShortVersionString": "1.2.3", "NSAppleScriptEnabled": true,
-            "OSAScriptingDefinition": "Full.sdef", "LSUIElement": true, "LSMultipleInstancesProhibited": true,
+            "OSAScriptingDefinition": "Full.sdef", "LSUIElement": true,
         ],
-        #"{"identifier":"dev.rasm.installation.full","name":"Full","version":"1.2.3","scriptable":true,"scriptingDefinitionFile":"Full.sdef","agent":true}"#, true,
+        #"{"identifier":"dev.rasm.installation.full","name":"Full","version":"1.2.3","scriptable":true,"scriptingDefinitionFile":"Full.sdef","agent":true}"#,
     ),
     (
         ["CFBundleIdentifier": "dev.rasm.installation.defaults", "CFBundleName": "Defaults"],
-        #"{"identifier":"dev.rasm.installation.defaults","name":"Defaults","scriptable":false,"agent":false}"#, false,
+        #"{"identifier":"dev.rasm.installation.defaults","name":"Defaults","scriptable":false,"agent":false}"#,
     ),
     (
         ["CFBundleIdentifier": "dev.rasm.installation.spelled", "CFBundleName": "Spelled", "NSAppleScriptEnabled": "Yes", "OSAScriptingDefinition": "Spelled.sdef"],
-        #"{"identifier":"dev.rasm.installation.spelled","name":"Spelled","scriptable":true,"scriptingDefinitionFile":"Spelled.sdef","agent":false}"#, false,
+        #"{"identifier":"dev.rasm.installation.spelled","name":"Spelled","scriptable":true,"scriptingDefinitionFile":"Spelled.sdef","agent":false}"#,
     ),
     (
-        ["CFBundleIdentifier": "dev.rasm.installation.strings", "CFBundleName": "Strings", "LSUIElement": "1", "LSMultipleInstancesProhibited": "YES"],
-        #"{"identifier":"dev.rasm.installation.strings","name":"Strings","scriptable":false,"agent":true}"#, true,
+        ["CFBundleIdentifier": "dev.rasm.installation.strings", "CFBundleName": "Strings", "LSUIElement": "1"],
+        #"{"identifier":"dev.rasm.installation.strings","name":"Strings","scriptable":false,"agent":true}"#,
     ),
     (
-        ["CFBundleIdentifier": "dev.rasm.installation.numbers", "CFBundleName": "Numbers", "LSUIElement": 1, "LSMultipleInstancesProhibited": 0],
-        #"{"identifier":"dev.rasm.installation.numbers","name":"Numbers","scriptable":false,"agent":true}"#, false,
+        ["CFBundleIdentifier": "dev.rasm.installation.numbers", "CFBundleName": "Numbers", "LSUIElement": 1],
+        #"{"identifier":"dev.rasm.installation.numbers","name":"Numbers","scriptable":false,"agent":true}"#,
     ),
 ]
 
@@ -55,7 +55,7 @@ struct Installations {
         .testDirectory,
         arguments: bundles,
     )
-    func installationReadsBundleInfo(info: [String: any Sendable], line: String, prohibited: Bool) throws {
+    func installationReadsBundleInfo(info: [String: any Sendable], line: String) throws {
         let name: String = try #require(info["CFBundleName"] as? String)
         let url: URL = try bundle(named: name, in: "Applications", info: info)
         let installation: Installation = try Installation(at: url)
@@ -67,7 +67,6 @@ struct Installations {
                 case let other: other
             }
         expectNoDifference(encoded, expected)
-        expectNoDifference(installation.multipleInstancesProhibited, prohibited)
     }
 
     @Test(.testDirectory)
@@ -79,19 +78,20 @@ struct Installations {
     }
 
     @Test(.testDirectory)
-    func singleInstallationOfIdentifierResolvesAndAmbiguityNamesEachPath() throws {
-        let info: [String: Any] = ["CFBundleIdentifier": "dev.rasm.installation.twice", "CFBundleName": "Twice"]
-        let first: Installation = try Installation(at: try bundle(named: "Twice", in: "First", info: info))
-        let second: Installation = try Installation(at: try bundle(named: "Twice", in: "Second", info: info))
-        let other: Installation = try Installation(at: try bundle(named: "Other", in: "Third", info: ["CFBundleIdentifier": "dev.rasm.installation.other", "CFBundleName": "Other"]))
-        expectNoDifference(try Installation.single(of: "dev.rasm.installation.twice", among: [first, other]), first)
-        let missing: ApplicationFailure = try #require(throws: ApplicationFailure.self) { try Installation.single(of: "dev.rasm.installation.twice", among: [other]) }
+    func newestInstallationResolvesAndEqualVersionsNameEachPath() throws {
+        let release: [String: Any] = ["CFBundleIdentifier": "dev.rasm.installation.twice", "CFBundleName": "Twice", "CFBundleShortVersionString": "21.6.0.57"]
+        let first: Installation = try Installation(at: try bundle(named: "Twice", in: "First", info: release))
+        let second: Installation = try Installation(
+            at: try bundle(named: "Twice", in: "Second", info: release.merging(["CFBundleShortVersionString": "21.6.0.57.0"]) { _, next in next })
+        )
+        let beta: Installation = try Installation(
+            at: try bundle(named: "Beta", in: "Third", info: ["CFBundleIdentifier": "dev.rasm.installation.beta", "CFBundleName": "Beta", "CFBundleShortVersionString": "22.0.0.101"])
+        )
+        expectNoDifference(try Installation.newest(of: "Twice", among: [first, beta]), beta)
+        let missing: ApplicationFailure = try #require(throws: ApplicationFailure.self) { try Installation.newest(of: "Twice", among: []) }
         let absent: Unmatched = try #require(missing.reason[case: \.unmatched])
-        let named: Bool = absent.subject.hasSuffix("dev.rasm.installation.twice")
-        #expect(named, "subject \(absent.subject) names identifier")
-        let ambiguous: ApplicationFailure = try #require(throws: ApplicationFailure.self) {
-            try Installation.single(of: "dev.rasm.installation.twice", among: [first, second, other])
-        }
+        expectNoDifference(absent.query, "Twice")
+        let ambiguous: ApplicationFailure = try #require(throws: ApplicationFailure.self) { try Installation.newest(of: "Twice", among: [first, second]) }
         let unmatched: Unmatched = try #require(ambiguous.reason[case: \.unmatched])
         expectNoDifference(unmatched.subject, "single \(absent.subject)")
         expectNoDifference(Set(unmatched.candidates), [first.url.path(percentEncoded: false), second.url.path(percentEncoded: false)])

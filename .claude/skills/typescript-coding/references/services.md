@@ -24,6 +24,7 @@ class Pricing extends Context.Service<Pricing>()('@app/pricing', {
 - `Context.Reference` holds a value every fiber reads, its `defaultValue` from a host or standard (`Intl.DateTimeFormat().resolvedOptions().locale`)
 - `Layer.succeed(reference, value)` overrides a reference for a graph, `Effect.provideService` for one effect
 - `Context.Reference` keys an annotation on a contract (`Tool`, `RpcGroup`), and `Context.get(x.annotations, Key)` reads it with its default
+- Annotations differing from a shared set by one key derive through `Context.omit(Key)` or `Context.pick`, a rebuilt `Context.make` chain restating them
 
 ## [02]-[CONFIGURATION]
 
@@ -49,6 +50,9 @@ class Ledger extends Context.Service<Ledger>()('@app/ledger', {
 - `ConfigProvider.ConfigProvider` is a reference defaulting to `fromEnv()`
 - Roots replace the provider to transform paths (`constantCase`, `nested`), read a host record (`fromUnknown`), or add a source (`layerAdd`)
 - Configs are effects a layer reads, `Layer.effect(<reference>, <config>)` setting a reference from a setting
+- Layer parameters a setting supplies are `Config.Config<A>` the build yields, a root `Layer.unwrap` mapping a config restating them
+- Entry points yield a setting (`Config.String('HOME')`) in one `Effect.all` with their service keys, a `process.env` or `node:os` read restating it
+- Settings a consumer models as absent read through `Config.option`, an invalid value failing, where a required read fails the program
 - Implementations a setting selects are `Layer.unwrap` over one table of layers, keyed by a `Schema.Literals(Struct.keys(table))` field
 
 ## [03]-[SCOPED_RESOURCES]
@@ -60,6 +64,7 @@ Layers remove `Scope` from their requirements. Resource lifetime selects where a
 |  [01]   | Program      | Acquired in `make`, released with layer                                   |
 |  [02]   | One call     | `Effect.scoped` as a trailing argument of `Effect.fn`, released on return |
 |  [03]   | Cleanup only | `Effect.addFinalizer` in scope owning state it restores                   |
+|  [04]   | Until change | `ScopedRef.set(ref, acquire)` acquires next, then closes previous scope   |
 
 - Host handles implementing `Disposable` or `AsyncDisposable` enter through `Effect.acquireDisposable`, released by their own dispose
 - Handles without a dispose method enter through `Effect.acquireRelease`, its release receiving the `Exit`
@@ -70,12 +75,13 @@ Layers remove `Scope` from their requirements. Resource lifetime selects where a
 
 Layers compose at a composition root into one graph, and the compiler rejects a graph leaving a requirement open:
 
-| [INDEX] | [OPERATOR]                      | [RESULT]                                                |
-| :-----: | :------------------------------ | :------------------------------------------------------ |
-|  [01]   | `Layer.mergeAll(a, b)`          | Outputs and requirements of each                        |
-|  [02]   | `a.pipe(Layer.provide(b))`      | Outputs of `a`, `b` satisfies `a` and stays hidden      |
-|  [03]   | `a.pipe(Layer.provideMerge(b))` | Outputs of both, `b` satisfies `a` and stays readable   |
-|  [04]   | `a.pipe(Layer.provide([b, c]))` | Outputs of `a`, `b` and `c` merge into one hidden layer |
+| [INDEX] | [OPERATOR]                           | [RESULT]                                                |
+| :-----: | :----------------------------------- | :------------------------------------------------------ |
+|  [01]   | `Layer.mergeAll(a, b)`               | Outputs and requirements of each                        |
+|  [02]   | `a.pipe(Layer.provide(b))`           | Outputs of `a`, `b` satisfies `a` and stays hidden      |
+|  [03]   | `a.pipe(Layer.provideMerge(b))`      | Outputs of both, `b` satisfies `a` and stays readable   |
+|  [04]   | `a.pipe(Layer.provide([b, c]))`      | Outputs of `a`, `b` and `c` merge into one hidden layer |
+|  [05]   | `a.pipe(Layer.provideMerge([b, c]))` | Outputs of `a`, `b`, and `c`, `b` and `c` readable      |
 
 ```ts
 const Store = Checkout.layer.pipe(Layer.provideMerge(Pricing.layer), Layer.provide([Ledger.layer, Catalog.layer]));
@@ -108,8 +114,10 @@ Api.pipe(Layer.provide(Store), Layer.provide([NodeHttpClient.layerUndici, Config
 `Api` is a server layer reading `Checkout`, and `runMain` interrupts its program on `SIGINT` or `SIGTERM`, releasing every resource:
 - Workers read bindings through `ConfigProvider.fromUnknown(env)` over the `cloudflare:workers` export, building once at module scope
 - Host events pass their `AbortSignal` as `signal`, and a canceled event interrupts its run
+- Library entries taking app values are `Effect.fnUntraced(body, Effect.provide(layer), NodeRuntime.runMain({ teardown }))`, a call running the program
 - Host callbacks are one `Effect.fnUntraced(body, Effect.scoped, (effect) => runtime.runPromise(effect))` typed by the callback type
-- Hosts running a thunk they own call `Effect.runPromiseWith(yield* Effect.context<R>())(program)`, modules exporting the program as an `Effect`
+- Hosts reading a callback's parameters from its source (Playwright fixtures and tests) take a literal arrow with an object-pattern first parameter
+- Host thunks and synchronous callbacks run an exported `Effect` through `runPromiseWith` or `runSyncWith` over `yield* Effect.context<R>()`
 - `ManagedRuntime` builds its layer on the first run, later runs read the same services, and a failed build stays cached
 - One runtime serves one host process, created beside its entry point and disposed in its teardown hook
 - `dispose` releases every resource the layer acquired, and later runs fail with a defect

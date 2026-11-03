@@ -98,6 +98,10 @@
           "product-name": "JSONRPC",
           "build-phase": { "build-phase": "frameworks" },
         }, {
+          "package": "..",
+          "product-name": "Results",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
           "package": "Sparkle",
           "product-name": "Sparkle",
           "build-phase": { "build-phase": "frameworks" },

@@ -237,7 +237,7 @@
             }
         ],
         "install": [
-            { "filter": { "projects": [ "tag:build:xcode" ] }, "command": "rm -rf \"/Applications/{projectName}.app\" && ditto -x -k .artifacts/xcode/{projectRoot}/{projectName}.zip /Applications", "dependsOn": [ "...", "pack" ], "parallelism": false },
+            { "filter": { "projects": [ "tag:build:xcode" ] }, "command": "watch-apps quit \"{projectName}\" && rm -rf \"/Applications/{projectName}.app\" && ditto -x -k .artifacts/xcode/{projectRoot}/{projectName}.zip /Applications", "dependsOn": [ "...", "pack" ], "parallelism": false },
             {
                 "filter": { "projects": [ "tag:output:rhp" ] },
                 "command": "dotnet msbuild -target:InstallYakPackage -property:Configuration=Release \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"",
@@ -247,7 +247,7 @@
                 "parallelism": false
             },
             { "filter": { "projects": [ "tag:output:extension" ] }, "command": "python -m eng.python.blender install .artifacts/blender/{projectName}/*.zip", "dependsOn": [ "pack" ], "parallelism": false },
-            { "filter": { "projects": [ "tag:output:command" ] }, "command": "uv tool install --reinstall --from {projectRoot} {projectName}", "parallelism": false },
+            { "filter": { "projects": [ "tag:output:command" ] }, "command": "uv tool install --reinstall --python \"$(mise which python)\" --from {projectRoot} {projectName}", "parallelism": false },
             { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "pack" ], "parallelism": false },
             {
                 "filter": { "projects": [ "tag:host:cep" ] },
@@ -256,7 +256,7 @@
                 "parallelism": false
             },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "mise daemons restart", "dependsOn": [ "install:cargo" ] },
-            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "rm -f \"$XDG_CONFIG_HOME/swiftpm/bin/{projectName}\" && swift package --disable-automatic-resolution experimental-install --product {projectName}", "parallelism": false }
+            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift build --disable-automatic-resolution -c release --product {projectName} && rm -f \"$XDG_CONFIG_HOME/swiftpm/bin/{projectName}\" && swift package --disable-automatic-resolution experimental-install --product {projectName}", "parallelism": false }
         ],
         "publish": [
             { "parallelism": false },
@@ -280,7 +280,7 @@
         ],
         "install:cargo": { "command": "cargo install --locked --profile dist --path {projectRoot}", "parallelism": false },
         "upgrade:cargo": { "executor": "nx:run-commands", "options": { "commands": [ { "command": "cargo install --locked --profile dist --path {projectRoot}", "forwardAllArgs": false }, "mise daemons restart" ], "parallel": false }, "parallelism": false },
-        "upgrade:swiftpm": { "command": "rm -f \"$XDG_CONFIG_HOME/swiftpm/bin/{projectName}\" && swift package --disable-automatic-resolution experimental-install --product {projectName}", "dependsOn": [ { "projects": [ "rasm" ], "target": "upgrade:swift" } ], "parallelism": false },
+        "upgrade:swiftpm": { "command": "swift build --disable-automatic-resolution -c release --product {projectName} && rm -f \"$XDG_CONFIG_HOME/swiftpm/bin/{projectName}\" && swift package --disable-automatic-resolution experimental-install --product {projectName}", "dependsOn": [ { "projects": [ "rasm" ], "target": "upgrade:swift" } ], "parallelism": false },
         "serve": [ { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite --configLoader runner", "options": { "cwd": "{projectRoot}" }, "continuous": true } ],
         "hosting": [
             {

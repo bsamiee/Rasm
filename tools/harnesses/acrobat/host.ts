@@ -6,10 +6,11 @@ import { transformSync } from '@swc/core';
 import { Array, Effect, FileSystem, flow, Option, Path, Record, Result, Schema, SchemaGetter, Stream, Struct, String as Text } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import jsesc from 'jsesc';
-import { Answered, BOXES, Engine, fields, HostCase, Lockdown, Outcome, Recorded, Request, type Staged, Survey, Surveyed } from '#/acrobat/contract';
+import { Answered, BOXES, Engine, fields, HostCase, HostOutcome, Lockdown, Recorded, Request, type Staged, Survey, Surveyed } from '#/acrobat/contract';
 import { engine } from '#/acrobat/engine';
 import { precondition } from '#/acrobat/precondition';
 import { HarnessError } from '#/error';
+import { Launched } from '#/instance';
 import { copied } from '#/precondition';
 import { type Batch, type Decoding, filesIn, type Host as Harness, inside, installation, type Live } from '#/session';
 import { JsonObject } from '#/values';
@@ -18,6 +19,7 @@ import { JsonObject } from '#/values';
 
 const CODES = { suite: 'CARO', script: 'miscdosc', quit: 'aevtquit', menu: 'cmnu', item: 'cmen', title: 'ptit' } as const;
 const LOCKDOWN = '/Library/Application Support/Adobe/Acrobat/DC/Preferences/FeatureLockDown';
+const SANDBOX = { root: '/private/tmp/com.adobe.Acrobat.tmp.sbx', digits: 16 } as const;
 const ELLIPSIS = /(?:…|\.\.\.)$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -60,7 +62,7 @@ const lockdown = Effect.gen(function* () {
 // --- [CASES]
 const placed = Effect.fn('placed')(function* (decoded: typeof Staged.Type, folder: string, product: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const sandbox = path.join('/private/tmp/com.adobe.Acrobat.tmp.sbx', folder);
+    const sandbox = path.join(SANDBOX.root, `rasm-${createHash('sha256').update(folder).digest('hex').slice(0, SANDBOX.digits)}`);
     yield* fs.remove(sandbox, { recursive: true, force: true });
     yield* fs.makeDirectory(sandbox, { recursive: true });
     const { precondition: copy, copies } = yield* copied(decoded, sandbox, product);
@@ -140,7 +142,7 @@ const cased = (pid: number, records: string, survey: typeof Survey.Type) =>
         const { hosted: held, inputs } = yield* staged(hosted);
         const answer = yield* answered(pid, Answered, Request.cases.Case.make({ ...based(), modal: survey.model.modal, signatures: survey.model.signatures, case: held }));
         yield* collected(hosted, [...inputs, ...Result.match(answer, { onSuccess: ({ kept }) => kept, onFailure: () => [] })]);
-        yield* line({ _tag: 'Finished', outcome: Result.match(answer, { onSuccess: ({ outcome }) => outcome, onFailure: ({ reason }) => Outcome.make({ name: hosted.name, completion: { _tag: 'Failed', reason } }) }) });
+        yield* line({ _tag: 'Finished', outcome: Result.match(answer, { onSuccess: ({ outcome }) => outcome, onFailure: ({ reason }) => HostOutcome.make({ name: hosted.name, completion: { _tag: 'Failed', reason } }) }) });
     });
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
     const header = { application: live.chosen.name, version: live.chosen.version };
@@ -157,13 +159,12 @@ const Host = {
     survey: { question: 'Member names per object kind, signatures of answered members, dialog menu items, viewer, and FeatureLockDown digest the installation declares', Schema: Survey },
     Case: HostCase,
     fields,
-    shown: ['alerts', 'confirms', 'prompts', 'files', 'windows', 'activations', 'writes', 'events', 'console'],
     engine: () => Result.succeed(Engine.literal),
     precondition,
     placed,
     refusal: (_, hosted) => (hosted.dialogs === undefined ? Option.none<string>() : Option.some('execDialog answers through windows presses')),
     installed,
-    launch: () => Effect.succeed({}),
+    launch: () => Effect.succeed(new Launched({})),
     opened: () => lockdown,
     send,
     quit: (live) => Effect.flatMap(Automation, (automation) => Effect.asVoid(automation.execute({ pid: live.pid, command: CODES.quit, arguments: { saving: { _tag: 'enumerator', name: 'no' } } }))),

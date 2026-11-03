@@ -2,6 +2,8 @@
 id: no-script-source-template
 language: tsx
 severity: error
+ignores:
+    - tools/harnesses/acrobat/**
 utils:
     built-source:
         pattern: $SOURCE
@@ -18,6 +20,36 @@ utils:
                         all:
                             - has: {field: name, pattern: $SOURCE}
                             - has: {field: value, matches: typescript-built-text}
+    encoded-source:
+        kind: template_string, binary_expression, call_expression, parenthesized_expression
+        all:
+            - matches: typescript-built-text
+            - has: {stopBy: end, kind: call_expression, has: {field: function, regex: '^(jsesc|JSON\.stringify)$'}}
+    encoded-entry:
+        any:
+            - kind: pair
+              all:
+                - has: {field: key, regex: '^direct$'}
+                - has:
+                    field: value
+                    any:
+                        - matches: encoded-source
+                        - kind: identifier
+                          pattern: $SOURCE
+                          inside: &declaration
+                            kind: statement_block, program
+                            stopBy: end
+                            has:
+                                kind: lexical_declaration
+                                has:
+                                    kind: variable_declarator
+                                    all:
+                                        - has: {field: name, pattern: $SOURCE}
+                                        - has: {field: value, matches: encoded-source}
+            - kind: shorthand_property_identifier
+              regex: '^direct$'
+              pattern: $SOURCE
+              inside: *declaration
 rule:
     kind: call_expression
     any:
@@ -26,17 +58,15 @@ rule:
             - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: built-source}}
             - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
         - all:
-            - has: {field: function, kind: member_expression, pattern: $CALLEE, has: {field: property, regex: '^execute$'}}
+            - has: {field: function, kind: member_expression, pattern: $CALLEE, has: {field: property, regex: '^(script|execute)$'}}
             - has:
                 field: arguments
                 has:
                     nthChild: {position: 1, ofRule: {not: {kind: comment}}}
                     kind: object
-                    has:
-                        kind: pair
-                        all:
-                            - has: {field: key, regex: '^arguments$'}
-                            - has: {field: value, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^direct$'}}, {has: {field: value, matches: built-source}}]}}
+                    any:
+                        - has: {matches: encoded-entry}
+                        - has: {kind: pair, all: [{has: {field: key, regex: '^arguments$'}}, {has: {field: value, kind: object, has: {matches: encoded-entry}}}]}
             - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^@rasm/automation(/[\w-]+)?$'}}}}
 message: '`$CALLEE` runs a script source built from values'
-note: 'Pass a constant source and each value as an argument of the script command, the `withArguments` array of `doScript` or the `with arguments` parameter beside `direct`, read as `arguments[0]` in JavaScript or `item 1 of arguments` in AppleScript'
+note: 'Pass a constant source or a `{ _tag: ''file'', url }` script file, each value in `withArguments` of `doScript` or `values` beside `direct`, read as `arguments[0]` in JavaScript or `item 1 of arguments` in AppleScript'

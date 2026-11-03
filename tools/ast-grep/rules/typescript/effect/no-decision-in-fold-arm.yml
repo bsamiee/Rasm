@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-decision-in-fold-arm
+language: tsx
+severity: error
+utils:
+    decision:
+        any:
+            - kind: ternary_expression
+            - kind: parenthesized_expression
+              has: {nthChild: 1, kind: ternary_expression}
+rule:
+    kind: arrow_function
+    all:
+        - has: {field: body, matches: decision}
+        - any:
+            - inside:
+                kind: pair
+                field: value
+                all:
+                    - has: {field: key, pattern: $ARM, regex: '^(onNone|onSome|onSuccess|onFailure|onEmpty|onNonEmpty|onTrue|onFalse|onLeft|onRight)$'}
+                    - inside:
+                        kind: object
+                        inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\b(Option|Result|Array|Boolean|Exit)$'}, member: {regex: '^match$'}}}}}}
+            - nthChild: {position: 1, reverse: true}
+              inside:
+                kind: arguments
+                inside: {kind: call_expression, has: {field: function, pattern: $ARM, matches: {effect-module-member: {module: {regex: '\bMatch$'}, member: {regex: '^(when|whenOr|whenAnd|tag|not|orElse)$'}}}}}
+message: '`$ARM` decides inside a fold arm'
+note: 'Fold once over every input the decision reads, `Match.value({ ... })` with one arm per case, or move the test into the value the fold receives'

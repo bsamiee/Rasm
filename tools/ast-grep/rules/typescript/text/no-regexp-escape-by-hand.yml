@@ -3,6 +3,8 @@ id: no-regexp-escape-by-hand
 language: tsx
 severity: error
 ignores:
+    - libs/typescript/creative-cloud/extendscript/*.ts
+    - libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts
     - libs/typescript/creative-cloud/indesign/**
     - libs/typescript/creative-cloud/uxp/**
 utils:

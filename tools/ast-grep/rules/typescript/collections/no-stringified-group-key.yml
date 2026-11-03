@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stringified-group-key
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, pattern: $GROUP, matches: {effect-module-member: {module: {regex: '\b(Array|Iterable)$'}, member: {regex: '^groupBy$'}}}}
+        - has:
+            field: arguments
+            has:
+                nthChild: {position: 1, reverse: true}
+                kind: arrow_function
+                has:
+                    field: body
+                    pattern: $KEY
+                    any:
+                        - kind: template_string
+                          regex: '^`\$\{[^`]*\}`$'
+                          not: {has: {kind: template_substitution, nthChild: {position: 2, ofRule: {kind: template_substitution}}}}
+                        - kind: call_expression
+                          has: {field: function, regex: '^String$'}
+message: '`$KEY` turns a group key into text to fit a string-keyed record'
+note: 'Call `Map.groupBy(<list>, <key>)` to group by a key that is not a string'

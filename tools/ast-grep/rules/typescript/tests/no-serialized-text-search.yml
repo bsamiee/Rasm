@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-serialized-text-search-tsx
+id: no-serialized-text-search
 language: tsx
 severity: error
 files: ['tests/typescript/**']
@@ -7,17 +7,35 @@ utils:
     serialized-text:
         regex: '^(textContent|innerText|innerHTML|outerHTML)$'
         pattern: $FIELD
+    serialized-read:
+        any:
+            - {kind: identifier, matches: serialized-text}
+            - {kind: member_expression, has: {field: property, matches: serialized-text}}
+            - {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, matches: serialized-text}}}
+            - {kind: 'await_expression, parenthesized_expression, non_null_expression', has: {matches: serialized-read}}
+    expected-read:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^expect(\.soft)?$'}
+            - has: {field: arguments, has: {nthChild: 1, matches: serialized-read}}
 rule:
     kind: call_expression
-    has:
-        field: function
-        kind: member_expression
-        all:
-            - has: {field: property, regex: '^(includes|startsWith|endsWith|indexOf|lastIndexOf|match|matchAll|search)$'}
-            - has:
-                field: object
-                any:
-                    - {kind: identifier, matches: serialized-text}
-                    - {kind: member_expression, has: {field: property, matches: serialized-text}}
+    any:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^(includes|startsWith|endsWith|indexOf|lastIndexOf|match|matchAll|search)$'}
+                - has: {field: object, matches: serialized-read}
+        - has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^(toContain|toMatch)$'}
+                - has:
+                    field: object
+                    any:
+                        - matches: expected-read
+                        - {kind: member_expression, all: [{has: {field: property, regex: '^not$'}}, {has: {field: object, matches: expected-read}}]}
 message: 'Substring search over serialized `$FIELD`'
 note: 'Assert the parsed value: a role and name locator, `toHaveTextContent`, a computed style, or a CSSOM rule'

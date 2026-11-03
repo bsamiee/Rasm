@@ -1,0 +1,628 @@
+# --- [SET] ------------------------------------------------------------------------------
+
+name   = "Rasm"
+corpus = "corpus.toml"
+output = "../../.artifacts/fonts/rasm"
+
+# --- [TEXT_NASKH] -----------------------------------------------------------------------
+
+[[families]]
+name     = "Bawwab"
+original = "Bawwab"
+genre    = { kind = "textnaskh" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Bawwab-Regular.ttf"
+values   = { counter = 0.045, punctuation = 0.8 }
+
+[[families.faces]]
+style    = "Bold"
+weight   = 700
+original = "Bawwab-Bold.ttf"
+values   = { counter = 0.045, mark = 0.6, punctuation = 0.8 }
+
+[[families.faces]]
+style      = "Regular"
+suffix     = "Contour"
+original   = "BawwabContour-Regular.ttf"
+treatments = [{ kind = "contour", ring = 0.012, channel = 0.0111 }]
+values     = { word_ratio = 3.9, mark = 0.82 }
+
+[[families]]
+name     = "Varaq"
+original = "Varaq"
+genre    = { kind = "textnaskh" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Varaq-Regular.ttf"
+values   = { counter = 0.045, zero = 0.25 }
+
+[[families.faces]]
+style    = "Bold"
+weight   = 700
+original = "Varaq-Bold.ttf"
+values   = { counter = 0.045, fatha_angle = 18.0, zero = 0.23 }
+
+[[families]]
+name     = "Morakkab"
+original = "Morakkab"
+genre    = { kind = "textnaskh" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Morakkab-Regular.ttf"
+values   = { digit_advance = "proportional", stack_gap = 0.016 }
+
+[[families.faces]]
+style    = "Medium"
+weight   = 500
+original = "Morakkab-Medium.ttf"
+values   = { mark = 0.635, digit_advance = "proportional", stack_gap = 0.016 }
+
+[[families]]
+name     = "Pahna"
+original = "Pahna"
+genre    = { kind = "textnaskh" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Pahna-Regular.ttf"
+values   = { counter = 0.045, punctuation = 0.8, rail = 0.45 }
+
+[[families]]
+name     = "Kaseh"
+original = "Kaseh"
+genre    = { kind = "textnaskh" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Kaseh-Regular.ttf"
+values   = { nuqta_floor = 0.045, tail = 1.6 }
+
+[[families]]
+name     = "Nazok"
+original = "Nazok"
+genre    = { kind = "textnaskh" }
+notes    = "Holds no Sorani letter, so it registers no KUR language system"
+
+[[families.faces]]
+style    = "Regular"
+original = "Nazok-Regular.ttf"
+values   = { stack_gap = 0.027, nuqta_floor = 0.045 }
+
+[[families]]
+name     = "Ayvan"
+original = "Ayvan"
+genre    = { kind = "textnaskh" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Ayvan-Regular.ttf"
+values   = { counter = 0.062, nuqta_floor = 0.0417, mark = 0.82, digit_advance = "proportional" }
+
+[[families]]
+name     = "Satr"
+original = "Satr"
+genre    = { kind = "textnaskh" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Satr-Regular.ttf"
+values   = { counter = 0.06, zero = 0.243, nuqta_floor = 0.05 }
+
+[[families]]
+name     = "Peyvast"
+original = "Peyvast"
+genre    = { kind = "textnaskh" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Peyvast-Regular.ttf"
+
+[[families]]
+name     = "Sadid"
+original = "Sadid"
+genre    = { kind = "textnaskh" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Sadid-Regular.ttf"
+values   = { counter = 0.045, nuqta_floor = 0.0417 }
+
+[[families.faces]]
+style    = "Bold"
+weight   = 700
+original = "Sadid-Bold.ttf"
+values   = { counter = 0.045, nuqta_floor = 0.0417 }
+
+[[families]]
+name     = "Mansub"
+original = "Mansub"
+genre    = { kind = "textnaskh" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Mansub-Regular.ttf"
+
+[[families.faces]]
+style    = "Bold"
+weight   = 700
+original = "Mansub-Bold.ttf"
+values   = { mark = 0.56, punctuation = 0.8 }
+
+[[families]]
+name     = "Barjasteh"
+original = "Barjasteh"
+genre    = { kind = "textnaskh" }
+notes    = "Shadow vector read from the alif's ring and shadow bounds; display-only"
+
+[[families.faces]]
+style      = "Regular"
+original   = "Barjasteh-Regular.ttf"
+treatments = [{ kind = "shadow", ring = 0.0186, vector = [0.039, -0.048] }]
+values     = { mark = 0.4 }
+
+[[families]]
+name     = "Mayel"
+original = "Mayel"
+genre    = { kind = "textnaskh" }
+notes    = "Slanted with no upright: its Arabic leans at the shear angle, its Latin and shared signs stand upright"
+
+[[families.faces]]
+style      = "Italic"
+original   = "Mayel-Italic.ttf"
+treatments = [{ kind = "sheared", angle = 25.9 }]
+values     = { digit_pen = "tapered" }
+
+# --- [BLACK_NASKH] ----------------------------------------------------------------------
+
+[[families]]
+name     = "Mohkam"
+original = "Mohkam"
+genre    = { kind = "blacknaskh" }
+
+[[families.faces]]
+style    = "Black"
+weight   = 900
+original = "Mohkam-Black.ttf"
+values   = { mark = 0.57, digit_pen = "round", rail = 0.45, latin = 1.0, punctuation = 0.95 }
+
+[[families]]
+name     = "Abnus"
+original = "Abnus"
+genre    = { kind = "blacknaskh" }
+
+[[families.faces]]
+style    = "ExtraBold"
+weight   = 800
+original = "Abnus-ExtraBold.ttf"
+values   = { mark = 1.2, counter = 0.055, nuqta_floor = 0.0417 }
+
+[[families]]
+name     = "Sorb"
+original = "Sorb"
+genre    = { kind = "blacknaskh" }
+
+[[families.faces]]
+style    = "ExtraBold"
+weight   = 800
+original = "Sorb-ExtraBold.ttf"
+values   = { mark = 0.57, counter = 0.055, zero = 0.3 }
+
+[[families]]
+name     = "Gorz"
+original = "Gorz"
+genre    = { kind = "blacknaskh" }
+
+[[families.faces]]
+style    = "Black"
+weight   = 900
+original = "Gorz-Black.ttf"
+values   = { mark = 0.62, stack_gap = 0.05, digit_pen = "round" }
+
+[[families]]
+name     = "Khameh"
+original = "Khameh"
+genre    = { kind = "blacknaskh" }
+
+[[families.faces]]
+style    = "Bold"
+weight   = 700
+original = "Khameh-Bold.ttf"
+values   = { mark = 0.5 }
+
+[[families]]
+name     = "Zolf"
+original = "Zolf"
+genre    = { kind = "blacknaskh" }
+notes    = "High-contrast swash Naskh, display-only for its hairlines and closed loops"
+
+[[families.faces]]
+style    = "Regular"
+original = "Zolf-Regular.ttf"
+values   = { mark = 0.5, nuqta_floor = 0.045, counter = 0.045, inside_bearings = true }
+
+[[families]]
+name     = "Tiraz"
+original = "Tiraz"
+genre    = { kind = "blacknaskh" }
+
+[[families.faces]]
+style    = "ExtraBold"
+weight   = 800
+original = "Tiraz-ExtraBold.ttf"
+values   = { mark = 0.57, stack_gap = 0.05, punctuation = 0.95, counter = 0.045, nuqta_floor = 0.045 }
+
+# --- [THULUTH] --------------------------------------------------------------------------
+
+[[families]]
+name     = "Rakim"
+original = "Rakim"
+genre    = { kind = "thuluth" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Rakim-Regular.ttf"
+values   = { counter = 0.045, mark = 0.635, punctuation = 1.28 }
+
+# --- [KUFI] -----------------------------------------------------------------------------
+
+[[families]]
+name     = "Bannai"
+original = "Bannai"
+genre    = { kind = "kufi" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Bannai-Regular.ttf"
+values   = { counter = 0.055, punctuation = 1.0, nuqta_floor = 0.0417, digit_bearing = 0.05 }
+
+[[families.faces]]
+style      = "Regular"
+suffix     = "Outline"
+original   = "BannaiOutline-Regular.ttf"
+treatments = [{ kind = "ringed", ring = 0.02 }]
+values     = { counter = 0.055, punctuation = 1.0, nuqta_floor = 0.0417, digit_bearing = 0.05 }
+
+[[families]]
+name     = "Nakh"
+original = "Nakh"
+genre    = { kind = "kufi" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Nakh-Regular.ttf"
+values   = { alif = 0.67, inside_bearings = true, fatha_angle = 25.0, mark = 0.55, punctuation = 1.0, latin = 1.0 }
+
+[[families]]
+name     = "Mohreh"
+original = "Mohreh"
+genre    = { kind = "kufi" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Mohreh-Regular.ttf"
+values   = { alif = 0.7, mark = 0.5, punctuation = 0.8, nuqta_floor = 0.0417 }
+
+[[families.faces]]
+style      = "Italic"
+original   = "Mohreh-Italic.ttf"
+treatments = [{ kind = "sheared", angle = 18.98 }]
+values     = { alif = 0.7, mark = 0.5, punctuation = 0.8, nuqta_floor = 0.0417 }
+
+[[families.faces]]
+style      = "Regular"
+suffix     = "Outline"
+original   = "MohrehOutline-Regular.ttf"
+treatments = [{ kind = "ringed", ring = 0.02 }]
+values     = { alif = 0.7, mark = 0.5, punctuation = 0.8, nuqta_floor = 0.0417 }
+
+[[families]]
+name     = "Pareh"
+original = "Pareh"
+genre    = { kind = "kufi" }
+notes    = "Segmented display faces; a host's synthesized bold fuses every segment gap"
+
+[[families.faces]]
+style      = "Regular"
+original   = "Pareh-Regular.ttf"
+treatments = [{ kind = "segmented" }]
+values     = { inside_bearings = true }
+
+[[families.faces]]
+style      = "Regular"
+suffix     = "Contour"
+original   = "ParehContour-Regular.ttf"
+treatments = [{ kind = "contour", ring = 0.0117, channel = 0.0098 }, { kind = "segmented" }]
+values     = { inside_bearings = true, alif = 0.726 }
+
+[[families]]
+name     = "Tigh"
+original = "Tigh"
+genre    = { kind = "kufi" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Tigh-Regular.ttf"
+values   = { alif = 0.7, mark = 0.42, nuqta_floor = 0.05, punctuation = 1.0 }
+
+[[families.faces]]
+style      = "Italic"
+original   = "Tigh-Italic.ttf"
+treatments = [{ kind = "sheared", angle = 20.0 }]
+values     = { alif = 0.7, mark = 0.42, nuqta_floor = 0.05, punctuation = 1.0 }
+
+[[families.faces]]
+style      = "Regular"
+suffix     = "Outline"
+original   = "TighOutline-Regular.ttf"
+treatments = [{ kind = "ringed", ring = 0.02 }]
+values     = { alif = 0.7, mark = 0.42, nuqta_floor = 0.05, punctuation = 1.0 }
+
+[[families]]
+name     = "Khesht"
+original = "Khesht"
+genre    = { kind = "kufi" }
+notes    = "Narrow is a design variant at the Regular's advances, never a width"
+
+[[families.faces]]
+style    = "ExtraBold"
+weight   = 800
+original = "Khesht-ExtraBold.ttf"
+values   = { fatha_length = 0.18, stack_gap = 0.046, punctuation = 1.0 }
+
+[[families.faces]]
+style      = "ExtraBold Italic"
+weight     = 800
+original   = "Khesht-ExtraBoldItalic.ttf"
+treatments = [{ kind = "sheared", angle = 20.0 }]
+values     = { fatha_length = 0.18, stack_gap = 0.046, punctuation = 1.0 }
+
+[[families.faces]]
+style    = "ExtraBold"
+suffix   = "Narrow"
+weight   = 800
+original = "KheshtNarrow-ExtraBold.ttf"
+values   = { fatha_length = 0.18, stack_gap = 0.046, punctuation = 1.0, inside_bearings = true, word_ratio = 3.0 }
+
+[[families]]
+name     = "Hamvar"
+original = "Hamvar"
+genre    = { kind = "kufi" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Hamvar-Regular.ttf"
+values   = { nuqta_floor = 0.05, punctuation = 1.0 }
+
+[[families.faces]]
+style      = "Italic"
+original   = "Hamvar-Italic.ttf"
+treatments = [{ kind = "sheared", angle = 19.95 }]
+values     = { nuqta_floor = 0.05, punctuation = 1.0 }
+
+[[families]]
+name     = "Tarash"
+original = "Tarash"
+genre    = { kind = "kufi" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Tarash-Regular.ttf"
+values   = { nuqta_floor = 0.05 }
+
+[[families.faces]]
+style      = "Italic"
+original   = "Tarash-Italic.ttf"
+treatments = [{ kind = "sheared", angle = 20.1 }]
+values     = { nuqta_floor = 0.05 }
+
+[[families.faces]]
+style      = "Regular"
+suffix     = "Outline"
+original   = "TarashOutline-Regular.ttf"
+treatments = [{ kind = "ringed", ring = 0.02 }]
+values     = { nuqta_floor = 0.05 }
+
+[[families]]
+name     = "Rozan"
+original = "Rozan"
+genre    = { kind = "kufi" }
+
+[[families.faces]]
+style    = "Black"
+weight   = 900
+original = "Rozan-Black.ttf"
+values   = { alif = 0.7, inside_bearings = true, ring_open = 0.55, punctuation = 0.72, latin = 0.5 }
+
+[[families.faces]]
+style      = "Black Italic"
+weight     = 900
+original   = "Rozan-BlackItalic.ttf"
+treatments = [{ kind = "sheared", angle = 14.79 }]
+values     = { alif = 0.7, inside_bearings = true, ring_open = 0.55, punctuation = 0.72, latin = 0.5 }
+
+[[families]]
+name     = "Shabtab"
+original = "Shabtab"
+genre    = { kind = "kufi" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Shabtab-Regular.ttf"
+values   = { nuqta_floor = 0.045, punctuation = 1.0 }
+
+[[families]]
+name     = "Pichak"
+original = "Pichak"
+genre    = { kind = "kufi" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Pichak-Regular.ttf"
+values   = { mark = 0.55, nuqta_floor = 0.045 }
+
+[[families]]
+name     = "Kashi"
+original = "Kashi"
+genre    = { kind = "kufi" }
+notes    = "Narrow is a design variant at the Regular's advances, never a width"
+
+[[families.faces]]
+style    = "Regular"
+original = "Kashi-Regular.ttf"
+values   = { fatha_length = 0.18, stack_gap = 0.028 }
+
+[[families.faces]]
+style    = "Regular"
+suffix   = "Narrow"
+original = "KashiNarrow-Regular.ttf"
+values   = { fatha_length = 0.18, stack_gap = 0.028, nuqta_floor = 0.045 }
+
+[[families]]
+name     = "Hakkak"
+original = "Hakkak"
+genre    = { kind = "kufi" }
+
+[[families.faces]]
+style      = "Regular"
+suffix     = "Contour"
+original   = "HakkakContour-Regular.ttf"
+treatments = [{ kind = "contour", ring = 0.0072, channel = 0.0185 }]
+values     = { mark = 0.86, marks_drawn = true, punctuation = 1.0 }
+
+[[families.faces]]
+style      = "Bold"
+suffix     = "Contour"
+weight     = 700
+original   = "HakkakContour-Bold.ttf"
+treatments = [{ kind = "contour", ring = 0.0072, channel = 0.0185 }]
+values     = { mark = 0.86, marks_drawn = true, punctuation = 1.0 }
+
+# --- [DOT_MATRIX] -----------------------------------------------------------------------
+
+[[families]]
+name     = "Tasbih"
+original = "Tasbih"
+genre    = { kind = "dotmatrix" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Tasbih-Regular.ttf"
+
+[[families.faces]]
+style    = "Bold"
+weight   = 700
+original = "Tasbih-Bold.ttf"
+
+[[families.faces]]
+style      = "Regular"
+suffix     = "Outline"
+original   = "TasbihOutline-Regular.ttf"
+treatments = [{ kind = "ringed", ring = 0.0098 }]
+
+[[families.faces]]
+style      = "Bold"
+suffix     = "Outline"
+weight     = 700
+original   = "TasbihOutline-Bold.ttf"
+treatments = [{ kind = "ringed", ring = 0.0098 }]
+
+[[families]]
+name     = "Shatranj"
+original = "Shatranj"
+genre    = { kind = "dotmatrix" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Shatranj-Regular.ttf"
+
+[[families.faces]]
+style    = "Bold"
+weight   = 700
+original = "Shatranj-Bold.ttf"
+
+# --- [RUQAH] ----------------------------------------------------------------------------
+
+[[families]]
+name     = "Monshi"
+original = "Monshi"
+genre    = { kind = "ruqah" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Monshi-Regular.ttf"
+values   = { mark = 0.48, inside_bearings = true, digit_bearing = 0.022 }
+
+# --- [DIWANI] ---------------------------------------------------------------------------
+
+[[families]]
+name     = "Ferman"
+original = "Ferman"
+genre    = { kind = "diwani" }
+
+[[families.faces]]
+style    = "Regular"
+original = "Ferman-Regular.ttf"
+
+# --- [ORNAMENTS] ------------------------------------------------------------------------
+
+[[ornaments]]
+name     = "Nemad"
+original = "Nemad"
+
+[[ornaments.faces]]
+style    = "Regular"
+suffix   = "Marks"
+original = "NemadMarks-Regular.ttf"
+
+[[ornaments.faces]]
+style    = "Regular"
+suffix   = "Icons"
+original = "NemadIcons-Regular.ttf"
+
+[[ornaments.faces]]
+style    = "Regular"
+suffix   = "Frames"
+original = "NemadFrames-Regular.ttf"
+
+[[ornaments]]
+name     = "Alamat"
+original = "Alamat"
+
+[[ornaments.faces]]
+style    = "Regular"
+original = "Alamat-Regular.ttf"
+
+[[ornaments]]
+name     = "Sarlowh"
+original = "Sarlowh"
+
+[[ornaments.faces]]
+style    = "Regular"
+suffix   = "Basmala"
+original = "SarlowhBasmala-Regular.ttf"
+
+[[ornaments.faces]]
+style    = "Regular"
+suffix   = "Eid"
+original = "SarlowhEid-Regular.ttf"
+
+[[ornaments]]
+name     = "Tazhib"
+original = "Tazhib"
+
+[[ornaments.faces]]
+style    = "Regular"
+original = "Tazhib-Regular.ttf"
+
+[[ornaments]]
+name     = "Muraqqa"
+original = "Muraqqa"
+
+[[ornaments.faces]]
+style    = "Regular"
+original = "Muraqqa-Regular.ttf"
+first    = 0xE4CF

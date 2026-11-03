@@ -2,14 +2,14 @@ import { Pid, State } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
 import { Resource } from '@rasm/mcp/resource';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Effect, Option, Struct, SubscriptionRef } from 'effect';
+import { Array, Effect, Option, Predicate, Struct, SubscriptionRef } from 'effect';
 import { McpSchema } from 'effect/ai';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const status = Effect.gen(function* () {
     const automation = yield* Automation;
-    const awaitsAnswer = (state: typeof State.Type) => State.guards.Responding(state) && state.answering;
+    const awaitsAnswer = (state: typeof State.Type) => Predicate.hasProperty(state.next, 'answer');
     const report = (state: typeof State.Type) => awaitsAnswer(state) || !State.isAnyOf(['Launching', 'Responding'])(state);
     const template = yield* Resource.template`status/${McpSchema.param('pid', Pid)}`({
         name: 'status',

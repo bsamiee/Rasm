@@ -19,6 +19,7 @@ const podium = (entries: readonly Entry[], places: number) =>
 `Entry.byScore` orders entries by score. `Array.groupBy` returns non-empty groups, and `Array.max` picks each player's best entry with no absent case. `podium` returns best entries of the top `places` players:
 - Package members and applied data-last forms (`String.includes(term)`) enter as steps by reference, a lambda reads a field or joins arguments
 - Nested data-first module calls become `pipe` steps
+- Steps reading no input pass the effect value to `Effect.tap` or `Effect.andThen`, a `() => effect` thunk restating it
 
 ## [02]-[DUAL_SIGNATURES]
 
@@ -56,10 +57,11 @@ const matching = (query: string, locale?: string) =>
 
 `matching(query)` lowercases the query once, keeps the word segments `isWordLike` marks at the locale's word boundaries, and returns a `Predicate<string>`. Each tested text lowercases once before every term checks it, and `titles.filter(matching(query))` keeps titles holding every term:
 - Failures fixed arguments decide return at their application as `Option` or `Result`, and the returned function stays total
+- Package builders enter as one `(builder: B) => B` parameter defaulting to `Function.identity`, an options record mirroring their setters restating it
 
 ## [04]-[FILTERS]
 
-`Filter<In, Pass, Fail>` is a function returning `Result<Pass, Fail>`, narrowing and mapping its input in one call and failing with the typed remainder. `Array.filterMap`, `Array.partition`, `Option.filterMap`, `Stream.filterMap`, `Stream.partition`, `Effect.filterMapOrFail`, and `Effect.catchFilter` take one, and package constructors build it from the tag, refinement, or lookup stating the rule:
+`Filter<In, Pass, Fail>` is a function returning `Result<Pass, Fail>`, narrowing and mapping its input in one call and failing with the typed remainder. `Array.filterMap`, `Array.partition`, `Record.filterMap`, `Option.filterMap`, `Stream.filterMap`, `Stream.partition`, `Effect.filterMapOrFail`, and `Effect.catchFilter` take one, and package constructors build it from the tag, refinement, or lookup stating the rule:
 
 ```ts
 const matched = (invoices: HashMap.HashMap<string, Invoice>) =>
@@ -88,6 +90,11 @@ const Casing = Schema.Literals(['camelCase', 'constantCase', 'kebabCase', 'pasca
 - Rows hold a function or module where behavior differs by case, rows of data one shared function reads are a lookup table
 - Rows no module holds are an `as const` object keyed by the encoded token, with typed handles as values
 - `satisfies Record<Extract<keyof typeof Enum, Uppercase<string>>, A>` requires a row per host enum member, minus reverse-mapped numeric keys
+- Open host unions key an optional mapped table (`{ readonly [M in Method]?: Handler }`), each read falling back through `UndefinedOr.match`
+- Row contracts are an interface and tables `as const satisfies Record.ReadonlyRecord<string, Contract>`, keeping literal keys and typing row lambdas
+- Rows spread one default row, a member some rows lack holding a neutral function there (`() => Effect.succeed(true)`) in place of an `Option<fn>`
+- Rows with a fixed outcome hold the value, the reader lifting a non-function row through `Predicate.isFunction`, a constant thunk restating it
+- Ordered rules over tested columns are rows of `Predicate` columns (`Function.constTrue` a wildcard), `Array.findFirst` selecting the first match
 
 ## [06]-[EFFECTFUL_FUNCTIONS]
 
@@ -107,6 +114,7 @@ const archive = Effect.fn('archive')(
 `archive` streams `source` into `target` and returns the written file's `File.Info`, with a span recording each source. `HttpClientError` and `PlatformError` reach the caller unchanged, and the effect requires `HttpClient` and `FileSystem`:
 - Span names follow the binding, `<Class>.<member>` for a class field and `<Service>.<key>` for a service member
 - Attributes every call shares sit in `Effect.fn('<name>', { attributes })`
+- Trailing steps return an `Effect`, and a step returning any other value (a `Stream`) leaves the call with no span or stack frame
 - `Effect.fnUntraced` declares a generator function a traced one calls, with no stack frame or span, in place of a function returning `Effect.gen`
 - `Effect.fn.Return<A, E, R>` annotates the return of a generic or recursive generator body
 - `Effect.fn('<name>')({ self: this }, body)` and `Effect.gen({ self: this }, body)` bind `this` inside a class member

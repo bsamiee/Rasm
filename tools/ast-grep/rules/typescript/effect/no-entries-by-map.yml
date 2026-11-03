@@ -4,10 +4,23 @@ language: tsx
 severity: error
 utils:
     effect-record:
-        pattern: $R
         matches: {effect-module: {name: {regex: '\bRecord$'}}}
+    native-object:
+        regex: '^((globalThis|window|self)\.)?Object$'
+        matches: typescript-global-reference
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: import_statement
+                any:
+                    - all:
+                        - has: {field: source, regex: '^.effect.$'}
+                        - has: {kind: import_clause, has: {kind: named_imports, has: {kind: import_specifier, regex: '^Record$'}}}
+                    - all:
+                        - has: {field: source, regex: '^.effect/Record.$'}
+                        - has: {kind: import_clause, has: {kind: namespace_import, regex: '\bRecord$'}}
     effect-iterable:
-        pattern: $M
         matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}
     key-pair:
         kind: array
@@ -42,7 +55,7 @@ utils:
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-record}}, {has: {field: property, regex: '^fromEntries$'}}]}
+        - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^fromEntries$'}}, {has: {field: object, pattern: $FROM, any: [{matches: effect-record}, {matches: native-object}]}}]}
         - has:
             field: arguments
             all:
@@ -53,7 +66,7 @@ rule:
                     kind: call_expression
                     any:
                         - all:
-                            - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-iterable}}, {has: {field: property, regex: '^map$'}}]}
+                            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^map$'}}, {has: {field: object, matches: effect-iterable}}]}
                             - has:
                                 field: arguments
                                 all:
@@ -66,8 +79,8 @@ rule:
                                 field: function
                                 kind: member_expression
                                 all:
-                                    - has: {field: object, pattern: $L, not: {any: [{matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}, {has: {field: function, matches: typescript-record-entries}}]}}
                                     - has: {field: property, regex: '^map$'}
+                                    - has: {field: object, pattern: $L, not: {any: [{matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}, {has: {field: function, matches: typescript-record-entries}}]}}
                             - has:
                                 field: arguments
                                 all:
@@ -115,6 +128,7 @@ rewriters:
 transform:
     OP: rewrite($FN, rewriters=[by, with])
     BODY: rewrite($FN, rewriters=[key, bare])
-fix: $R.$OP($L, $BODY)
-message: '`$R.fromEntries` over a mapped list rebuilds `$R.$OP`'
+    RECORD: {replace: {source: $FROM, replace: '^((globalThis|window|self)\.)?Object$', by: 'Record'}}
+fix: $RECORD.$OP($L, $BODY)
+message: '`$FROM.fromEntries` over a mapped list rebuilds `$RECORD.$OP`'
 note: 'Call `Record.fromIterableBy(<list>, <key>)`, or `Record.fromIterableWith(<list>, <f>)` with `<f>` returning a pair'

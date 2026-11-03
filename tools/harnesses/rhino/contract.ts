@@ -1,6 +1,6 @@
 import { Schema, Struct } from 'effect';
 import { answers, Name } from '#/cases';
-import { Common, hostCase } from '#/results';
+import { hostCase, Outcome } from '#/results';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -112,7 +112,7 @@ const Sarif = Schema.fromJsonString(
 
 // --- [OUTCOMES]
 const fields = {
-    ...Struct.pick(Common.fields, ['console']),
+    ...Struct.pick(Outcome.common, ['console']),
     document: Schema.optionalKey(
         Schema.Struct({
             serial: Schema.Int,
@@ -132,6 +132,7 @@ const fields = {
     commands: Schema.optionalKey(Schema.Array(Schema.Struct({ name: Schema.String, plugin: Schema.optionalKey(Schema.String), result: Schema.String, document: Schema.Int })).annotate({ description: 'Every command that ended while the case ran' })),
     prompts: Schema.optionalKey(Schema.Array(Schema.Struct({ text: Schema.String, default: Schema.optionalKey(Schema.String), options: Schema.Array(Schema.String) })).annotate({ description: 'Command prompts shown while the case ran' })),
     diagnostics: Schema.optionalKey(Schema.Array(Schema.Struct({ source: Schema.String, kind: Schema.String, message: Schema.String })).annotate({ description: 'Exception reports, RhinoCode logger warnings, and Grasshopper 2 logger entries' })),
+    unhandled: Schema.optionalKey(Schema.String.annotate({ description: 'Exception a host thread left unhandled while the case ran, in full, the runtime ending the instance after it' })),
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

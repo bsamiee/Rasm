@@ -8,6 +8,8 @@
 - `Statement.fragment`, `parameter`, `identifier`, and `csv` build constant fragments at module scope without a client
 - `sql.insert(nonEmptyRows).returning('*')`, `sql.update(row, omit)`, `sql.in(values)`, `sql.and(parts)`, and `sql.csv(parts)` build clauses
 - Lists bind as one parameter, `= any(${list})` or `jsonb_array_elements(${json})` on PostgreSQL and `json_each(${json})` on SQLite
+- Lists holding `null` match `col IN (<elements>) OR (col IS NULL AND EXISTS (<null element>))`, a negated match wrapping it in `(...) IS NOT TRUE`
+- Newest `n` rows per group filter a subquery numbered `ROW_NUMBER() OVER (PARTITION BY <group> ORDER BY <order>, <key>)` to `<= n` on every dialect
 - `sql.onDialect({ pg, sqlite, mysql, mssql, clickhouse })` takes an arm per dialect, `sql.onDialectOrElse({ orElse, ...arms })` the arms that differ
 - `sql.withoutTransforms()` returns the client without `transformQueryNames` and `transformResultNames`, for statements over catalog names
 - `.stream` returns rows as a `Stream`, `.values` positional rows, and `.compile(withoutTransform)` SQL text with its parameters
@@ -17,10 +19,13 @@
 ## [02]-[QUERIES]
 
 `SqlSchema` builds a function from a request schema to decoded rows, encoding the request and decoding each result:
-- `findAll`, `findNonEmpty`, `findOne`, `findOneOption`, and `void` state row count, `findOne` failing with `NoSuchElementError` on no row
+- `findAll`, `findNonEmpty`, `findOne`, `findOneOption`, and `void` state row count, `findOne` and `findNonEmpty` failing on no row
+- Statements returning rows on every run (an aggregate, `INSERT ... RETURNING` of non-empty rows) turn `NoSuchElementError` into a defect through `Effect.die`
 - `SqlSchema` functions build at module scope with an `execute` reading `SqlClient.SqlClient.use`, and `Effect.fn` takes one as its body
+- `execute` receives the encoded request, `Schema.fromJsonString(Schema.Array(Row))` in a request field giving it the JSON text a list binds
 - `Schema.Tuple([row])` decoded and mapped through `([first]) => first` restates `findOne`
-- `Schema.BooleanFromBit` decodes the `0` or `1` SQLite returns for a boolean expression
+- Columns a statement adds beside a row (`#rank`) split off through `({ [flag]: value, ...row }) => ({ row, value })`
+- `Schema.BooleanFromBit` decodes boolean reads on SQLite and on PostgreSQL clients mapping `OID.bool` to `0 | 1`
 - `SqlModel.makeRepository(Model, { tableName, spanPrefix, idColumn })` derives `insert`, `update`, `findById`, and `delete` from a `Model.Class`
 - `softDeleteColumn` filters repository reads and turns `delete` into a timestamp write
 - `SqlModel.makeResolvers` returns the same operations as batched resolvers
@@ -48,6 +53,8 @@ const rebalance = (base: Duration.Input, retries: number) =>
 - Connections lost during `COMMIT` leave the transaction outcome unknown
 - Writes check their guard in SQL (`INSERT ... SELECT ... WHERE revision = ${expected}`, `DO UPDATE ... WHERE body IS DISTINCT FROM excluded.body`)
 - `SqlClient.BeginTransaction` replaces `BEGIN` for each top-level transaction it covers
+- Statements refusing a transaction block (`CREATE INDEX CONCURRENTLY`) run on one `sql.reserve` connection through `executeUnprepared`
+- Reserved sessions set settings through `set_config(name, value, false)` in an `Effect.acquireUseRelease` restoring `pg_settings.reset_val`
 - `sql.afterCommit(effect)` runs after the outermost commit, discarded on rollback and lost on process exit
 - Work that must happen after commit goes in a table the transaction writes
 - `Reactivity.invalidate` inside a transaction defers to commit when it reads the transaction's `Reactivity`
@@ -59,11 +66,14 @@ Driver layers provide the driver tag and `SqlClient` with their own `Reactivity`
 - `PgClient` takes `prepare: false` behind a transaction-mode pooler and `multiplex: true` to pipeline fibers on a pooled connection
 - `PgClient` reads `password` as an effect per connection
 - `PgClient` takes `types` from a `PgTypes.makeRegistry()` its layer builds, where `PgTypes.register` writes a process-wide registry at module load
+- One codec row per OID feeds `PgClient` binary `types.register(oid, { decode, encode })` and PGlite text `parsers` keyed by OID string
+- `PgTypes` parses binary `jsonb` to JSON, and a codec keeping its text for a schema decodes `bytes.subarray(1)` past the version byte as `OID.text`
 - `PgClient.listen(channel)` returns a scoped `Queue` of notifications, and `notify(channel, payload)` sends one
 - `D1Client` refuses over 100 parameters per query
 - `D1Client` runs no transactions, and `D1Client.batch([a, b])` writes statements atomically with a tuple typed per statement
 - `D1Client.batch` lists end in a `SELECT` of the written state, read through `Array.lastNonEmpty`
 - `sql.onDialect` takes the `sqlite` arm on D1 and SQLite, and `Effect.serviceOption(D1Client.D1Client)` selects `batch` or `sql.withTransaction`
+- `sql.driver` names the driver package without `@effect/sql-` (`pg`, `pglite`, `sqlite-node`, `d1`), telling drivers of one dialect apart
 - Live schema reads `pragma_table_list`, `pragma_table_xinfo`, `pragma_index_list`, `sqlite_sequence`, `information_schema`, and `pg_catalog`
 - Facts a catalog states come from it, a match on stored DDL text restating it
 - Renamed tables and columns keep their identity on the object, a PostgreSQL `COMMENT ON` or a `/* */` comment in SQLite's stored `CREATE` text

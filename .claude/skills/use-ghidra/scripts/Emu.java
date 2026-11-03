@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -253,28 +254,22 @@ public class Emu extends GhidraScript {
 
     // --- [TRACE]
 
-    sealed interface Outcome permits Returned, Exhausted, Faulted {
-        long steps();
-
-        Address counter();
-
-        default String text() {
-            return switch (this) {
-                case Returned(long steps, Address counter) ->
-                        "returned steps=%d pc=%s".formatted(steps, counter);
-                case Exhausted(long steps, Address counter) ->
-                        "exhausted steps=%d pc=%s".formatted(steps, counter);
-                case Faulted(long steps, Address counter, String cause) ->
-                        "faulted steps=%d pc=%s: %s".formatted(steps, counter, cause);
-            };
-        }
+    enum Stop {
+        RETURNED,
+        EXHAUSTED,
+        FAULTED
     }
 
-    record Returned(long steps, Address counter) implements Outcome {}
-
-    record Exhausted(long steps, Address counter) implements Outcome {}
-
-    record Faulted(long steps, Address counter, String cause) implements Outcome {}
+    record Outcome(Stop stop, long steps, Address counter, Optional<String> cause) {
+        String text() {
+            return "%s steps=%d pc=%s%s"
+                    .formatted(
+                            stop.name().toLowerCase(Locale.ROOT),
+                            steps,
+                            counter,
+                            cause.map(": "::concat).orElse(""));
+        }
+    }
 
     static final class Recorder implements PcodeEmulationCallbacks<byte[]> {
         private final Memory memory;
@@ -376,32 +371,23 @@ public class Emu extends GhidraScript {
 
     // --- [PREPARATION]
 
-    private static <T> T value(Report.Result<T> result) {
-        return result.values().findFirst().orElseThrow();
-    }
-
     private static <K, V, R> Report.Result<Map<K, V>> entries(
             Map<String, R> raw,
             java.util.function.Function<String, Report.Result<K>> key,
             java.util.function.Function<R, Report.Result<V>> parse) {
-        List<Report.Result<K>> keys = raw.keySet().stream().map(key).toList();
-        List<Report.Result<V>> values = raw.values().stream().map(parse).toList();
-        String failures =
-                Stream.concat(
-                                keys.stream().flatMap(Report.Result::failures),
-                                values.stream().flatMap(Report.Result::failures))
-                        .collect(Collectors.joining("\n"));
-        return failures.isEmpty()
-                ? new Report.Success<>(
-                        IntStream.range(0, keys.size())
-                                .boxed()
+        return Report.all(
+                        raw.entrySet().stream()
+                                .map(each ->
+                                        key.apply(each.getKey())
+                                                .zip(parse.apply(each.getValue()), Map::entry)))
+                .map(pairs ->
+                        pairs.stream()
                                 .collect(
                                         Collectors.toMap(
-                                                index -> value(keys.get(index)),
-                                                index -> value(values.get(index)),
+                                                Map.Entry::getKey,
+                                                Map.Entry::getValue,
                                                 (first, _) -> first,
-                                                LinkedHashMap::new)))
-                : new Report.Failure<>(failures);
+                                                LinkedHashMap::new)));
     }
 
     private Report.Result<Address> address(String text) {
@@ -426,7 +412,15 @@ public class Emu extends GhidraScript {
                 };
     }
 
-    private Report.Result<Prepared> prepare(Run run, long steps, Convention convention) {
+    private Report.Result<Prepared> prepare(
+            int index, Run run, long steps, Convention convention, Map<String, Long> ids) {
+        Report.Result<String> id =
+                run.id() == null || run.id().isBlank()
+                        ? new Report.Failure<>("Id is absent")
+                        : ids.get(run.id()) > 1
+                                ? new Report.Failure<>(
+                                        "Id `%s` repeats in another run".formatted(run.id()))
+                                : new Report.Success<>(run.id());
         boolean bigEndian = currentProgram.getLanguage().isBigEndian();
         java.util.function.Function<String, Report.Result<Register>> register =
                 name ->
@@ -482,22 +476,27 @@ public class Emu extends GhidraScript {
                                         ? List.of(convention.result().getName())
                                         : run.results())
                                 .stream().map(register));
-        String failures =
-                Stream.of(entry, registers, memory, reads, results)
-                        .flatMap(Report.Result::failures)
-                        .map(cause -> "Run `%s`: %s".formatted(run.id(), cause))
-                        .collect(Collectors.joining("\n"));
-        return failures.isEmpty()
-                ? new Report.Success<>(
-                        new Prepared(
-                                run,
-                                value(entry),
-                                Objects.requireNonNullElse(run.steps(), steps),
-                                value(registers),
-                                value(memory),
-                                value(reads),
-                                value(results)))
-                : new Report.Failure<>(failures);
+        return switch (id.zip(entry, (_, address) -> address)
+                .zip(
+                        registers
+                                .zip(memory, Map::entry)
+                                .zip(reads.zip(results, Map::entry), Map::entry),
+                        (address, inputs) ->
+                                new Prepared(
+                                        run,
+                                        address,
+                                        Objects.requireNonNullElse(run.steps(), steps),
+                                        inputs.getKey().getKey(),
+                                        inputs.getKey().getValue(),
+                                        inputs.getValue().getKey(),
+                                        inputs.getValue().getValue()))) {
+            case Report.Success<Prepared> prepared -> prepared;
+            case Report.Failure<Prepared>(String cause) ->
+                    new Report.Failure<>(
+                            cause.lines()
+                                    .map(line -> "Run %d: %s".formatted(index, line))
+                                    .collect(Collectors.joining("\n")));
+        };
     }
 
     // --- [EXECUTION]
@@ -529,6 +528,28 @@ public class Emu extends GhidraScript {
                                                                     .isBigEndian())));
                 });
         return new Machine(emulator, recorder);
+    }
+
+    private static Outcome execute(
+            PcodeThread<byte[]> thread, Recorder recorder, long budget, Address sentinel) {
+        long steps = 0;
+        try {
+            for (; steps < budget && !thread.getCounter().equals(sentinel); steps++) {
+                recorder.step = steps;
+                thread.stepInstruction();
+            }
+        } catch (PcodeExecutionException exception) {
+            return new Outcome(
+                    Stop.FAULTED,
+                    steps,
+                    thread.getCounter(),
+                    Optional.of(String.valueOf(exception.getMessage())));
+        }
+        return new Outcome(
+                thread.getCounter().equals(sentinel) ? Stop.RETURNED : Stop.EXHAUSTED,
+                steps,
+                thread.getCounter(),
+                Optional.empty());
     }
 
     // --- [RUN]
@@ -586,6 +607,11 @@ public class Emu extends GhidraScript {
         Convention convention = usage.values(Stream.of(Convention.of(currentProgram))).getFirst();
         List<Stub> stubs = stubs(currentProgram, layout).toList();
         List<String> names = stubs.stream().map(Stub::name).toList();
+        Map<String, Long> ids =
+                plan.runs().stream()
+                        .map(Run::id)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.groupingBy(id -> id, Collectors.counting()));
         List<Prepared> runs =
                 usage.values(
                         Stream.concat(
@@ -595,8 +621,14 @@ public class Emu extends GhidraScript {
                                                 new Report.Failure<Prepared>(
                                                         "Stub `%s` names no external function"
                                                                 .formatted(name))),
-                                plan.runs().stream()
-                                        .map(run -> prepare(run, plan.steps(), convention))));
+                                IntStream.range(0, plan.runs().size())
+                                        .mapToObj(index ->
+                                                prepare(
+                                                        index,
+                                                        plan.runs().get(index),
+                                                        plan.steps(),
+                                                        convention,
+                                                        ids))));
         SequencedMap<Address, Stub> byAddress =
                 stubs.stream()
                         .collect(
@@ -612,27 +644,6 @@ public class Emu extends GhidraScript {
         List<String> executed = new ArrayList<>();
         List<String> uninitialized = new ArrayList<>();
         List<String> userops = new ArrayList<>();
-        @FunctionalInterface
-        interface Execution {
-            Outcome of(PcodeThread<byte[]> thread, Recorder recorder, long budget);
-        }
-        Execution execution =
-                (thread, recorder, budget) -> {
-                    long steps = 0;
-                    try {
-                        for (;
-                                steps < budget && !thread.getCounter().equals(layout.sentinel());
-                                steps++) {
-                            recorder.step = steps;
-                            thread.stepInstruction();
-                        }
-                    } catch (PcodeExecutionException exception) {
-                        return new Faulted(steps, thread.getCounter(), exception.getMessage());
-                    }
-                    return thread.getCounter().equals(layout.sentinel())
-                            ? new Returned(steps, thread.getCounter())
-                            : new Exhausted(steps, thread.getCounter());
-                };
         for (Prepared prepared : runs) {
             monitor.checkCancelled();
             machine =
@@ -655,7 +666,8 @@ public class Emu extends GhidraScript {
                                     .getDisassemblyContext(prepared.entry()))
                     .ifPresentOrElse(thread::overrideContext, thread::overrideContextWithDefault);
             machine.recorder().begin();
-            Outcome outcome = execution.of(thread, machine.recorder(), prepared.steps());
+            Outcome outcome =
+                    execute(thread, machine.recorder(), prepared.steps(), layout.sentinel());
             outcomes.add(
                     "%s %s%s"
                             .formatted(

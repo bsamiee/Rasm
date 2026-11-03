@@ -21,8 +21,8 @@ rule:
     kind: variable_declarator
     all:
         - has: {field: name, kind: identifier, pattern: $NAME}
+        - inside: {kind: lexical_declaration, has: {field: kind, regex: '^const$'}, inside: {kind: program}}
         - has: {field: value, kind: 'call_expression, member_expression', matches: schema}
-        - inside: {matches: typescript-module-constant}
         - inside:
             kind: program
             stopBy: end

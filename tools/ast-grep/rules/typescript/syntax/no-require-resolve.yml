@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-require-resolve
+language: tsx
+severity: error
+utils:
+    module-require:
+        kind: call_expression
+        all:
+            - has: {field: arguments, pattern: {context: f(import.meta.url), selector: arguments}}
+            - has: {field: function, matches: {typescript-import-reference: {source: {regex: '^(node:)?module$'}, exported: {regex: '^createRequire$'}}}}
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: '^resolve$'}}
+        - has:
+            field: function
+            has:
+                field: object
+                any:
+                    - matches: module-require
+                    - kind: identifier
+                      pattern: $REQUIRE
+                      inside:
+                        kind: 'statement_block, program'
+                        stopBy: end
+                        has:
+                            stopBy: {not: {kind: export_statement}}
+                            kind: lexical_declaration
+                            has: {kind: variable_declarator, all: [{has: {field: name, pattern: $REQUIRE}}, {has: {field: value, matches: module-require}}]}
+message: '`$CALL` resolves from this module through a CommonJS `require`'
+note: 'Call `fileURLToPath(import.meta.resolve(<specifier>))`'

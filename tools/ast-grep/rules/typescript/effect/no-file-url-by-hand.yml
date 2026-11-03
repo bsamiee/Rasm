@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-file-url-by-hand
+language: tsx
+severity: error
+utils:
+    pathname:
+        kind: member_expression
+        has: {field: property, regex: '^pathname$'}
+rule:
+    pattern: $URL
+    any:
+        - kind: template_string
+          all:
+            - has: {kind: string_fragment, nthChild: 1, regex: '^file:/*$'}
+            - has: {kind: template_substitution, nthChild: 2}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {field: left, kind: string, regex: '^.file:/*.$'}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: identifier, regex: '^decodeURIComponent$'}
+            - has:
+                field: arguments
+                has:
+                    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                    any:
+                        - matches: pathname
+                        - kind: call_expression
+                          has: {field: function, kind: member_expression, has: {field: object, matches: pathname}}
+            - has: {field: function, matches: typescript-global-reference}
+            - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?(indesign|photoshop|premierepro|uxp)$'}}}}
+message: '`$URL` converts between a file path and a file URL by hand'
+note: 'Yield `path.toFileUrl(<path>)` or `path.fromFileUrl(<url>)` from the `Path.Path` service'

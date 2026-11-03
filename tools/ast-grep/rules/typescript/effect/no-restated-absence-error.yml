@@ -3,7 +3,7 @@ id: no-restated-absence-error
 language: tsx
 severity: error
 utils:
-    absence-error:
+    rebuild:
         kind: arrow_function
         has:
             field: body
@@ -11,26 +11,126 @@ utils:
             all:
                 - has: {field: constructor, matches: {effect-module-member: {module: {regex: '\bCause$'}, member: {regex: '^NoSuchElementError$'}}}}
                 - not: {has: {field: arguments, has: {nthChild: 1}}}
-    absence-lift:
+    mapper:
+        kind: arrow_function, function_expression
+        has: {field: parameters, kind: formal_parameters, not: {has: {kind: 'required_parameter, optional_parameter'}}}
+    lift:
+        kind: member_expression
+        pattern: $LIFT
+        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(fromOption|fromNullishOr)$'}}}
+    option-lift:
+        matches: lift
+        has: {field: property, regex: '^fromOption$'}
+    lifted:
         kind: call_expression
-        has: {field: function, pattern: $LIFT, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(fromOption|fromNullishOr|fromNullOr|fromUndefinedOr)$'}}}}
+        all:
+            - has: {field: function, matches: lift}
+            - has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
+    option-lifted:
+        matches: lifted
+        has: {field: function, has: {field: property, regex: '^fromOption$'}}
     map-error:
-        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(mapError|orElseFail)$'}}}
+        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^mapError$'}}}
+    map-step:
+        kind: call_expression
+        all:
+            - has: {field: function, matches: map-error}
+            - has: {field: arguments, not: {has: {nthChild: 2}}}
+    rebuild-step:
+        matches: map-step
+        has: {field: arguments, has: {nthChild: 1, matches: rebuild}}
+    mapper-step:
+        matches: map-step
+        has: {field: arguments, has: {nthChild: 1, matches: mapper}}
+    step-chain:
+        kind: arguments
+        inside:
+            kind: call_expression
+            has:
+                field: function
+                any:
+                    - {kind: member_expression, has: {field: property, regex: '^pipe$'}}
+                    - {kind: identifier, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^(flow|pipe)$'}}}}
+    previous-step:
+        any:
+            - matches: lift
+            - matches: lifted
+              nthChild: 1
+              inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: effect-pipe-function}}}
+    previous-option-step:
+        matches: previous-step
+        any:
+            - has: {field: property, regex: '^fromOption$'}
+            - has: {field: function, has: {field: property, regex: '^fromOption$'}}
 rule:
     kind: call_expression
-    any:
-        - matches: absence-lift
-          has: {field: arguments, has: {nthChild: 2, matches: absence-error}}
-        - all:
-            - has: {field: function, matches: map-error}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: absence-lift}}, {has: {nthChild: 2, matches: absence-error}}]}
-        - all:
-            - has: {field: function, matches: map-error}
-            - has: {field: arguments, has: {nthChild: 1, matches: absence-error}, not: {has: {nthChild: 2}}}
-          inside:
-            kind: arguments
-            inside:
-                kind: call_expression
-                has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: absence-lift}}]}
-message: '`$LIFT` absence is rebuilt as a second `NoSuchElementError`'
-note: 'Delete the rebuild, the lift fails with its own `NoSuchElementError`'
+    pattern: $HAND
+    all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: '^(fromOption|fromNullishOr|mapError|pipe)$'}}
+        - any:
+            - all:
+                - has: {field: function, matches: option-lift}
+                - has: {field: arguments, all: [{not: {has: {nthChild: 3}}}, {has: {nthChild: {position: 1, reverse: true}, matches: rebuild}}]}
+            - all:
+                - has: {field: function, matches: map-error}
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {nthChild: 3}}
+                        - any:
+                            - all: [{has: {nthChild: 1, matches: lifted}}, {has: {nthChild: 2, matches: rebuild}}]
+                            - all: [{has: {nthChild: 1, matches: option-lifted}}, {has: {nthChild: 2, matches: mapper}}]
+            - all:
+                - has: {field: function, has: {field: property, regex: '^pipe$'}}
+                - any:
+                    - all: [{has: {field: function, has: {field: object, matches: lifted}}}, {has: {field: arguments, has: {nthChild: 1, matches: rebuild-step}}}]
+                    - all: [{has: {field: function, has: {field: object, matches: option-lifted}}}, {has: {field: arguments, has: {nthChild: 1, matches: mapper-step}}}]
+            - all:
+                - inside: {matches: step-chain}
+                - any:
+                    - all: [{matches: rebuild-step}, {follows: {stopBy: {pattern: $_}, matches: previous-step}}]
+                    - all: [{matches: mapper-step}, {follows: {stopBy: {pattern: $_}, matches: previous-option-step}}]
+rewriters:
+    - id: drop-on-none
+      rule: {pattern: '$L($X, $R)', has: {field: function, matches: option-lift}}
+      fix: $L($X)
+    - id: drop-data-last-on-none
+      rule: {pattern: $L($R), has: {field: function, matches: option-lift}}
+      fix: $L
+    - id: drop-mapped
+      rule: {pattern: '$M($LIFTED, $R)', all: [{has: {field: function, matches: map-error}}, {has: {field: arguments, has: {nthChild: 2, matches: rebuild}}}]}
+      fix: $LIFTED
+    - id: move-mapped
+      rule: {pattern: '$M($L($X), $F)', has: {field: function, matches: map-error}}
+      fix: $L($X, $F)
+    - id: drop-piped
+      rule: {pattern: $LIFTED.pipe($S), has: {field: arguments, has: {matches: rebuild-step}}}
+      fix: $LIFTED
+    - id: drop-piped-first
+      rule: {pattern: '$LIFTED.pipe($S, $$$REST)', has: {field: arguments, has: {nthChild: 1, matches: rebuild-step}}}
+      fix: $LIFTED.pipe($$$REST)
+    - id: move-piped
+      rule: {pattern: $L($X).pipe($M($F)), has: {field: function, has: {field: object, matches: lifted}}}
+      fix: $L($X, $F)
+    - id: move-piped-first
+      rule: {pattern: '$L($X).pipe($M($F), $$$REST)', has: {field: function, has: {field: object, matches: lifted}}}
+      fix: $L($X, $F).pipe($$$REST)
+    - id: drop-step
+      rule: {matches: rebuild-step, follows: {stopBy: {pattern: $_}, pattern: $PREVIOUS}}
+      fix: $PREVIOUS
+    - id: move-step
+      rule: {pattern: $M($F), matches: map-step, follows: {stopBy: {pattern: $_}, kind: member_expression, pattern: $L}}
+      fix: $L($F)
+    - id: move-lifted-step
+      rule: {pattern: $M($F), matches: map-step, follows: {stopBy: {pattern: $_}, pattern: $L($X)}}
+      fix: $L($X, $F)
+transform:
+    FIXED:
+        rewrite:
+            source: $HAND
+            rewriters: [drop-on-none, drop-data-last-on-none, drop-mapped, move-mapped, drop-piped, drop-piped-first, move-piped, move-piped-first, drop-step, move-step, move-lifted-step]
+fix:
+    template: $FIXED
+    expandStart: {matches: previous-step, stopBy: {pattern: $_}, precedes: {stopBy: {pattern: $_}, all: [{matches: map-step}, {inside: {matches: step-chain}}]}}
+message: '`$LIFT` absence error is rebuilt or mapped outside its `onNone` argument'
+note: 'Pass the mapper as the `onNone` argument of `Effect.fromOption`, and delete a rebuilt `NoSuchElementError`'

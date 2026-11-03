@@ -12,13 +12,22 @@ const escalation = Effect.fn('escalation')(function* (id: CustomerId) {
 }, Effect.catchNoSuchElement);
 ```
 
-- `Effect.fromNullishOr` enters a nullable host value into the same chain
+- `Effect.fromNullishOr` enters a nullable value a later `catchNoSuchElement` handles, `fromOption(Option.fromNullishOr(x), onNone)` one reaching the runner
 - `Effect.fromOption(option, onNone)` fails with the `onNone` error (a `SchemaIssue`, lookup candidates, a `NoSuchElementError` naming the absent value)
-- `Effect.filterOrFail(lookup, Predicate.isTupleOf(1), onOther)` fails an exactly-one lookup, `Array.isReadonlyArrayNonEmpty` an at-least-one lookup
+- Steps inside a chain one `catchNoSuchElement` closes fail the caller through a package error the closing catch passes on
+- `Effect.filterOrFail(effect, predicate)` gates a step into the absence chain, a `fromOption` after a hand check restating it
+- `Effect.filterOrFail(lookup, rule, onOther)` fails a count rule (`Predicate.isTupleOf(1)`, `Array.isReadonlyArrayNonEmpty`, `Array.isArrayEmpty`)
+- `Array.headNonEmpty` reads the one element `Predicate.isTupleOf(1)` passed, an `([only]) => only` destructure restating it
 - `Array.headNonEmpty(String.split(text, separator))` reads the first part with no absent case, a `split(...)[0] ?? text` restating it
 - `UndefinedOr.match(x, { onUndefined, onDefined })` and `UndefinedOr.map` fold an optional field, a conversion to `Option` restating them
 - `Option.firstSomeOf` returns the first present source, and a new source is one more element of its list
-- `Array.findFirst` with a function returning `Option` finds and maps in one pass
+- `Effect.firstSuccessOf` fails with its last error alone, and alternatives with failures listing candidates fold through `Effect.catch`, joining every list
+- `Option.all` combines independent options over a tuple or struct for one `Option.match`, over an array holding a value when every element does
+- `Option.bind(option, 'key', (fields) => lookup)` adds a looked-up record to a decoded struct, consumers destructuring both
+- `Option.gen` and `Result.gen` sequence pure steps where a later one reads more than one earlier value, each guard a `yield*` of the same module's `liftPredicate`
+- `Option.liftThrowable(parse)(input)` lifts a throwing call whose throw means absence, an `Effect.try` discarding its error restating it
+- `Array.findFirst` and `Array.findLast` with a function returning `Option` find and map in one pass, from the side whose match wins
+- `Array.fromNullishOr(x)` spreads a nullable value into an array literal, an `Option.toArray(Option.fromNullishOr(x))` chain restating it
 - `Effect.transposeOption` runs an effect an `Option` holds and returns an effect of `Option`
 - `Effect.when(effect, condition)` runs `effect` into an `Option` when `condition` yields `true`, a `succeedNone` or `asSome` ternary restating it
 
@@ -39,7 +48,7 @@ const reservable = (stock: HashMap.HashMap<Sku, number>) =>
     );
 ```
 
-`reservable(stock)(lines)` returns the lines or fails with a `NonEmptyArray` holding an `OrderError` for each line its stock cannot cover, for a caller fixing every line at once. Independent rules over one value accumulate as `Effect.validate(rules, (rule) => Effect.fromResult(rule(value)))`.
+`reservable(stock)(lines)` returns the lines or fails with a `NonEmptyArray` holding an `OrderError` for each line its stock cannot cover, for a caller fixing every line at once. Independent rules over one value accumulate as `Effect.validate(rules, (rule) => Effect.fromResult(rule(value)))`. Caller names resolve in one `Array.partition` against the host's list, continuing with host spelling and failing once with every missing name beside candidates.
 
 ## [03]-[RECOVERY]
 
@@ -53,7 +62,7 @@ const resilient = <A, R>(read: Effect.Effect<A, OrderError | HttpClientError.Htt
     );
 ```
 
-- `Effect.catchReason` recovers one reason of an error with a tagged union `reason` and keeps its other reasons
+- `Effect.catchReason` recovers one reason of an error with a tagged union `reason`, an `orElse(reasons, error)` handler taking every other one
 - `Effect.catchReasons` takes a handler per reason, and `Effect.unwrapReason` lifts every reason into `E` for `Effect.catchTags`
 - `Effect.catchIf` keeps what its predicate passes over in `E`, and a refinement narrows `E` past what it matches
 - `Effect.catchTag` takes one tag or a list of tags and `Effect.catchTags` a handler per tag, each removing what it handles from `E`
@@ -70,6 +79,7 @@ const respond = (quote: Quote) =>
 ```
 
 - Per-reason host values sit in a literal indexed by `reason._tag`, and a reason the literal lacks fails to compile
+- `runPromise` rejects with squashed typed error, and one `Effect.mapError` before it gives a host its error type with the typed error as `cause`
 
 ## [05]-[DEFECTS]
 
@@ -84,5 +94,5 @@ const isolated = <A, E, R>(job: Effect.Effect<A, E, R>) => Effect.catchCauseIf(E
 - Causes rendered to a value (an error response, a reply) are a pure `(cause) => A` over `Cause.fail(e)`, an `Effect.flip` restating it
 - `Effect.logError` attaches a cause argument to its log record
 - `Effect.catchDefect` stands at a boundary recovering defects alone, and typed errors stay for its caller
-- Steps no later step reads (a finalizer, a cleanup) log and discard through `Effect.ignore({ log, message })`, which keeps defects
+- Steps no later step reads (a finalizer, a cleanup) discard through `Effect.ignore({ log, message })`, keeping defects, `message` naming the step
 - `Effect.ignoreCause({ log })` discards a whole cause, interruption included, and a step a later one reads keeps its failure in `E`

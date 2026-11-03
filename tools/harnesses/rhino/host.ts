@@ -1,8 +1,9 @@
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { Array, Deferred, Effect, FileSystem, identity, Option, Path, type PlatformError, Record, Result, Schema, Struct, String as Text, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/error';
-import { appeared, output, plist, printed } from '#/instance';
+import { appeared, Launched, output, Progress, plist, printed } from '#/instance';
 import { Closed, Engine, fields, HostCase, Info, type Placed, REFUSED, Request, Rows, Sarif, Session, Source, Survey } from '#/rhino/contract';
 import { precondition } from '#/rhino/precondition';
 import type { Batch, Host as Harness, Installed, Live } from '#/session';
@@ -13,6 +14,7 @@ type Case = typeof HostCase.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const HOME = homedir();
 const PREFIX = 'com.mcneel.rhinoceros.';
 const HOST = new RegExp(`^${RegExp.escape(PREFIX)}\\d+$`, 'u');
 const HARNESS = 'RASM_HARNESS';
@@ -82,7 +84,7 @@ const present = <K extends string, A>(key: K, value: Option.Option<A>) => Option
 const companions = Effect.fn('companions')(function* (bundle: string, identifier: string) {
     const path = yield* Path.Path;
     const apps = yield* lines('fd', ['--type', 'directory', '--case-sensitive', '--glob', '--no-ignore', '*.app', path.join(bundle, 'Contents')]);
-    return Array.dedupe(yield* Effect.forEach(apps, (app) => Effect.map(plist(app, Info), ({ CFBundleIdentifier }) => CFBundleIdentifier))).filter((held) => held !== identifier);
+    return Array.dedupe(yield* Effect.forEach(apps, (app) => Effect.map(plist(app, Info), ({ CFBundleIdentifier }) => CFBundleIdentifier))).filter((held) => held !== identifier && held.startsWith(PREFIX));
 });
 const installed = Effect.gen(function* () {
     const bundles = yield* lines('mdfind', [`kMDItemCFBundleIdentifier == '${PREFIX}*'`]);
@@ -190,7 +192,7 @@ const launch = Effect.fn('launch')(function* (_: Installed, scratch: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const loader = path.join(scratch, 'loader.cs');
     yield* fs.writeFileString(loader, LOADER);
-    return { arguments: ['-nosplash', `-runscript=_-ScriptEditor _Run "${loader}"`], defaults: { NSAppSleepDisabled: 'YES' }, environment: { [HARNESS]: scratch } };
+    return new Launched({ arguments: ['-nosplash', `-runscript=_-ScriptEditor _Run "${loader}"`], defaults: { NSAppSleepDisabled: 'YES' }, environment: { [HARNESS]: scratch } });
 });
 const sessionOf = (live: Live) =>
     Effect.flatMap(
@@ -240,8 +242,7 @@ const Host = {
     survey: { question: 'Language and environment the running instance reports', Schema: Survey },
     Case: HostCase,
     fields,
-    shown: ['console', 'diagnostics'],
-    progress: [{ title: 'Please Wait...', buttons: ['Cancel'] }],
+    progress: [new Progress({ title: 'Please Wait...', buttons: ['Cancel'] })],
     engine: () => Result.succeed(Engine.literal),
     precondition,
     placed: (decoded, _folder, product) =>
@@ -262,6 +263,11 @@ const Host = {
             Effect.flatMap(Deferred.await(live.verdict), (over) => HarnessError.unavailable(live.chosen.name)(`instance ${live.pid} ${over._tag.toLowerCase()} before the loader wrote ${SESSION}`)),
         ),
     send,
+    logs: (instance) =>
+        Effect.succeed([
+            { kind: 'host', pattern: `.rhinocode/logs/rhinocode_${instance.pid}`, root: HOME },
+            { kind: 'host', pattern: `Library/Application Support/McNeel/Rhinoceros/*/Plug-ins/RhinoCycles (*)/data/RhinoCycles*-${instance.pid}-*.log`, root: HOME },
+        ]),
     quit: (live) => requested(live.scratch, `${live.pid}.quit`, []),
     rebuilt: ({ hosted, fn, module }, folder) => Effect.succeed({ hosted: { ...hosted, folder, rebuilt: { fn, module } }, map: [] }),
 } as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type, typeof fields>;

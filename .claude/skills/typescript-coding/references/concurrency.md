@@ -23,9 +23,12 @@ const restarting = Effect.fn('restarting')(function* <K, E, R>(keys: Stream.Stre
 
 `changed` streams keys and `sync` runs one. Each key restarts its run and interrupts the stale one, and `Layer.effectDiscard(Effect.forkScoped(restarting(changed, sync)))` ends the key stream and every run with the layer scope:
 - Unjoined runs hold `never` as their error and log their cause through `Effect.tapCause(Effect.logError)`, the only record of a defect they hit
+- Followers a service forks return their fiber, its end effect racing host exit against `Fiber.joinAll` over them and failing with a follower's failure
 - `FiberMap.join` fails with a member's first failure where a caller awaits the set
 - `onlyIfMissing: true` on `FiberMap.run` or `FiberHandle.run` keeps the running fiber and discards the new run
-- `FiberSet.makeRuntime<R>()` returns a run function a synchronous host callback calls, every fiber it starts ending with the set's scope
+- `FiberSet.makeRuntime<R>()` serves a synchronous host callback and `makeRuntimePromise<R>()` one a host awaits, each run ending with the set's scope
+- Hook add and remove pairs acquire in the scope owning runs, and an awaited host call races `Effect.andThen(FiberSet.join(set), Effect.interrupt)`
+- `FiberSet.join` fails with the first failure of a callback run, a `Deferred` the callbacks fail restating it
 - `Effect` forks take `{ uninterruptible: true }` for a run that leaves state inconsistent when stopped midway
 - `{ startImmediately: true }` on a fork runs the fiber to its first suspension before the fork returns
 - Writes outliving a canceled caller fork through `Effect.forkIn(scope, { uninterruptible: true })` and complete a `Deferred` the caller awaits
@@ -33,7 +36,7 @@ const restarting = Effect.fn('restarting')(function* <K, E, R>(keys: Stream.Stre
 
 ## [02]-[STREAMS]
 
-`Stream<A, E, R>` pulls values on demand, and a slow consumer slows its producer. Producers enter through `Stream.callback`, its queue holding `bufferSize` items under a full-buffer `strategy` (`'suspend'`, `'dropping'`, `'sliding'`). `Queue.make`, `Stream.buffer`, and `Stream.share` take the same pair as `capacity` and `strategy`. Host callback registrations are acquired and released in the stream's scope:
+`Stream<A, E, R>` pulls values on demand, and a slow consumer slows its producer. Host listeners with synchronous per-event work (render and write) are a plain function the host calls. Producers a consumer pulls under backpressure, runs an effect per item over, or composes stream operators on enter through `Stream.callback`, its queue holding `bufferSize` items under a full-buffer `strategy` (`'suspend'`, `'dropping'`, `'sliding'`). `Queue.make`, `Stream.buffer`, and `Stream.share` take the same pair as `capacity` and `strategy`. Host callback registrations are acquired and released in the stream's scope:
 
 ```ts
 const sizes = Stream.callback<DOMRectReadOnly>((queue) =>
@@ -55,6 +58,7 @@ const entries = (root: string, bufferSize: number) => Stream.callback<Entry, Wal
 ```
 
 `walk` is a host traversal calling its callback per entry under `root` and failing with `WalkError`. `Queue.into` ends the stream when `walk` succeeds and fails it with `walk`'s error:
+- `Stream.callback` forks registration at once, a drain under `forkScoped({ startImmediately: true })` registering before the fork returns
 - `Stream.share({ capacity, replay, idleTimeToLive })` multicasts a stream in hand, starting with its first consumer and ending after its last
 - Sources enter through `Stream.fromIterable`, `fromAsyncIterable`, `fromEventListener`, `fromEffectSchedule` for polling, and `paginate` for cursors
 - `Stream.peel(stream, Sink.head())` returns an `Option` of the first element beside a scoped stream of the rest, seeding state first
@@ -102,10 +106,12 @@ const nodeOf = Effect.map(SqlClient.SqlClient, (sql) => SqlResolver.request(SqlR
 - `RequestResolver.batchN` caps a batch at the host's limit, `setDelay` widens the window a batch collects over
 - Batches merge callers across services, and `RequestResolver.makeGrouped` keys a batch by each value the host call reads (a tenant, a credential)
 - Host state a view observes is a `SubscriptionRef` the host's events set, read through `Atom.subscriptionRef` or its `changes` stream
-- `changes` piped through `Stream.zipWithPrevious` diffs successive states, and `Stream.changesWith(eq)` drops states equal on a projection
+- `changes` through `Stream.mapAccum(HashMap.empty, (last, current) => [current, changed])` emits the `changed` array each step returns, `changesWith(eq)` dropping equal states
 - `SubscriptionRef.modifyEffect` runs a host call and the transition it decides as one update
 - `Semaphore.withPermits(semaphore, n)` bounds across operations, `concurrency` bounds one traversal
-- `Cache.makeWith` takes `timeToLive` as a function of each lookup's `Exit` and key
+- `Cache.makeWith` takes `timeToLive` from each lookup's `Exit` and key, zero for a failure a later read can clear and infinity for a fixed fact
+- `capacity: Number.POSITIVE_INFINITY` keeps every key with no eviction pass, a large finite number restating it
+- `Effect.cachedWithTTL(read, (exit) => ttl)` caches one value under the same policy, `Effect.bindTo` giving it a service's shape
 
 ## [04]-[SCHEDULES]
 

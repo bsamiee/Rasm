@@ -1,5 +1,4 @@
 import AppleEvents
-import ApplicationServices
 import Applications
 import CurrentProcess
 import Encoding
@@ -66,7 +65,6 @@ enum Atelier {
         let output: DispatchSerialQueue = DispatchSerialQueue(label: "Atelier.output")
         do {
             try disclaimResponsibility()
-            AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Float(messagingTimeout / .seconds(1)))
             do {
                 try checkAccessibilityTrust(prompting: true)
             } catch {

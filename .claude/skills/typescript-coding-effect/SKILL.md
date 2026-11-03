@@ -27,6 +27,7 @@ Each runtime supplies the platform services a program reads through published la
 - `NodeHttpServer.layerConfig` supplies `HttpPlatform`, `Etag.Generator`, `FileSystem`, and `Path` beside the server
 - `HttpServer.layerServices` supplies them where no platform does, with a `FileSystem` holding no files
 - `HttpRouter.serve` builds its routes in a fork of the memo map, and services sibling layers share are provided outside it
+- `HttpRouter.serve` and `toWebHandler` log each request unless `disableLogger`, and `serve` logs listen address unless `disableListenLog`
 
 ## [02]-[TESTS]
 
@@ -50,6 +51,8 @@ layer(Layer.mock(Store, { read: (key) => StoreError.make({ reason: { _tag: 'Unav
 - `it.effect.prop(name, [Schema.Int], fn)` and `it.prop` take schemas or `Arbitrary` values, `Arbitrary.schema(S)` deriving generators from checks
 - `assertSome`, `assertNone`, `assertSuccess`, `assertFailure`, and `assertExitSuccess` in `@effect/vitest/utils` read `Option`, `Result`, and `Exit`
 - `TestConsole.logLines` returns what a case printed, and `excludeTestServices: true` keeps the live `Clock` and `Console` for a block
+- Vitest configs hand values to cases through `provide`, cases read `inject('<key>')`, and one `ProvidedContext` augmentation types both
+- Fixtures given a `use` continuation hold the scope acquiring `value` open across `Effect.promise(() => use(value))`
 
 ## [03]-[TELEMETRY]
 
@@ -71,4 +74,5 @@ const Telemetry = Otlp.layerFromConfig().pipe(
 - Request spans take `<method> <target>` names over a low-cardinality target (a route, a URI template), each concrete value an attribute
 - `HttpTraceContext.fromHeaders(headers)` reads a remote `parent` from the headers a request or protocol message holds
 - `Effect.track(metric)`, `trackDuration(timer)`, `trackErrors`, and `trackSuccesses` update a metric per run, `Metric.withAttributes` tagging it
+- `Metric.timer` records milliseconds, and a duration a convention states in seconds is `Metric.mapInput(Metric.histogram(...), Duration.toSeconds)`
 - `OtlpExporter.Flusher` drains logs, metrics, and traces before a short-lived host returns
