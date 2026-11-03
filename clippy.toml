@@ -15,7 +15,7 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
-arithmetic-side-effects-allowed       = ["centrality::Centrality", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "typst::layout::Axes", "uom::si::Quantity"]
+arithmetic-side-effects-allowed       = ["centrality::Centrality", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Transform", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "typst::layout::Axes", "uom::si::Quantity"]
 arithmetic-side-effects-allowed-unary = ["kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
@@ -61,15 +61,14 @@ allowed-duplicate-crates = [
     "ndarray",               # 0.16 under `tract-core` and `tract-data` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature beside 0.17, the catalog row, under `pdf_oxide`, `csaps`, `sprs`, `rustworkx-core`, `rasm-analysis`, `rasm-solar`, `rasm-spectra`, and `rasm-weather`
     "num-bigint",            # 0.5 under `arrow-buffer` 59.3.2, the release `datafusion` 55 and `deltalake` 1.1 link, beside 0.4 under `num-rational` of `nalgebra` 0.35 and `fraction` of `jsonschema` 0.60
     "zip",                   # 8 under newest `fmi` 0.8.0 beside 9, the catalog row, under `rasm-ifc` and `office_oxide` of `pdf_oxide`
-    "constant_time_eq",      # 0.4 under the default `aes-crypto` of `zip` 8 beside 0.6 under `zip` 9 `aes-crypto`
-    "lzma-rust2",            # 0.16 under the default `lzma` and `xz` of `zip` 8 beside 0.23 under `zip` 9 `lzma` and `xz`
-    "typed-path",            # 0.12 under `zip` 8 beside 0.13 under `zip` 9
-    "zstd",                  # 0.13 under `arrow-ipc` and `parquet` 59.3.2, the `zstd` feature of `tiff` 0.11.3, and the default `zstd` of `zip` 8 that newest `fmi` 0.8.0 takes, beside 0.14 under `zip` 9 `zstd` and `compression-codecs` of `async-compression`, which `tower-http` under `reqwest` 0.13 takes
-    "zstd-safe",             # 7 under `zstd` 0.13 beside 8 under `zstd` 0.14
+    "typed-path",            # 0.12 under `zip` 8 beside 0.13, the catalog row, under `zip` 9 and `rasm-ifc`
+    "zstd",                  # 0.13 under `arrow-ipc` and `parquet` 59.3.2, the `zstd` feature of `tiff` 0.11.3, and the default `zstd` of `zip` 8 that newest `fmi` 0.8.0 takes, beside 0.14 under `compression-codecs` of `async-compression`, which `tower-http` under `reqwest` 0.13 takes
+    "zstd-safe",             # 7 under `zstd` 0.13 beside 8 under `zstd` 0.14 and `compression-codecs` of `async-compression`
     "brotli",                # 8 under the `brotli` codec of `parquet` 59.3.2, which `datafusion` 55 and `deltalake` 1.1 take with its defaults, and under `hayro-cmap` of `hayro-interpret` 0.7 and 0.8, beside 9 under `compression-codecs` of `async-compression` under `reqwest` 0.13 and under `pdf_oxide` 0.3.78
     "brotli-decompressor",   # 5 under `brotli` 8 and `lopdf` 0.46.0 beside 6 under `brotli` 9
     "alloc-stdlib",          # 0.2 under `brotli` 8 beside 0.3 under `brotli` 9
     "alloc-no-stdlib",       # 2 under `alloc-stdlib` 0.2 beside 3 under `alloc-stdlib` 0.3
+    "io-lifetimes",          # 2 under newest `fs-set-times` 0.20.3 of newest `cap-primitives` 4.0.3 beside 3 under `cap-primitives` and `io-extras`
     "weezl",                 # 0.1 under the default `lzw` of `tiff` 0.11.3 and under `gif` 0.14 of `krilla` and `image` beside 0.2 under `lopdf` 0.46.0 and `pdf_oxide` 0.3.78
     "fax",                   # 0.2 under the default `fax` of `tiff` 0.11.3 beside 0.3 under `pdf_oxide` 0.3.78
     "indexmap",              # 1 under newest `serde_with` 3.24.0 through the weak `indexmap_1?/std` of its default `std` (rust-clippy#16440), beside 2 under `petgraph`, `rmcp`, `serde_json`, and `arrow-json`
