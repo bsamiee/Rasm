@@ -1,6 +1,6 @@
 # [DECISION]
 
-Keep: the font tooling becomes a Python library under `libs/python/fonts/`, rebuilt from its research findings and from none of its code.
+Keep: the font tooling becomes a Python library under `libs/python/typography/`, rebuilt from its research findings and from none of its code.
 
 ## [01]-[PROBLEM]
 
@@ -32,18 +32,20 @@ Upkeep: `docs/research` is git-ignored, so the tools hold no history and `rebuil
 ## [03]-[SHAPE]
 
 Library with one command entry, holding only work no tool does:
-- Import packages under `libs/python/fonts/`, each with `py.typed`: `faces`, `outlines`, `shaping`, `rules`, `verification`, `foundry`
+- Top-level packages under `libs/python/typography/`, each with `py.typed`: `faces`, `outlines`, `shaping` for typography code, `foundry` for builds
+- `foundry` nests `foundry.rules`, `foundry.verification`, packaging and the CLI, and `faces`, `outlines` and `shaping` import nothing from it
 - `ufo2ft` compiles through its writers and filters, fontspector and OTS judge generic conformance, and the library supplies their inputs
 - `foundry/__main__.py` holds one cyclopts `App` run as `python -m foundry <command> <set.toml>`, with no `tools/` binary or `eng/` module
 - Font sets are inputs: one TOML declaration per set beside its originals, read by path argument
 - InPage's licence allows no copying, so originals and declaration stay on the drive, and the library holds no family name, path or value
-- Tests under `tests/python/libs/fonts/<package>/` build their fonts with `fontTools.fontBuilder`, so the repository holds no licensed binary
+- Tests under `tests/python/libs/typography/<package>/` build their fonts with `fontTools.fontBuilder`, so the repository holds no licensed binary
 
 Face roles, outline geometry, design rules and requirements are domain code with tests, outside the `eng/` machinery root targets call and the `tools/` repository tooling.
 
 ## [04]-[PLACE]
 
-- `libs/python/fonts/pyproject.toml` is a packaged uv workspace member on the `blender` pattern, joined to root `members` and `uv.lock` first
+- `libs/python/typography/pyproject.toml` is one packaged uv workspace member on the `blender` pattern, joined to root `members` and `uv.lock` first
+- Later typography work joins the same member as further top-level packages
 - Manifest: hatchling, `dev-mode-dirs = [".."]`, `[project] dependencies` naming each import, `[tool.ruff] extend`, `[tool.deptry]`
 - Nx infers a project per `py.typed` directory with its `tests/python` folder, and ty, mypy and refurb run as root targets
 - `follow_untyped_imports` rows for `ufo2ft.*`, `ots.*`, `ttfautohint.*` and `youseedee.*` join the `fontTools.*` and `pathops.*` row

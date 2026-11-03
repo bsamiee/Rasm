@@ -1,21 +1,21 @@
 # [ARCHITECTURE]
 
-`libs/python/fonts/` reconciles each face of a declared font set from its original binary through a plan of rules into a UFO source, compiles it through ufo2ft, verifies it against one set of requirements, and packages it. Records are frozen `msgspec.Struct`, results are `expression` `Outcome[T]` with one `Fault` record, and every module follows the `python-coding` skill.
+`libs/python/typography/` holds the font capability any typography code uses as top-level packages and the production pipeline as one nested package `foundry`, which reconciles each face of a declared font set from its original binary through a plan of rules into a UFO source, compiles it through ufo2ft, verifies it against one set of requirements, and packages it. Records are frozen `msgspec.Struct`, results are `expression` `Outcome[T]` with one `Fault` record, and every module follows the `python-coding` skill.
 
 ## [01]-[MODULES]
 
 Each package owns what fontTools, ufo2ft, HarfBuzz, OTS and fontspector leave undone:
 
-| [INDEX] | [PACKAGE]      | [OWNS]                                                                   | [READS]                           |
-| :-----: | :------------- | :----------------------------------------------------------------------- | :-------------------------------- |
-|  [01]   | `faces`        | `FontSet`, `Family`, `Face`, `Glyph`, `Role`, `Coverage`, decode, import | `fontTools.ttLib`, ufoLib2        |
-|  [02]   | `outlines`     | Union, difference, stroke measure, nib sweep, signed gap, bounds, IoU    | `skia-pathops`, fontTools pens    |
-|  [03]   | `shaping`      | Shaped runs, `hb-shape` serialization, fontspector shaping JSON, corpus  | `uharfbuzz`                       |
-|  [04]   | `rules`        | `Rule` union, `Plan` per genre and treatment, lookup records, emission   | `faces`, `outlines`, `shaping`    |
-|  [05]   | `verification` | `Requirement` union, `Finding`, `verified`, OTS and fontspector decode   | `opentype-sanitizer`, fontspector |
-|  [06]   | `foundry`      | `App` commands `source`, `build`, `check`, `approve`, `run`, `publish`   | Every package above, ufo2ft       |
+| [INDEX] | [PACKAGE]              | [OWNS]                                                                   | [READS]                           |
+| :-----: | :--------------------- | :----------------------------------------------------------------------- | :-------------------------------- |
+|  [01]   | `faces`                | `FontSet`, `Family`, `Face`, `Glyph`, `Role`, `Coverage`, decode, import | `fontTools.ttLib`, ufoLib2        |
+|  [02]   | `outlines`             | Union, difference, stroke measure, nib sweep, signed gap, bounds, IoU    | `skia-pathops`, fontTools pens    |
+|  [03]   | `shaping`              | Shaped runs, `hb-shape` serialization, fontspector shaping JSON, corpus  | `uharfbuzz`                       |
+|  [04]   | `foundry.rules`        | `Rule` union, `Plan` per genre and treatment, lookup records, emission   | `faces`, `outlines`, `shaping`    |
+|  [05]   | `foundry.verification` | `Requirement` union, `Finding`, `verified`, OTS and fontspector decode   | `opentype-sanitizer`, fontspector |
+|  [06]   | `foundry`              | `App` commands `source`, `build`, `check`, `approve`, `run`, `publish`   | Every package above, ufo2ft       |
 
-Dependencies point downward in table order. `foundry` alone performs file and process effects: UFO write, `compileTTF` with the writer list, `ttfautohint`, `fontTools.ttLib.woff2` and the build hash, since a separate compile package would forward ufo2ft calls unchanged.
+Dependencies point downward in table order, and `faces`, `outlines` and `shaping` import nothing from `foundry`, so checking and build tooling never couples into the core packages. `foundry` alone performs file and process effects: UFO write, `compileTTF` with the writer list, `ttfautohint`, `fontTools.ttLib.woff2` and the build hash, since a separate compile package would forward ufo2ft calls unchanged.
 
 ## [02]-[FACE_MODEL]
 
@@ -134,7 +134,7 @@ Considered and not taken:
 
 ## [06]-[LOGIC]
 
-Algorithms the research proved, kept as pure functions with their correction:
+Algorithms the research proved, kept as pure functions with their correction, `rules` and `verification` nested under `foundry`:
 
 | [INDEX] | [FUNCTION]           | [COMPUTES]                                                            | [CORRECTION]                             |
 | :-----: | :------------------- | :-------------------------------------------------------------------- | :--------------------------------------- |
