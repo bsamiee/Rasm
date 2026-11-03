@@ -27,15 +27,16 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 ### State
 
 - **TypeScript:** all fourteen `[03]` rows landed.
-- **Rust rows landed:** telemetry, command, output, screen, daemon, mcp, mesh, proximity, planar, implicit, site, solar, dependency, network, layout, optimize, stats, analysis, spectra, tables, linework, annotation, typeset, ifc.
-- **Rust rows stopped, to resume:** `numerics/dynamics`, `drawing/views`, `documents/pdf`, `geospatial/weather`.
-- **Rust rows left:** form, sheets, workbooks, cad, facets, scene, pointcloud, terrain, features, energy, daylight, query, lake, fields.
-- **Depth stopped, to resume:** `cli` over its three crates.
+- **Rust rows landed:** telemetry, command, output, screen, daemon, mcp, mesh, proximity, planar, implicit, site, solar, dependency, network, layout, optimize, stats, analysis, spectra, dynamics, tables, linework, views, annotation, typeset, ifc.
+- **Rust rows running:** pdf, weather, form, sheets; held at three rows, so the next row starts once two of these land.
+- **Rust rows left:** workbooks, cad, facets, scene, pointcloud, terrain, features, energy, daylight, query, lake, fields.
+- **Depth landed:** cli, typeset, ifc; finishing: analysis; running: layout, implicit, annotation; next: solar with site once weather lands, then each landed row not yet deepened.
+- **Tune:** `rust-tune` from `24ede74fc` running.
 
 ### Queue
 
 1. **Rust:** six runs at once, three rows in RUST.md order and three depth runs, each landing freeing its slot; `rust-tune` from `24ede74fc` after 2 to 3 land, and again every few landings.
-2. **InPage:** depth pass, clean-prose agents, `typescript-tune`, then one manual audit (every page of the InPage manual against our logic) with its fixes and a tune if justified.
+2. **InPage:** depth pass, clean prose and `typescript-tune` landed; the manual audit (every page of the InPage manual against our logic) runs with its fixes, then a tune if justified.
 3. **Then:** one focused agent per open defect, and `typescript-sweep` once no other run edits TypeScript. Depth order: `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`, then each landed row not yet deepened.
 4. **InPage depth rerun:** once the sweep and all other TypeScript work land (it may overlap the extension planning), rerun the depth pass from `.artifacts/workflows/typescript-extension/inpage/depth-prompt.md` (one Fable agent), its prompt extended with every finding and naivety fix recorded since, the matching `docs/research` notes, and deeper fontkit, HarfBuzz and catalog package use only where it replaces hand logic or adds real capability.
 5. **Folder guidance:** once the sweep and the Rust queue settle.
@@ -74,9 +75,9 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 
 ### State
 
-- **Running:** `internals-finish` (preferences, right-to-left, composers, color, guides), `font-foundry`, and the adversarial review of the InPage landing.
-- **InPage landing:** library code committed (`3c293ca22`), plan at `.artifacts/workflows/typescript-extension/inpage/PLAN.md`; its Atelier section stands as uncommitted drafts until the harness session commits.
-- **InPage depth pass, on the owner's signal:** after the review, one agent reads the plan, the distilled logic and the [02] method for missed capability, higher-order capability that ripples through the code (4 to 5 agents ideating), and fuller use of Effect 4 and each package; it cuts surface, stringly forms, nesting and hand logic, adversaries read any growth, then clean-prose agents rename files, members and messages over everything modified. It delivers real line and surface reduction: poor logic and indirection are deleted and files removed, never shuffled; additions stand only where justified.
+- **Running:** `internals-finish` (preferences, right-to-left, composers, color, guides), `font-foundry`, the InPage manual audit, and the coding-skill pass carrying the derivation principle (`.artifacts/workflows/skills/derivation.md`) into every `<language>-coding` skill.
+- **InPage landing:** library, depth pass (`f9bfccb21`) and Atelier (`233e6a109`) committed; plan at `.artifacts/workflows/typescript-extension/inpage/PLAN.md`.
+- **Research notes:** every value stated as library behavior is rewritten as the relation, parameter or measured property it derives from; `grids.md` holds one page relation solved for any free quantity.
 - **Harnesses:** rebuilt on one launch path with no automatic quit, kill, press, or relaunch; a dialog, hang, or crash ends a batch, pid in `failed`.
 - **Next proofs:** host cases written and not run (second script decompile, Grid Calculator, ScribeDOOR, script domains) and ScribeDOOR for Illustrator run on it; ScribeDOOR's trial ends around 8 November.
 - **InPage:** 164 functions binary-proven over 1494 cases; the plug-in is Windows-only, so host proof is impossible. Its distill carries the typesetting logic (nuqta and aerab position, letter adjustment, spacing tuner, kasheeda, overlap kerning, text carving, symbols, the Quran glossary) for Persian and Arabic over any installed font, reading what each font states; Urdu-only forms stay out.
