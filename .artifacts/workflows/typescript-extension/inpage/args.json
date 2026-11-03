@@ -1,0 +1,31 @@
+{
+  "language": "typescript",
+  "mode": "deepen",
+  "paths": [
+    "libs/typescript/graphics/typography",
+    "libs/typescript/data/search",
+    "libs/typescript/creative-cloud/automation",
+    "libs/typescript/creative-cloud/indesign",
+    "apps/creative-cloud/atelier"
+  ],
+  "inputs": [
+    ".artifacts/workflows/typescript-extension/inpage/PLAN.md",
+    "docs/research/applications/indesign/distilled/typesetting",
+    "docs/research/applications/indesign/distilled/right-to-left",
+    "docs/research/applications/indesign/distilled/internals/adobe-indesign-composers",
+    "docs/research/applications/indesign/distilled/internals/adobe-indesign-right-to-left",
+    "docs/research/applications/indesign/facts",
+    "docs/research/typescript-extension/typography.md",
+    "docs/research/typescript-extension/perso-arabic.md",
+    "docs/research/typescript-extension/composition.md",
+    "docs/research/typescript-extension/indesign.md",
+    "docs/research/typescript-extension/studies/inpage-typesetting-tool.md",
+    "docs/research/typescript-extension/studies/scripts-typesetting.md",
+    "docs/research/typescript-extension/studies/winsoft-scribedoor.md",
+    "docs/research/typescript-extension/studies/scripts-right-to-left.md",
+    "docs/research/typescript-extension/studies/adobe-indesign-right-to-left.md",
+    "docs/research/typescript-extension/studies/adobe-indesign-composers.md",
+    "docs/research/typescript-extension/packages.md"
+  ],
+  "oracle": "node docs/research/applications/indesign/products/typesetting/inpage-typesetting-tool/proof/ab.ts"
+}
