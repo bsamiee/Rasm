@@ -9875,6 +9875,7 @@ dependencies = [
  "color",
  "derive-where",
  "derive_more",
+ "itertools 0.15.0",
  "kurbo",
  "linesweeper",
  "nonempty-collections",

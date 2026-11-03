@@ -24,6 +24,7 @@ bench   = false
 # --- [RUNTIME]
 [dependencies]
 nonempty-collections = { workspace = true }
+itertools            = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive-where         = { workspace = true }

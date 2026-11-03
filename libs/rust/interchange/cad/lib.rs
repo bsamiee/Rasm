@@ -1,8 +1,9 @@
 #![feature(const_result_trait_fn, const_trait_impl, default_field_values, deref_patterns, float_conversions, iterator_try_collect)]
 
+use core::num::TryFromIntError;
 use std::{
     fmt,
-    io::{Read, Seek, Write},
+    io::{self, Read, Seek, Write},
     sync::Arc,
 };
 
@@ -48,6 +49,7 @@ pub enum Unit {
 
 impl From<Unit> for Length {
     fn from(value: Unit) -> Self {
+        let survey_foot = Self::new::<meter>(1200.0 / 3937.0);
         match value {
             Unit::Inches => Self::new::<inch>(1.0),
             Unit::Feet => Self::new::<foot>(1.0),
@@ -69,10 +71,10 @@ impl From<Unit> for Length {
             Unit::AstronomicalUnits => Self::new::<astronomical_unit>(1.0),
             Unit::LightYears => Self::new::<light_year>(1.0),
             Unit::Parsecs => Self::new::<parsec>(1.0),
-            Unit::UsSurveyFeet => Self::new::<meter>(1200.0 / 3937.0),
-            Unit::UsSurveyInches => Self::new::<meter>(100.0 / 3937.0),
-            Unit::UsSurveyYards => Self::new::<meter>(3600.0 / 3937.0),
-            Unit::UsSurveyMiles => Self::new::<meter>(6_336_000.0 / 3937.0),
+            Unit::UsSurveyFeet => survey_foot,
+            Unit::UsSurveyInches => survey_foot / 12.0,
+            Unit::UsSurveyYards => survey_foot * 3.0,
+            Unit::UsSurveyMiles => survey_foot * 5280.0,
         }
     }
 }
@@ -99,33 +101,37 @@ pub enum Operation {
     Table(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum Refusal {
-    #[display("has no linework form")]
+    #[error("has no linework form")]
     Unsupported,
-    #[display("holds fit points alone")]
+    #[error("states a code past its integer range")]
+    Range(#[from] TryFromIntError),
+    #[error("holds fit points alone")]
     Fitted,
-    #[display("inserts itself")]
+    #[error("inserts itself")]
     Cycle,
-    #[display("has no text height")]
+    #[error("inserts an undefined block")]
+    Undefined,
+    #[error("has no text height")]
     Height,
-    #[display("has a shape or text dash")]
+    #[error("has a shape or text dash")]
     Linetype,
-    #[display("fills a gradient")]
+    #[error("fills a gradient")]
     Gradient,
-    #[display("looks along no plan view")]
+    #[error("looks along no plan view")]
     View,
-    #[display("measures paper in pixels")]
+    #[error("measures paper in pixels")]
     Units,
-    #[display("prints a device color")]
+    #[error("prints a device color")]
     Ink,
-    #[display("places off a similarity")]
+    #[error("places off a similarity")]
     Skew,
-    #[display("places external content")]
+    #[error("places external content")]
     Content,
-    #[display("sits under a clip DXF cannot hold")]
+    #[error("sits under a clip DXF cannot hold")]
     Clipped,
-    #[display("crops by several contours")]
+    #[error("crops by several contours")]
     Boundary,
 }
 
@@ -181,7 +187,9 @@ where R: Read + Seek + 'static {
     let Reading { options, default_encoding, progress } = reading;
     let drawing = |source| CadError::Drawing { operation: Operation::Read, source };
     let mut signature = [0_u8; 2];
-    stream.read_exact(&mut signature).and_then(|()| stream.rewind()).map_err(DxfError::from).map_err(drawing)?;
+    let unread = |source: io::Error| drawing(DxfError::from(source));
+    stream.read_exact(&mut signature).map_err(unread)?;
+    stream.rewind().map_err(unread)?;
     match signature {
         [b'A', b'C'] => default_encoding.into_iter().try_fold(DwgReader::from_stream_with_options(stream, options), DwgReader::with_r12_code_page).and_then(|mut reader| {
             if let Some(progress) = progress {

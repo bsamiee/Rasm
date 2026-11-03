@@ -10,6 +10,7 @@ use acadrust::{
     types::Transform,
 };
 use color::{OpaqueColor, Rgba8, Srgb};
+use itertools::Itertools as _;
 use kurbo::{Affine, BezPath, Circle, PathEl, Point, Rect, Shape as _, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
@@ -118,7 +119,19 @@ pub(crate) fn written(document: &mut CadDocument, space: &str, layers: Vec<pages
     layers
         .into_iter()
         .map(|pages::Layer { name, print, view, elements }| -> Result<Handle, NEVec<CadError>> {
-            let handle = entry(document, &name, print, view).map_err(NEVec::new)?;
+            let (off, is_plottable) = (matches!(view, Visibility::Hidden), matches!(print, Visibility::Visible));
+            let handle = if let Some(layer) = document.layers.get_mut(&name) {
+                layer.flags.off = off;
+                layer.is_plottable = is_plottable;
+                layer.handle
+            } else {
+                let handle = document.allocate_handle();
+                document
+                    .layers
+                    .add(Layer { handle, flags: LayerFlags { off, ..LayerFlags::new() }, is_plottable, ..Layer::new(&*name) })
+                    .map_err(|source| NEVec::new(CadError::Drawing { operation: Operation::Table(name.to_string()), source }))?;
+                handle
+            };
             elements
                 .into_iter()
                 .enumerate()
@@ -209,15 +222,16 @@ fn drew(
             Err(source) => Err(NEVec::new(misshapen(source))),
         },
         EntityType::Text(_) | EntityType::MText(_) | EntityType::AttributeEntity(_) | EntityType::AttributeDefinition(_) => {
-            Validated::from(text::lifted(entity, &document.text_styles, &projection.families, frame, tolerance, subject))
+            text::lifted(entity, &document.text_styles, &projection.families, frame, tolerance, subject)
+                .map_or_else(Validated::Fail, Validated::Good)
                 .map2(penned(), |lettering, pen| {
-                    lettering.map_or_else(Vec::new, |(text, background)| {
+                    lettering.map_or_default(|(text, background)| {
                         piece(
-                            background
-                                .map(|(region, color)| Element::Fill { region, color: rasm_linework::Color::Srgb(plotted(document, color, &layer, context).0), opacity: pen.opacity })
-                                .into_iter()
-                                .chain(iter::once(Element::Text { text, color: pen.color, opacity: pen.opacity }))
-                                .collect(),
+                            iter::chain(
+                                background.map(|(region, color)| Element::Fill { region, color: rasm_linework::Color::Srgb(plotted(document, color, &layer, context).0), opacity: pen.opacity }),
+                                iter::once(Element::Text { text, color: pen.color, opacity: pen.opacity }),
+                            )
+                            .collect(),
                         )
                     })
                 })
@@ -231,7 +245,7 @@ fn drew(
             let family = |(index, line): (usize, &HatchPatternLine)| -> Result<Family, CadError> {
                 let dashed = curves::dashes(&line.dash_lengths, 1.0).map_err(|DashesError::PredicateViolated| misshapen(LineworkError::Scaled(Dash::Array)))?;
                 let delta = (Affine::rotate(-line.angle) * Point::new(line.offset.x, line.offset.y)).to_vec2();
-                let shift = dashed.as_ref().map_or(0.0, |&(_, offset)| offset);
+                let shift = dashed.as_ref().map_or_default(|&(_, offset)| offset);
                 Family::try_new(Descriptor { angle: line.angle, origin: Point::new(line.base_point.x, line.base_point.y) - Vec2::from_angle(line.angle) * shift, delta, dashes: dashed.map(|(dashes, _)| dashes) })
                     .map_err(|FamilyError::PredicateViolated| misshapen(LineworkError::Spacing { family: index, spacing: delta.y }))
             };
@@ -241,7 +255,7 @@ fn drew(
                     Validated::from(Placement::try_new(frame * curves::ocs(hatch.normal, hatch.elevation)).map_err(misshapen)),
                     hatch.pattern.lines.iter().enumerate().map(family).collect::<Validated<Vec<_>, _>>(),
                     |region, pen, placement, families| {
-                        NEVec::try_from_vec(families).map_or_else(Vec::new, |families| piece(vec![Element::Hatch { region, pattern: Pattern { families, target: Target::Model }, placement, pen }]))
+                        NEVec::try_from_vec(families).map_or_default(|families| piece(vec![Element::Hatch { region, pattern: Pattern { families, target: Target::Model }, placement, pen }]))
                     },
                 )
                 .ok()
@@ -249,10 +263,11 @@ fn drew(
         EntityType::Solid(solid) => polygon(&[solid.first_corner, solid.second_corner, solid.fourth_corner, solid.third_corner], frame * curves::ocs(solid.normal, solid.first_corner.z)).and_then(filled),
         EntityType::Point(marker) => {
             let header = &document.header;
+            let percent = |share: f64| context.view_height * share / 100.0;
             let size = match header.point_display_size {
                 stated if stated > 0.0 => stated,
-                stated if stated < 0.0 => context.view_height * -stated / 100.0,
-                _ => context.view_height * 5.0 / 100.0,
+                stated if stated < 0.0 => percent(-stated),
+                _ => percent(5.0),
             };
             let (center, half, mode, local) = (Point::new(marker.location.x, marker.location.y), size / 2.0, header.point_display_mode, tolerance.into_inner() / frame.spectral_norm());
             let line = |from: Vec2, to: Vec2| [PathEl::MoveTo(center + from), PathEl::LineTo(center + to)];
@@ -265,7 +280,7 @@ fn drew(
             };
             let circle = ((mode & 32) != 0).then(|| Circle::new(center, half).path_elements(local).collect::<Vec<_>>());
             let square = ((mode & 64) != 0).then(|| Rect::from_center_size(center, (size, size)).path_elements(local).collect::<Vec<_>>());
-            let elements = figure.into_iter().chain(circle.into_iter().flatten()).chain(square.into_iter().flatten()).collect::<BezPath>();
+            let elements = iter::chain(figure, circle.into_iter().flatten()).chain(square.into_iter().flatten()).collect::<BezPath>();
             stroked((!elements.is_empty()).then(|| frame * elements))
         }
         EntityType::Wipeout(wipeout) => polygon(&if wipeout.is_rectangular() { wipeout.corners().to_vec() } else { wipeout.world_boundary_vertices() }, frame).map(|region| {
@@ -308,24 +323,36 @@ fn drew(
         | EntityType::Ray(_)
         | EntityType::XLine(_) => Err(NEVec::new(refusing(Refusal::Unsupported))),
     }
-    .map(|more| appended(earlier, more))
+    .map(|more| {
+        more.into_iter().fold(earlier, |mut layers, added| {
+            if let Some(last) = layers.last_mut()
+                && last.name == added.name
+                && last.print == added.print
+                && last.view == added.view
+            {
+                last.elements.extend(added.elements);
+            } else {
+                layers.push(added);
+            }
+            layers
+        })
+    })
 }
 
 fn inserted(document: &mut CadDocument, insert: &Insert, chain: &[String], subject: &Subject, context: &Context<'_>, projection: &Projection) -> Result<Vec<pages::Layer>, NEVec<CadError>> {
     let refused = |reason| Err(NEVec::new(CadError::Refused { subject: subject.clone(), reason }));
     match document.block_records.get(&insert.block_name) {
         _ if chain.iter().any(|name| name.eq_ignore_ascii_case(&insert.block_name)) => refused(Refusal::Cycle),
-        record => {
-            let base = record.map(|record| if let Some(EntityType::Block(block)) = document.get_entity(record.block_entity_handle) { block.base_point } else { record.base_point });
-            let block = base.map_or_else(Vec::new, |base| {
-                ordered(document, &insert.block_name)
-                    .into_iter()
-                    .map(|mut entity| {
-                        entity.as_entity_mut().apply_transform(&Transform::from_translation(-base));
-                        entity
-                    })
-                    .collect()
-            });
+        None => refused(Refusal::Undefined),
+        Some(record) => {
+            let base = if let Some(EntityType::Block(block)) = document.get_entity(record.block_entity_handle) { block.base_point } else { record.base_point };
+            let block = ordered(document, &insert.block_name)
+                .into_iter()
+                .map(|mut entity| {
+                    entity.as_entity_mut().apply_transform(&Transform::from_translation(-base));
+                    entity
+                })
+                .collect::<Vec<_>>();
             match insert.explode(&block) {
                 parts if parts.is_empty() && !block.is_empty() => refused(Refusal::Unsupported),
                 parts => {
@@ -344,21 +371,6 @@ fn inserted(document: &mut CadDocument, insert: &Insert, chain: &[String], subje
             }
         }
     }
-}
-
-fn appended(earlier: Vec<pages::Layer>, more: Vec<pages::Layer>) -> Vec<pages::Layer> {
-    more.into_iter().fold(earlier, |mut layers, layer| {
-        if let Some(last) = layers.last_mut()
-            && last.name == layer.name
-            && last.print == layer.print
-            && last.view == layer.view
-        {
-            last.elements.extend(layer.elements);
-        } else {
-            layers.push(layer);
-        }
-        layers
-    })
 }
 
 fn overridden(document: &CadDocument, layer: &Layer, context: &Context<'_>, kind: KnownXRecordKind) -> Option<XRecordValue> {
@@ -402,7 +414,8 @@ fn pen(document: &CadDocument, common: &EntityCommon, layer: &Layer, context: &C
     let (color, stated) = plotted(document, common.color, layer, context);
     let weight = match common.line_weight {
         LineWeight::ByLayer => overridden(document, layer, context, KnownXRecordKind::LayerViewportLineweightOverride)
-            .and_then(|value| if let XRecordValue::Int32(weight) = value { i16::try_from(weight).ok().map(LineWeight::from_value) } else { None })
+            .and_then(|value| if let XRecordValue::Int32(weight) = value { Some(i16::try_from(weight).map(LineWeight::from_value)) } else { None })
+            .transpose()?
             .unwrap_or(layer.line_weight),
         LineWeight::ByBlock | LineWeight::Default | LineWeight::Value(_) => common.line_weight,
     };
@@ -420,7 +433,7 @@ fn pen(document: &CadDocument, common: &EntityCommon, layer: &Layer, context: &C
 }
 
 fn linetype(document: &CadDocument, common: &EntityCommon, layer: &Layer, context: &Context<'_>) -> Result<Option<Linetype>, Refusal> {
-    let stated = match common.linetype.to_ascii_uppercase().as_str() {
+    let stated = match &common.linetype.to_ascii_uppercase() {
         "" | "BYLAYER" => overridden(document, layer, context, KnownXRecordKind::LayerViewportLinetypeOverride)
             .and_then(|value| if let XRecordValue::Handle(handle) = value { document.line_types.iter().find(|entry| entry.handle == handle) } else { None })
             .or_else(|| document.line_types.get(&layer.line_type)),
@@ -440,25 +453,30 @@ fn linetype(document: &CadDocument, common: &EntityCommon, layer: &Layer, contex
     }
 }
 
-fn entry(document: &mut CadDocument, name: &str, print: Visibility, view: Visibility) -> Result<Handle, CadError> {
-    let (off, is_plottable) = (matches!(view, Visibility::Hidden), matches!(print, Visibility::Visible));
-    if let Some(layer) = document.layers.get_mut(name) {
-        layer.flags.off = off;
-        layer.is_plottable = is_plottable;
-        Ok(layer.handle)
-    } else {
-        let handle = document.allocate_handle();
-        document
-            .layers
-            .add(Layer { handle, flags: LayerFlags { off, ..LayerFlags::new() }, is_plottable, ..Layer::new(name) })
-            .map(|()| handle)
-            .map_err(|source| CadError::Drawing { operation: Operation::Table(name.to_owned()), source })
-    }
-}
-
 fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Affine, tolerance: Tolerance, subject: &Subject) -> Result<Vec<EntityType>, NEVec<CadError>> {
+    fn masked(element: &Element) -> bool {
+        match element {
+            Element::Text { text: _, color: _, opacity: _ } | Element::Glyphs { run: _, color: _, opacity: _ } | Element::Placed { content: _, placement: _, opacity: _ } => true,
+            Element::Stroke { path: _, pen: _, linetype: _ } | Element::Fill { region: _, color: _, opacity: _ } | Element::Hatch { region: _, pattern: _, placement: _, pen: _ } => false,
+            Element::Clip { region: _, keep: _, elements } => elements.iter().any(masked),
+        }
+    }
     let refusing = |reason| NEVec::new(CadError::Refused { subject: subject.clone(), reason });
     let misshapen = |source| NEVec::new(CadError::Geometry { subject: subject.clone(), source });
+    let inked = |color: &rasm_linework::Color, opacity: Opacity| match color {
+        rasm_linework::Color::Srgb(srgb) => {
+            let Rgba8 { r, g, b, a: _ } = srgb.to_rgba8();
+            Ok((Color::from_rgb(r, g, b), Transparency::from_percent(1.0 - opacity.into_inner())))
+        }
+        rasm_linework::Color::Cmyk(_) | rasm_linework::Color::Spot { name: _, tint: _, alternate: _ } => Err(refusing(Refusal::Ink)),
+    };
+    let weighted = |width: Width| {
+        (u8::MIN..=u8::MAX)
+            .map(LineWeight::from_dwg_index)
+            .filter_map(|weight| weight.millimeters().map(|millimeters| (weight, (millimeters - width.into_inner()).abs())))
+            .min_by(|(_, left), (_, right)| left.total_cmp(right))
+            .map_or(LineWeight::Default, |(weight, _)| weight)
+    };
     let placed = |region: &Region| Placement::try_new(unit).and_then(|placement| region.transform(placement)).map_err(misshapen);
     let styled = |mut entity: EntityType, (color, transparency): (Color, Transparency), line_weight: LineWeight, linetype: String| {
         let common = entity.common_mut();
@@ -471,7 +489,7 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
     };
     let mut lettered = |text: &rasm_linework::Text, color: &rasm_linework::Color, opacity: Opacity| -> Result<Vec<EntityType>, NEVec<CadError>> {
         let (entity, style) = text::written(text, unit);
-        let ink = inked(color, opacity).map_err(refusing)?;
+        let ink = inked(color, opacity)?;
         if !document.text_styles.contains(&style.name) {
             let name = style.name.clone();
             let handle = document.allocate_handle();
@@ -481,16 +499,38 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
     };
     match element {
         Element::Stroke { path, pen, linetype } => {
-            let ink = inked(&pen.color, pen.opacity).map_err(refusing)?;
-            let named = linetype.map(|linetype| linetyped(document, &linetype, unit)).transpose().map_err(NEVec::new)?;
+            let ink = inked(&pen.color, pen.opacity)?;
+            let named = linetype
+                .map(|linetype| -> Result<String, NEVec<CadError>> {
+                    let offset = match linetype.alignment {
+                        Alignment::Start { dash_offset } => dash_offset.into_inner(),
+                        Alignment::Center | Alignment::Corners { angle: _ } => 0.0,
+                    };
+                    let scale = unit.determinant().abs().sqrt();
+                    let lengths = curves::signed(&linetype.dashes, offset).into_iter().map(|length| length * scale).collect::<Vec<_>>();
+                    if let Some(entry) = document.line_types.iter().find(|entry| entry.elements.iter().map(|dash| dash.length).eq(lengths.iter().copied())) {
+                        Ok(entry.name.clone())
+                    } else {
+                        let name = lengths.iter().join(" ");
+                        let handle = document.allocate_handle();
+                        let entry = LineType {
+                            handle,
+                            elements: lengths.iter().map(|&length| LineTypeElement { length, complex: None }).collect(),
+                            pattern_length: lengths.iter().map(|length| length.abs()).sum(),
+                            ..LineType::new(name.clone())
+                        };
+                        document.line_types.add(entry).map(|()| name.clone()).map_err(|source| NEVec::new(CadError::Drawing { operation: Operation::Table(name), source }))
+                    }
+                })
+                .transpose()?;
             Ok(curves::curves(&(unit * path.into_inner())).into_iter().map(|entity| styled(entity, ink, weighted(pen.width), named.clone().unwrap_or_default())).collect())
         }
         Element::Fill { region, color, opacity } => {
-            let ink = inked(&color, opacity).map_err(refusing)?;
+            let ink = inked(&color, opacity)?;
             placed(&region).map(|region| vec![styled(EntityType::Hatch(Box::new(Hatch { paths: curves::loops(&region), ..Hatch::solid() })), ink, LineWeight::ByLayer, String::new())])
         }
         Element::Hatch { region, pattern, placement, pen } => {
-            let ink = inked(&pen.color, pen.opacity).map_err(refusing)?;
+            let ink = inked(&pen.color, pen.opacity)?;
             let drawing = unit * *placement;
             let [across_x, across_y, up_x, up_y, _, _] = drawing.as_coeffs();
             let (across, up) = (Vec2::new(across_x, across_y), Vec2::new(up_x, up_y));
@@ -507,21 +547,14 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
                         angle: along.atan2(),
                         base_point: Vector2::new(origin.x, origin.y),
                         offset: Vector2::new(offset.x, offset.y),
-                        dash_lengths: family.dashes.as_ref().map_or_else(Vec::new, |dashes| curves::signed(dashes, 0.0).into_iter().map(|length| length * scale).collect()),
+                        dash_lengths: family.dashes.as_ref().map_or_default(|dashes| curves::signed(dashes, 0.0).into_iter().map(|length| length * scale).collect()),
                     }
                 })
                 .collect::<Vec<_>>();
-            let rows = pattern
-                .families
-                .iter()
-                .zip(&lines)
+            let rows = iter::zip(&pattern.families, &lines)
                 .map(|(family, line)| {
-                    iter::chain([line.angle.to_degrees(), line.base_point.x, line.base_point.y, family.delta.x * scale, family.delta.y * scale], line.dash_lengths.iter().copied())
-                        .map(|value| value.to_string())
-                        .collect::<Vec<_>>()
-                        .join(",")
+                    iter::chain([line.angle.to_degrees(), line.base_point.x, line.base_point.y, family.delta.x * scale, family.delta.y * scale], line.dash_lengths.iter().copied()).join(",")
                 })
-                .collect::<Vec<_>>()
                 .join(" ");
             if similar {
                 placed(&region).map(|region| {
@@ -560,54 +593,6 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
             .collect::<Validated<Vec<_>, _>>()
             .ok()
             .map(|groups| groups.into_iter().flatten().collect()),
-    }
-}
-
-fn masked(element: &Element) -> bool {
-    match element {
-        Element::Text { text: _, color: _, opacity: _ } | Element::Glyphs { run: _, color: _, opacity: _ } | Element::Placed { content: _, placement: _, opacity: _ } => true,
-        Element::Stroke { path: _, pen: _, linetype: _ } | Element::Fill { region: _, color: _, opacity: _ } | Element::Hatch { region: _, pattern: _, placement: _, pen: _ } => false,
-        Element::Clip { region: _, keep: _, elements } => elements.iter().any(masked),
-    }
-}
-
-fn inked(color: &rasm_linework::Color, opacity: Opacity) -> Result<(Color, Transparency), Refusal> {
-    match color {
-        rasm_linework::Color::Srgb(srgb) => {
-            let Rgba8 { r, g, b, a: _ } = srgb.to_rgba8();
-            Ok((Color::from_rgb(r, g, b), Transparency::from_percent(1.0 - opacity.into_inner())))
-        }
-        rasm_linework::Color::Cmyk(_) | rasm_linework::Color::Spot { name: _, tint: _, alternate: _ } => Err(Refusal::Ink),
-    }
-}
-
-fn weighted(width: Width) -> LineWeight {
-    (u8::MIN..=u8::MAX)
-        .map(LineWeight::from_dwg_index)
-        .filter_map(|weight| weight.millimeters().map(|millimeters| (weight, (millimeters - width.into_inner()).abs())))
-        .min_by(|(_, left), (_, right)| left.total_cmp(right))
-        .map_or(LineWeight::Default, |(weight, _)| weight)
-}
-
-fn linetyped(document: &mut CadDocument, linetype: &Linetype, unit: Affine) -> Result<String, CadError> {
-    let offset = match linetype.alignment {
-        Alignment::Start { dash_offset } => dash_offset.into_inner(),
-        Alignment::Center | Alignment::Corners { angle: _ } => 0.0,
-    };
-    let scale = unit.determinant().abs().sqrt();
-    let lengths = curves::signed(&linetype.dashes, offset).into_iter().map(|length| length * scale).collect::<Vec<_>>();
-    let name = lengths.iter().map(f64::to_string).collect::<Vec<_>>().join(" ");
-    if document.line_types.contains(&name) {
-        Ok(name)
-    } else {
-        let handle = document.allocate_handle();
-        let entry = LineType {
-            handle,
-            elements: lengths.iter().map(|&length| LineTypeElement { length, complex: None }).collect(),
-            pattern_length: lengths.iter().map(|length| length.abs()).sum(),
-            ..LineType::new(name.clone())
-        };
-        document.line_types.add(entry).map(|()| name.clone()).map_err(|source| CadError::Drawing { operation: Operation::Table(name), source })
     }
 }
 
