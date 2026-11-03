@@ -3199,12 +3199,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eulumdat-daylight"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a19bb53717239493a92f8c292fb5f1fa1ab7088ad358fc44c0ae579eb34613e6"
-
-[[package]]
 name = "exr"
 version = "1.74.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9883,7 +9877,6 @@ version = "1.0.0"
 dependencies = [
  "csv",
  "derive_more",
- "eulumdat-daylight",
  "grib",
  "itertools 0.15.0",
  "jiff",
@@ -9891,9 +9884,11 @@ dependencies = [
  "ndarray 0.17.2",
  "ndarray-interp",
  "nonempty-collections",
+ "rasm-analysis",
  "rasm-proximity",
  "rasm-site",
  "rasm-solar",
+ "rasm-stats",
  "rayon",
  "serde",
  "solar-positioning",

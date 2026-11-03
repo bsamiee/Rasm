@@ -1,10 +1,10 @@
 #![feature(default_field_values)]
 
-use core::{f64::consts::PI, iter};
+use core::iter;
 
-use kurbo::{Affine, Point};
+use kurbo::{Affine, Point, Rect};
 use manifold_rust::cancel::{self, CancelToken};
-use nalgebra::{Isometry3, Matrix3, Matrix4, Orthographic3, Perspective3, Point3, Translation3, UnitQuaternion, Vector2, Vector3, Vector4};
+use nalgebra::{Isometry3, Matrix3, Matrix4, Orthographic3, Perspective3, Point3, Quaternion, Translation3, UnitQuaternion, Vector2, Vector3, Vector4};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parry3d_f64::{
     partitioning::BvhBuildStrategy,
@@ -13,7 +13,7 @@ use parry3d_f64::{
 use rasm_linework::{Class, Deflection, EdgeKind, LineworkError, Tolerance};
 use rasm_mesh::{MeshError, Solid, Source};
 use rasm_proximity::{Assembly, ProximityError};
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator as _};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator as _, ParallelIterator as _};
 use spade::InsertionError;
 use validated::Validated;
 
@@ -24,7 +24,7 @@ use crate::visibility::Lines;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Projection {
     Parallel { volume: Orthographic3<f64>, receding: Option<Vector2<f64>> = None },
-    Perspective(Perspective3<f64>),
+    Perspective { volume: Perspective3<f64>, shift: Option<Vector2<f64>> = None },
 }
 
 #[derive(Debug, Clone)]
@@ -35,8 +35,6 @@ pub enum Body {
 
 #[derive(Debug, Clone, Copy)]
 struct Frame {
-    eye: Isometry3<f64>,
-    near: f64,
     clip: Matrix4<f64>,
     inverse: Matrix4<f64>,
     picture: Affine,
@@ -45,30 +43,18 @@ struct Frame {
 
 impl Frame {
     fn new(eye: Isometry3<f64>, projection: Projection) -> Result<Self, ViewsError> {
-        let (volume, [near, far], ordered) = match projection {
-            Projection::Parallel { volume, receding } => (
-                volume.to_homogeneous() * receding.map_or_else(Matrix4::identity, |receding| Matrix3::new(1.0, 0.0, -receding.x, 0.0, 1.0, -receding.y, 0.0, 0.0, 1.0).to_homogeneous()),
-                [volume.znear(), volume.zfar()],
-                volume.znear() < volume.zfar(),
-            ),
-            Projection::Perspective(volume) => (volume.to_homogeneous(), [volume.znear(), volume.zfar()], 0.0 < volume.znear() && volume.znear() < volume.zfar()),
+        let (forward, backward, along, [near, far], ahead) = match projection {
+            Projection::Parallel { volume, receding } => (volume.to_homogeneous(), volume.inverse(), receding.map_or_else(Vector2::zeros, |receding| -receding), [volume.znear(), volume.zfar()], true),
+            Projection::Perspective { volume, shift } => (volume.to_homogeneous(), volume.inverse(), shift.unwrap_or_else(Vector2::zeros), [volume.znear(), volume.zfar()], volume.znear() > 0.0),
         };
-        let clip = volume * eye.to_homogeneous();
-        let inverse = clip.try_inverse().filter(|inverse| ordered && iter::chain(&clip, inverse.iter()).all(|entry| entry.is_finite())).ok_or(ViewsError::Volume { near, far })?;
-        let unprojected = eye.to_homogeneous() * inverse;
-        let [origin, along, across] = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)].map(|(right, up)| {
-            let point = unprojected * Vector4::new(right, up, -1.0, 1.0);
-            let picture = point.xy().unscale(point.w);
-            Point::new(picture.x, picture.y)
-        });
-        Ok(Self {
-            eye,
-            near,
-            clip,
-            inverse,
-            picture: Affine::new([along.x - origin.x, along.y - origin.y, across.x - origin.x, across.y - origin.y, origin.x, origin.y]),
-            plane: eye.inv_mul(&Isometry3::from_parts(Translation3::new(0.0, 0.0, -near), UnitQuaternion::from_axis_angle(&Vector3::x_axis(), PI))),
-        })
+        let shear = |slope: Vector2<f64>| Matrix3::new(1.0, 0.0, slope.x, 0.0, 1.0, slope.y, 0.0, 0.0, 1.0).to_homogeneous();
+        let clip = forward * shear(along) * eye.to_homogeneous();
+        let unprojected = shear(-along) * backward;
+        let inverse = eye.inverse().to_homogeneous() * unprojected;
+        let [origin, right, up] = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)].map(|(x, y)| unprojected.transform_point(&Point3::new(x, y, -1.0)));
+        let picture = Affine::new([right.x - origin.x, right.y - origin.y, up.x - origin.x, up.y - origin.y, origin.x, origin.y]);
+        (ahead && near < far && iter::chain(&clip, &inverse).all(|entry| entry.is_finite()) && picture.inverse().is_finite()).ok_or(ViewsError::Volume { near, far })?;
+        Ok(Self { clip, inverse, picture, plane: eye.inv_mul(&Isometry3::from_parts(Translation3::new(0.0, 0.0, -near), UnitQuaternion::new_normalize(Quaternion::new(0.0, 1.0, 0.0, 0.0)))) })
     }
 }
 
@@ -77,6 +63,7 @@ struct Prepared {
     body: usize,
     mesh: TriMesh,
     sources: Vec<Option<Source>>,
+    surface: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -104,31 +91,27 @@ impl View {
         token: Option<&CancelToken>,
     ) -> Result<Self, NEVec<ViewsError>> {
         let frame = Frame::new(eye, projection).map_err(NEVec::new)?;
-        let (bodies, features) = bodies
+        let bodies = bodies
             .into_par_iter()
             .enumerate()
-            .map(|(index, body)| {
-                let cut = match body {
-                    Body::Solid(_) => None,
-                    Body::Surface(_) => Some(sections::cuts),
-                };
-                sections::prepared(&frame, index, body, token).map(|prepared| {
-                    prepared.map(|prepared| {
-                        let features = iter::chain(edges::features(&frame, &prepared, crease), cut.map_or_default(|cuts| cuts(&frame, &prepared, tolerance))).collect::<Vec<_>>();
-                        (prepared, features)
-                    })
-                })
-            })
+            .filter(|_| !cancel::is_cancelled(token))
+            .map(|(index, body)| sections::prepared(&frame, index, body, token))
             .collect::<Validated<Vec<_>, _>>()
             .ok()?
             .into_iter()
             .flatten()
-            .unzip::<_, _, Vec<_>, Vec<_>>();
+            .collect::<Vec<_>>();
+        let renumbered = |error: ProximityError| {
+            let ProximityError::NonFinite { indices } = error else {
+                return ViewsError::from(error);
+            };
+            ViewsError::from(ProximityError::NonFinite { indices: indices.into_nonempty_iter().map(|index| bodies.get(index).map_or(index, |prepared| prepared.body)).collect() })
+        };
         let assembly = Assembly::new(BvhBuildStrategy::Ploc, bodies.iter().map(|prepared| (Isometry3::identity(), SharedShape::new(prepared.mesh.clone()))))
-            .map_err(|errors| errors.into_nonempty_iter().map(ViewsError::from).collect::<NEVec<_>>())?;
+            .map_err(|errors| errors.into_nonempty_iter().map(renumbered).collect::<NEVec<_>>())?;
         let scene = Scene { bodies, assembly };
         (!cancel::is_cancelled(token)).ok_or(NEVec::new(ViewsError::Cancelled))?;
-        visibility::lines(&frame, &scene, features.into_iter().flatten().collect(), tolerance).map(|lines| Self { frame, scene, lines, crease, tolerance }).map_err(NEVec::new)
+        outline(&frame, &scene, crease, tolerance).map(|lines| Self { frame, scene, lines, crease, tolerance }).map_err(NEVec::new)
     }
 }
 
@@ -150,7 +133,7 @@ pub enum Operation {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ViewsError {
-    #[error("view volume from depth {near} to {far} is singular, not finite or out of order")]
+    #[error("view from depth {near} to {far} is singular, not finite or out of order")]
     Volume { near: f64, far: f64 },
     #[error("body {body} yields no mesh")]
     Mesh { body: usize, source: MeshError },
@@ -173,6 +156,12 @@ pub enum ViewsError {
 #[must_use]
 pub fn project(view: &View, point: &Point3<f64>) -> Option<Point> { picture(&view.frame, clip(&view.frame, point)) }
 
+#[must_use]
+pub fn window(view: &View) -> Rect {
+    let [corner, _, opposite, _] = visibility::window(&view.frame);
+    Rect::from_points(corner, opposite)
+}
+
 fn clip(frame: &Frame, point: &Point3<f64>) -> Vector4<f64> { frame.clip * point.to_homogeneous() }
 
 fn picture(frame: &Frame, clip: Vector4<f64>) -> Option<Point> {
@@ -180,14 +169,19 @@ fn picture(frame: &Frame, clip: Vector4<f64>) -> Option<Point> {
 }
 
 fn ray(frame: &Frame, ndc: Point) -> (Point3<f64>, Vector3<f64>) {
-    let [near, far] = [-1.0, 1.0].map(|z| {
-        let point = frame.inverse * Vector4::new(ndc.x, ndc.y, z, 1.0);
-        Point3::from(point.xyz().unscale(point.w))
-    });
+    let [near, far] = [-1.0, 1.0].map(|z| frame.inverse.transform_point(&Point3::new(ndc.x, ndc.y, z)));
     (near, far - near)
 }
 
-fn depth(frame: &Frame, point: &Point3<f64>) -> f64 { -(frame.eye * point).z - frame.near }
+fn depth(frame: &Frame, point: &Point3<f64>) -> f64 { frame.plane.inverse_transform_point(point).z }
+
+fn outline(frame: &Frame, scene: &Scene, crease: Deflection, tolerance: Tolerance) -> Result<Lines, ViewsError> {
+    let features = scene
+        .bodies
+        .par_iter()
+        .flat_map_iter(|prepared| iter::chain(edges::features(frame, prepared, crease), prepared.surface.then(|| sections::cuts(frame, prepared, tolerance)).into_iter().flatten()));
+    visibility::lines(frame, scene, features.collect(), tolerance)
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

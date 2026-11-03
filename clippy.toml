@@ -329,6 +329,10 @@ disallowed-macros           = [
     { path = "tokio::try_join", replacement = "tokio::join", reason = "Drops other results on first error" },
     { path = "futures::try_join", replacement = "futures::join", reason = "Drops other results on first error" },
     { path = "scopeguard::defer", replacement = "core::mem::DropGuard", reason = "`core` owns the operation" },
+    { path = "tokio::pin", replacement = "core::pin::pin", reason = "`core` owns the operation" },
+    { path = "futures_util::pin_mut", replacement = "core::pin::pin", reason = "`core` owns the operation" },
+    { path = "pin_utils::pin_mut", replacement = "core::pin::pin", reason = "`core` owns the operation" },
+    { path = "cfg_if::cfg_if", replacement = "core::cfg_select", reason = "`core` owns the operation" },
     { path = "async_trait::async_trait", reason = "Boxes every trait future, use trait `async fn` with return-type notation for `Send`" },
     { path = "trait_variant::make", reason = "Generates second trait for `Send` futures, use return-type notation for `Send`" },
 ]

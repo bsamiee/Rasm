@@ -1,17 +1,15 @@
-use core::{
-    f64::consts::{PI, TAU},
-    iter,
-};
-use std::collections::HashMap;
+use core::{f64::consts::PI, iter};
+use std::{borrow::Cow, collections::HashMap};
 
-use enum_map::EnumMap;
-use itertools::Itertools as _;
-use kurbo::{BezPath, PathEl, Point, Shape};
+use itertools::{Itertools as _, izip};
+use kurbo::{BezPath, PathEl, Point, Shape as _, flatten};
 use linesweeper::{BinaryOp, FillRule};
-use nalgebra::{Isometry3, Orthographic3, Point3, Translation3, Unit, UnitQuaternion, UnitVector3, Vector3, Vector4};
+use manifold_rust::cancel::{self, CancelToken};
+use nalgebra::{Isometry3, Orthographic3, Point3, Translation3, UnitQuaternion, UnitVector3, Vector3};
 use nonempty_collections::NEVec;
 use parry3d_f64::{bounding_volume::BoundingVolume as _, math::Vector, query::details::line_toi_with_halfspace, shape::Triangle};
-use rasm_linework::{LineworkError, Region, Tolerance, regions::boolean};
+use rasm_linework::{LineworkError, Region, regions::boolean};
+use rasm_mesh::Source;
 use rayon::{
     iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _},
     join,
@@ -19,54 +17,19 @@ use rayon::{
 use validated::Validated;
 
 use crate::{
-    Frame, Operation, Prepared, Projection, View, ViewsError, clip,
-    edges::features,
+    Frame, Operation, Prepared, Projection, Scene, View, ViewsError, clip,
     faces::{Face, visible},
-    picture, ray, visibility,
+    outline, picture, ray,
+    visibility::Lines,
 };
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, enum_map::Enum)]
-pub enum Shadow {
-    Attached,
-    Cast,
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn shadows(view: &View, sun: UnitVector3<f64>) -> Result<EnumMap<Shadow, Vec<Face>>, NEVec<ViewsError>> {
-    fn mapped(from: &Frame, to: &Frame, (anchor, normal): (Point3<f64>, UnitVector3<f64>), shape: &impl Shape, tolerance: Tolerance) -> Result<BezPath, LineworkError> {
-        let normalized = from.picture.inverse();
-        let moved = |point: Point| {
-            let (near, segment) = ray(from, normalized * point);
-            line_toi_with_halfspace(Vector::from(anchor.coords), Vector::from(normal.into_inner()), Vector::from(near.coords), Vector::from(segment))
-                .and_then(|time| picture(to, clip(to, &(near + segment * time))))
-                .ok_or(LineworkError::Sweep(linesweeper::Error::Infinity))
-        };
-        shape
-            .path_elements(tolerance.into_inner())
-            .map(|element| {
-                Ok(match element {
-                    PathEl::MoveTo(point) => PathEl::MoveTo(moved(point)?),
-                    PathEl::LineTo(point) => PathEl::LineTo(moved(point)?),
-                    PathEl::QuadTo(control, point) => {
-                        let [control, point] = [control, point].map(moved);
-                        PathEl::QuadTo(control?, point?)
-                    }
-                    PathEl::CurveTo(first, second, point) => {
-                        let [first, second, point] = [first, second, point].map(moved);
-                        PathEl::CurveTo(first?, second?, point?)
-                    }
-                    PathEl::ClosePath => PathEl::ClosePath,
-                })
-            })
-            .collect()
-    }
+pub fn shadows(view: &View, sun: UnitVector3<f64>, token: Option<&CancelToken>) -> Result<Vec<Face>, NEVec<ViewsError>> {
     let View { frame, scene, lines, crease, tolerance } = view;
     let reach = tolerance.into_inner();
     let Some(bounds) = scene.bodies.iter().map(|prepared| prepared.mesh.local_aabb()).reduce(|left, right| left.merged(&right)) else {
-        return Ok(EnumMap::default());
+        return Ok(Vec::new());
     };
     let sphere = bounds.bounding_sphere();
     let radius = sphere.radius() + reach;
@@ -79,117 +42,99 @@ pub fn shadows(view: &View, sun: UnitVector3<f64>) -> Result<EnumMap<Shadow, Vec
         Projection::Parallel { volume: Orthographic3::new(-radius, radius, -radius, radius, 0.0, 2.0 * radius), .. },
     )
     .map_err(NEVec::new)?;
-    let (lit, receivers) = join(
-        || {
-            visibility::lines(&light, scene, scene.bodies.par_iter().flat_map_iter(|prepared| features(&light, prepared, *crease)).collect(), *tolerance)
-                .map_err(NEVec::new)
-                .and_then(|outline| visible(&light, scene, &outline, *tolerance))
-        },
-        || visible(frame, scene, lines, *tolerance),
-    );
-    let (lit, receivers) = lit
-        .map_or_else(Validated::Fail, Validated::Good)
-        .map2(receivers.map_or_else(Validated::Fail, Validated::Good), |lit, receivers| {
-            (lit.into_iter().map(|(Face { body, source, normal: _, region }, _)| ((body, source), region)).collect::<HashMap<_, _>>(), receivers)
-        })
-        .ok()?;
-    let triangles = scene
-        .bodies
-        .iter()
-        .flat_map(|Prepared { body, mesh, sources }| iter::zip(mesh.triangles(), sources).filter_map(move |(triangle, source)| source.map(|source| ((*body, source), triangle))))
-        .into_group_map();
-    let viewpoint = frame.inverse * Vector4::new(0.0, 0.0, -1.0, 0.0);
-    let seen = |anchor: &Point3<f64>, normal: &UnitVector3<f64>| normal.dot(&(viewpoint.xyz() - anchor.coords.scale(viewpoint.w))) > 0.0;
-    let planes = |members: &[Triangle]| {
-        let oriented = members
+    let seed = |members: &[(u32, Triangle)]| {
+        let flat = members
             .iter()
-            .filter_map(|triangle| Unit::try_new(Vector3::from(triangle.scaled_normal()), 0.0).map(|normal| ([triangle.a, triangle.b, triangle.c].map(Point3::from), normal)))
-            .collect::<Vec<_>>();
-        oriented
-            .iter()
-            .filter_map(|&(corners, normal)| {
-                oriented
-                    .iter()
-                    .position(|([origin, ..], along)| along.dot(&normal) > 0.0 && corners.iter().all(|corner| along.dot(&(corner - origin)).abs() <= reach))
-                    .map(|plane| (plane, corners))
-            })
+            .max_by(|(_, left), (_, right)| left.area().total_cmp(&right.area()))
+            .and_then(|(_, reference)| reference.robust_scaled_normal().try_normalize().map(|normal| (normal, normal.dot(reference.a))))
+            .is_none_or(|(normal, offset)| members.iter().all(|(_, triangle)| triangle.vertices().iter().all(|&corner| (normal.dot(corner) - offset).abs() <= reach)));
+        members.first().filter(|_| flat).map(|&(first, _)| first)
+    };
+    let keyed = |Prepared { body: _, mesh, sources, surface: _ }: &Prepared| {
+        let seeds = izip!(0_u32.., mesh.triangles(), sources)
+            .filter_map(|(index, triangle, source)| source.map(|source| (source, (index, triangle))))
             .into_group_map()
             .into_iter()
-            .sorted_unstable_by_key(|&(plane, _)| plane)
-            .filter_map(|(plane, coplanar)| oriented.get(plane).map(|&([anchor, ..], normal)| (anchor, normal, coplanar)))
-            .collect::<Vec<_>>()
+            .map(|(source, members)| (source, seed(&members)))
+            .collect::<HashMap<_, _>>();
+        seeds
+            .values()
+            .any(Option::is_none)
+            .then(|| izip!(0_u32.., sources).map(|(index, source)| source.map(|source| Source { original: None, face: seeds.get(&source).copied().flatten().unwrap_or(index) })).collect::<Vec<_>>())
     };
-    let cover = |members: &[[Point3<f64>; 3]]| {
-        members
-            .iter()
-            .map(|corners| {
-                let [first, second, third] = corners.map(|corner| picture(frame, clip(frame, &corner)).ok_or(linesweeper::Error::Infinity));
-                Ok::<_, linesweeper::Error>([PathEl::MoveTo(first?), PathEl::LineTo(second?), PathEl::LineTo(third?), PathEl::ClosePath])
+    let keys = scene.bodies.par_iter().map(keyed).collect::<Vec<_>>();
+    let seamed = keys.iter().any(Option::is_some);
+    let origins = iter::zip(&scene.bodies, &keys)
+        .filter_map(|(prepared, keys)| keys.as_ref().map(|keys| (prepared, keys)))
+        .flat_map(|(prepared, keys)| iter::zip(keys, &prepared.sources).filter_map(|(&key, &source)| Some(((prepared.body, key?), source?))))
+        .collect::<HashMap<_, _>>();
+    let planar = if seamed {
+        Cow::Owned(Scene {
+            bodies: iter::zip(&scene.bodies, keys)
+                .map(|(prepared, keys)| keys.map_or_else(|| prepared.clone(), |sources| Prepared { body: prepared.body, mesh: prepared.mesh.clone(), sources, surface: prepared.surface }))
+                .collect(),
+            assembly: scene.assembly.clone(),
+        })
+    } else {
+        Cow::Borrowed(scene)
+    };
+    let faced = |seen: &Frame, outline: &Lines| {
+        (!cancel::is_cancelled(token)).ok_or(NEVec::new(ViewsError::Cancelled))?;
+        visible(seen, &planar, outline, *tolerance)
+    };
+    let outlined = |seen: &Frame| {
+        (!cancel::is_cancelled(token)).ok_or(NEVec::new(ViewsError::Cancelled))?;
+        outline(seen, &planar, *crease, *tolerance).map_err(NEVec::new).and_then(|outlined| faced(seen, &outlined))
+    };
+    let (sunward, viewed) = join(|| outlined(&light), || if seamed { outlined(frame) } else { faced(frame, lines) });
+    let (lit, receivers) = sunward
+        .map_or_else(Validated::Fail, Validated::Good)
+        .map2(viewed.map_or_else(Validated::Fail, Validated::Good), |outcomes, receivers| {
+            (outcomes.into_iter().map(|(Face { body, source, normal: _, region }, _)| ((body, source), region)).collect::<HashMap<_, _>>(), receivers)
+        })
+        .ok()?;
+    let mapped = |from: &Frame, to: &Frame, (anchor, normal): (Point3<f64>, UnitVector3<f64>), path: &BezPath| {
+        let normalized = from.picture.inverse();
+        let moved = |point: Point| {
+            let (near, segment) = ray(from, normalized * point);
+            line_toi_with_halfspace(Vector::from(anchor.coords), Vector::from(normal.into_inner()), Vector::from(near.coords), Vector::from(segment))
+                .and_then(|time| picture(to, clip(to, &(near + segment * time))))
+                .ok_or(LineworkError::Sweep(linesweeper::Error::Infinity))
+        };
+        let mut elements = Vec::new();
+        flatten(path, reach, |element| elements.push(element));
+        elements
+            .into_iter()
+            .map(|element| match element {
+                PathEl::MoveTo(point) => moved(point).map(PathEl::MoveTo),
+                PathEl::LineTo(point) | PathEl::QuadTo(_, point) | PathEl::CurveTo(_, _, point) => moved(point).map(PathEl::LineTo),
+                PathEl::ClosePath => Ok(PathEl::ClosePath),
             })
-            .flatten_ok()
             .collect::<Result<BezPath, _>>()
-            .map_err(LineworkError::from)
-            .and_then(|path| Region::new(&path, FillRule::NonZero, *tolerance))
     };
-    let wide = |region: &Region| {
-        region
-            .iter()
-            .filter(|contour| {
-                let perimeter = contour.path.perimeter(reach);
-                perimeter > TAU * reach && 2.0 * contour.path.area().abs() > reach * perimeter
-            })
-            .flat_map(|contour| contour.path.iter())
-            .collect::<BezPath>()
-    };
+    let wide = |path: &BezPath| 2.0 * path.area().abs() > reach * path.perimeter(reach);
     receivers
         .into_par_iter()
-        .map(|(Face { body, source, normal, region }, _)| {
-            let planes = triangles.get(&(body, source)).map_or_default(|members| planes(members));
-            let parts = match <[_; 1]>::try_from(planes) {
-                Ok([(anchor, along, _)]) => vec![Ok(((anchor, along), region))],
-                Err(several) => several
-                    .into_iter()
-                    .filter(|(anchor, along, _)| seen(anchor, along))
-                    .map(|(anchor, along, coplanar)| cover(&coplanar).and_then(|covered| boolean(&region, [&covered], BinaryOp::Intersection, *tolerance)).map(|part| ((anchor, along), part)))
-                    .collect(),
-            };
-            parts
-                .into_iter()
-                .map(|part| {
-                    part.and_then(|(plane @ (anchor, along), part)| match (seen(&anchor, &along) == (along.dot(&sun) > 0.0), lit.get(&(body, source))) {
-                        (false, _) => Ok((Shadow::Attached, part)),
-                        (true, None) => Ok((Shadow::Cast, part)),
-                        (true, Some(sunlit)) => mapped(frame, &light, plane, &part, *tolerance)
-                            .and_then(|pictured| Region::new(&pictured, FillRule::NonZero, *tolerance))
-                            .and_then(|pictured| boolean(&pictured, [sunlit], BinaryOp::Difference, *tolerance))
-                            .and_then(|shade| mapped(&light, frame, plane, &wide(&shade), *tolerance))
-                            .and_then(|path| Region::new(&path, FillRule::NonZero, *tolerance))
-                            .and_then(|shade| Region::new(&wide(&shade), FillRule::NonZero, *tolerance))
-                            .map(|shade| (Shadow::Cast, shade)),
+        .filter_map(|(Face { body, source: key, normal, region }, anchor)| {
+            let plane = (anchor, normal);
+            match lit.get(&(body, key)).filter(|_| normal.dot(&sun) > 0.0) {
+                None => Ok(region),
+                Some(sunlit) => region
+                    .iter()
+                    .map(|contour| mapped(frame, &light, plane, &contour.path))
+                    .flatten_ok()
+                    .collect::<Result<BezPath, _>>()
+                    .and_then(|pictured| Region::new(&pictured, FillRule::NonZero, *tolerance))
+                    .and_then(|pictured| boolean(&pictured, [sunlit], BinaryOp::Difference, *tolerance))
+                    .and_then(|unlit| {
+                        unlit.iter().filter(|contour| wide(&contour.path)).map(|contour| mapped(&light, frame, plane, &contour.path)).filter_ok(wide).flatten_ok().collect::<Result<BezPath, _>>()
                     })
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .and_then(|parts| {
-                    parts
-                        .into_iter()
-                        .into_group_map()
-                        .into_iter()
-                        .filter_map(|(kind, regions)| match <[_; 1]>::try_from(regions) {
-                            Ok([single]) => Some(Ok((kind, single))),
-                            Err(several) => several.split_first().map(|(first, rest)| boolean(first, rest, BinaryOp::Union, *tolerance).map(|united| (kind, united))),
-                        })
-                        .filter_ok(|(_, united)| !united.is_empty())
-                        .map_ok(|(kind, united)| (kind, Face { body, source, normal, region: united }))
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .map_err(|refusal| ViewsError::Linework { operation: Operation::Region(body), source: refusal })
+                    .and_then(|shade| Region::new(&shade, FillRule::NonZero, *tolerance)),
+            }
+            .map(|shade| (!shade.is_empty()).then(|| Face { body, source: origins.get(&(body, key)).copied().unwrap_or(key), normal, region: shade }))
+            .map_err(|refusal| ViewsError::Linework { operation: Operation::Region(body), source: refusal })
+            .transpose()
         })
         .collect::<Validated<Vec<_>, _>>()
         .ok()
-        .map(|faces| {
-            faces.into_iter().flatten().fold(EnumMap::<Shadow, Vec<Face>>::default(), |mut kinds, (kind, face)| {
-                kinds[kind].push(face);
-                kinds
-            })
-        })
 }
