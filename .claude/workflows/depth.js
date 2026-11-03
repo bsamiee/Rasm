@@ -38,7 +38,7 @@ const FOUND = { type: 'object', properties: { findings: { type: 'array', items: 
 const LENSES = [
   ['capability', 'capability the domain needs under advanced use that the folder lacks or holds shallowly'],
   ['dependencies', 'dependency members that replace hand logic, and packages to add, replace or drop'],
-  ['reduction', 'structs, types, enums, variants, constants, validations, wrappers and helpers to delete, collapse or derive'],
+  ['reduction', 'structs, types, enums, variants, constants, validations, wrappers, helpers, public items and whole files to delete, collapse or derive, and logic an algebraic, derived or parameterized form replaces'],
   ['correctness', 'wrong results, lost error causes, thread safety, blocking work, needless allocation and slow paths'],
   ['shape', 'files holding more than one concept or a concept split across files, nested control flow, coined names, and consumers that wrap the folder'],
 ]
@@ -52,7 +52,7 @@ phase('Land')
 const landed = await agent(`${BASIS}
 Lander. Land these findings across ${ROOT} and its consumers in their strongest form, rebuilding a file whole where its findings reshape it:
 ${found}
-Push back only on a finding that grows surface without capability or regresses behavior, one line each. Return at most 15 lines: what landed and what you pushed back on.`, { label: 'land', phase: 'Land' })
+Land deletions first: the folder ends with fewer items, lines and files than its base unless a stated capability needs the growth, and code moved or split is no reduction. Hardcoded values become parameters or derive from their owner. Push back only on a finding that grows surface without capability or regresses behavior, one line each. Return at most 15 lines: what landed, items, lines and files before and after, and what you pushed back on.`, { label: 'land', phase: 'Land' })
 
 phase('Deepen')
 await parallel(LENSES.map(([lens, ask]) => () => agent(`${BASIS}

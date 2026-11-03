@@ -19,7 +19,7 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 - **Rows:** `.claude/workflows/{rust,typescript}.js`, one run per `[03]` row of the sibling `RUST.md` or `TYPESCRIPT.md` once its `[AFTER]` rows land.
 - **Depth:** `.claude/workflows/depth.js` with `language`, `key` and `base` on each landed folder.
 - **Shape:** readers in parallel, one lander that pushes back only on surface growth or regressions, adversaries fixing in place in parallel, one check.
-- **Tune:** `rust-tune.js` over a range of Rust commits, between groups of Rust runs.
+- **Tune:** `rust-tune.js` over a range of Rust commits, between groups of Rust runs; `typescript-tune.js` over a range of TypeScript commits. A fresh clean-prose agent per changed skill closes each.
 - **Sweep:** `typescript-sweep.js` rebuilds every TypeScript project in place.
 - **Folder guidance:** `guidance.js` once the tree settles.
 - **Commits:** each landed run is committed by its own paths and pushed at once.
@@ -34,9 +34,9 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 
 ### Queue
 
-1. **Drain:** no new Rust, depth or TypeScript run starts until the running ones land.
-2. **Then at once:** one focused agent per open defect, `typescript-sweep` from the drained commit, and `rust-tune` over every Rust commit since `24ede74fc`.
-3. **After the tune:** six Rust runs at once, three rows in RUST.md order and three depth runs, each landing freeing its slot for the next. Depth order: `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`, then each landed row not yet deepened.
+1. **Rust:** six runs at once, three rows in RUST.md order and three depth runs, each landing freeing its slot; `rust-tune` from `24ede74fc` after 2 to 3 land, and again every few landings.
+2. **InPage:** depth pass, clean-prose agents, `typescript-tune`, then one manual audit (every page of the InPage manual against our logic) with its fixes and a tune if justified.
+3. **Then:** one focused agent per open defect, and `typescript-sweep` once no other run edits TypeScript. Depth order: `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`, then each landed row not yet deepened.
 4. **Folder guidance:** once the sweep and the Rust queue settle.
 
 ### Open defects
@@ -65,10 +65,10 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 1. **Acquire:** done. Products sit under `docs/research/applications/<host>/products/<domain>/<key>/`, their distilled code under `docs/research/applications/<host>/distilled/<domain>/<key>/`.
 2. **Decompile:** binary proofs through Ghidra's emulator, host proofs through `tools/harnesses/indesign`.
 3. **Distill:** `rebuilt/` rewritten into `distilled/` by one distiller per algorithm family, each held identical by its own A/B harness, then adversaries per family and across the product.
-4. **Clean:** `docs/research` organized so each capability, its depth and limits read directly; provenance, framing and noise go, duplicates merge.
-5. **Packages:** one researcher per domain finds the package that states each fact the distilled code computes by hand.
-6. **Architecture:** domain readers over every `distilled/` build one capability matrix, then ARCHITECTURE.md, WORKFLOWS.md and the TYPESCRIPT.md rows are rewritten.
-7. **Rows:** each row on `typescript.js`, then `depth.js` on its folder.
+4. **Clean and companion file:** 2 to 3 Fable agents read the code bar, the workflow and every relevant `docs/research` file, rebuild the companion file where justified, and clean the typesetting and InDesign notes: provenance and stale lines go, duplicates merge, depth rises.
+5. **Packages:** `extension-research` writes each domain note (color, typography, composition, grids, perso-arabic, print) at university depth and `packages.md`, which the architecture reads.
+6. **Architecture:** domain readers over every `distilled/` build one capability matrix, then ARCHITECTURE.md, WORKFLOWS.md and the TYPESCRIPT.md rows are rewritten and adversarially confirmed. Then 3 to 4 Opus agents per category write one focused plan file per row or phase: its distilled, research and study content in focused lines, its functionality and higher-order capability, and its packages with imports; the guidance file points to each and keeps the code bar.
+7. **Rows:** each row on `typescript.js`, then `depth.js` on its folder, tearing out naive surface from earlier landings.
 
 ### State
 
