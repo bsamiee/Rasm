@@ -19,6 +19,7 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 - **Rows:** `.claude/workflows/{rust,typescript}.js`, one run per `[03]` row of the sibling `RUST.md` or `TYPESCRIPT.md` once its `[AFTER]` rows land.
 - **Depth:** `.claude/workflows/depth.js` with `language`, `key` and `base` on each landed folder.
 - **Shape:** readers in parallel, one lander that pushes back only on surface growth or regressions, adversaries fixing in place in parallel, one check.
+- **Extension research:** `extension-research.js` with `key` one domain.
 - **Tune:** `rust-tune.js` over a range of Rust commits, between groups of Rust runs; `typescript-tune.js` over a range of TypeScript commits. A fresh clean-prose agent per changed skill closes each.
 - **Sweep:** `typescript-sweep.js` rebuilds every TypeScript project in place.
 - **Folder guidance:** `guidance.js` once the tree settles.
@@ -68,10 +69,10 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 1. **Acquire:** done. Products sit under `docs/research/applications/<host>/products/<domain>/<key>/`, their distilled code under `docs/research/applications/<host>/distilled/<domain>/<key>/`.
 2. **Decompile:** binary proofs through Ghidra's emulator, host proofs through `tools/harnesses/indesign`.
 3. **Distill:** `rebuilt/` rewritten into `distilled/` by one distiller per algorithm family, each held identical by its own A/B harness, then adversaries per family and across the product.
-4. **Clean and companion file:** 2 to 3 Fable agents read the code bar, the workflow and every relevant `docs/research` file, rebuild the companion file where justified, and clean the typesetting and InDesign notes: provenance and stale lines go, duplicates merge, depth rises.
-5. **Packages:** `extension-research` writes each domain note (color, typography, composition, grids, perso-arabic, print) at university depth and `packages.md`, which the architecture reads.
-6. **Architecture:** domain readers over every `distilled/` and the domain notes (`color.md`, `typography.md`, `composition.md`, `grids.md`, `perso-arabic.md`, `print.md`, `packages.md`) build one capability matrix, each corrected fact (Bouma spacing, TeX page cost, the Didot unit, kashida degree intervals) placed at its level, then ARCHITECTURE.md, WORKFLOWS.md and the TYPESCRIPT.md rows are rewritten and adversarially confirmed. Then 3 to 4 Opus agents per category write one focused plan file per row or phase: its distilled, research and study content in focused lines, its functionality and higher-order capability, and its packages with imports; the guidance file points to each and keeps the code bar.
-7. **Rows:** each row on `typescript.js`, then `depth.js` on its folder, tearing out naive surface from earlier landings.
+4. **Clean and companion file:** one Fable lead with 2 to 3 Fable agents reads the code bar, the workflow and every relevant `docs/research` file, rebuilds the companion file where justified, and cleans the typesetting and InDesign notes: provenance and stale lines go, duplicates merge, depth rises.
+5. **Packages:** one `extension-research` run per domain, in the order color, typography, composition, grids, perso-arabic, print, each writing its note at university depth and merging its packages into `packages.md`.
+6. **Architecture:** one Fable lead with domain readers over every `distilled/` and the domain notes builds one capability matrix, each corrected fact (Bouma spacing, TeX page cost, the Didot unit, kashida degree intervals) placed at its level, then rewrites ARCHITECTURE.md, WORKFLOWS.md and the TYPESCRIPT.md rows, adversarially confirmed. Then one run per category, 3 to 4 Opus agents each, writes one focused plan file per row: its distilled, research and study content in focused lines, its functionality and higher-order capability, and its packages with imports; the guidance file points to each and keeps the code bar.
+7. **Rows:** one `typescript.js` run per row in the order TYPESCRIPT.md states, then one `depth.js` run on its folder, tearing out naive surface from earlier landings.
 
 ### State
 
