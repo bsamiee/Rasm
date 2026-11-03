@@ -1,9 +1,6 @@
-import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, KashidasOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, Story, Text, TextDefault } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search/unmatched';
+import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, KashidasOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, Text, TextDefault } from 'adobe:indesign';
 import { Settings } from '@rasm/typography/settings';
-import { Array, Effect, Number, Option, pipe, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
-import { Model } from '#/dom/model';
-import { Specifier } from '#/dom/specifier';
+import { Array, Effect, Number, Option, pipe, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
 import { picked, read } from '#/dom/value';
 import { Change } from '#/requests/change';
 
@@ -13,8 +10,6 @@ type Members<E> = Extract<keyof E, Uppercase<string>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const THOUSANDTHS = 1000;
-const PERCENT = 100;
 const STYLISTIC_SETS = 20;
 const STYLISTIC_TAGS = Array.makeBy(STYLISTIC_SETS, (index) => `ss${`${index + 1}`.padStart(2, '0')}`);
 const NUMBERING = {
@@ -61,9 +56,11 @@ const SPACING_AXES = { word: 'WordSpacing', letter: 'LetterSpacing', glyph: 'Gly
 const SPACING_BOUNDS = { min: 'minimum', desired: 'desired', max: 'maximum' } as const;
 const SPACING = Record.fromIterableWith(Array.cartesian(Struct.keys(SPACING_AXES), Struct.keys(SPACING_BOUNDS)), (pair) => [pair.join(), pair]);
 const spacingMember = <A extends keyof typeof SPACING_AXES, B extends keyof typeof SPACING_BOUNDS>(axis: A, bound: B) => `${SPACING_BOUNDS[bound]}${SPACING_AXES[axis]}` as const;
+const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, (factor) => ({ decode: (held: number) => held / factor, encode: (given: number) => given * factor }));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Scaled = (scale: typeof thousandths) => Schema.Finite.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.transform(scale)));
 const direction = Schema.Struct({
     paragraphDirection: Schema.optionalKey(Schema.Literals(['LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] as const satisfies readonly Members<typeof ParagraphDirectionOptions>[]).transform(['ltr', 'rtl'])),
     characterDirection: Schema.optionalKey(Schema.Literals(['DEFAULT_DIRECTION', 'LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] satisfies Members<typeof CharacterDirectionOptions>[])),
@@ -104,12 +101,7 @@ const kashida = Schema.Struct({
         }),
     }),
 );
-const marks = Schema.Struct(Struct.Record(['xOffsetDiacritic', 'yOffsetDiacritic'], Schema.Finite)).pipe(
-    Schema.decodeTo(Schema.toType(Settings.fields.marks.schema), {
-        decode: SchemaGetter.transform(({ xOffsetDiacritic, yOffsetDiacritic }) => ({ x: xOffsetDiacritic / THOUSANDTHS, y: yOffsetDiacritic / THOUSANDTHS })),
-        encode: SchemaGetter.transform(({ x, y }) => ({ xOffsetDiacritic: x * THOUSANDTHS, yOffsetDiacritic: y * THOUSANDTHS })),
-    }),
-);
+const marks = Schema.Struct(Struct.Record(['x', 'y'], Scaled(thousandths))).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' }));
 const features = Schema.Struct({
     otfStylisticSets: Schema.Int,
     ...Record.map(FEATURE_FLAGS, () => Schema.Boolean),
@@ -135,43 +127,28 @@ const features = Schema.Struct({
         }),
     }),
 );
-const spacing = Schema.Struct(Record.mapEntries(SPACING, ([axis, bound]) => [spacingMember(axis, bound), Schema.Finite])).pipe(
+const spacing = Schema.Struct(Record.mapEntries(SPACING, ([axis, bound]) => [spacingMember(axis, bound), Scaled(percent)])).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.spacing.schema), {
-        decode: SchemaGetter.transform((host) => Record.map(SPACING_AXES, (_member, axis) => Record.map(SPACING_BOUNDS, (_prefix, bound) => host[spacingMember(axis, bound)] / PERCENT))),
-        encode: SchemaGetter.transform((given) => Record.mapEntries(SPACING, ([axis, bound]) => [spacingMember(axis, bound), given[axis][bound] * PERCENT])),
+        decode: SchemaGetter.transform((host) => Record.map(SPACING_AXES, (_member, axis) => Record.map(SPACING_BOUNDS, (_prefix, bound) => host[spacingMember(axis, bound)]))),
+        encode: SchemaGetter.transform((given) => Record.mapEntries(SPACING, ([axis, bound]) => [spacingMember(axis, bound), given[axis][bound]])),
     }),
 );
 class HostSettings extends Schema.Class<HostSettings, { readonly brand: unique symbol }>('HostSettings')({ direction, numberingSystem, kashida, marks, features, spacing }) {
-    static readonly Given = HostSettings.mapFields(Struct.map(Schema.optionalKey));
     static readonly stylisticSets = STYLISTIC_TAGS;
-    static readonly em = (thousandths: number) => thousandths / THOUSANDTHS;
-    static readonly thousandths = (em: number) => em * THOUSANDTHS;
-    static readonly target = Effect.fnUntraced(function* (path: string) {
-        const [{ app, owning, text }, specifier] = yield* Effect.all([Model, Schema.decodeUnknownEffect(Specifier.Path)(path)]);
-        if (specifier.root) {
-            return app.textDefaults;
-        }
-        const found = yield* Specifier.object(specifier);
-        if (text(found)) {
-            return found;
-        }
-        return yield* owning<Story>('texts')(found) ? Effect.succeed(found.texts.item(0)) : Unmatched.make({ subject: 'text', query: Option.some(path), candidates: [] });
-    });
-    static readonly range = (target: Text | TextDefault) => Model.use(({ text }) => Effect.filterOrFail(Effect.succeed(target), text, () => Unmatched.make({ subject: 'text range', query: Option.some(target.toSpecifier()), candidates: [] })));
-    static readonly read = Effect.fnUntraced(function* (target: InDesignDOMObject<unknown>) {
-        const { text } = yield* Model;
-        const held = yield* read(HostSettings, `settings of ${target.toSpecifier()}`, () => {
-            const run = text(target) && target.textStyleRanges.length > 1 ? target.textStyleRanges.firstItem() : target;
-            return Record.map(HostSettings.fields, (row) => picked(row.from.fields)(run));
-        });
-        return Settings.make(held);
-    });
-    static readonly write = Effect.fnUntraced(function* (target: Text | TextDefault, given: typeof HostSettings.Given.Type) {
-        const { features: tags, ...members } = yield* Schema.encodeEffect(HostSettings.Given)(given);
+    static readonly thousandths = thousandths.encode;
+    static readonly em = thousandths.decode;
+    static readonly read = (target: InDesignDOMObject<unknown>) =>
+        Effect.map(
+            read(HostSettings, `settings of ${target.toSpecifier()}`, () => Record.map(HostSettings.fields, (row) => picked(row.from.fields)(target))),
+            Settings.make,
+        );
+    static readonly write = Effect.fnUntraced(function* (target: Text | TextDefault, given: typeof Settings.Partial.Type) {
+        const { features: tags, ...members } = yield* Schema.encodeEffect(Given)(given);
         const rest: Record.ReadonlyRecord<string, unknown> = Object.fromEntries(Object.values(members).flatMap(Object.entries));
         return yield* Change.write(target, { ...rest, ...(tags === undefined ? {} : yield* featureMembers(target, tags)) });
     });
 }
+const Given = HostSettings.mapFields(Struct.map(Schema.optionalKey));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

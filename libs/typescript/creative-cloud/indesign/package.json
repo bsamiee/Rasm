@@ -8,12 +8,12 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./adjust": "./requests/adjust.ts",
+        "./change": "./requests/change.ts",
         "./host": "./host.ts",
-        "./kerns": "./requests/kerns.ts",
         "./model": "./dom/model.ts",
         "./settings": "./documents/settings.ts",
-        "./transactions": "./dom/transactions.ts"
+        "./transactions": "./dom/transactions.ts",
+        "./typesetting": "./requests/typesetting.ts"
     },
     "dependencies": {
         "@rasm/automation": "workspace:*",

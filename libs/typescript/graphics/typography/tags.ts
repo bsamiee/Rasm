@@ -16,7 +16,7 @@ const TagSettings = <A extends Feature | Variation>(host: { new (tag: string, va
                 encode: SchemaGetter.String(),
             }),
         ),
-    ).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
+    ).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([])));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

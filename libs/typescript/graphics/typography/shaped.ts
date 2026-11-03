@@ -23,15 +23,15 @@ class Shaped extends Schema.Class<Shaped, { readonly brand: unique symbol }>('Sh
     static readonly Run = Schema.Struct({
         text: Schema.String.annotate({ description: 'Text in one script and direction' }),
         features: TagSettings(Feature, 'HarfBuzz feature (tag, -tag, tag=value, tag[start:end] in UTF-16 offsets)'),
-        language: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems tag (SRB, TRK), script default when absent' })),
-        script: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems script (cyrl, arab), detected from text when absent' })),
-        direction: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(Struct.omit(Direction, ['INVALID']))).annotate({ description: 'Script direction when absent' })),
+        language: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems tag (SRB, TRK), script default when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        script: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems script (cyrl, arab), detected from text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        direction: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(Struct.omit(Direction, ['INVALID']))).annotate({ description: 'Script direction when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         clusterLevel: Schema.Literals(Struct.keys(Struct.omit(ClusterLevel, ['DEFAULT'])))
             .annotate({ description: 'HarfBuzz cluster level, MONOTONE_CHARACTERS when absent' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed('MONOTONE_CHARACTERS'))),
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed('MONOTONE_CHARACTERS')), Schema.withConstructorDefault(Effect.succeed('MONOTONE_CHARACTERS' as const))),
         flags: Schema.UniqueArray(Schema.Literals(Struct.keys(Struct.omit(BufferFlag, ['DEFAULT', 'DEFINED']))))
             .annotate({ description: 'HarfBuzz buffer flags (BOT, EOT, PRODUCE_UNSAFE_TO_CONCAT), none when absent' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
     });
     static readonly of = (face: Face, { text, features, language, script, direction, clusterLevel, flags }: typeof Shaped.Run.Type) => {
         const em = (units: number) => units / face.unitsPerEm;

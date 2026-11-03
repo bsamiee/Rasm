@@ -4,7 +4,6 @@ import { Array, Cause, Effect, Equal, Function, flow, Number, Option, pipe, Reco
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Face as HarfBuzzFace, Variation } from 'harfbuzzjs';
 import { Color } from '#/color';
-import { TypographyError } from '#/error';
 import { Layout } from '#/layout';
 import { Metrics } from '#/metrics';
 import { Names } from '#/names';
@@ -46,14 +45,13 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             }),
         ).annotate({ description: 'Selectable by PostScript name' }),
         font: Opened(Schema.instanceOf(Font)),
-        markClasses: Opened(Schema.ReadonlyMap(Schema.Int, Schema.Int).annotate({ description: 'GDEF mark attachment class by glyph' })),
         extenders: Opened(Schema.Array(Schema.Int).annotate({ description: 'JSTF arab extender glyphs' })),
     },
     { description: 'Face at one instance, names from instance matching coordinates, else Adobe Technical Note 5902 postscriptName' },
 ) {
     static readonly Instance = Schema.Struct({
         variations: TagSettings(Variation, 'HarfBuzz tag=value over selected instance, clamped to axis range, absent axes ignored'),
-        size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })),
+        size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
     });
     static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: typeof Source.Type, { variations, size }: typeof Face.Instance.Type) {
         const container = yield* Effect.try({ try: () => create(Buffer.from(data.buffer, data.byteOffset, data.byteLength)), catch: (cause) => TypographyError.make({ subject: `${data.byteLength} font bytes`, cause }) }).pipe(
@@ -135,7 +133,6 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             axes,
             instances: chosen.instances.map(({ names: { style, postscriptName }, variations: values }) => ({ style, postscriptName, variations: values })),
             font,
-            markClasses: Option.getOrElse(Option.flatMap(tables.GDEF, Struct.get('markAttachClassDef')), () => new Map<number, number>()),
             extenders: tables.JSTF.pipe(
                 Option.flatMap(({ scriptList }) => Array.findFirst(scriptList, ({ tag }) => tag === 'arab')),
                 Option.flatMap(({ script }) => script.extenderGlyphs),
@@ -147,11 +144,16 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
     has(codePoint: number) {
         return this.font.nominalGlyph(codePoint) !== undefined;
     }
-    markClass(glyph: number) {
-        return Option.fromUndefinedOr(this.markClasses.get(glyph));
+}
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+class TypographyError extends Schema.TaggedError<TypographyError, { readonly brand: unique symbol }>()('TypographyError', { subject: Schema.String, cause: Schema.Defect() }) {
+    override get message() {
+        return `Unreadable ${this.subject}, decode to OpenType or TrueType bytes`;
     }
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Face };
+export { Face, TypographyError };

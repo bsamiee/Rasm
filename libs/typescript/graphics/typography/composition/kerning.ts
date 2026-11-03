@@ -1,32 +1,38 @@
-import { Array, Data, Effect, flow, Option, Order, Schema, Struct } from 'effect';
+import { Array, Data, Effect, Option, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { JoiningGroup } from 'icu';
 import { Profile } from '#/composition/profile';
 import type { Face } from '#/face';
 import { Shaped } from '#/shaped';
-import { Unicode } from '#/text/unicode';
 import { Word } from '#/text/words';
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-type Span = Word['runs'][number];
+const LONE_PUNCTUATION = /^\p{P}$/u;
+const SEPARATOR = /^[ \u{200C}]?$/u;
+const ARABIC = Shaped.Run.make({ text: '', script: Option.some('arab'), direction: Option.some('RTL') });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Group = Schema.String.annotate({ description: 'ICU JoiningGroup value name' }).pipe(
+    Schema.decodeTo(Schema.instanceOf(JoiningGroup), {
+        decode: SchemaGetter.transformEffect((name: string, options) => Effect.fromOption(Option.fromNullOr(JoiningGroup.tryFromStr(name)), () => new SchemaIssue.InvalidValue({ message: `No joining group named ${name}` }, name, options))),
+        encode: SchemaGetter.transform((group: JoiningGroup) => group.value),
+    }),
+);
 const Wall = Schema.Struct({
     x: Schema.Finite.annotate({ description: 'Lean in em from foot to top, top toward preceding run when positive' }).pipe(Schema.withConstructorDefault(Effect.succeed(0))),
     top: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Height in em, face ascender when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
     foot: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Height in em, face descender when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
 });
 const Rule = Schema.Struct({
-    side: Schema.Literals(['before', 'after']).annotate({ description: 'Letter side facing gap: before reads first two base letters of following run, after reads last of preceding run' }),
-    groups: Schema.Array(Schema.String).annotate({ description: 'ICU JoiningGroup value names' }),
+    side: Schema.Literals(['before', 'after']).annotate({ description: 'Letters read: before the first two of following run, after the last of preceding run' }),
+    groups: Schema.Array(Group),
     wall: Wall.annotate({ description: 'Line slid to contact with preceding run from the gap side' }).pipe(Schema.withConstructorDefault(Effect.sync(() => Wall.make({})))),
     correction: Schema.Finite.annotate({ description: 'Added to gap, in em' }).pipe(Schema.withConstructorDefault(Effect.succeed(0))),
 });
 const Otherwise = Rule.mapFields(Struct.omit(['side', 'groups']));
 class Kerning extends Data.Class<{
     readonly index: number;
-    readonly before: string;
-    readonly after: string;
     readonly em: number;
 }> {
     static readonly Rule = Rule;
@@ -34,62 +40,37 @@ class Kerning extends Data.Class<{
         rows: Schema.Array(Rule).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
         otherwise: Otherwise.pipe(Schema.withConstructorDefault(Effect.sync(() => Otherwise.make({})))),
     });
-    static readonly rule = Effect.fn('Kerning.rule')(function* (rules: typeof Kerning.Rules.Type, before: string, after: string) {
-        const { GeneralCategory, GeneralCategoryGroup, JoiningGroup } = yield* Unicode;
-        const letter = GeneralCategoryGroup.letter();
-        const letters = (text: string) =>
-            points(text)
-                .filter((point) => letter.contains(GeneralCategory.forChar(point)))
-                .map((point) => JoiningGroup.forChar(point).value);
-        const facing = { before: Array.take(letters(after), 2), after: Array.takeRight(letters(before), 1) };
+    static readonly rule = (rules: typeof Kerning.Rules.Type, before: string, after: string) => {
+        const facing = { before: Array.take(Word.letters(after), 2), after: Array.takeRight(Word.letters(before), 1) };
         return Option.getOrElse(
-            Array.findFirst(rules.rows, ({ side, groups }) => facing[side].some((name) => groups.includes(name))),
+            Array.findFirst(rules.rows, ({ side, groups }) => facing[side].some(({ group }) => groups.includes(group))),
             () => rules.otherwise,
         );
-    });
-    static readonly pair = (face: Face, rules: typeof Kerning.Rules.Type) =>
-        Effect.fn('Kerning.pair')(function* (before: string, after: string) {
-            const { wall, correction } = yield* Kerning.rule(rules, before, after);
+    };
+    static readonly pair =
+        (face: Face, rules: typeof Kerning.Rules.Type, run: typeof Shaped.Run.Type = ARABIC) =>
+        (before: string, after: string) => {
+            const { wall, correction } = Kerning.rule(rules, before, after);
             const { ascender, descender } = face.metrics.extents.hhea;
-            const [preceding, following] = yield* Effect.all([profile(face, before), profile(face, after)]);
-            const walled = Profile.wall(preceding, {
-                x: wall.x * preceding.unitsPerEm,
-                top: Option.getOrElse(wall.top, () => ascender) * preceding.unitsPerEm,
-                foot: Option.getOrElse(wall.foot, () => descender) * preceding.unitsPerEm,
-            });
-            return Option.map(Profile.gap(following, walled), (gap) => Math.max(Math.min(gap, preceding.advance) / preceding.unitsPerEm + correction, 0));
-        });
-    static readonly of = Effect.fn('Kerning.of')(function* <R>(text: string, pair: (before: string, after: string) => Effect.Effect<Option.Option<number>, never, R>) {
-        const { GeneralCategory, GeneralCategoryGroup } = yield* Unicode;
-        const punctuation = GeneralCategoryGroup.punctuation();
-        const words = yield* Word.of(text);
-        const content = ({ start, end }: Span) => text.slice(start, end);
-        const lone = (span: Span) => Array.match(points(content(span)), { onEmpty: () => false, onNonEmpty: (all) => all.length === 1 && punctuation.contains(GeneralCategory.forChar(Array.headNonEmpty(all))) });
-        const spans = words.flatMap(({ start, end, runs }) => Array.sortWith([...runs, ...Array.zipWith([start, ...runs.map(Struct.get('end'))], [...runs.map(Struct.get('start')), end], (from, to) => ({ start: from, end: to })).filter(lone)], Struct.get('start'), Order.Number));
-        const adjacent = Array.window(spans, 2).filter(([before, after]) => !lone(after) && Array.contains(['', ' ', '\u200c'], text.slice(before.end, after.start)));
-        return yield* Effect.map(
-            Effect.forEach(adjacent, ([before, after]) =>
-                Effect.map(
-                    pair(content(before), content(after)),
-                    flow(
-                        Option.filter((gap) => gap !== 0),
-                        Option.map((gap) => new Kerning({ index: after.start, before: content(before), after: content(after), em: -gap })),
-                    ),
-                ),
-            ),
-            Array.getSomes,
+            const profile = (text: string) => Profile.of(face, Shaped.of(face, { ...run, text }));
+            const [preceding, following] = [profile(before), profile(after)];
+            const walled = Profile.wall(preceding, { x: wall.x * face.unitsPerEm, top: Option.getOrElse(wall.top, () => ascender) * face.unitsPerEm, foot: Option.getOrElse(wall.foot, () => descender) * face.unitsPerEm });
+            return Option.match(Profile.gap(following, walled), { onNone: () => 0, onSome: (gap) => Math.max(Math.min(gap, preceding.advance) / face.unitsPerEm + correction, 0) });
+        };
+    static readonly of = <R>(text: string, pair: (before: string, after: string) => Effect.Effect<number, never, R>) => {
+        const content = ({ start, end }: Word['runs'][number]) => text.slice(start, end);
+        const spans = Word.of(text).flatMap(({ start, end, runs }) =>
+            Array.window([start, ...runs.flatMap((run) => [run.start, run.end]), end], 2)
+                .map(([from, to]) => ({ start: from, end: to }))
+                .filter((span, at) => at % 2 === 1 || LONE_PUNCTUATION.test(content(span))),
         );
-    });
+        const adjacent = Array.window(spans, 2).filter(([before, after]) => !LONE_PUNCTUATION.test(content(after)) && SEPARATOR.test(text.slice(before.end, after.start)));
+        return Effect.map(
+            Effect.forEach(adjacent, ([before, after]) => Effect.map(pair(content(before), content(after)), (gap) => new Kerning({ index: after.start, em: -gap }))),
+            Array.filter(({ em }) => em !== 0),
+        );
+    };
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const points = (text: string) => Array.fromIterable(text).map((character) => character.codePointAt(0) ?? 0);
-const profile = (face: Face, text: string) =>
-    Schema.decodeEffect(Shaped.Run)({ text, script: 'arab', direction: 'RTL' }).pipe(
-        Effect.orDie,
-        Effect.map((run) => Profile.of(face, Shaped.of(face, run))),
-    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

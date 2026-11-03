@@ -1,24 +1,22 @@
 import { error, HostError, Requests } from '@rasm/automation/requests';
 import { Typesetting } from '@rasm/automation/typesetting';
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Layer, Schema, Scope } from 'effect';
 import { Url } from 'effect/http';
 import { Rpc, RpcMiddleware } from 'effect/rpc';
 import { open } from '#/documents/document';
 import { Model } from '#/dom/model';
 import { preserve } from '#/dom/transactions';
-import { adjust } from '#/requests/adjust';
 import { Call } from '#/requests/call';
 import { Change } from '#/requests/change';
 import { executeScript } from '#/requests/execute-script';
 import { FindChange } from '#/requests/find-change';
 import { Font } from '#/requests/font';
 import { Inspect } from '#/requests/inspect';
-import { kerns } from '#/requests/kerns';
 import { Invoke, Menu } from '#/requests/menu';
 import { objectModel } from '#/requests/object-model';
 import { Preflight } from '#/requests/preflight';
 import { render } from '#/requests/render';
-import { typeset } from '#/requests/typeset';
+import { adjust, kerns, typeset } from '#/requests/typesetting';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -41,6 +39,7 @@ const Contract = Requests.add(
 const scripted = Effect.flatMap(Model, ({ app, MeasurementUnits, UserInteractionLevels }) => preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
 const host = (indesign: typeof import('adobe:indesign')) => {
     const model = Effect.runSync(Effect.cached(Model.make(indesign)));
+    const local = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(scripted, scope), effect)).pipe(Effect.provideServiceEffect(Model, model));
     return {
         server: Layer.merge(
             Contract.toLayer({
@@ -60,9 +59,9 @@ const host = (indesign: typeof import('adobe:indesign')) => {
                 render,
                 object_model: objectModel,
             }),
-            Layer.effect(ScriptPreferences)(Effect.map(Model, (service) => (effect) => Effect.andThen(Effect.provideService(scripted, Model, service), effect))),
+            Layer.succeed(ScriptPreferences)(local),
         ).pipe(Layer.provide(Layer.effect(Model, model))),
-        local: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scoped(Effect.andThen(scripted, effect)).pipe(Effect.provideServiceEffect(Model, model)),
+        local,
         application: Effect.tryPromise(() => indesign.app.fullName).pipe(
             Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ nativePath: Schema.String }))),
             Effect.flatMap(({ nativePath }) => Effect.fromResult(Url.fromString(encodeURI(`file://${nativePath}`)))),

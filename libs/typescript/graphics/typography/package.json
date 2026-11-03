@@ -12,7 +12,6 @@
         "./shaped": "./shaped.ts",
         "./source": "./source.ts",
         "./settings": "./composition/settings.ts",
-        "./unicode": "./text/unicode.ts",
         "./words": "./text/words.ts",
         "./kerning": "./composition/kerning.ts",
         "./justification": "./composition/justification.ts",
