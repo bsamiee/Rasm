@@ -41,7 +41,7 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 2. **Rust, after the TypeScript extension:** three rows in RUST.md order and three depth runs at once, each landing freeing its slot; `rust-tune` every few landings.
 3. **InPage:** depth pass, clean prose, `typescript-tune` and the manual audit (`2a7c018e2`, PLAN.md `[17]-[DESKTOP_MANUAL]`) landed.
 4. **Then:** `typescript-sweep` from `2a7c018e2` runs, folding the split-concept defect.
-5. **InPage depth rerun:** once the sweep lands and before extension phases 4 to 7, rerun the depth pass from `.artifacts/workflows/typescript-extension/inpage/depth-prompt.md` (one Fable agent), its prompt extended with every finding and naivety fix recorded since, the plan's `[16]` and `[17]-[DESKTOP_MANUAL]` rows, the matching `docs/research` notes, and deeper fontkit, HarfBuzz and catalog package use only where it replaces hand logic or adds real capability; then one adversary confirms the InPage work full, derived and collapsed, fixing in place.
+5. **InPage depth rerun:** once the sweep lands and before extension phases 4 to 7, rerun the depth pass from `.artifacts/workflows/typescript-extension/inpage/depth-prompt-2.md` (one Fable agent).
 6. **Folder guidance:** once the sweep and the Rust queue settle.
 7. **Font library, on the owner's signal:** `libs/python/typography` and the `foundry` CLI at `tools/foundry` built from `.artifacts/workflows/fonts/DECISION.md` and `ARCHITECTURE.md` with `docs/research/coding/python/font-engineering.md`, replacing the 10,638-line `docs/research` font tooling with 2,500 to 4,000 lines rebuilt from its functionality on the chosen packages, never from its code.
 
