@@ -12,7 +12,9 @@ utils:
                 - matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '\w'}}}
     declared:
         any:
-            - inside: {kind: formal_parameters, stopBy: end}
+            - inside: {kind: 'required_parameter, optional_parameter', field: pattern}
+            - inside: {kind: arrow_function, field: parameter}
+            - inside: {kind: rest_pattern}
             - inside: {kind: variable_declarator, field: name}
             - inside: {kind: 'object_pattern, array_pattern', stopBy: end}
             - inside: {kind: for_in_statement, field: left}
@@ -23,7 +25,7 @@ utils:
         inside:
             stopBy: end
             kind: &function 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'
-            has: {stopBy: end, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $NAME, matches: declared}
+            has: {stopBy: {kind: *function}, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $NAME, matches: declared}
 rule:
     kind: call_expression
     all:

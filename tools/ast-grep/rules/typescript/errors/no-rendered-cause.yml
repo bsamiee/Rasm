@@ -161,7 +161,7 @@ utils:
         kind: template_string, call_expression
         any:
             - kind: template_string
-            - has: {field: function, regex: '^(String|JSON\.stringify)$'}
+            - has: {field: function, regex: '^(String|JSON\.stringify)$', matches: typescript-global-reference}
         matches: thunk-result
     untyped-thunk-text:
         any:

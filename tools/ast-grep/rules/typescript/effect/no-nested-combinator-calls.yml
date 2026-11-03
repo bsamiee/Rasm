@@ -20,7 +20,7 @@ utils:
             - not: {has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}}}
             - any:
                 - matches: one-argument
-                - has: {field: function, has: {field: property, matches: effect-dual-operation}}
+                - has: {field: function, matches: effect-dual-operation}
     unary-step:
         all: [{matches: step}, {matches: one-argument}]
     data-first-step:

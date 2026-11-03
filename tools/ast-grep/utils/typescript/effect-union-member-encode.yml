@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-union-member-encode
+language: tsx
+utils:
+    union:
+        matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}
+    decode-to:
+        matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^decodeTo$'}}}
+    transform:
+        matches: {effect-module-member: {module: {regex: '\bSchemaTransformation$'}, member: {regex: '^transform$'}}}
+    member-decode-to:
+        kind: call_expression
+        has: {field: function, matches: decode-to}
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
+                inside: {kind: array, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: union}}}}
+rule:
+    inside:
+        kind: pair
+        field: value
+        has: {field: key, regex: '^encode$'}
+        inside:
+            kind: object
+            inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    any:
+                        - matches: member-decode-to
+                        - all:
+                            - has: {field: function, matches: transform}
+                            - inside: {kind: arguments, inside: {kind: call_expression, matches: member-decode-to}}

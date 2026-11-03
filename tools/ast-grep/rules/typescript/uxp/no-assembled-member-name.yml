@@ -42,7 +42,7 @@ rule:
     pattern: $NAME
     all:
         - matches: typescript-built-text
-        - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?(indesign|photoshop|premierepro|uxp)$'}}}}
+        - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?(indesign|photoshop|premierepro|uxp)$'}}}}
         - any:
             - matches: key-position
             - inside: {kind: variable_declarator, field: value, matches: key-declaration}

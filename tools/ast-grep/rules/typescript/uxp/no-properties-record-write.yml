@@ -34,7 +34,7 @@ rule:
                         any:
                             - {kind: pair, has: {field: key, matches: properties-key}}
                             - {kind: shorthand_property_identifier, regex: '^properties$'}
-    inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
+    inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?indesign$'}}}}
 transform:
     HEAD: {replace: {source: $WRITE, replace: '(?s)^([^(=]+?)\s*[(=].*$', by: '$1'}}
 message: '`$HEAD` sets keys through `properties` and drops each refused key with no error'

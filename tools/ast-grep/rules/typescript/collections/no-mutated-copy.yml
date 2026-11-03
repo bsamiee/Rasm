@@ -5,18 +5,10 @@ severity: error
 utils:
     mutating-method:
         has: {field: property, regex: '^(reverse|sort)$', pattern: $MUTATE}
-    extremum-read:
-        any:
-            - inside: {kind: subscript_expression, field: object, has: {field: index, regex: '^0$'}}
-            - inside:
-                kind: member_expression
-                field: object
-                has: {field: property, regex: '^at$'}
-                inside: {kind: call_expression, field: function, has: {field: arguments, regex: '^\(\s*(0|-1)\s*\)$'}}
 rule:
     kind: call_expression
     has: {field: arguments, pattern: $ARGUMENTS}
-    not: {all: [{has: {field: function, has: {field: property, regex: '^sort$'}}}, {matches: extremum-read}]}
+    not: {all: [{has: {field: function, has: {field: property, regex: '^sort$'}}}, {matches: typescript-extremum-read}]}
     any:
         - pattern: $CALL
           has:

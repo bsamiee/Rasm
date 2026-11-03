@@ -56,4 +56,4 @@ transform:
     KEPT: {replace: {source: $$OP, replace: '^!==?$', by: every repeat}}
     KEEPS: {replace: {source: $KEPT, replace: '^===?$', by: one of each value}}
 message: '`$L.filter` keeps $KEEPS by an index scan per element and miscounts every `NaN`'
-note: 'Write `[...new Set(<list>)]` or call `Array.dedupe(<list>)` for distinct values, and read repeats from the `Array.groupBy(<list>, <key>)` keys whose group holds more than one element'
+note: 'Write `[...new Set(<list>)]` or `Array.dedupe(<list>)` for distinct values, repeats are `Array.groupBy(<list>, <key>)` keys holding two or more elements'

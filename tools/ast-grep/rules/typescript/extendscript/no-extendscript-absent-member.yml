@@ -2,13 +2,6 @@
 id: no-extendscript-absent-member
 language: tsx
 severity: error
-utils:
-    host-file:
-        kind: program
-        regex: '@rasm/(?:extendscript/handle|cep/contract)'
-        any:
-            - matches: {uxp-host-file: {module: {regex: '^@rasm/extendscript/handle$'}}}
-            - has: {kind: import_statement, regex: '^import type ', has: {field: source, regex: '^.@rasm/cep/contract.$'}}
 rule:
     any:
         - kind: member_expression
@@ -30,7 +23,7 @@ rule:
         - kind: identifier
           pattern: $MEMBER
           regex: '^(Map|Set|WeakMap|WeakSet|Promise|Proxy|Reflect|Symbol)$'
-          all: [{inside: {kind: program, stopBy: end, matches: host-file}}, {matches: typescript-global-reference}]
+          all: [{inside: {kind: program, stopBy: end, matches: extendscript-file}}, {matches: typescript-global-reference}]
         - {kind: spread_element, pattern: $MEMBER}
         - {kind: rest_pattern, pattern: $MEMBER, inside: {kind: object_pattern}}
         - kind: array_pattern
@@ -45,6 +38,6 @@ rule:
             - any:
                 - has: {kind: class_heritage, has: {kind: extends_clause}}
                 - has: {field: body, has: {kind: method_definition, not: {has: {field: name, regex: '^constructor$'}}}}
-    inside: {kind: program, stopBy: end, matches: host-file}
+    inside: {kind: program, stopBy: end, matches: extendscript-file}
 message: '`$MEMBER` compiles to a member ExtendScript lacks'
 note: 'Write the ES3 form: index loops and reads, `for...in` over own keys, `charAt` and `slice`, functions over a class, or `keys` and `assign` from `@rasm/extendscript/handle`'

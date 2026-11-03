@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-extremum-read
+language: tsx
+rule:
+    any:
+        - inside: {kind: subscript_expression, field: object, has: {field: index, regex: '^0$'}}
+        - inside:
+            kind: member_expression
+            field: object
+            has: {field: property, regex: '^at$'}
+            inside: {kind: call_expression, field: function, has: {field: arguments, regex: '^\(\s*(0|-1)\s*\)$'}}

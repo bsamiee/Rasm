@@ -7,7 +7,7 @@ rule:
           pattern: $GLOBAL
           not:
             any:
-                - matches: typescript-shadowed-import
+                - matches: typescript-local-binding
                 - inside:
                     kind: program
                     stopBy: end

@@ -62,11 +62,6 @@ utils:
             - kind: member_expression
               not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}, {matches: receiver-static}]}
               has: {field: object, matches: inner-callee, regex: '^[A-Z]'}
-    dual-operation:
-        kind: member_expression
-        all:
-            - has: {field: object, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$', not: {regex: '\bSchema$'}}}}}
-            - has: {field: property, matches: effect-dual-operation}
     parameter-1: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $A}}
     parameter-2: {kind: required_parameter, nthChild: 2, has: {field: pattern, kind: identifier, pattern: $B}}
     parameter-3: {kind: required_parameter, nthChild: 3, has: {field: pattern, kind: identifier, pattern: $C}}
@@ -94,7 +89,7 @@ utils:
             - kind: identifier
               pattern: $A
             - pattern: '$M.$OP($A, $$$REST)'
-              has: {field: function, matches: dual-operation}
+              has: {field: function, matches: effect-dual-operation}
               not: {has: {field: arguments, has: {not: {nthChild: 1}, matches: parameter-read}}}
     forwarded-2:
         all: [{pattern: $BODY}, {pattern: '$F($A, $B)'}, {has: {field: function, matches: named-callee}}]
@@ -122,33 +117,15 @@ utils:
         any:
             - kind: identifier
             - pattern: '$M.$OP($A, $$$REST)'
-              has: {field: function, matches: dual-operation}
+              has: {field: function, matches: effect-dual-operation}
     host-arguments-dropped:
         all:
             - matches: indexed-callback
             - not: {matches: parameters-rest}
             - not: {has: {field: body, any: [{matches: host-free-forward}, {kind: statement_block, has: {kind: return_statement, has: {matches: host-free-forward}}}]}}
-    reflect-trap:
+    reflect-call:
         kind: call_expression
-        has:
-            field: function
-            kind: member_expression
-            all:
-                - has: {field: property, pattern: $TRAP}
-                - has: {field: object, regex: '^((globalThis|window|self)\.)?Reflect$', matches: typescript-global-reference}
-    proxy-trap:
-        all:
-            - inside:
-                kind: pair
-                field: value
-                has: {field: key, kind: property_identifier, pattern: $TRAP}
-                inside:
-                    kind: object
-                    nthChild: 2
-                    inside:
-                        kind: arguments
-                        inside: {kind: new_expression, has: {field: constructor, regex: '^((globalThis|window|self)\.)?Proxy$', matches: typescript-global-reference}}
-            - has: {field: body, any: [{matches: reflect-trap}, {kind: statement_block, has: {kind: return_statement, has: {matches: reflect-trap}}}]}
+        has: {field: function, kind: member_expression, has: {field: object, regex: '^((globalThis|window|self)\.)?Reflect$', matches: typescript-global-reference}}
     single-return:
         kind: statement_block
         not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
@@ -172,7 +149,7 @@ rule:
             - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
             - all: [{matches: parameters-rest}, {has: {field: body, matches: result-rest}}]
         - not: {matches: host-arguments-dropped}
-        - not: {matches: proxy-trap}
+        - not: {matches: typescript-proxy-trap, has: {field: body, any: [{matches: reflect-call}, {matches: single-return, has: {kind: return_statement, has: {matches: reflect-call}}}]}}
 transform:
     HEAD: {replace: {source: $BODY, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: 'Function forwards its parameters unchanged to `$HEAD`'

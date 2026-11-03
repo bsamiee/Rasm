@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-separator-swap
+language: tsx
+utils:
+    hyphen: {kind: 'string, regex', regex: '^([''"]-[''"]|/-/[a-z]*g[a-z]*)$'}
+    underscore: {kind: 'string, regex', regex: '^([''"]_[''"]|/_/[a-z]*g[a-z]*)$'}
+    hyphen-only: {kind: arguments, has: {nthChild: 1, kind: string, matches: hyphen}, not: {has: {nthChild: 2}}}
+    underscore-only: {kind: arguments, has: {nthChild: 1, kind: string, matches: underscore}, not: {has: {nthChild: 2}}}
+rule:
+    any:
+        - kind: arguments
+          all:
+            - not: {has: {nthChild: 3}}
+            - any:
+                - all: [{has: {nthChild: 1, matches: hyphen}}, {has: {nthChild: 2, kind: string, matches: underscore}}]
+                - all: [{has: {nthChild: 1, matches: underscore}}, {has: {nthChild: 2, kind: string, matches: hyphen}}]
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^join$'}}
+            - has: {field: function, has: {field: object, kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^split$'}}}}
+            - any:
+                - all: [{has: {field: arguments, matches: underscore-only}}, {has: {field: function, has: {field: object, has: {field: arguments, matches: hyphen-only}}}}]
+                - all: [{has: {field: arguments, matches: hyphen-only}}, {has: {field: function, has: {field: object, has: {field: arguments, matches: underscore-only}}}}]

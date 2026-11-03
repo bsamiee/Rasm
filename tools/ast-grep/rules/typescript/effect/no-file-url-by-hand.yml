@@ -29,6 +29,6 @@ rule:
                         - kind: call_expression
                           has: {field: function, kind: member_expression, has: {field: object, matches: pathname}}
             - has: {field: function, matches: typescript-global-reference}
-            - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?(indesign|photoshop|premierepro|uxp)$'}}}}
+            - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?(indesign|photoshop|premierepro|uxp)$'}}}}
 message: '`$URL` converts between a file path and a file URL by hand'
 note: 'Yield `path.toFileUrl(<path>)` or `path.fromFileUrl(<url>)` from the `Path.Path` service'

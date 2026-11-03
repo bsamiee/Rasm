@@ -2,7 +2,7 @@
 id: no-presence-type-guard
 language: tsx
 severity: error
-ignores: ['.claude/workflows/*.js', 'libs/typescript/creative-cloud/extendscript/*.ts']
+ignores: ['.claude/workflows/*.js']
 utils:
     member:
         kind: member_expression, subscript_expression
@@ -118,5 +118,6 @@ rule:
           all:
             - has: {field: body, any: [{matches: schema-test}, {kind: statement_block, has: {kind: return_statement, has: {matches: schema-test}}, not: {has: {nthChild: 2}}}]}
             - has: {field: return_type, matches: asserted, not: {has: {kind: type_predicate, has: {field: type, any: [{kind: type_query, has: {kind: member_expression, pattern: $SCHEMA.Type}}, {kind: lookup_type, all: [{has: {nthChild: 1, pattern: $SCHEMA}}, {has: {kind: literal_type, regex: '^.Type.$'}}]}]}}}}
+    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 message: '`$TYPE` narrows on a test in place of its schema'
 note: 'Decode with a `Schema` of the narrowed type at entry or host return, or narrow a union on its literal discriminant (`constructorName` for InDesign, `Match.discriminators`)'

@@ -2,7 +2,6 @@
 id: no-formatter-per-call
 language: tsx
 severity: error
-ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 rule:
     any:
         - kind: new_expression
@@ -22,5 +21,6 @@ rule:
             - has: {field: arguments, has: {nthChild: 2}}
             - not: {has: {field: arguments, has: {nthChild: 'n+2', not: {matches: typescript-literal-expression}}}}
             - inside: {stopBy: end, kind: *boundary}
+    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 message: '`$FORMATTER` builds an `Intl` object from constant arguments at each call'
 note: 'Build the `Intl` object once in a module `const` and call its `format` or `compare` inside the function'

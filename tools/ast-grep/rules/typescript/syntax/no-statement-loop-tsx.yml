@@ -2,7 +2,6 @@
 id: no-statement-loop-tsx
 language: tsx
 severity: error
-ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/illustrator/host.ts']
 rule:
     pattern: $LOOP
     any:
@@ -10,6 +9,7 @@ rule:
           has: {field: operator, regex: '^of$'}
           not: {has: {regex: '^await$'}}
         - kind: for_statement, while_statement, do_statement
+    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
     HEAD: {replace: {source: $LOOP, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
 message: '`$HEAD` iterates by statement'

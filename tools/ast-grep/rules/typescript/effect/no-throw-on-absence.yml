@@ -2,7 +2,6 @@
 id: no-throw-on-absence
 language: tsx
 severity: error
-ignores: ['libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 utils:
     absence-test:
         any:
@@ -39,6 +38,7 @@ rule:
     all:
         - has: {field: condition, pattern: $TEST, matches: absence-test}
         - has: {field: consequence, matches: throwing}
+        - not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 message: '`if $TEST` throws on an absent value in place of a typed failure'
 note: 'Fail through `Effect.fromOption` or `Effect.fail` with a tagged variant, or call `Option.getOrThrow` where construction rules out absence'
 labels:

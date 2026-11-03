@@ -2,7 +2,6 @@
 id: no-anchored-text-regex
 language: tsx
 severity: error
-ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 utils:
     affix:
         kind: regex
@@ -87,6 +86,7 @@ rule:
                     - has: {field: operator, regex: '^(!==?|===?)$'}
                     - has: {field: right, regex: '^0$'}
                     - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: regex_pattern, pattern: $PATTERN, regex: '^\^'}}
+    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
     STRIPPED: {replace: {source: $PATTERN, replace: '^\^(.*)$|^(.*)\$$', by: '${1}${2}'}}
     UNESCAPED: {replace: {source: $STRIPPED, replace: '\\([\^$.*+?()\[\]{}|/])', by: '$1'}}

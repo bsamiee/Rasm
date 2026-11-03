@@ -2,7 +2,6 @@
 id: no-byte-encoding-by-hand
 language: tsx
 severity: error
-ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 utils:
     byte-string:
         any:
@@ -131,6 +130,7 @@ rule:
                         inside:
                             kind: 'call_expression, new_expression'
                             has: {stopBy: end, kind: regex_pattern, regex: '^(\.\{1,2\}|\.\{2\}|\.\.|\[[^\]]+\]\{(1,)?2\})$'}
+    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
     BASE64: {replace: {source: $OP, replace: '^((globalThis|window|self)\.)?btoa$', by: '<bytes>.toBase64()'}}
     FROM_BASE64: {replace: {source: $BASE64, replace: '^((globalThis|window|self)\.)?atob$', by: 'Uint8Array.fromBase64(<text>)'}}

@@ -2,7 +2,6 @@
 id: no-replace-all-by-hand
 language: tsx
 severity: error
-ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 utils:
     string-module:
         matches: {effect-module: {name: {regex: '\bString$'}}}
@@ -56,10 +55,10 @@ rule:
           all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(replace|replaceAll)$'}}, {not: {has: {field: object, matches: string-module}}}]}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: fixed-regex}}, {has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
-            - not: {has: {field: arguments, regex: '^\(\s*(/-/[a-z]*\s*,\s*[''"]_|/_/[a-z]*\s*,\s*[''"]-)[''"]\s*\)$'}}
+            - not: {has: {field: arguments, matches: typescript-separator-swap}}
         - all:
             - matches: joined-split
-            - not: {regex: '\.split\(\s*([''"]-[''"]\s*\)\s*\.join\(\s*[''"]_|[''"]_[''"]\s*\)\s*\.join\(\s*[''"]-)[''"]\s*\)$'}
+            - not: {matches: typescript-separator-swap}
             - any:
                 - {pattern: $FIXABLE, has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: plain-text}}}
                 - pattern: $KEPT
@@ -70,6 +69,7 @@ rule:
             - any:
                 - {pattern: $PIPED, precedes: {stopBy: {not: {regex: '^,$'}}, has: {field: arguments, has: {nthChild: 1, matches: plain-text, pattern: $PT}}}}
                 - pattern: $KEPT
+    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 rewriters:
     - id: regex-apostrophe
       rule:

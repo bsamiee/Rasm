@@ -25,7 +25,7 @@ utils:
         kind: string
         regex: '^.[A-Z][A-Z0-9_]*.$'
     indesign-file:
-        inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
+        inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?indesign$'}}}}
 rule:
     any:
         - kind: binary_expression

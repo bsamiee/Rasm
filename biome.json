@@ -31,6 +31,7 @@
                 "noNegationInEqualityCheck": "error",
                 "noNonScalableViewport": "error",
                 "noObsoleteTags": "error",
+                "noPathConcat": "error",
                 "noReactObjectTypeAsDefaultProp": "error",
                 "noRestrictedDependencies": "error",
                 "noReturnInFinally": "error",
@@ -41,6 +42,7 @@
                 "noUnmodifiedLoopCondition": "error",
                 "noUnsafeIframeSandbox": "error",
                 "noUnsafeTypeAssertion": "error",
+                "noUselessCall": "error",
                 "noUselessTypeConversion": "error",
                 "noXorAsExponentiation": "error",
                 "useAwaitThenable": "error",
@@ -59,7 +61,8 @@
                 "useReactCompiler": "error",
                 "useRegexpExec": "error",
                 "useStringStartsEndsWith": "error",
-                "useTailwindSortedClasses": "error"
+                "useTailwindSortedClasses": "error",
+                "useValidTestTitle": "error"
             }
         }
     },
@@ -68,8 +71,17 @@
             "includes": [ "**" ],
             "linter": {
                 "rules": {
-                    "complexity": { "noExcessiveLinesPerFunction": "off", "noExcessiveNestedCallbacks": { "level": "error", "options": { "max": 3 } }, "noForEach": "off", "useMaxParams": { "level": "error", "options": { "max": 10 } } },
-                    "correctness": { "noNodejsModules": "off", "noReactNativeRawText": "off", "noSolidDestructuredProps": "off", "noUndeclaredVariables": "off", "noUnknownFunction": { "level": "error", "options": { "ignore": [ "theme" ] } }, "noUnresolvedImports": "off", "useQwikValidLexicalScope": "off" },
+                    "complexity": { "noExcessiveLinesPerFunction": "off", "noExcessiveNestedCallbacks": { "level": "error", "options": { "max": 2 } }, "noForEach": "off", "useMaxParams": { "level": "error", "options": { "max": 10 } } },
+                    "correctness": {
+                        "noNodejsModules": "off",
+                        "noReactNativeRawText": "off",
+                        "noSolidDestructuredProps": "off",
+                        "noUndeclaredVariables": "off",
+                        "noUnknownFunction": { "level": "error", "options": { "ignore": [ "theme" ] } },
+                        "noUnresolvedImports": "off",
+                        "noUnusedFunctionParameters": { "level": "error", "options": { "ignoreRestSiblings": false } },
+                        "useQwikValidLexicalScope": "off"
+                    },
                     "performance": { "noImgElement": "off", "noJsxPropsBind": "off", "useSolidForComponent": "off" },
                     "security": { "noSecrets": "off" },
                     "style": {
@@ -77,6 +89,7 @@
                         "noExcessiveLinesPerFile": "off",
                         "noJsxLiterals": "off",
                         "noParameterAssign": { "level": "error", "options": { "propertyAssignment": "deny" } },
+                        "noRestrictedImports": { "level": "error", "options": { "paths": { "smol-toml": "Parse TOML through `Toml.parse` from `effect/encoding`", "yaml": { "importNames": [ "parse" ], "message": "Parse YAML through `Yaml.parse` from `effect/encoding`" } } } },
                         "noTernary": "off",
                         "useConsistentMemberAccessibility": { "level": "error", "options": { "accessibility": "none" } },
                         "useDomQuerySelector": "off",
@@ -98,16 +111,36 @@
             }
         },
         { "includes": [ "**/*.tsx" ], "linter": { "domains": { "react": "all" } } },
-        { "includes": [ "**/*.config.ts", "**/server/worker.ts", "tools/nx/release.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js", "libs/typescript/creative-cloud/{aftereffects,illustrator}/host.ts" ], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
+        { "includes": [ "**/*.config.ts", "**/server/worker.ts", "tools/nx/release.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js" ], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
+        {
+            "includes": [ "**/*.config.ts" ],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "noRestrictedImports": {
+                            "level": "error",
+                            "options": {
+                                "paths": { "smol-toml": "Parse TOML through `Toml.parse` from `effect/encoding`", "yaml": { "importNames": [ "parse" ], "message": "Parse YAML through `Yaml.parse` from `effect/encoding`" } },
+                                "patterns": [ { "group": [ "**/package.json", "#/package.json" ], "message": "Build helpers read the project manifest from the directory they take" } ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
         {
             "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/host.ts" ],
-            "linter": { "rules": { "nursery": { "useStringStartsEndsWith": "off" }, "style": { "useAtIndex": "off", "useNamedCaptureGroup": "off", "useNumberNamespace": "off", "useUnicodeRegex": "off" }, "suspicious": { "noForIn": "off", "noPrototypeBuiltins": "off", "useGuardForIn": "off" } } }
+            "linter": {
+                "rules": {
+                    "nursery": { "useIncludes": "off", "useModernMathApis": "off", "useStringStartsEndsWith": "off" },
+                    "style": { "noDefaultExport": "off", "useAtIndex": "off", "useNamedCaptureGroup": "off", "useNumberNamespace": "off", "useUnicodeRegex": "off" },
+                    "suspicious": { "noForIn": "off", "noGlobalIsFinite": "off", "noGlobalIsNan": "off", "noPrototypeBuiltins": "off", "useGuardForIn": "off", "useIsArray": "off" }
+                }
+            }
         },
         { "includes": [ "**/.storybook/*.stories.tsx" ], "linter": { "rules": { "style": { "useComponentExportOnlyModules": "off" } } } },
-        { "includes": [ "**/cloudflare.config.ts" ], "linter": { "rules": { "performance": { "noNamespaceImport": "off" } } } },
         { "includes": [ "**/index.ts" ], "linter": { "rules": { "performance": { "noBarrelFile": "off" } } } },
-        { "includes": [ "tests/typescript/**" ], "linter": { "rules": { "nursery": { "useValidTestTitle": "error" } } } },
-        { "includes": [ "tests/typescript/e2e-*/**", "tests/typescript/support/playwright.ts" ], "linter": { "rules": { "style": { "useConsistentTestIt": "off" } } } },
+        { "includes": [ "tests/typescript/support/playwright.ts" ], "linter": { "rules": { "style": { "useConsistentTestIt": "off" } } } },
         { "includes": [ "plugins/function-hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
         { "includes": [ "biome.json", "nx.json", "package.json" ], "json": { "formatter": { "expand": "never" } } }
     ]

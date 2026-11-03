@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: typescript-shadowed-import
+id: typescript-local-binding
 language: tsx
 utils:
     binding:
@@ -16,7 +16,7 @@ utils:
         any:
             - kind: lexical_declaration, variable_declaration
               has: {kind: variable_declarator, has: {field: name, matches: binding}}
-            - kind: function_declaration, class_declaration, abstract_class_declaration, internal_module
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration, internal_module
               has: {field: name, pattern: $NAME}
             - kind: expression_statement
               has: {kind: internal_module, has: {field: name, pattern: $NAME}}
@@ -28,26 +28,12 @@ rule:
     inside:
         stopBy: end
         any:
+            - kind: function_declaration, generator_function_declaration, function_expression, generator_function, class
+              has: {field: name, pattern: $NAME}
             - matches: typescript-function-boundary
               any:
-                - has: {field: name, pattern: $NAME}
                 - has: {field: parameter, kind: identifier, pattern: $NAME}
-                - has:
-                    field: parameters
-                    has:
-                        has:
-                            field: pattern
-                            matches: binding
-                - has:
-                    field: body
-                    has:
-                        stopBy: {matches: typescript-function-boundary}
-                        kind: variable_declaration
-                        has:
-                            kind: variable_declarator
-                            has: {field: name, matches: binding}
-            - kind: class
-              has: {field: name, pattern: $NAME}
+                - has: {field: parameters, has: {has: {field: pattern, matches: binding}}}
             - kind: for_in_statement
               has: {field: left, matches: binding}
             - kind: for_statement
@@ -60,3 +46,5 @@ rule:
               has: {field: parameter, matches: binding}
             - kind: statement_block, program
               has: {matches: declaration}
+            - kind: switch_body
+              has: {kind: switch_case, has: {matches: declaration}}

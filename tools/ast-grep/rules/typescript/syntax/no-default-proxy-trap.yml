@@ -7,14 +7,6 @@ utils:
         any:
             - has: {field: name, kind: property_identifier, pattern: $TRAP}
             - inside: {kind: pair, field: value, has: {field: key, kind: property_identifier, pattern: $TRAP}}
-    handler:
-        inside:
-            kind: object
-            nthChild: 2
-            stopBy: {not: {kind: pair}}
-            inside:
-                kind: arguments
-                inside: {kind: new_expression, has: {field: constructor, regex: '^((globalThis|window|self)\.)?Proxy$', matches: typescript-global-reference}}
     reflect:
         has: {field: object, regex: '^((globalThis|window|self)\.)?Reflect$', matches: typescript-global-reference}
     parameter-1: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $A}}
@@ -59,7 +51,7 @@ rule:
     all:
         - not: {regex: '^async\b'}
         - matches: trap
-        - matches: handler
+        - matches: typescript-proxy-trap
         - any:
             - all:
                 - any: [{has: {field: parameter, kind: identifier, pattern: $A}}, {has: {field: parameters, has: {matches: parameter-1}, not: {has: {nthChild: 2}}}}]

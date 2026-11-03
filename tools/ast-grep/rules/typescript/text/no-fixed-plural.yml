@@ -2,7 +2,6 @@
 id: no-fixed-plural
 language: tsx
 severity: error
-ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 utils:
     one:
         kind: number
@@ -81,6 +80,7 @@ rule:
                             stopBy: end
                             kind: variable_declarator
                             all: [{has: {field: name, pattern: $COUNT}}, {has: {field: value, matches: count}}]
+    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
     NOUN: {replace: {source: $TEXT, replace: '(?s)^(\s+(?:[a-z][\w-]*\s+)?[a-z]*s)\b.*$', by: '$1'}}
 message: '`$FORM$NOUN` hard-codes the plural form of a count'

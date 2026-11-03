@@ -47,6 +47,7 @@ rule:
                 - has: {field: function, has: {field: object, matches: native-receiver}}
                 - has: {field: arguments, has: {matches: predicate, nthChild: 1}, not: {has: {nthChild: 2}}}
                 - not: {has: {field: arguments, has: {matches: set-predicate}}}
+        - not: {matches: typescript-complementary-filter}
 constraints:
     SEEN: {not: {any: [{kind: identifier, pattern: $X}, {has: {stopBy: end, kind: identifier, pattern: $X}}]}}
 rewriters:

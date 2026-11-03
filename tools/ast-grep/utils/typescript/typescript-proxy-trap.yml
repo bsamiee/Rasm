@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-proxy-trap
+language: tsx
+utils:
+    handler:
+        kind: object
+        nthChild: 2
+        inside:
+            kind: arguments
+            inside: {kind: new_expression, has: {field: constructor, regex: '^((globalThis|window|self)\.)?Proxy$', matches: typescript-global-reference}}
+rule:
+    any:
+        - inside: {kind: pair, field: value, inside: {kind: object, matches: handler}}
+        - kind: method_definition
+          inside: {kind: object, matches: handler}

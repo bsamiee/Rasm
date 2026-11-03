@@ -37,13 +37,9 @@ rule:
             - not: {has: {field: property, regex: '^take'}}
             - inside: {kind: arguments}
             - follows: {stopBy: {not: {regex: '^,$'}}, kind: call_expression, has: {field: function, pattern: $SORT, matches: sorting}, not: {has: {field: arguments, has: {nthChild: 2}}}}
-        - kind: subscript_expression
-          all:
-            - has: {field: index, regex: '^0$'}
-            - has: {field: object, any: [{matches: native-sorted}, {matches: sorted}]}
         - kind: call_expression
           all:
-            - has: {field: arguments, regex: '^\(\s*-?[01]\s*\)$', not: {regex: '^\(\s*1\s*\)$'}}
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^at$'}}, {has: {field: object, any: [{matches: native-sorted}, {matches: sorted}]}}]}
+            - any: [{matches: native-sorted}, {matches: sorted}]
+            - matches: typescript-extremum-read
 message: '`$SORT` sorts a whole list to read one extremum'
-note: 'Call `Array.min(<list>, <order>)` or `Array.max` over a non-empty list, behind `Array.isReadonlyArrayNonEmpty` or `Option.liftPredicate` for one that can be empty'
+note: 'Call `Array.min(<list>, <order>)` or `Array.max` on a list `Array.isReadonlyArrayNonEmpty` or `Option.liftPredicate` narrows to non-empty'

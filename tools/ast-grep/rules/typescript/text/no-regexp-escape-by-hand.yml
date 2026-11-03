@@ -3,8 +3,6 @@ id: no-regexp-escape-by-hand
 language: tsx
 severity: error
 ignores:
-    - libs/typescript/creative-cloud/extendscript/*.ts
-    - libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts
     - libs/typescript/creative-cloud/indesign/**
     - libs/typescript/creative-cloud/uxp/**
 utils:
@@ -86,6 +84,7 @@ rule:
         - any:
             - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bString$'}}}}}
             - has: {field: function, not: {has: {kind: optional_chain}}, has: {field: object, pattern: $TEXT}}
+    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
     ARGUMENT: {replace: {source: $TEXT, replace: '(?s)^(.+)$', by: '($1)'}}
     HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}

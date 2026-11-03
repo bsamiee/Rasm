@@ -17,6 +17,8 @@
                 "ignoreEffectSuggestionsInTscExitCode": false,
                 "allowedUnstableApis": [ "effect", "@effect" ],
                 "barrelImportPackages": [ "effect" ],
+                "effectFn": [ "span", "untraced" ],
+                "keyPatterns": [ { "target": "service" }, { "target": "custom" }, { "target": "error", "pattern": "identifier" }, { "target": "taggedClass", "pattern": "identifier" } ],
                 "diagnosticSeverity": {
                     "anyUnknownInErrorContext": "error",
                     "mapMapErrorToMapBoth": "error",
@@ -26,8 +28,6 @@
                     "newPromise": "warning",
                     "cryptoRandomUUID": "warning",
                     "cryptoRandomUUIDInEffect": "warning",
-                    "globalConsole": "off",
-                    "globalConsoleInEffect": "off",
                     "globalDate": "warning",
                     "globalDateInEffect": "warning",
                     "globalFetch": "warning",
@@ -55,7 +55,7 @@
                     "strictBooleanExpressions": "suggestion",
                     "unnecessaryArrowBlock": "suggestion"
                 },
-                "overrides": [ { "include": [ "**/*.test.tsx" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
+                "overrides": [ { "include": [ "**/*.test.tsx", "**/plugins/function-hooks/**/*.ts" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
             }
         ],
         "skipLibCheck": true,

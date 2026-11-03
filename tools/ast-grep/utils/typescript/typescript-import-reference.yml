@@ -50,10 +50,10 @@ rule:
                 - inside: {kind: program, stopBy: end, has: {matches: module-import, not: {matches: type-only}, has: {matches: export-binding}}}
                 - matches: type-position
                   inside: {kind: program, stopBy: end, has: {matches: module-import, has: {matches: type-binding}}}
-            - not: {matches: typescript-shadowed-import}
+            - not: {matches: typescript-local-binding}
         - kind: member_expression
           all:
             - has: {field: property, matches: exported}
             - has: {field: object, kind: identifier, pattern: $IMPORTED}
             - inside: {kind: program, stopBy: end, has: {matches: module-import, not: {matches: type-only}, has: {matches: module-binding}}}
-            - has: {field: object, not: {matches: typescript-shadowed-import}}
+            - has: {field: object, not: {matches: typescript-local-binding}}

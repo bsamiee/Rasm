@@ -13,29 +13,24 @@ utils:
         any:
             - {kind: identifier, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^identity$'}}}}
             - {kind: member_expression, matches: {effect-module-member: {module: {regex: '\bFunction$'}, member: {regex: '^identity$'}}}}
-    decode-to-call:
-        kind: call_expression
-        has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^decodeTo$'}}}}
-        inside:
-            kind: arguments
-            inside:
-                kind: call_expression
-                has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
-                inside: {kind: array, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}}}}}
-    union-encode:
-        inside:
-            kind: pair
-            field: value
-            has: {field: key, regex: '^encode$'}
-            inside:
-                kind: object
+    getter-transform:
+        matches: {effect-module-member: {module: {regex: '\bSchemaGetter$'}, member: {regex: '^transform$'}}}
+    transformation-transform:
+        matches: {effect-module-member: {module: {regex: '\bSchemaTransformation$'}, member: {regex: '^transform$'}}}
+    getter-position:
+        any:
+            - inside:
+                kind: arguments
+                inside: {kind: call_expression, has: {field: function, matches: getter-transform}}
+            - inside:
+                kind: pair
+                field: value
+                has: {field: key, regex: '^(decode|encode)$'}
                 inside:
-                    kind: arguments
+                    kind: object
                     inside:
-                        kind: call_expression
-                        any:
-                            - matches: decode-to-call
-                            - inside: {kind: arguments, inside: {matches: decode-to-call}}
+                        kind: arguments
+                        inside: {kind: call_expression, has: {field: function, matches: transformation-transform}}
 rule:
     kind: identifier, member_expression, arrow_function
     pattern: $FN
@@ -44,7 +39,7 @@ rule:
             - {kind: identifier, any: [{matches: conversion}, {regex: '^identity$'}]}
             - {kind: member_expression, has: {field: property, any: [{matches: conversion}, {matches: string-member}, {regex: '^identity$'}]}}
             - kind: arrow_function
-        - matches: effect-getter-function
+        - matches: getter-position
         - any:
             - {kind: identifier, pattern: $NAME, all: [{matches: conversion}, {matches: typescript-global-reference}]}
             - {kind: member_expression, pattern: globalThis.$NAME, has: {field: property, matches: conversion}}
@@ -66,7 +61,7 @@ rule:
                               pattern: $MODULE.$NAME($P)
                               has: {field: function, all: [{has: {field: object, matches: string-module}}, {has: {field: property, matches: string-member}}]}
             - matches: {typescript-constant-function: {result: {matches: typescript-literal-expression, pattern: $CONSTANT}}}
-              not: {matches: union-encode}
+              not: {matches: effect-union-member-encode}
 transform:
     STRING: {replace: {source: $NAME, replace: '^toString$', by: String}}
     CONVERSION: {replace: {source: $STRING, replace: '^(en|de)codeURIComponent$', by: '${1}codeUriComponent'}}

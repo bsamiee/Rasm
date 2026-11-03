@@ -2,38 +2,19 @@
 id: no-separator-swap-by-hand
 language: tsx
 severity: error
-ignores: ['.claude/workflows/*.js', 'libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
-utils:
-    hyphen: {kind: 'string, regex', regex: '^([''"]-[''"]|/-/[a-z]*g[a-z]*)$'}
-    underscore: {kind: 'string, regex', regex: '^([''"]_[''"]|/_/[a-z]*g[a-z]*)$'}
-    swap:
-        kind: arguments
-        all:
-            - not: {has: {nthChild: 3}}
-            - any:
-                - all: [{has: {nthChild: 1, matches: hyphen, pattern: $SEARCH}}, {has: {nthChild: 2, kind: string, matches: underscore}}]
-                - all: [{has: {nthChild: 1, matches: underscore, pattern: $SEARCH}}, {has: {nthChild: 2, kind: string, matches: hyphen}}]
+ignores: ['.claude/workflows/*.js']
 rule:
     kind: call_expression
     pattern: $CALL
     any:
         - all:
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^replace(All)?$'}}
-            - has: {field: arguments, matches: swap}
+            - has: {field: arguments, matches: typescript-separator-swap, has: {nthChild: 1, pattern: $SEARCH}}
             - not: {all: [{has: {field: function, has: {field: property, regex: '^replace$'}}}, {has: {field: arguments, has: {nthChild: 1, kind: string}}}]}
         - all:
-            - has: {field: function, kind: member_expression, has: {field: property, regex: '^join$'}}
-            - has: {field: arguments, all: [{has: {nthChild: 1, kind: string, any: [{matches: hyphen}, {matches: underscore}], pattern: $JOINER}}, {not: {has: {nthChild: 2}}}]}
-            - has:
-                field: function
-                has:
-                    field: object
-                    kind: call_expression
-                    all:
-                        - has: {field: function, kind: member_expression, has: {field: property, regex: '^split$'}}
-                        - has: {field: arguments, all: [{has: {nthChild: 1, kind: string, any: [{matches: hyphen}, {matches: underscore}], pattern: $SEARCH}}, {not: {has: {nthChild: 2}}}]}
-            - not: {all: [{has: {field: arguments, has: {matches: hyphen}}}, {has: {field: function, has: {field: object, has: {field: arguments, has: {matches: hyphen}}}}}]}
-            - not: {all: [{has: {field: arguments, has: {matches: underscore}}}, {has: {field: function, has: {field: object, has: {field: arguments, has: {matches: underscore}}}}}]}
+            - matches: typescript-separator-swap
+            - has: {field: function, has: {field: object, has: {field: arguments, has: {nthChild: 1, pattern: $SEARCH}}}}
+    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
     KEBAB: {replace: {source: $SEARCH, replace: '^.*-.*$', by: kebabToSnake}}
     TARGET: {replace: {source: $KEBAB, replace: '^[^k].*$', by: snakeToKebab}}
