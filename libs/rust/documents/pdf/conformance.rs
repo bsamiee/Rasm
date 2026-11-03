@@ -1,14 +1,17 @@
-use std::{borrow::Borrow, sync::Arc};
+use core::borrow::Borrow;
+use std::sync::Arc;
 
 use hayro_syntax::object::dict::keys::{INFO, METADATA};
+use itertools::Itertools as _;
 use lopdf::{Stream, decode_text_string};
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use pdf_oxide::compliance::{
     ConversionConfig, ConversionResult, PdfAConverter, PdfALevel, PdfUaLevel, PdfXLevel, UaValidationResult, ValidationResult, XValidationResult, validate_pdf_a, validate_pdf_ua, validate_pdf_x,
 };
 use validated::Validated;
 use xot::Xot;
 
-use crate::{Document, GTS_PDFX_VERSION, PART, PDFAID_NAMESPACE, PDFUAID_NAMESPACE, PDFXID_NAMESPACE, PdfError, Standard, Subject, engine, entry, structure};
+use crate::{Document, Family, GTS_PDFX_VERSION, PART, PDFAID_NAMESPACE, PDFUAID_NAMESPACE, PDFXID_NAMESPACE, PdfError, Standard, Subject, engine, entry, structure};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -21,16 +24,15 @@ pub enum Verdict {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn claims(document: &Document) -> Result<Vec<Standard>, PdfError> { declared(&structure(document)?)?.into_iter().try_collect::<Vec<_>>() }
+pub fn claims(document: &Document) -> Result<Vec<Standard>, PdfError> {
+    let (standards, unsupported) = declared(&structure(document)?)?;
+    NEVec::try_from_vec(unsupported).map_or(Ok(standards), |claimed| Err(PdfError::Refused(claimed.into_nonempty_iter().map(|error| (Subject::Metadata, error)).collect())))
+}
 
-pub(crate) fn declared(structure: &lopdf::Document) -> Result<Vec<Result<Standard, PdfError>>, PdfError> {
+pub(crate) fn declared(structure: &lopdf::Document) -> Result<(Vec<Standard>, Vec<PdfError>), PdfError> {
     let packet = entry(structure, structure.catalog()?, METADATA)?.map(|metadata| metadata.as_stream().and_then(Stream::get_plain_content)).transpose()?;
     let mut xot = Xot::new();
-    let root = packet
-        .map(|bytes| {
-            str::from_utf8(&bytes).map_err(PdfError::from).and_then(|text| xot.parse(text).map_err(|source| PdfError::Xml(source.into())))
-        })
-        .transpose()?;
+    let root = packet.map(|bytes| str::from_utf8(&bytes).map_err(PdfError::from).and_then(|text| xot.parse(text).map_err(|source| PdfError::Xml(source.into())))).transpose()?;
     let property = |namespace: &str, local: &str| {
         let name = xot.namespace(namespace).and_then(|uri| xot.name_ns(local, uri))?;
         root.into_iter()
@@ -40,21 +42,25 @@ pub(crate) fn declared(structure: &lopdf::Document) -> Result<Vec<Result<Standar
     };
     let press = match property(PDFXID_NAMESPACE, GTS_PDFX_VERSION) {
         Some(version) => Some(version.to_owned()),
-        None => crate::nested(structure, &structure.trailer, &[INFO])?.and_then(|information| entry(structure, information, GTS_PDFX_VERSION).transpose()).map(|version| version.and_then(decode_text_string)).transpose()?,
+        None => crate::nested(structure, &structure.trailer, &[INFO])?
+            .and_then(|information| entry(structure, information, GTS_PDFX_VERSION).transpose())
+            .map(|version| version.and_then(decode_text_string))
+            .transpose()?,
     };
-    let unsupported = |claim: String| PdfError::Claim(Arc::from(claim));
+    let unsupported = |family: Family, claim: String| PdfError::Claim { family, claim: Arc::from(claim) };
     Ok([
         property(PDFAID_NAMESPACE, PART).map(|part| {
             let conformance = property(PDFAID_NAMESPACE, "conformance").unwrap_or_default();
-            PdfALevel::from_xmp(part, conformance).map(Standard::Archival).ok_or_else(|| unsupported(format!("pdfaid:part {part} conformance {conformance}")))
+            PdfALevel::from_xmp(part, conformance).map(Standard::Archival).ok_or_else(|| unsupported(Family::Archival, format!("{part}{conformance}")))
         }),
-        property(PDFUAID_NAMESPACE, PART)
-            .map(|part| [PdfUaLevel::Ua1, PdfUaLevel::Ua2].into_iter().find(|level| level.xmp_part() == part).map(Standard::Accessibility).ok_or_else(|| unsupported(format!("pdfuaid:part {part}")))),
-        press.map(|version| PdfXLevel::from_gts_version(&version).map(Standard::Press).ok_or_else(|| unsupported(format!("{GTS_PDFX_VERSION} {version}")))),
+        property(PDFUAID_NAMESPACE, PART).map(|part| {
+            [PdfUaLevel::Ua1, PdfUaLevel::Ua2].into_iter().find(|level| level.xmp_part() == part).map(Standard::Accessibility).ok_or_else(|| unsupported(Family::Accessibility, part.to_owned()))
+        }),
+        press.map(|version| PdfXLevel::from_gts_version(&version).map(Standard::Press).ok_or_else(move || unsupported(Family::Press, version))),
     ]
     .into_iter()
     .flatten()
-    .collect())
+    .partition_result())
 }
 
 pub fn validate<S>(document: &Document, standards: S) -> Result<Vec<Verdict>, PdfError>

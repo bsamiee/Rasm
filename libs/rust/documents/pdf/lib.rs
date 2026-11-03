@@ -1,4 +1,4 @@
-#![feature(default_field_values, error_reporter, float_conversions, gen_blocks, iterator_try_collect)]
+#![feature(array_try_map, default_field_values, deref_patterns, error_reporter, float_conversions, gen_blocks, iterator_try_collect)]
 
 use core::{borrow::Borrow, fmt, str::Utf8Error};
 use std::{collections::BTreeMap, error::Report, sync::Arc};
@@ -13,7 +13,9 @@ use jiff::Zoned;
 use krilla::{
     configure::{Accessibility, Archival, ConfigurationError, Validators},
     error::KrillaError,
+    geom,
     icc::ICCProfile,
+    pdf,
 };
 use kurbo::{Affine, Rect, Size};
 use lopdf::{Dictionary, LoadOptions, Object, ObjectId, decode_text_string, dictionary, text_string};
@@ -73,8 +75,8 @@ pub struct Resolution(LinearNumberDensity);
 pub struct OutputIntent {
     #[as_ref([u8])]
     data: Arc<[u8]>,
-    #[as_ref]
-    profile: ColorProfile,
+    #[as_ref(ColorProfile)]
+    profile: Arc<ColorProfile>,
 }
 
 impl OutputIntent {
@@ -82,11 +84,12 @@ impl OutputIntent {
         let profile = ColorProfile::new_from_slice(&data)?;
         (profile.profile_class == ProfileClass::OutputDevice && profile.color_space == DataColorSpace::Cmyk && ICCProfile::<4>::new(&data).is_some())
             .ok_or(PdfError::Intent)
-            .map(|()| Self { data, profile })
+            .map(|()| Self { data, profile: Arc::new(profile) })
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display, strum::EnumDiscriminants)]
+#[strum_discriminants(name(Family), derive(Hash, derive_more::Display))]
 pub enum Standard {
     Archival(PdfALevel),
     Accessibility(PdfUaLevel),
@@ -105,10 +108,40 @@ pub enum Subject {
     Page(usize),
     #[display("part {_0}")]
     Part(usize),
+    #[display("metadata")]
+    Metadata,
+    #[display("outline")]
+    Outline,
+    #[display("optional content configuration")]
+    Configuration,
+    #[display("optional content group {_0}")]
+    Group(usize),
     Standard(Standard),
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
+pub enum Refusal {
+    #[display("raster fails to decode")]
+    Decode,
+    #[display("text reaches the writer unshaped")]
+    Unshaped,
+    #[display("metadata holds no element")]
+    Metadata,
+    #[display("label names two pages")]
+    Label,
+    #[display("outline entry names no page and no label")]
+    Destination,
+    #[display("attachment is embedded twice")]
+    Attachment,
+    #[display("measure unit names no length")]
+    Unit,
+    #[display("layer prints and views differently under a standard forbidding usage application")]
+    Usage,
+    #[display("document holds no layer")]
+    Group,
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum PdfError {
@@ -162,38 +195,24 @@ pub enum PdfError {
     Http(#[from] reqwest::Error),
     #[error(transparent)]
     Recognition(#[from] OcrError),
-    #[error("raster fails to decode: {0}")]
-    Decode(Arc<str>),
+    #[error("{refusal}: {name}")]
+    Named { name: Arc<str>, refusal: Refusal },
     #[error("page {index} lies past the {count} pages of the document")]
     Page { index: usize, count: usize },
     #[error("area of {} by {} encloses nothing", .0.width(), .0.height())]
     Area(Rect),
     #[error("font data of {family} holds no face {index}")]
     Font { family: Arc<str>, index: u32 },
-    #[error("text {0} reaches the writer unshaped")]
-    Unshaped(Arc<str>),
     #[error("profile describes no CMYK output device")]
     Intent,
     #[error("{0} needs output the writer cannot produce")]
     Press(PdfXLevel),
     #[error("{press} and {accessibility} require different PDF versions")]
     Versions { press: PdfXLevel, accessibility: PdfUaLevel },
-    #[error("metadata holds no {0}")]
-    Metadata(Arc<str>),
-    #[error("document claims {0}, which no validator checks")]
-    Claim(Arc<str>),
+    #[error("document claims {family} conformance {claim}, which no validator checks")]
+    Claim { family: Family, claim: Arc<str> },
     #[error("page label range at page {0} numbers from zero, where ISO 32000 starts at one")]
     Numbering(usize),
-    #[error("label {0} names two pages")]
-    Label(Arc<str>),
-    #[error("outline entry {0} names no page and no label")]
-    Destination(Arc<str>),
-    #[error("attachment {0} is embedded twice")]
-    Attachment(Arc<str>),
-    #[error("measure unit {0} names no length")]
-    Unit(Arc<str>),
-    #[error("layer {0} prints and views differently under a standard forbidding usage application")]
-    Usage(Arc<str>),
     #[error("timestamp authority answered {}", fmt::from_fn(|formatter| match .0 {
         Some(status) => write!(formatter, "status {status}"),
         None => formatter.write_str("no status and token"),
@@ -203,8 +222,6 @@ pub enum PdfError {
     Imprint,
     #[error("raster of {width} by {height} pixels exceeds addressable memory")]
     Raster { width: u64, height: u64 },
-    #[error("document holds no layer {0}")]
-    Group(Arc<str>),
     #[error("refused{}", fmt::from_fn(|formatter| .0.iter().try_for_each(|(subject, error)| write!(formatter, "\n{subject}: {}", Report::new(error)))))]
     Refused(NEVec<(Subject, Self)>),
 }
@@ -269,10 +286,10 @@ fn saved(mut structure: lopdf::Document) -> Result<Document, PdfError> {
     Document::new(bytes, None)
 }
 
-fn extent(size: Size) -> Result<krilla::geom::Size, PdfError> { krilla::geom::Size::from_wh(size.width.cast::<f32>(), size.height.cast::<f32>()).ok_or(PdfError::Area(size.to_rect())) }
+fn extent(size: Size) -> Result<geom::Size, PdfError> { geom::Size::from_wh(size.width.cast::<f32>(), size.height.cast::<f32>()).ok_or(PdfError::Area(size.to_rect())) }
 
-fn embedded(document: &Document) -> Result<krilla::pdf::PdfDocument, PdfError> {
-    krilla::pdf::Pdf::new(Arc::new(document.data().clone())).ok().map(|source| krilla::pdf::PdfDocument::new(Arc::new(source))).ok_or(PdfError::Load(LoadPdfError::Invalid))
+fn embedded(document: &Document) -> Result<pdf::PdfDocument, PdfError> {
+    pdf::Pdf::new(Arc::new(document.data().clone())).ok().map(|source| pdf::PdfDocument::new(Arc::new(source))).ok_or(PdfError::Load(LoadPdfError::Invalid))
 }
 
 fn page(document: &Document, index: usize) -> Result<&Page<'_>, PdfError> {
@@ -288,7 +305,7 @@ fn points_per_millimeter() -> f64 {
 fn frame(page: &Page<'_>) -> (Affine, Size) {
     let unit = page.raw().get::<f64>(USER_UNIT).filter(|unit| unit.is_normal() && unit.is_sign_positive()).unwrap_or(1.0) / points_per_millimeter();
     let (width, height) = page.render_dimensions();
-    (Affine::scale(unit) * page.initial_transform(true).to_kurbo(), Size::new(f64::from(width), f64::from(height)) * unit)
+    (Affine::scale(unit) * page.initial_transform(true).to_kurbo(), Size::new(f64::from(width) * unit, f64::from(height) * unit))
 }
 
 fn resolved<'held>(structure: &'held lopdf::Document, object: &'held Object) -> Result<&'held Object, lopdf::Error> {
@@ -310,7 +327,8 @@ fn nested<'held>(structure: &'held lopdf::Document, holder: &'held Dictionary, p
 
 fn leaves<K, F>(structure: &lopdf::Document, node: &Dictionary, list: &str, key: &F, ancestors: &[ObjectId]) -> Result<Vec<(K, Object)>, lopdf::Error>
 where F: Fn(&Object) -> Result<K, lopdf::Error> {
-    let own = entry(structure, node, list)?.map(Object::as_array).transpose()?.into_iter().flat_map(|pairs| pairs.as_chunks::<2>().0).map(|[name, value]| key(name).map(|name| vec![(name, value.clone())]));
+    let own =
+        entry(structure, node, list)?.map(Object::as_array).transpose()?.into_iter().flat_map(|pairs| pairs.as_chunks::<2>().0).map(|[name, value]| key(name).map(|name| vec![(name, value.clone())]));
     let kids = entry(structure, node, b"Kids")?.map(Object::as_array).transpose()?.into_iter().flatten().map(|kid| {
         let id = kid.as_reference()?;
         (!ancestors.contains(&id)).ok_or(lopdf::Error::ReferenceCycle(id))?;

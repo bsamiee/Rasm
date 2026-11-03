@@ -139,10 +139,7 @@ where P: IntoIterator<Item = usize> {
         let grouped = iter::chain(declared, undeclared)
             .map(|(Group { name, print, view }, members)| drawn(&name, &members).map(|elements| Layer { name, print, view, elements }))
             .collect::<Validated<Vec<_>, _>>();
-        drawn(&Arc::default(), &outside)
-            .map2(grouped, |elements, layers| Paths { size, elements, layers })
-            .ok()
-            .map_err(PdfError::Refused)
+        drawn(&Arc::default(), &outside).map2(grouped, |elements, layers| Paths { size, elements, layers }).ok().map_err(PdfError::Refused)
     })
 }
 

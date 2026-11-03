@@ -1,4 +1,3 @@
-use core::iter;
 use std::{io::Cursor, sync::Arc};
 
 use fast_image_resize::{ResizeOptions, Resizer};
@@ -24,7 +23,7 @@ use uom::si::{
 };
 use validated::Validated;
 
-use crate::{PdfError, Resolution};
+use crate::{PdfError, Refusal, Resolution};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -61,7 +60,8 @@ pub(crate) enum Raster {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub(crate) fn raster(bytes: &Arc<[u8]>) -> Result<Raster, PdfError> {
-    let encoded = |image: Result<Image, String>| image.map(|image| Raster::Encoded { image, bytes: Arc::clone(bytes) }).map_err(|message| PdfError::Decode(message.into()));
+    let encoded =
+        |image: Result<Image, String>| image.map(|image| Raster::Encoded { image, bytes: Arc::clone(bytes) }).map_err(|message| PdfError::Named { name: message.into(), refusal: Refusal::Decode });
     let shared: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(Arc::clone(bytes));
     match image::guess_format(bytes)? {
         ImageFormat::Tiff => decoded(&mut decoder(bytes)?).map(|(_, frame)| Raster::Frame(frame)),
@@ -117,7 +117,7 @@ pub(crate) fn image(raster: &Raster, (across, down): (u32, u32)) -> Result<Image
     };
     let custom = |frame: Frame| {
         frame.color_channel.len().checked_ilog2().is_none_or(|bits| bits < u32::BITS).ok_or_else(|| nev![PdfError::Raster { width: across.into(), height: down.into() }])?;
-        Image::from_custom(frame, false).map_err(|message| nev![PdfError::Decode(message.into())])
+        Image::from_custom(frame, false).map_err(|message| nev![PdfError::Named { name: message.into(), refusal: Refusal::Decode }])
     };
     match raster {
         Raster::Encoded { image, bytes: _ } if image.size() == (across, down) => Ok(image.clone()),

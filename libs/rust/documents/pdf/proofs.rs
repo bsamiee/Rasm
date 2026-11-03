@@ -1,4 +1,7 @@
-use core::{alloc, num::NonZero};
+use core::{
+    alloc,
+    num::{NonZero, TryFromIntError},
+};
 
 use color::{AlphaColor, Srgb, palette};
 use derive_where::derive_where;
@@ -42,14 +45,13 @@ pub struct Raster {
 
 pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<RgbaImage, PdfError> {
     let page = page(document, index)?;
-    let (frame, size) = crate::frame(page);
+    let (frame, paper) = crate::frame(page);
     let density = raster.resolution.get::<per_millimeter>();
-    let [width, height] = [size.width, size.height].map(|side| (side * density).ceil().to_int_saturating::<u64>());
-    let (columns, rows) = u32::try_from(width)
-        .ok()
-        .zip(u32::try_from(height).ok())
-        .filter(|&(columns, rows)| usize::try_from(u64::from(columns).strict_mul(u64::from(rows))).is_ok_and(|area| alloc::Layout::array::<Rgba<u8>>(area).is_ok()))
-        .ok_or(PdfError::Raster { width, height })?;
+    let [width, height] = [paper.width, paper.height].map(|side| (side * density).ceil().to_int_saturating::<u64>());
+    let (columns, rows) = match (u32::try_from(width), u32::try_from(height)) {
+        (Ok(columns), Ok(rows)) if alloc::Layout::array::<Rgba<u8>>(usize::try_from(u64::from(columns).strict_mul(u64::from(rows))).unwrap_or(usize::MAX)).is_ok() => (columns, rows),
+        (Ok(_) | Err(TryFromIntError { .. }), Ok(_) | Err(TryFromIntError { .. })) => return Err(PdfError::Raster { width, height }),
+    };
     let (background, proof) = match &raster.appearance {
         None => (palette::css::WHITE, None),
         Some(Appearance::Screen { background }) => (*background, None),
@@ -58,11 +60,14 @@ pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<Rgba
             let press: &ColorProfile = intent.as_ref();
             let options = TransformOptions { rendering_intent: *rendering, ..TransformOptions::default() };
             let display = TransformOptions { rendering_intent: RenderingIntent::RelativeColorimetric, ..options };
-            (palette::css::WHITE, Some([screen.create_transform_8bit(Layout::Rgba, press, Layout::Rgba, options)?, press.create_transform_8bit(Layout::Rgba, &screen, Layout::Rgba, display)?]))
+            (
+                palette::css::WHITE,
+                Some([(&screen, press, options), (press, &screen, display)].try_map(|(source, target, settings)| source.create_transform_8bit(Layout::Rgba, target, Layout::Rgba, settings))?),
+            )
         }
     };
     let tile = raster.tile.get();
-    let side = |origin: u32, extent: u32| u16::try_from(extent.strict_sub(origin)).map_or(tile, |rest| rest.min(tile));
+    let side = |origin: u32, extent: u32| u16::try_from(extent.strict_sub(origin)).unwrap_or(u16::MAX).min(tile);
     let cache = RenderCache::new();
     let interpreter_settings = raster.interpreter_settings.clone().unwrap_or_default();
     let render_settings = raster.render_settings.unwrap_or_default();

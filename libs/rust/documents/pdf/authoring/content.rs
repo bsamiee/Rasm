@@ -31,7 +31,7 @@ use super::{
     rasters::{self, Raster},
     tagging::Leaves,
 };
-use crate::{Document, PdfError};
+use crate::{Document, PdfError, Refusal};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -141,7 +141,7 @@ pub(crate) fn draw(surface: &mut Surface<'_>, elements: &[Element], sheet: Rect,
                     }
                     Err(errors) => Validated::Fail(errors.into_nonempty_iter().map(|error| (index, PdfError::from(error))).collect()),
                 },
-                Element::Text { text, color: _, opacity: _ } => located(Err(PdfError::Unshaped(Arc::clone(&text.content)))),
+                Element::Text { text, color: _, opacity: _ } => located(Err(PdfError::Named { name: Arc::clone(&text.content), refusal: Refusal::Unshaped })),
                 Element::Glyphs { run, color, opacity } => located(glyphs(surface, run, color, *opacity, drawing, leaves)),
                 Element::Placed { content, placement, opacity } => placed(surface, content, *placement, *opacity, drawing, leaves)
                     .map_or_else(|errors| Validated::Fail(errors.into_nonempty_iter().map(|error| (index, error)).collect()), Validated::Good),

@@ -1,5 +1,5 @@
+use core::{borrow::Borrow, convert, iter};
 use std::{
-    borrow::Borrow,
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
@@ -9,9 +9,11 @@ use lopdf::{
     content::{Content, Operation},
     decode_text_string, dictionary, text_string,
 };
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use rasm_linework::Visibility;
+use validated::Validated;
 
-use crate::{Document, PdfError, Standard, conformance, entry};
+use crate::{Document, PdfError, Refusal, Standard, Subject, conformance, entry};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -42,7 +44,7 @@ pub struct Group {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn groups(document: &Document) -> Result<Vec<Group>, PdfError> {
-    crate::structure(document).and_then(|structure| entries(&structure).map_err(PdfError::from)).map(|held| held.into_iter().map(|(_, group)| group).collect())
+    crate::structure(document).and_then(|structure| entries(&structure)).map(|held| held.into_iter().map(|(_, group)| group).collect())
 }
 
 pub fn set<I>(document: &Document, groups: I) -> Result<Document, PdfError>
@@ -52,13 +54,16 @@ where I: IntoIterator<Item: Borrow<Group>> {
     let requested = groups.into_iter().collect::<Vec<_>>();
     let wanted = requested.iter().map(Borrow::<Group>::borrow).collect::<Vec<_>>();
     let present = held.iter().map(|(_, group)| &*group.name).collect::<HashSet<_>>();
-    wanted.iter().find(|group| !present.contains(&*group.name)).map_or(Ok(()), |missing| Err(PdfError::Group(Arc::clone(&missing.name))))?;
+    wanted.iter().find(|group| !present.contains(&*group.name)).map_or(Ok(()), |missing| Err(PdfError::Named { name: Arc::clone(&missing.name), refusal: Refusal::Group }))?;
     if held.is_empty() {
         return Ok(document.clone());
     }
     let named = wanted.iter().map(|&group| (&*group.name, group)).collect::<HashMap<_, _>>();
-    let ocgs = held.into_iter().map(|(id, present)| (id, named.get(&*present.name).map_or(present, |&group| group.clone()))).collect::<Vec<_>>();
-    let forbids = conformance::declared(&structure)?.iter().any(|claim| matches!(claim, Ok(Standard::Archival(_) | Standard::Accessibility(_))));
+    let ocgs = held.into_iter().map(|(id, stated)| (id, named.get(&*stated.name).map_or(stated, |&group| group.clone()))).collect::<Vec<_>>();
+    let forbids = conformance::declared(&structure)?.0.iter().any(|standard| match standard {
+        Standard::Archival(_) | Standard::Accessibility(_) => true,
+        Standard::Press(_) => false,
+    });
     permitted(ocgs.iter().map(|(_, group)| group), forbids)?;
     ocgs.iter().try_for_each(|(id, group)| stamp(&mut structure, *id, group))?;
     configure(&mut structure, &ocgs, forbids)?;
@@ -77,7 +82,8 @@ pub(crate) fn bind(structure: &mut lopdf::Document, pages: &[Vec<Group>], forbid
     let ocgs = registered.into_iter().map(|(group, id)| (id, group.clone())).collect::<BTreeMap<_, _>>().into_iter().collect::<Vec<_>>();
     ocgs.iter().try_for_each(|(id, group)| stamp(structure, *id, group))?;
     let resource = |id: ObjectId| format!("oc{}", id.0);
-    structure.page_iter().collect::<Vec<_>>().into_iter().zip(bound).filter(|(_, layers)| !layers.is_empty()).try_for_each(|(page, layers)| {
+    let sheets = structure.page_iter().collect::<Vec<_>>();
+    iter::zip(sheets, bound).filter(|(_, layers)| !layers.is_empty()).try_for_each(|(page, layers)| {
         let mut pending = layers.iter().copied().peekable();
         let operations = structure
             .get_and_decode_page_content(page)?
@@ -98,10 +104,10 @@ pub(crate) fn bind(structure: &mut lopdf::Document, pages: &[Vec<Group>], forbid
 }
 
 fn permitted<'group>(groups: impl IntoIterator<Item = &'group Group>, forbids: bool) -> Result<(), PdfError> {
-    groups.into_iter().find(|group| forbids && group.print != group.view).map_or(Ok(()), |group| Err(PdfError::Usage(Arc::clone(&group.name))))
+    groups.into_iter().find(|group| forbids && group.print != group.view).map_or(Ok(()), |group| Err(PdfError::Named { name: Arc::clone(&group.name), refusal: Refusal::Usage }))
 }
 
-fn entries(structure: &lopdf::Document) -> Result<Vec<(ObjectId, Group)>, lopdf::Error> {
+fn entries(structure: &lopdf::Document) -> Result<Vec<(ObjectId, Group)>, PdfError> {
     let Some(properties) = entry(structure, structure.catalog()?, PROPERTIES)?.map(Object::as_dict).transpose()? else {
         return Ok(Vec::new());
     };
@@ -121,25 +127,44 @@ fn entries(structure: &lopdf::Document) -> Result<Vec<(ObjectId, Group)>, lopdf:
             .try_collect::<Vec<_>>()
             .map(|lists| lists.into_iter().flatten().collect::<HashSet<_>>())
     };
-    let (on, off, viewed, printed) = (listed(configuration, ON)?, listed(configuration, OFF)?, applied(VIEW)?, applied(PRINT)?);
+    let (on, off, viewed, printed) = Validated::from(listed(configuration, ON))
+        .map4(Validated::from(listed(configuration, OFF)), Validated::from(applied(VIEW)), Validated::from(applied(PRINT)), |on, off, viewed, printed| (on, off, viewed, printed))
+        .ok()
+        .map_err(|errors| PdfError::Refused(errors.into_nonempty_iter().map(|error| (Subject::Configuration, PdfError::from(error))).collect()))?;
     let based_off = entry(structure, configuration, "BaseState")?.map(Object::as_name).transpose()? == Some(OFF.as_bytes());
     let visibility = |shown: bool| if shown { Visibility::Visible } else { Visibility::Hidden };
     let stated = |ocg: &Dictionary, applying: bool, category: &str, key: &str| -> Result<Option<Visibility>, lopdf::Error> {
-        Ok(if applying { crate::nested(structure, ocg, &[USAGE.as_bytes(), category.as_bytes()])?.map(|usage| entry(structure, usage, key)).transpose()?.flatten().map(Object::as_name).transpose()?.map(|state| visibility(state != OFF.as_bytes())) } else { None })
+        Ok(if applying {
+            crate::nested(structure, ocg, &[USAGE.as_bytes(), category.as_bytes()])?
+                .map(|usage| entry(structure, usage, key))
+                .transpose()?
+                .flatten()
+                .map(Object::as_name)
+                .transpose()?
+                .map(|state| visibility(state != OFF.as_bytes()))
+        } else {
+            None
+        })
     };
     entry(structure, properties, GROUPS)?
         .map_or(Ok(&[][..]), |list| list.as_array().map(Vec::as_slice))?
         .iter()
-        .map(|reference| {
-            let id = reference.as_reference()?;
-            let ocg = structure.get_dictionary(id)?;
-            let view = stated(ocg, viewed.contains(&id), VIEW, VIEW_STATE)?.unwrap_or_else(|| visibility(if based_off { on.contains(&id) } else { !off.contains(&id) }));
-            Ok::<_, lopdf::Error>((
-                id,
-                Group { name: Arc::from(decode_text_string(ocg.get_deref(NAME.as_bytes(), structure)?)?), print: stated(ocg, printed.contains(&id), PRINT, PRINT_STATE)?.unwrap_or(view), view },
-            ))
+        .enumerate()
+        .map(|(index, reference)| {
+            let located = |errors: NEVec<lopdf::Error>| errors.into_nonempty_iter().map(|error| (Subject::Group(index), PdfError::from(error))).collect::<NEVec<_>>();
+            let id = reference.as_reference().map_err(|error| located(NEVec::new(error)))?;
+            let ocg = structure.get_dictionary(id).map_err(|error| located(NEVec::new(error)))?;
+            Validated::from(ocg.get_deref(NAME.as_bytes(), structure).and_then(decode_text_string))
+                .map3(Validated::from(stated(ocg, viewed.contains(&id), VIEW, VIEW_STATE)), Validated::from(stated(ocg, printed.contains(&id), PRINT, PRINT_STATE)), |name, view, print| {
+                    let view = view.unwrap_or_else(|| visibility(if based_off { on.contains(&id) } else { !off.contains(&id) }));
+                    (id, Group { name: Arc::from(name), print: print.unwrap_or(view), view })
+                })
+                .ok()
+                .map_err(located)
         })
-        .try_collect::<Vec<_>>()
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
+        .map_err(|errors| PdfError::Refused(errors.into_nonempty_iter().flat_map(convert::identity).collect()))
 }
 
 fn stamp(structure: &mut lopdf::Document, id: ObjectId, group: &Group) -> Result<(), lopdf::Error> {
@@ -207,4 +232,6 @@ fn applications<'structure>(structure: &'structure lopdf::Document, configuratio
         .map_or(Ok(Vec::new()), |list| list.as_array()?.iter().map(|listed| crate::resolved(structure, listed).and_then(Object::as_dict)).try_collect::<Vec<_>>())
 }
 
-fn subdictionary(structure: &lopdf::Document, parent: &Dictionary, key: &str) -> Result<Dictionary, lopdf::Error> { crate::nested(structure, parent, &[key.as_bytes()]).map(|found| found.cloned().unwrap_or_default()) }
+fn subdictionary(structure: &lopdf::Document, parent: &Dictionary, key: &str) -> Result<Dictionary, lopdf::Error> {
+    crate::nested(structure, parent, &[key.as_bytes()]).map(|found| found.cloned().unwrap_or_default())
+}

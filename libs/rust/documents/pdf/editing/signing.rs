@@ -78,7 +78,9 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
             .filter(|name| !taken.contains(name))
             .take(if level == PadesLevel::BLta { 2 } else { 1 })
             .map(|name| {
-                update.new_document.try_add_object(dictionary! { "Type" => "Annot", "Subtype" => "Widget", "FT" => "Sig", "T" => text_string(&name), "F" => PRINT_LOCKED, "Rect" => vec![Object::from(0); 4], "P" => page })
+                update.new_document.try_add_object(
+                    dictionary! { "Type" => "Annot", "Subtype" => "Widget", "FT" => "Sig", "T" => text_string(&name), "F" => PRINT_LOCKED, "Rect" => vec![Object::from(0); 4], "P" => page },
+                )
             })
             .try_collect::<Vec<_>>()?;
         let listed = widgets.iter().copied().map(Object::Reference).collect::<Vec<_>>();

@@ -14,7 +14,7 @@ use moxcms::{ColorProfile, ProfileText};
 use pdf_oxide::compliance::{PdfUaLevel, PdfXLevel};
 use xot::{NameId, Node, Xot};
 
-use crate::{GTS_PDFX_VERSION, OutputIntent, PART, PDFUAID_NAMESPACE, PDFXID_NAMESPACE, PdfError};
+use crate::{GTS_PDFX_VERSION, OutputIntent, PART, PDFUAID_NAMESPACE, PDFXID_NAMESPACE, PdfError, Refusal};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -160,7 +160,7 @@ fn metadata(structure: &mut lopdf::Document, standards: &Standards) -> Result<()
     let element = |xot: &Xot, root: Node, name: NameId| {
         xot.descendants(root)
             .find(|&node| xot.element(node).is_some_and(|held| held.name() == name))
-            .ok_or_else(|| PdfError::Metadata(Arc::from(xot.name_ns_str(name).0)))
+            .ok_or_else(|| PdfError::Named { name: Arc::from(xot.name_ns_str(name).0), refusal: Refusal::Metadata })
     };
     let stream = structure.catalog()?.get(METADATA)?.as_reference()?;
     let packet = structure.get_object(stream)?.as_stream()?.get_plain_content()?;

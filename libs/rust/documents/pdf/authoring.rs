@@ -27,7 +27,7 @@ use validated::Validated;
 
 use self::{content::Drawing, standards::Standards, tagging::Leaves};
 use crate::{
-    Document, PdfError, Resolution, Subject,
+    Document, PdfError, Refusal, Resolution, Subject,
     layers::{self, Group},
     measurement,
     navigation::{self, Navigation},
@@ -59,8 +59,7 @@ where I: IntoNonEmptyIterator<Item: Borrow<Page>> {
     let (count, scale) = (sheets.len(), crate::points_per_millimeter());
     let annotation = |link: &Link| {
         let area = link.area.abs().scale_from_origin(scale);
-        let quad = geom::Rect::from_ltrb(area.x0.cast::<f32>(), area.y0.cast::<f32>(), area.x1.cast::<f32>(), area.y1.cast::<f32>())
-            .ok_or(PdfError::Area(link.area))?;
+        let quad = geom::Rect::from_ltrb(area.x0.cast::<f32>(), area.y0.cast::<f32>(), area.x1.cast::<f32>(), area.y1.cast::<f32>()).ok_or(PdfError::Area(link.area))?;
         let (target, alt) = match &link.destination {
             Destination::Uri(uri) => (Target::Action(LinkAction::new(uri.to_string()).into()), uri.to_string()),
             Destination::Page { index, area: anchor } => {
@@ -161,7 +160,9 @@ fn opened(settings: SerializeSettings, options: &Options) -> Result<krilla::Docu
     document.set_metadata(options.metadata.clone().creation_date(created));
     document.set_outline(Outline::new());
     options.attachments.iter().try_for_each(|file| {
-        document.embed_file(EmbeddedFile { modification_date: file.modification_date.or(Some(created)), ..file.clone() }).ok_or_else(|| PdfError::Attachment(Arc::from(file.path.as_str())))
+        document
+            .embed_file(EmbeddedFile { modification_date: file.modification_date.or(Some(created)), ..file.clone() })
+            .ok_or_else(|| PdfError::Named { name: Arc::from(file.path.as_str()), refusal: Refusal::Attachment })
     })?;
     Ok(document)
 }
@@ -180,7 +181,8 @@ fn closed(document: krilla::Document, sheets: &[&Page], groups: &[Vec<Group>], o
 }
 
 fn dimensioned(paper: Size) -> Result<(PageSettings, geom::Size), PdfError> {
-    let size = crate::extent(paper * crate::points_per_millimeter())?;
+    let scale = crate::points_per_millimeter();
+    let size = crate::extent(Size::new(paper.width * scale, paper.height * scale))?;
     Ok((PageSettings::new(size).with_trim_box(geom::Rect::from_xywh(0.0, 0.0, size.width(), size.height())), size))
 }
 
