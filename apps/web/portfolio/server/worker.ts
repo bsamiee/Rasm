@@ -11,4 +11,12 @@ import { catalog } from '#/server/store/catalog.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default worker(config.worker({ mode: 'production', isPreview: false }), (env) => app(env.OWNER_EMAIL, Layer.mergeAll(Catalog.layer(catalog, (options) => D1Client.layer({ db: env.DB, ...options })), ObjectStorage.r2(env.BUCKET))).pipe(Layer.merge(Access.middleware(sites))));
+export default worker(config.worker({ mode: 'production', isPreview: false }), (env) =>
+    app(
+        env.OWNER_EMAIL,
+        Layer.mergeAll(
+            Catalog.layer(catalog, (options) => D1Client.layer({ db: env.DB, ...options })),
+            ObjectStorage.r2(env.BUCKET),
+        ),
+    ).pipe(Layer.merge(Access.middleware(sites))),
+);

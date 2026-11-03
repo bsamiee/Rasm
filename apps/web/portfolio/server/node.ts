@@ -10,4 +10,12 @@ import { catalog } from '#/server/store/catalog.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-server(config.worker({ mode: 'production', isPreview: false }), (env) => app(env.OWNER_EMAIL, Layer.mergeAll(Catalog.layer(catalog, (options) => SqliteClient.layer({ filename: env.DB, ...options })), ObjectStorage.s3(env.BUCKET, { forcePathStyle: true })))).pipe(Layer.launch, NodeRuntime.runMain);
+server(config.worker({ mode: 'production', isPreview: false }), (env) =>
+    app(
+        env.OWNER_EMAIL,
+        Layer.mergeAll(
+            Catalog.layer(catalog, (options) => SqliteClient.layer({ filename: env.DB, ...options })),
+            ObjectStorage.s3(env.BUCKET, { forcePathStyle: true }),
+        ),
+    ),
+).pipe(Layer.launch, NodeRuntime.runMain);

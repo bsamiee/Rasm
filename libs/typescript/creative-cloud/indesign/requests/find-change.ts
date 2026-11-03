@@ -1,4 +1,4 @@
-import type { Document, InDesignDOMObject, PageItem, Text } from 'adobe:indesign';
+import type { Application, Document, InDesignDOMObject, PageItem, Text } from 'adobe:indesign';
 import { HostError } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/runtime';
@@ -12,67 +12,47 @@ import { write } from '#/requests/change';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const modes = {
-    Text: { find: 'findText', change: 'changeText', preferences: { find: 'findTextPreferences', change: 'changeTextPreferences', options: 'findChangeTextOptions' } },
-    Grep: { find: 'findGrep', change: 'changeGrep', preferences: { find: 'findGrepPreferences', change: 'changeGrepPreferences', options: 'findChangeGrepOptions' } },
-    Glyph: { find: 'findGlyph', change: 'changeGlyph', preferences: { find: 'findGlyphPreferences', change: 'changeGlyphPreferences', options: 'findChangeGlyphOptions' } },
-    Object: { find: 'findObject', change: 'changeObject', preferences: { find: 'findObjectPreferences', change: 'changeObjectPreferences', options: 'findChangeObjectOptions' } },
-    Color: { find: 'findColor', change: 'changeColor', preferences: { find: 'findColorPreferences', change: 'changeColorPreferences', options: 'findChangeColorOptions' } },
-    Transliterate: { find: 'findTransliterate', change: 'changeTransliterate', preferences: { find: 'findTransliteratePreferences', change: 'changeTransliteratePreferences', options: 'findChangeTransliterateOptions' } },
-} as const satisfies Record<FindChange['mode'], { readonly find: string; readonly change: string; readonly preferences: Record<'find' | 'change' | 'options', string> }>;
+    Text: { find: 'findText', change: 'changeText', preferences: ['findTextPreferences', 'findChangeTextOptions', 'changeTextPreferences'] },
+    Grep: { find: 'findGrep', change: 'changeGrep', preferences: ['findGrepPreferences', 'findChangeGrepOptions', 'changeGrepPreferences'] },
+    Glyph: { find: 'findGlyph', change: 'changeGlyph', preferences: ['findGlyphPreferences', 'findChangeGlyphOptions', 'changeGlyphPreferences'] },
+    Object: { find: 'findObject', change: 'changeObject', preferences: ['findObjectPreferences', 'findChangeObjectOptions', 'changeObjectPreferences'] },
+    Color: { find: 'findColor', change: 'changeColor', preferences: ['findColorPreferences', 'findChangeColorOptions', 'changeColorPreferences'] },
+    Transliterate: { find: 'findTransliterate', change: 'changeTransliterate', preferences: ['findTransliteratePreferences', 'findChangeTransliterateOptions', 'changeTransliteratePreferences'] },
+} as const satisfies Record<FindChange['mode'], { readonly find: keyof Document; readonly change: keyof Document; readonly preferences: readonly [keyof Application, keyof Application, keyof Application] }>;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const held = Effect.fnUntraced(function* (member: (typeof modes)[keyof typeof modes]['preferences']['find' | 'change' | 'options']) {
+const held = Effect.fnUntraced(function* (member: (typeof modes)[FindChange['mode']]['preferences'][number]) {
     const model = yield* Model;
     const { app, NothingEnum } = model;
     const target = app[member];
     const { fields } = yield* Cache.get(model.declarations, target.constructorName);
     const current = (name: string) => Option.filter(Option.liftThrowable((): unknown => Reflect.get(target, name))(), Predicate.not(model.nothing));
     const writable = Record.filter(fields, (row, name) => row.settable && !model.collectionField(row) && Option.isNone(row.unavailable) && name !== Dictionary.aggregate);
-    return yield* Effect.acquireRelease(
-        Effect.sync(() => Record.getSomes(Record.map(writable, (_, name) => current(name)))),
-        (saved) =>
-            Effect.try({ try: () => Object.assign(app, { [member]: NothingEnum.NOTHING })[member], catch: HostError.refused(`reset of ${member}`) }).pipe(
-                Effect.orDie,
-                Effect.flatMap((reset) => Uxp.restore(reset, saved)),
-            ),
+    const reset = Effect.try({ try: () => Object.assign(app, { [member]: NothingEnum.NOTHING })[member], catch: HostError.refused(`reset of ${member}`) });
+    return yield* Effect.acquireRelease(Effect.sync(() => Record.getSomes(Record.map(writable, (_, name) => current(name)))).pipe(Effect.tap(() => reset)), (saved) =>
+        reset.pipe(
+            Effect.orDie,
+            Effect.flatMap((cleared) => Uxp.restore(cleared, saved)),
+        ),
     );
 });
 const search = Effect.fnUntraced(function* ({ mode, find: sought, change: replacing, options }: Pick<FindChange, 'mode' | 'find' | 'change' | 'options'>, located: unknown) {
     const { find, change, preferences } = modes[mode];
     const model = yield* Model;
-    const { app, enumerator, NothingEnum } = model;
-    yield* Effect.forEach(Object.values(preferences), held, { discard: true });
-    yield* Effect.try({
-        try: () =>
-            Object.assign(
-                app,
-                Record.mapEntries(preferences, (member) => [member, NothingEnum.NOTHING]),
-            ),
-        catch: HostError.refused(`reset of ${mode} preferences`),
-    });
-    const counted = Match.type<number | readonly unknown[]>().pipe(
-        Match.when(Predicate.isNumber, identity<number>),
-        Match.orElse((items) => items.length),
-    );
+    const { app, enumerator } = model;
+    yield* Effect.forEach(preferences, held, { discard: true });
+    const counted = Match.type<number | readonly unknown[]>().pipe(Match.when(Predicate.isNumber, identity<number>), Match.orElse(Array.length));
     const rendered = (contents: unknown): string => Array.map(Array.ensure(contents), (each) => (enumerator(each) ? `<${String(each)}>` : String(each))).join('');
     const searched = model.owning<InDesignDOMObject<unknown> & Pick<Document, typeof find | typeof change>>(change);
     const scopes = yield* Effect.forEach(
         Array.ensure(located),
         flow(
             Option.liftPredicate(searched),
-            Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: Option.liftPredicate(located, model.domObject).pipe(Option.map((each) => each.toSpecifier())) })),
+            Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: Option.map(Option.liftPredicate(located, model.domObject), (target) => target.toSpecifier()) })),
         ),
     );
-    yield* Effect.forEach(
-        [
-            [preferences.find, sought],
-            [preferences.options, options],
-            [preferences.change, replacing],
-        ] as const,
-        ([target, fields]) => Effect.transposeOption(Option.map(fields, (values) => write(app[target], values))),
-        { discard: true },
-    );
+    yield* Effect.forEach(Array.zip(preferences, [sought, options, replacing]), ([target, fields]) => Effect.transposeOption(Option.map(fields, (values) => write(app[target], values))), { discard: true });
     const describe = (hit: Text | PageItem) => {
         const frame = model.text(hit) ? hit.parentTextFrames[0] : undefined;
         return model.text(hit) ? { specifier: hit.toSpecifier(), text: rendered(hit.contents), page: frame !== undefined && frame.constructorName !== 'TextPath' ? frame.parentPage?.name : undefined } : { specifier: hit.toSpecifier(), page: model.item(hit) ? hit.parentPage?.name : undefined };

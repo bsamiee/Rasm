@@ -5,17 +5,6 @@ import Subprocess
 import System
 import Testing
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-private func usage(running script: String) async throws -> ResourceUsage {
-    try await child(running: script + "; echo ready; read _") { process, _, execution in
-        let usage: ResourceUsage = try ResourceUsage(of: process)
-        try execution.send(signal: .kill)
-        return usage
-    }
-    .value
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 @Suite(.timeLimit(.minutes(1)))
@@ -30,6 +19,14 @@ struct ResourceUsages {
 
     @Test
     func footprintAndCPUTimeGrowByWorkChildDid() async throws {
+        func usage(running script: String) async throws -> ResourceUsage {
+            try await child(running: script + "; echo ready; read _") { process, _, execution in
+                let usage: ResourceUsage = try ResourceUsage(of: process)
+                try execution.send(signal: .kill)
+                return usage
+            }
+            .value
+        }
         let plain: ResourceUsage = try await usage(running: "true")
         let holding: ResourceUsage = try await usage(running: "held=$(/usr/bin/head -c 50000000 /dev/zero | /usr/bin/tr '\\0' a); [ ${#held} -eq 50000000 ]")
         #expect(holding.footprint - plain.footprint >= 50_000_000, "plain \(plain.footprint), holding \(holding.footprint)")

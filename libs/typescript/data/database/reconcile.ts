@@ -48,7 +48,15 @@ const identifier = (parts: readonly string[]) => {
 // --- [REFUSALS]
 const finding = (table: string, columns: readonly string[], reason: Finding['reason']): Finding => ({ table, columns, reason });
 const unsupported = <C extends { readonly name: string }>(owner: string, refusal: Refusal, rows: readonly C[], refuses: (row: C) => boolean): readonly Finding[] =>
-    rows.some(refuses) ? [finding(owner, rows.filter(refuses).map(({ name }) => name), { _tag: 'Unsupported', refusal })] : [];
+    rows.some(refuses)
+        ? [
+              finding(
+                  owner,
+                  rows.filter(refuses).map(({ name }) => name),
+                  { _tag: 'Unsupported', refusal },
+              ),
+          ]
+        : [];
 const declaredRefusals = ({ name: owner, key, references, columns, indexes, search }: Relation) => {
     const [all, linked] = [Object.values(columns), [...key, ...references.flatMap((reference) => reference.columns)]];
     const conditions = [...indexes.flatMap(({ where }) => where), ...all.flatMap(({ projection }) => Option.toArray(projection).flatMap((projected) => (projected._tag === 'Where' ? projected.where : [])))];

@@ -2,7 +2,7 @@ import type { InsertionPoint, Text, TextDefault } from 'adobe:indesign';
 import { HostError } from '@rasm/automation/requests';
 import type { Adjust, Kerns, Runs, Typeset } from '@rasm/automation/typesetting';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Effect, Option, Predicate, Record, Schema } from 'effect';
+import { Array, Effect, flow, Option, Predicate, Record, Schema } from 'effect';
 import { HostSettings } from '#/documents/settings';
 import { Model } from '#/dom/model';
 import { Specifier } from '#/dom/specifier';
@@ -56,7 +56,7 @@ const adjust = Effect.fn('adjust')(function* (payload: Adjust) {
         catch: HostError.refused(`style runs of ${target.toSpecifier()}`),
     });
     const kerned = yield* Effect.try({ try: () => Array.map(points, (point) => [point, { kerningValue: (point.kerningMethod === manual ? point.kerningValue : 0) + encoded.kerning }] as const), catch: HostError.refused(`kerning of ${target.toSpecifier()}`) });
-    return yield* written(payload.label, target, Effect.forEach([...sums, ...kerned], ([run, values]) => write(run, values)).pipe(Effect.map((names) => Array.dedupe(Array.flatten(names)))));
+    return yield* written(payload.label, target, Effect.forEach([...sums, ...kerned], ([run, values]) => write(run, values)).pipe(Effect.map(flow(Array.flatten, Array.dedupe))));
 });
 const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
     const [text, manual, rows] = yield* Effect.all([Effect.flatMap(resolveTarget(payload.target), textRange), manualKerning, Effect.orDie(Schema.encodeEffect(Kerned)(payload.kerns))]);

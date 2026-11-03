@@ -110,7 +110,7 @@ const Failure = Schema.Union([Unmatched, HostError, IllegalArgument, Schema.Erro
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const named = (file: URL) => decodeURIComponent(file.pathname.slice(file.pathname.lastIndexOf('/') + 1));
+const named = (file: Open['file']) => decodeURIComponent(file.pathname.slice(file.pathname.lastIndexOf('/') + 1));
 const request = <const Tag extends string, Payload extends Schema.Top & { readonly Result: Schema.Top }>(tag: Tag, payload: Payload) => Rpc.make<Tag, Payload, Payload['Result'], typeof Failure>(tag, { payload, success: payload.Result, error: Failure });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

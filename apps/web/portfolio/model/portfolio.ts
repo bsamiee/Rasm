@@ -28,7 +28,12 @@ const PortfolioStructure = Schema.Struct({
 });
 const uniqueIds = Schema.makeFilter(({ entries = [] }: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
     [{ path: ['entries'], ids: entries.map(({ id }) => id) }, ...entries.map(({ compositions = [] }, index) => ({ path: ['entries', index, 'compositions'], ids: compositions.map(({ id }) => id) }))].flatMap(({ path, ids }) =>
-        Function.pipe(Array.groupBy(ids, Function.identity), Record.filter((repeats) => repeats.length > 1), Record.keys, Array.match({ onEmpty: () => [], onNonEmpty: (repeated) => [{ path, issue: `IDs repeat: ${repeated.join(', ')}` }] })),
+        Function.pipe(
+            Array.groupBy(ids, Function.identity),
+            Record.filter((repeats) => repeats.length > 1),
+            Record.keys,
+            Array.match({ onEmpty: () => [], onNonEmpty: (repeated) => [{ path, issue: `IDs repeat: ${repeated.join(', ')}` }] }),
+        ),
     ),
 );
 const Portfolio = PortfolioStructure.check(uniqueIds);

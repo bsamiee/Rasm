@@ -43,7 +43,15 @@ const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: O
     yield* Array.match([...Reconcile.refusals(catalog), ...catalog.tables.flatMap((relation) => engine.refusals(relation))], { onEmpty: () => Effect.void, onNonEmpty: (findings) => Effect.fail(ReconcileError.make({ findings })) });
     const steps = engine.plan(client.withoutTransforms(), catalog, runtime);
     const applied = Effect.tap(steps, after);
-    return yield* Option.isNone(d1) ? client.withTransaction(applied) : Effect.catchTag(applied, 'SqlError', (error) => Effect.filterOrFail(steps, ({ statements }) => Array.isReadonlyArrayEmpty(statements), () => error));
+    return yield* Option.isNone(d1)
+        ? client.withTransaction(applied)
+        : Effect.catchTag(applied, 'SqlError', (error) =>
+              Effect.filterOrFail(
+                  steps,
+                  ({ statements }) => Array.isReadonlyArrayEmpty(statements),
+                  () => error,
+              ),
+          );
 });
 const concurrently = Effect.fnUntraced(function* (session: readonly { readonly name: string; readonly value: string }[], statements: Array.NonEmptyReadonlyArray<Statement.Statement<object>>) {
     const sql = yield* SqlClient.SqlClient;
@@ -52,7 +60,7 @@ const concurrently = Effect.fnUntraced(function* (session: readonly { readonly n
     return yield* Effect.acquireUseRelease(
         Effect.forEach(session, ({ name, value }) => run(sql`SELECT set_config(${name}, ${value}, false)`), { discard: true }),
         () => Effect.forEach(statements, run, { discard: true }),
-        () => Effect.orDie(Effect.forEach(session, ({ name }) => run(sql`RESET ${sql.literal(name)}`), { discard: true })),
+        () => Effect.orDie(Effect.forEach(session, ({ name }) => run(sql`SELECT set_config(name, reset_val, false) FROM pg_settings WHERE name = ${name}`), { discard: true })),
     );
 }, Effect.scoped);
 const start = Effect.fnUntraced(function* <M, N>(catalog: Catalog, migrator: Option.Option<Layer.Layer<SqlClient.SqlClient, M, N>>) {

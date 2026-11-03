@@ -9,7 +9,7 @@ const Field = Object.assign(
     ({ label, description, multiline = false, placeholder, ...props }: Omit<TextFieldProps, 'children'> & { readonly label: string; readonly description?: string; readonly multiline?: boolean; readonly placeholder?: string }) => (
         <TextField {...props}>
             <Label>{label}</Label>
-            {multiline ? <TextArea placeholder={placeholder} /> : <Input placeholder={placeholder} />}
+            {multiline ? <TextArea placeholder={placeholder} /> : <Input {...(placeholder === undefined ? {} : { placeholder })} />}
             <Field.Help description={description} />
         </TextField>
     ),
@@ -24,7 +24,14 @@ const Field = Object.assign(
             <Slider {...props}>
                 <Label>{label}</Label>
                 <SliderOutput />
-                <SliderTrack>{({ state }) => Array.makeBy(state.values.length, (index) => thumbs?.[index]).map((thumb, index) => (thumb === undefined ? <SliderThumb index={index} key={index} /> : <SliderThumb aria-label={thumb} index={index} key={index} />))}</SliderTrack>
+                <SliderTrack>
+                    {({ state }) =>
+                        Array.makeBy(state.values.length, (index) => {
+                            const thumb = thumbs?.[index];
+                            return thumb === undefined ? <SliderThumb index={index} key={index} /> : <SliderThumb aria-label={thumb} index={index} key={index} />;
+                        })
+                    }
+                </SliderTrack>
             </Slider>
         ),
         Checkbox: ({ children, ...props }: Omit<CheckboxFieldProps, 'children'> & { readonly children?: ReactNode }) => (

@@ -31,27 +31,23 @@ const applicationView = Model.view(
             ),
         );
         const window = Option.liftThrowable(() => app.activeWindow.toSpecifier())();
-        return yield* Model.read(ApplicationView, app.toSpecifier(), () => {
-            const panels = app.panels.everyItem();
-            return {
-                _tag: 'Application',
-                ...Model.referenceUnsafe(app),
-                version: app.version,
-                tool: app.toolBoxTools.currentTool,
-                panels: Array.filterMap(Array.zip(panels.visible, panels.name), ([visible, name]) => (visible ? Result.succeed(name) : Result.failVoid)),
-                documents: summaries,
-                current: Option.map(opened, (document) => ({
-                    document: document.toSpecifier(),
-                    window,
-                    selection,
-                    overset: overset(document),
-                    undo: { mode: app.activeScriptUndoMode, name: document.undoName, history: document.undoHistory },
-                })),
-            };
-        });
+        return yield* Model.read(ApplicationView, app.toSpecifier(), () => ({
+            _tag: 'Application',
+            ...Model.referenceUnsafe(app),
+            version: app.version,
+            tool: app.toolBoxTools.currentTool,
+            panels: Array.getSomes(Array.map(Array.range(0, app.panels.length - 1), (index) => Option.map(Option.filter(Option.fromUndefinedOr(app.panels.item(index)), Struct.get('visible')), Struct.get('name')))),
+            documents: summaries,
+            current: Option.map(opened, (document) => ({
+                document: document.toSpecifier(),
+                window,
+                selection,
+                overset: overset(document),
+                undo: { mode: app.activeScriptUndoMode, name: document.undoName, history: document.undoHistory },
+            })),
+        }));
     }),
 );
-const views = [applicationView, documentView, pageView, spreadView, layerView, styleView, swatchView, linkView, storyView, textView, fontView, preflightView] as const;
 const accessors = (found: InDesignDOMObject<unknown>) =>
     pipe(
         Array.flatMap(Uxp.members(Object.getPrototypeOf(found)), ({ fields }) => fields),
@@ -83,7 +79,7 @@ const values = Effect.fn('values')(function* (found: InDesignDOMObject<unknown>,
 const object = Effect.fn('object')(function* (found: InDesignDOMObject<unknown>, fields: Option.Option<readonly string[]>, slice: Slice) {
     const model = yield* Model;
     const { fields: own } = yield* Cache.get(model.declarations, found.constructorName);
-    const viewed = Option.firstSomeOf(views.map((each) => each(model, found, slice)));
+    const viewed = Option.firstSomeOf(([applicationView, documentView, pageView, spreadView, layerView, styleView, swatchView, linkView, storyView, textView, fontView, preflightView] as const).map((each) => each(model, found, slice)));
     const view = Option.isSome(viewed) ? Option.some(yield* viewed.value) : Option.none();
     const entries = yield* values(
         found,

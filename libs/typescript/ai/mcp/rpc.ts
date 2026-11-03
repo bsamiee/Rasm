@@ -3,7 +3,7 @@ import { McpSchema, McpServer, Tool } from 'effect/ai';
 import { Url, UrlParams } from 'effect/http';
 import type { Rpc, RpcGroup } from 'effect/rpc';
 import { Resource } from '#/resource';
-import { Route } from '#/route';
+import { complete, partial, Route } from '#/route';
 import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
     }: {
         readonly tools: { readonly [Tag in Rpcs['_tag']]?: ToolRow<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>> };
         readonly resources: { readonly [Tag in Rpcs['_tag']]?: ResourceRow<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>, keyof Rpc.ExtractTag<Rpcs, Tag>['payloadSchema']['fields'] & string> };
-        readonly route: (tag: Rpcs['_tag']) => Route<Chosen, Fields, R> & { readonly serves: (chosen: Chosen) => boolean; readonly completion: { readonly [Key in keyof Fields]?: (input: string, given: Partial<Schema.Struct.Type<Fields>>) => Effect.Effect<readonly string[], Error, R> } };
+        readonly route: <Tag extends Rpcs['_tag']>(tag: Tag) => Route<Chosen, Fields, R> & { readonly serves: (chosen: Chosen) => boolean; readonly completion: { readonly [Key in keyof Fields]?: (input: string, given: Partial<Schema.Struct.Type<Fields>>) => Effect.Effect<readonly string[], Error, R> } };
         readonly invoke: (rpc: Rpcs) => (payload: Rpc.Payload<Rpcs>, chosen: Chosen) => Effect.Effect<Rpc.Success<Rpcs>, Error, R>;
     },
 ) {
@@ -42,6 +42,7 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
             Server.orInternalError,
             Effect.provideContext(services),
         );
+    const present = <V>(rows: Readonly<Record<string, V | undefined>>) => Record.getSomes(Record.map(rows, Option.fromUndefinedOr));
     const listedRpcs = <Row>(rows: Readonly<Record<string, Row | undefined>>) =>
         Array.flatMap([...group.requests.values()], (rpc) =>
             pipe(
@@ -72,10 +73,15 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
                     Effect.flatMap(({ key, content }) => store.read(key, at, content)),
                     Effect.provideContext(services),
                 );
-            const decodeRoute = Route.partial(routing.fields);
+            const decodeRoute = partial(routing.fields);
+            const selected = (select: (success: Rpc.Success<Rpcs>) => readonly string[]) => (_: string, parsed: typeof query.Type) =>
+                located(parsed).pipe(
+                    Effect.flatMap(({ key, content }) => store.cached(key, content)),
+                    Effect.map(select),
+                );
             const completions = {
-                ...Record.map(routing.completion, (complete) => flow(Route.complete(decodeRoute, complete), answered)),
-                ...Record.map(Record.getSomes(Record.map(completion, Option.fromUndefinedOr)), (select) => flow(Route.complete(flow(UrlParams.fromInput, decoded), (_, parsed) => located(parsed).pipe(Effect.flatMap(({ key, content }) => store.cached(key, content)), Effect.map(select))), answered)),
+                ...Record.map(present(routing.completion), (completing) => flow(complete(decodeRoute, completing), answered)),
+                ...Record.map(present(completion), (select) => flow(complete(flow(UrlParams.fromInput, decoded), selected(select)), answered)),
             };
             yield* Schema.is(Schema.toEncoded(Schema.Struct(fields)))({}) ? registry.addResource({ resource: McpSchema.Resource.make({ ...descriptor, uri }), annotations: group.annotations, handle: Effect.catchTag(readUri(uri), 'InvalidParams', Effect.die) }) : Effect.void;
             yield* Array.match(Record.keys(fields), {

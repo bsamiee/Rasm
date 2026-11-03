@@ -2,7 +2,7 @@ import { Array, ByteSize, Context, type Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const uploadLimit = ByteSize.megabytes(100);
+const uploadLimit = ByteSize.fromInputUnsafe('100 MB');
 
 // --- [MODELS] --------------------------------------------------------------------------
 

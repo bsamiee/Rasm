@@ -60,11 +60,12 @@ const checked = Effect.fn('checked')(function* (document: Document, named: Optio
 const preflight = Effect.fn('preflight')(function* ({ document, profile }: Preflight) {
     const model = yield* Model;
     const open = model.app.documents.everyItem().getElements();
+    const specifiers = Array.map(open, (each) => each.toSpecifier());
     const targets = yield* Option.match(document, {
         onNone: () => Effect.succeed(open.filter((each) => !each.preflightOptions.preflightOff)),
         onSome: (specifier) =>
             Effect.map(
-                Effect.filterOrElse(Model.resolve(specifier), model.document, () => Effect.flatMap(specifier.path, (written) => Unmatched.make({ subject: 'open document', query: Option.some(written), candidates: Array.map(open, (each) => each.toSpecifier()) }))),
+                Effect.filterOrElse(Model.resolve(specifier), model.document, () => Effect.flatMap(specifier.path, (written) => Unmatched.make({ subject: 'open document', query: Option.some(written), candidates: specifiers }))),
                 Array.of,
             ),
     });

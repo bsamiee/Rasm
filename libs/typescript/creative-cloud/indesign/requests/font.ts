@@ -18,7 +18,9 @@ const faceView = Effect.fn('faceView')(function* (face: Face) {
     const style = installed ? Option.some(face.fontStyleName) : Option.none();
     const specifier = yield* Effect.orDie(Schema.decodeUnknownEffect(Specifier.Path)(face.toSpecifier()));
     const open = Option.toArray(yield* Effect.option(Model.current));
-    const searched = yield* Effect.forEach(open, (document) => search({ mode: 'Text', find: Option.some({ appliedFont: { specifier } }), options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }), change: Option.none() }, document));
+    const searched = yield* Effect.forEach(open, (document) =>
+        search({ mode: 'Text', find: Option.some({ appliedFont: { specifier } }), options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }), change: Option.none() }, document),
+    );
     const styled = yield* Effect.try({
         try: () => Array.flatMap(open, (document) => [...document.allParagraphStyles, ...document.allCharacterStyles].filter(({ appliedFont, fontStyle }) => Unmatched.named(`${Predicate.isString(appliedFont) ? appliedFont : appliedFont?.fontFamily}\t${fontStyle}`, face.name)).map((each) => each.toSpecifier())),
         catch: HostError.refused(`uses of ${face.name}`),
@@ -26,7 +28,15 @@ const faceView = Effect.fn('faceView')(function* (face: Face) {
     const uses = [...Array.flatMap(searched, ({ matches }) => Array.map(matches, Struct.get('specifier'))), ...styled];
     const every = app.fonts.everyItem();
     const [styles, features] = yield* Effect.try({
-        try: () => (installed ? [Array.dedupe(Array.filterMap(Array.zip(every.fontFamily, every.fontStyleName), ([each, named]) => (each === family ? Result.succeed(named) : Result.failVoid))), members(OpenTypeFeature).filter((feature) => face.checkOpenTypeFeature(feature)).map(String)] : [[], []]),
+        try: () =>
+            installed
+                ? [
+                      Array.dedupe(Array.filterMap(Array.zip(every.fontFamily, every.fontStyleName), ([each, named]) => (each === family ? Result.succeed(named) : Result.failVoid))),
+                      members(OpenTypeFeature)
+                          .filter((feature) => face.checkOpenTypeFeature(feature))
+                          .map(String),
+                  ]
+                : [[], []],
         catch: HostError.refused(`styles and features of ${face.name}`),
     });
     const axes = Option.liftThrowable(() => Array.zipWith(face.designAxesName, face.designAxesValues, (name, value) => ({ name, value })))();

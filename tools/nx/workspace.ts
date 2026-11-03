@@ -2,7 +2,7 @@ import { layerPosix } from '@effect/platform-node/NodePath';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, readNxJsonFromDisk, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option, Path, Record, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import type { SyncGenerator } from 'nx/src/utils/sync-generators';
 import { multiGlobWithWorkspaceContext } from 'nx/src/utils/workspace-context';
@@ -60,6 +60,7 @@ const Root = Toml.pipe(
 const Member = Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
+            project: Schema.Struct({ scripts: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }),
             tool: Schema.Struct({
                 hatch: Schema.Struct({ build: Schema.Struct({ devModeDirs: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ devModeDirs: 'dev-mode-dirs' })) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({ build: { 'dev-mode-dirs': [] } }))),
             }),
@@ -154,7 +155,8 @@ const readPyproject = Effect.fnUntraced(function* (root: string) {
     const { members } = tool.uv.workspace;
     const manifests = yield* Effect.forEach(members, (member) => decodeFile(Member, root, path.join(member, PYPROJECT)));
     const moduleRoots = Array.zip(members, manifests).flatMap(([member, manifest]) => manifest.tool.hatch.build.devModeDirs.map((folder) => path.join(member, folder)));
-    return { moduleRoots, requirements: tool.uv.requirements, dataFile: tool.coverage.run.dataFile, ...tool.pytest };
+    const commands = Array.filterMap(Array.zip(members, manifests), ([member, manifest]) => (Record.isEmptyRecord(manifest.project.scripts) ? Result.failVoid : Result.succeed(member)));
+    return { moduleRoots, commands, requirements: tool.uv.requirements, dataFile: tool.coverage.run.dataFile, ...tool.pytest };
 });
 const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot: root, nxJsonConfiguration }: CreateNodesContext) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -348,9 +350,10 @@ const markers = {
         return { root, name, ...xcode, targets: { ...Record.map(xcode.targets, () => ({ options })), ...Record.fromIterableWith(['build', 'pack'], (step) => [step, { options, dependsOn: bundled }]) } };
     }),
     'py.typed': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [path, { moduleRoots }, targets] = yield* Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]);
+        const [path, { moduleRoots, commands }, targets] = yield* Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]);
         const moduleRoot = yield* Effect.fromOption(Array.findFirst(moduleRoots, (held) => !path.relative(held, dir).startsWith('..')));
-        return { name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets };
+        const command = commands.includes(dir);
+        return { name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python', ...(command ? ['output:command'] : [])], targets: { ...targets, ...(command ? { install: {} } : {}) } };
     }),
     'tsconfig.json': Effect.fnUntraced(function* ({ dir }, { file, root, configFiles }) {
         const [path, config] = yield* Effect.all([Path.Path, decodeFile(TsConfig, root, file)]);

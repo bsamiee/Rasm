@@ -10,7 +10,6 @@ import { type Placement, percentBounds } from '#/model/placement.ts';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const imageRoles = Record.collect({ drawing: 'Drawing (full sheet)', photograph: 'Photograph' } satisfies Record.ReadonlyRecord<Extract<typeof Placement.Type, { readonly kind: 'image' }>['role'], string>, (id, label) => ({ id, label }));
-const framings = [{ id: 'contain', label: 'Fit whole image', framing: { mode: 'contain' } }, { id: 'cover', label: 'Crop to frame', framing: { mode: 'cover', x: 50, y: 50 } }] as const;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -32,18 +31,24 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                             <Choice {...choice} label="Image use" onChange={({ id }) => onChange(id === 'photograph' ? { ...shared, role: id, framing: { mode: 'contain' } } : { ...shared, role: id })} options={imageRoles} value={image.role} />
                             {Match.value(image).pipe(
                                 Match.discriminatorsExhaustive('role')({
-                                    drawing: () => null,
-                                    photograph: ({ framing, ...photograph }) => (
-                                        <>
-                                            <Choice {...choice} label="Framing" onChange={(option) => onChange({ ...photograph, framing: option.framing })} options={framings} value={framing.mode} />
-                                            {framing.mode === 'cover' && (
-                                                <div className="field-pair">
-                                                    <Field.Slider label="Horizontal focal point" maxValue={percentBounds.maximum} minValue={percentBounds.minimum} onChange={(x) => onChange({ ...photograph, framing: { ...framing, x } })} value={framing.x} />
-                                                    <Field.Slider label="Vertical focal point" maxValue={percentBounds.maximum} minValue={percentBounds.minimum} onChange={(y) => onChange({ ...photograph, framing: { ...framing, y } })} value={framing.y} />
-                                                </div>
-                                            )}
-                                        </>
-                                    ),
+                                    drawing: () => undefined,
+                                    photograph: ({ framing, ...photograph }) => {
+                                        const framings = [
+                                            { id: 'contain', label: 'Fit whole image', framing: { mode: 'contain' } },
+                                            { id: 'cover', label: 'Crop to frame', framing: { mode: 'cover', x: 50, y: 50 } },
+                                        ] as const;
+                                        return (
+                                            <>
+                                                <Choice {...choice} label="Framing" onChange={(option) => onChange({ ...photograph, framing: option.framing })} options={framings} value={framing.mode} />
+                                                {framing.mode === 'cover' && (
+                                                    <div className="field-pair">
+                                                        <Field.Slider label="Horizontal focal point" maxValue={percentBounds.maximum} minValue={percentBounds.minimum} onChange={(x) => onChange({ ...photograph, framing: { ...framing, x } })} value={framing.x} />
+                                                        <Field.Slider label="Vertical focal point" maxValue={percentBounds.maximum} minValue={percentBounds.minimum} onChange={(y) => onChange({ ...photograph, framing: { ...framing, y } })} value={framing.y} />
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    },
                                 }),
                             )}
                         </>

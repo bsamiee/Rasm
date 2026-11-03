@@ -187,6 +187,25 @@ extension Integration {
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
+        func quitPrintsStatesUntilExitThenNothingRuns() async throws {
+            let fixture: Fixture = try Fixture()
+            let pid: Int32 = try await launch(fixture).pid
+            let quit: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
+                of: .product(named: "watch-apps"),
+                arguments: ["quit", fixture.identifier, "--pid", String(pid)],
+                as: WatchAppsLine.self,
+            )
+            let again: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
+                of: .product(named: "watch-apps"),
+                arguments: ["quit", fixture.identifier],
+                as: WatchAppsLine.self,
+            )
+            expectNoDifference(quit.status, .exited(0))
+            expectNoDifference(quit.lines.last?.entry.instances?[pid]?.exited.map(Ended.init), Ended(status: 0))
+            expectNoDifference(again.lines.map(\.entry), [.instances([:])])
+        }
+
+        @Test(.application(FixtureApplication.self, launches: false))
         func hangReadsUnresponsiveWithUsageAndEveryWindowThenRecovers() async throws {
             let fixture: Fixture = try Fixture()
             _ = try await watching([fixture.identifier]) { lines in

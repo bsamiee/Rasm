@@ -45,7 +45,7 @@ func configuration(_ settings: Settings, new: Bool = false) -> NSWorkspace.OpenC
 
 func launched(_ instance: NSRunningApplication, fileID: StaticString = #fileID, filePath: StaticString = #filePath, line: UInt = #line, column: UInt = #column) async {
     var last: InstanceState?
-    for await state: InstanceState in instance.launchStates(notifications: notifications, polling: heartbeat) { last = state }
+    for await state: InstanceState in instance.states(until: { state in !state.isLaunching }, notifications: notifications, polling: heartbeat) { last = state }
     expectNoDifference(last?.phase, .responding, fileID: fileID, filePath: filePath, line: line, column: column)
 }
 

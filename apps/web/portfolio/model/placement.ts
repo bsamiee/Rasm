@@ -66,8 +66,8 @@ const Placement = StoredPlacement.pipe(
 const Composition = Schema.Struct({
     id: CompositionId,
     items: Schema.Union([Schema.Tuple([Placement]), Schema.Tuple([Placement, Placement])]),
-    scale: Schema.Literals(['full', 'medium', 'small']).pipe(Schema.withDecodingDefaultKey(Effect.succeed('full')), Schema.withConstructorDefault(Effect.succeed('full'))),
-    align: Schema.Literals(['left', 'center', 'right']).pipe(Schema.withDecodingDefaultKey(Effect.succeed('center')), Schema.withConstructorDefault(Effect.succeed('center'))),
+    scale: Schema.Literals(['full', 'medium', 'small']).pipe(Schema.withDecodingDefaultKey(Effect.succeed('full')), Schema.withConstructorDefault(Effect.succeed('full' as const))),
+    align: Schema.Literals(['left', 'center', 'right']).pipe(Schema.withDecodingDefaultKey(Effect.succeed('center')), Schema.withConstructorDefault(Effect.succeed('center' as const))),
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -79,7 +79,11 @@ const placementsFor = (asset: typeof Asset.Type): Array.NonEmptyReadonlyArray<ty
         image: (image) => [{ kind: 'image', asset: image, caption: '', role: 'drawing' }] as const,
     });
 const placementRatio = (placement: typeof Placement.Type) => {
-    const { width, height } = placement.kind === 'image' && placement.role === 'photograph' && placement.framing.mode === 'cover' ? { width: 4, height: 3 } : placement.kind === 'pdf' ? placement.page : placement.asset;
+    const { width, height } = Match.value(placement).pipe(
+        Match.when({ kind: 'image', role: 'photograph', framing: { mode: 'cover' } }, () => ({ width: 4, height: 3 })),
+        Match.when({ kind: 'pdf' }, ({ page }) => page),
+        Match.orElse(({ asset }) => asset),
+    );
     return width / height;
 };
 

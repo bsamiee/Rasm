@@ -37,8 +37,8 @@ const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof As
         <div className="flex min-w-0 flex-col gap-4.5 outline-none" id={item.id} tabIndex={-1}>
             <CompositionGrid active={true} composition={item} presentation="preview" renderMedia={true} />
             <div className="field-pair">
-                <Choice {...choice} label="Scale" onChange={({ id }) => replace({ ...item, scale: id })} options={Composition.fields.scale.schema.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={item.scale} />
-                <Choice {...choice} label="Alignment" onChange={({ id }) => replace({ ...item, align: id })} options={Composition.fields.align.schema.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={item.align} />
+                <Choice {...choice} label="Scale" onChange={({ id }) => replace({ ...item, scale: id })} options={Composition.fields.scale.schema.to.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={item.scale} />
+                <Choice {...choice} label="Alignment" onChange={({ id }) => replace({ ...item, align: id })} options={Composition.fields.align.schema.to.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={item.align} />
             </div>
             <PlacementFields assets={assets} onChange={(placement) => replace({ ...item, items: second === undefined ? [placement] : [placement, second] })} value={first}>
                 {promote(first)}

@@ -88,7 +88,7 @@ const routes = Effect.fnUntraced(function* ({ answering }: Effect.Success<typeof
                 ),
         ),
         tag,
-        serves: ({ library: { Contract } }: { readonly library: { readonly Contract: RpcGroup.Any } }) => Contract.requests.has(tag),
+        serves: ({ library: { Contract } }: { readonly library: Option.Option.Value<ReturnType<typeof library>> }) => Contract.requests.has(tag),
     });
     return {
         application: route(

@@ -1,4 +1,4 @@
-import { Array, Equal, Function, Match, Number, Option, Order, Predicate, Record, Schema, Struct } from 'effect';
+import { Array, Equal, Function, Match, Number, Option, Order, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { Feature } from 'harfbuzzjs';
 import { JoiningGroup } from 'icu';
 import type { Face } from '#/face';
@@ -45,8 +45,8 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         const isLetter = (text: string, { class: kind, xAdvance, cluster }: ShapedText['glyphs'][number]) => kind !== 'MARK' && xAdvance !== 0 && !SPACE_SEPARATOR.test(text.charAt(cluster));
         const spaced = (text: string, glyphs: ShapedText['glyphs']) => {
             const joined = inOneJoin(text);
-            const letters = glyphs.flatMap((each, at) => (isLetter(text, each) ? [{ at, cluster: each.cluster }] : []));
-            return new Set(Array.window(letters, 2).flatMap(([before, after]) => (joined(before.cluster, after.cluster) ? [] : [before.at])));
+            const letters = Array.filterMap(glyphs, (each, at) => (isLetter(text, each) ? Result.succeed({ at, cluster: each.cluster }) : Result.failVoid));
+            return new Set(Array.filterMap(Array.window(letters, 2), ([before, after]) => (joined(before.cluster, after.cluster) ? Result.failVoid : Result.succeed(before.at))));
         };
         const measured = (run: Run, shaped = ShapedText.of(face, run, settings)): Measurement => ({
             run,
@@ -75,7 +75,11 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         const withStretchedAlternates = (layout: Measurement) => {
             const shapedClusters = new Set(layout.shaped.glyphs.map(Struct.get('cluster')));
             return kashidaClusters(layout.run.text, (cluster) => shapedClusters.has(cluster)).reduce((closest, cluster) => {
-                const glyphAt = ({ shaped }: Measurement) => Option.map(Array.findFirst(shaped.glyphs, (glyph) => glyph.cluster === cluster), Struct.get('glyph'));
+                const glyphAt = ({ shaped }: Measurement) =>
+                    Option.map(
+                        Array.findFirst(shaped.glyphs, (glyph) => glyph.cluster === cluster),
+                        Struct.get('glyph'),
+                    );
                 const probe = (value: number) => withFeature(closest, new Feature(JUSTIFICATION_ALTERNATES, value, cluster, cluster + 1));
                 const base = glyphAt(probe(0));
                 return Array.unfold(1, (value) => Option.liftPredicate([probe(value), value + 1] as const, ([candidate]) => !Equal.equals(glyphAt(candidate), base))).reduce(closer, closest);
@@ -163,8 +167,15 @@ const kashidaCandidates = (text: string, { start, end }: Word['joins'][number]) 
     });
 };
 const kashidaClusters = (text: string, allowed: (cluster: number) => boolean) => {
-    const best = ({ joins }: Word) => Array.take(Array.sort(joins.flatMap((join) => kashidaCandidates(text, join)).filter(({ cluster }) => allowed(cluster)), BY_RANK), 1);
-    return Array.sort(Word.of(text).flatMap(best), BY_RANK).map(Struct.get('cluster'));
+    const best = ({ joins }: Word) =>
+        Option.map(
+            Option.liftPredicate(
+                joins.flatMap((join) => kashidaCandidates(text, join)).filter(({ cluster }) => allowed(cluster)),
+                Array.isArrayNonEmpty,
+            ),
+            (candidates) => Array.min(candidates, BY_RANK),
+        );
+    return Array.sort(Array.getSomes(Word.of(text).map(best)), BY_RANK).map(Struct.get('cluster'));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -6,7 +6,9 @@ import type { Plugin } from 'vite';
 
 const vite = (entry: string): Plugin => ({
     name: '@rasm/hosting/node/vite',
-    config: () => ({ environments: { [vite.layout.environment]: { consumer: 'server', resolve: { noExternal: true }, build: { outDir: join('dist', vite.layout.environment), assetsDir: 'chunks', emptyOutDir: true, copyPublicDir: false, rolldownOptions: { input: { [vite.layout.entry]: entry }, platform: 'node' } } } } }),
+    config: () => ({
+        environments: { [vite.layout.environment]: { consumer: 'server', resolve: { noExternal: true }, build: { outDir: join('dist', vite.layout.environment), assetsDir: 'chunks', emptyOutDir: true, copyPublicDir: false, rolldownOptions: { input: { [vite.layout.entry]: entry }, platform: 'node' } } } },
+    }),
     buildApp: {
         order: 'post',
         handler: (builder) =>

@@ -49,7 +49,10 @@
                     "lint:ruff": { "dependsOn": [ { "target": "lint:ruff:*", "params": "forward" } ] },
                     "lint:ruff:check": { "command": "ruff check" },
                     "lint:ruff:format": { "command": "ruff format --check" },
-                    "lint:deptry": { "command": "deptry --config libs/python/blender/pyproject.toml libs/python apps", "inputs": [ "python", "pythonFiles" ] },
+                    "lint:deptry": { "dependsOn": [ { "target": "lint:deptry:*", "params": "forward" } ] },
+                    "lint:deptry:blender": { "command": "deptry --config libs/python/blender/pyproject.toml libs/python/blender apps", "inputs": [ "python", "pythonFiles" ] },
+                    "lint:deptry:typography": { "command": "deptry --config libs/python/typography/pyproject.toml libs/python/typography", "inputs": [ "python", "pythonFiles" ] },
+                    "lint:deptry:foundry": { "command": "deptry --config tools/foundry/pyproject.toml tools/foundry", "inputs": [ "python", "pythonFiles" ] },
                     "lint:biome": {
                         "command": "biome check --error-on-warnings",
                         "inputs": [ "{workspaceRoot}/.editorconfig", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", { "externalDependencies": [ "@biomejs/biome" ] } ]
@@ -244,6 +247,7 @@
                 "parallelism": false
             },
             { "filter": { "projects": [ "tag:output:extension" ] }, "command": "python -m eng.python.blender install .artifacts/blender/{projectName}/*.zip", "dependsOn": [ "pack" ], "parallelism": false },
+            { "filter": { "projects": [ "tag:output:command" ] }, "command": "uv tool install --reinstall --from {projectRoot} {projectName}", "parallelism": false },
             { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "pack" ], "parallelism": false },
             {
                 "filter": { "projects": [ "tag:host:cep" ] },

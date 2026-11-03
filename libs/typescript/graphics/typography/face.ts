@@ -85,8 +85,16 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             return { face, variations: { ...face.base.variations, ...decoded } };
         });
         const { face: chosen, variations: selectedVariations } = yield* Option.match(selection, {
-            onNone: () => Effect.map(Unmatched.single(faces, 'face in collection', Option.none(), ({ base, index }) => [Option.getOrElse(base.names.postscriptName, () => `face ${index}`)]), (face) => ({ face, variations: face.base.variations })),
-            onSome: (wanted) => Effect.fromOption(namedRow).pipe(Effect.catch(() => generated(wanted)), Effect.mapError(() => Unmatched.make({ subject: 'face or instance', query: selection, candidates: Array.getSomes(rows.map(flow(Struct.get('names'), Struct.get('postscriptName')))) }))),
+            onNone: () =>
+                Effect.map(
+                    Unmatched.single(faces, 'face in collection', Option.none(), ({ base, index }) => [Option.getOrElse(base.names.postscriptName, () => `face ${index}`)]),
+                    (face) => ({ face, variations: face.base.variations }),
+                ),
+            onSome: (wanted) =>
+                Effect.fromOption(namedRow).pipe(
+                    Effect.catch(() => generated(wanted)),
+                    Effect.mapError(() => Unmatched.make({ subject: 'face or instance', query: selection, candidates: Array.getSomes(rows.map(flow(Struct.get('names'), Struct.get('postscriptName')))) })),
+                ),
         });
         const tables = yield* Schema.decodeUnknownEffect(Tables)(chosen.sfnt, { errors: 'all' });
         const requested = { ...selectedVariations, ...variations, ...Record.getSomes({ opsz: size }) };
@@ -100,11 +108,17 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             hidden: (flags & AxisFlags.HIDDEN) !== 0,
         }));
         const coordinates = Record.fromIterableWith(axes, ({ tag, value }) => [tag, Names.spelled(value)]);
-        const changed = Record.fromIterableWith(axes.filter(({ tag }) => Option.exists(Record.get(chosen.base.variations, tag), (fallback) => Names.spelled(fallback) !== coordinates[tag])), ({ tag, value }) => [tag, value]);
-        const identity = yield* Option.match(Array.findFirst([...Option.toArray(namedRow), chosen.base, ...chosen.namedInstances], (row) => Equal.equals(Record.map(row.variations, Names.spelled), coordinates)), {
-            onNone: () => Effect.map(chosen.names.generated(changed), (postscriptName) => ({ postscriptName, fullName: Option.none<string>(), style: Option.none<string>() })),
-            onSome: ({ names }) => Effect.succeed(names),
-        });
+        const changed = Record.fromIterableWith(
+            axes.filter(({ tag }) => Option.exists(Record.get(chosen.base.variations, tag), (fallback) => Names.spelled(fallback) !== coordinates[tag])),
+            ({ tag, value }) => [tag, value],
+        );
+        const identity = yield* Option.match(
+            Array.findFirst([...Option.toArray(namedRow), chosen.base, ...chosen.namedInstances], (row) => Equal.equals(Record.map(row.variations, Names.spelled), coordinates)),
+            {
+                onNone: () => Effect.map(chosen.names.generated(changed), (postscriptName) => ({ postscriptName, fullName: Option.none<string>(), style: Option.none<string>() })),
+                onSome: ({ names }) => Effect.succeed(names),
+            },
+        );
         const font = new Font(chosen.handle);
         font.setVariations(axes.map(({ tag, value }) => new Variation(tag, value)));
         return Face.make({
@@ -145,7 +159,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
                 const xs = points.map(Struct.get('x'));
                 return Math.max(...xs) - Math.min(...xs);
             });
-            return Option.map(Array.head(Array.sort(extents.filter(Number.isGreaterThan(0)), Order.Number)), (narrowest) => narrowest / this.unitsPerEm);
+            return Option.map(Option.liftPredicate(extents.filter(Number.isGreaterThan(0)), Array.isArrayNonEmpty), (positive) => Array.min(positive, Order.Number) / this.unitsPerEm);
         });
     }
 }

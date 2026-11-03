@@ -22,7 +22,7 @@ rule:
         kind: program
         stopBy: end
         any:
-            - matches: {uxp-host-file: {module: {regex: '^@rasm/extendscript/'}}}
+            - matches: {uxp-host-file: {module: {regex: '^@rasm/extendscript/handle$'}}}
             - has: {kind: import_statement, regex: '^import type ', has: {field: source, regex: '^.@rasm/cep/contract.$'}}
 message: '`$MEMBER` compiles to a member ExtendScript lacks, and swc lowers syntax alone'
 note: 'Write the ES3 form: an index loop, `for...in` over own keys, `charAt` and `slice`, or `keys` and `assign` from `@rasm/extendscript/handle`'

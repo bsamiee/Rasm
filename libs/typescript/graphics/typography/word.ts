@@ -21,8 +21,6 @@ const LETTERS = /\p{L}/gu;
 const TRAILING_WORD = /\P{White_Space}*$/u;
 const WORD_END = /\p{White_Space}|$/u;
 const UNJOINED = [JoiningType.NonJoining, JoiningType.Transparent];
-const JOINS_FORWARD = [JoiningType.DualJoining, JoiningType.LeftJoining, JoiningType.JoinCausing];
-const JOINS_BACKWARD = [JoiningType.DualJoining, JoiningType.RightJoining, JoiningType.JoinCausing];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -49,7 +47,9 @@ const joiningStep = (state: JoiningState, character: string): JoiningState => {
     const point = character.codePointAt(0) ?? 0;
     const type = JoiningType.forChar(point);
     const transparent = type === JoiningType.Transparent;
-    const joins = transparent || (isDigit(point) && isDigit(state.previous)) || (JOINS_FORWARD.includes(JoiningType.forChar(state.previous)) && JOINS_BACKWARD.includes(type));
+    const joinsForward = [JoiningType.DualJoining, JoiningType.LeftJoining, JoiningType.JoinCausing];
+    const joinsBackward = [JoiningType.DualJoining, JoiningType.RightJoining, JoiningType.JoinCausing];
+    const joins = transparent || (isDigit(point) && isDigit(state.previous)) || (joinsForward.includes(JoiningType.forChar(state.previous)) && joinsBackward.includes(type));
     return {
         offset: state.offset + character.length,
         ...(Option.isSome(state.open) && joins ? { joins: state.joins, open: state.open } : { joins: closedJoins(state), open: UNJOINED.includes(type) && !isDigit(point) ? Option.none() : Option.some(state.offset) }),

@@ -43,7 +43,8 @@ const daemon = Effect.fnUntraced(function* (directory: string) {
 const dialed = Effect.fnUntraced(function* (directory: string, { path, redial }: Linking) {
     const [{ port }, { Link }] = yield* Effect.all([daemon(directory), Effect.promise(() => import('@rasm/uxp/link'))], { concurrency: 'unbounded' });
     const origin = Link.origin(port);
-    return { origin, define: { 'import.meta.env.LINK': JSON.stringify({ endpoint: `${origin}${path}`, redial } satisfies ImportMetaEnv['LINK']) } };
+    const link = yield* Effect.orDie(Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ endpoint: `${origin}${path}`, redial } satisfies ImportMetaEnv['LINK']));
+    return { origin, define: { 'import.meta.env.LINK': link } };
 });
 const identity = Effect.fnUntraced(function* (directory: string) {
     const [identifier, { description }, prefix] = yield* Effect.all([IDENTIFIER, Package.read(directory), Config.String('MinVerTagPrefix')], { concurrency: 'unbounded' });
@@ -91,7 +92,8 @@ const worker =
     ({ mode }) =>
         Effect.gen(function* () {
             const [storybook, vitest] = yield* Effect.all([Config.withDefault(Config.Boolean('STORYBOOK'), false), Config.withDefault(Config.Boolean('VITEST'), false)]);
-            const hosted = storybook || vitest ? [] : [hosting, (yield* Effect.promise(() => import('@cloudflare/vite-plugin'))).cloudflare({ types: { generate: false }, ...(mode === testMode ? { persistState: false, inspectorPort: false } : { persistState: { path: located(join('.cache', 'cloudflare'), directory) } }) })];
+            const hosted =
+                storybook || vitest ? [] : [hosting, (yield* Effect.promise(() => import('@cloudflare/vite-plugin'))).cloudflare({ types: { generate: false }, ...(mode === testMode ? { persistState: false, inspectorPort: false } : { persistState: { path: located(join('.cache', 'cloudflare'), directory) } }) })];
             return { build: { target: 'esnext', rolldownOptions: { experimental: EXPERIMENTAL } }, plugins: [plugins, hosted] };
         }).pipe(Effect.runPromise);
 const uxp =

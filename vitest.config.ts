@@ -27,7 +27,13 @@ const defaults = Effect.fnUntraced(function* (directory: string) {
                 ? { browser: { provider: (yield* Effect.promise(() => import('@vitest/browser-playwright'))).playwright(), headless: true, instances: [{ browser: 'chromium' }], locators: { errorFormat: 'aria' }, trace: { mode: 'retain-on-failure', tracesDir: path.join(results, 'traces') } } }
                 : {}),
             chaiConfig: { includeStack: true, truncateThreshold: 0 },
-            dir: path.join(tests, ...Array.filter(path.relative(ROOT, directory).split(path.sep), (segment, at) => at !== 1 || segment !== path.basename(tests))),
+            dir: path.join(
+                tests,
+                ...path
+                    .relative(ROOT, directory)
+                    .split(path.sep)
+                    .filter((segment, at) => at !== 1 || segment !== path.basename(tests)),
+            ),
             coverage: {
                 exclude: ['**/*.d.ts', '**/*.config.ts', '**/tests/**', '**/.storybook/**'],
                 include: ['**/*.{ts,tsx,mts,cts}'],
@@ -58,7 +64,17 @@ const project =
         Effect.gen(function* () {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const storybook = path.join(directory, '.storybook');
-            const [app, base, stories] = yield* Effect.all([Effect.promise(() => loadConfigFromFile(env, undefined, directory)), defaults(directory), Effect.when(Effect.promise(() => import('@storybook/addon-vitest/vitest-plugin')), fs.exists(path.join(storybook, 'main.ts')))], { concurrency: 'unbounded' });
+            const [app, base, stories] = yield* Effect.all(
+                [
+                    Effect.promise(() => loadConfigFromFile(env, undefined, directory)),
+                    defaults(directory),
+                    Effect.when(
+                        Effect.promise(() => import('@storybook/addon-vitest/vitest-plugin')),
+                        fs.exists(path.join(storybook, 'main.ts')),
+                    ),
+                ],
+                { concurrency: 'unbounded' },
+            );
             const configs = [
                 ...Option.toArray(Option.fromNullishOr(app?.config)),
                 base,

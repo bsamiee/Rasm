@@ -28,14 +28,14 @@ const called = Effect.fnUntraced(function* ({ collection, method: wanted, argume
     const before = yield* Model.reference(found);
     const returned = yield* Effect.try({ try: (): unknown => Reflect.apply(Reflect.get(receiver, method), receiver, positioned), catch: HostError.refused(`${kind} ${method}`) });
     const made = Array.head(Array.ensure<unknown>(returned).filter(model.domObject));
-    yield* Option.match(properties, {
-        onNone: () => Effect.void,
-        onSome: (supplied) =>
+    yield* Effect.transposeOption(
+        Option.map(properties, (supplied) =>
             Effect.flatMap(
                 Effect.fromOption(made, () => new Cause.IllegalArgumentError(`${kind} ${method} returned no object for properties`)),
                 (object) => write(object, supplied),
             ),
-    });
+        ),
+    );
     return yield* Model.read(Call.Result, label, () => ({ ...before, valid: found.isValid, result: Option.fromUndefinedOr(returned) }));
 });
 const call = (payload: Call) => Effect.flatMap(Model.located(payload.target), (found) => commit(payload.label, called(payload, found)));

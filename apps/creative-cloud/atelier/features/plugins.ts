@@ -15,7 +15,7 @@ import { Photoshop } from '@rasm/photoshop/contract';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Link } from '@rasm/uxp/link';
 import { type JscTarget, transformSync } from '@swc/core';
-import { Array, Context, Duration, Effect, Layer, Option, Path, Schema, Stream, Struct, Tuple } from 'effect';
+import { Array, Context, Duration, Effect, flow, Layer, Option, Path, Schema, Stream, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/ai';
 import { AbsolutePath } from '#/absolute-path';
 import { Capture } from '#/features/applications';
@@ -75,7 +75,12 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
             .pipe(Effect.andThen(Stream.runHead(Stream.filter(links.changes, Array.some(Link.serves(installation.url))))), Effect.timeoutOrElse({ duration: LINK_WAIT, orElse: () => Effect.fail(HostError.refused(`link from ${installation.name} within ${Duration.format(LINK_WAIT)}`)()) }));
     const opener = Effect.fnUntraced(function* (file: URL) {
         const [rows, peers] = yield* Effect.all([automation.opening(file), links.peers]);
-        const candidates = rows.filter((row) => Option.exists(library(row), ({ Contract }) => Contract.requests.has(opened.tag)));
+        const candidates = rows.filter(
+            flow(
+                library,
+                Option.exists(({ Contract }) => Contract.requests.has(opened.tag)),
+            ),
+        );
         const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.make({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(rows, Struct.get('name')) }));
         const installation = yield* Option.match(
             Array.findFirst(candidates, (row) => peers.some(Link.serves(row.url))),

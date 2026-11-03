@@ -60,7 +60,7 @@ const Api = HttpApi.make('portfolio')
                 HttpApiEndpoint.get('draft', '/draft', { success: HttpApiSchema.WithHeaders(PortfolioData, draftEtag) }),
                 HttpApiEndpoint.put('save', '/draft', { payload: StoredPortfolio, ...write }),
                 HttpApiEndpoint.put('publish', '/published', {
-                    payload: StoredPortfolio.check(Schema.makeFilter((document) => Array.filterMap(document.entries, ({ title }, index) => (title.trim() === '' ? Result.succeed({ path: ['entries', index, 'title'], issue: 'Title required to publish' }) : Result.failVoid)))),
+                    payload: StoredPortfolio.check(Schema.makeFilter(({ entries = [] }) => Array.filterMap(entries, ({ title }, index) => (title === undefined || title.trim() === '' ? Result.succeed({ path: ['entries', index, 'title'], issue: 'Title required to publish' }) : Result.failVoid)))),
                     ...write,
                 }),
             )

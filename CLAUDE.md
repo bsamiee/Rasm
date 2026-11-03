@@ -17,7 +17,7 @@
 ## [01]-[LANGUAGE_STANDARDS]
 
 [TOOL_ROUTING]:
-- ALWAYS use `watch-apps` skill before launching or scripting a desktop app
+- ALWAYS use `watch-apps` skill for opening, driving, observing, or quitting a desktop app
 - ALWAYS use `playwright:playwright-cli` skill for a browser session or Playwright test
 - ALWAYS use `playwright:playwright-trace` skill for a Playwright trace
 - ALWAYS use `manage-repo` skill for a change to how the repository is structured, built, or checked

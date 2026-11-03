@@ -69,7 +69,10 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
             const protocol = yield* RpcClient.makeProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) }).pipe(
                 Effect.provideService(RpcClient.ConnectionHooks, {
                     onConnect: Effect.flatMap(Deferred.await(made), (entry) => SubscriptionRef.update(links, flow(Array.filter<Linked>(Predicate.not(replaced)), Array.prepend(entry)))),
-                    onDisconnect: Deferred.await(made).pipe(Effect.flatMap((entry) => SubscriptionRef.update(links, Array.filter((held) => held !== entry))), Effect.andThen(ended.open)),
+                    onDisconnect: Deferred.await(made).pipe(
+                        Effect.flatMap((entry) => SubscriptionRef.update(links, Array.difference([entry]))),
+                        Effect.andThen(ended.open),
+                    ),
                 }),
                 Effect.provideService(Socket.Socket, socket),
                 Effect.provide(RpcSerialization.layerJson),

@@ -46,7 +46,11 @@ class PgPrelude extends Schema.Class<PgPrelude, { readonly brand: unique symbol 
     absent: Names,
     configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
 }) {
-    static readonly settings = ({ timeouts }: Catalog) => Option.toArray(timeouts).flatMap(({ lock, transaction }) => [{ name: 'lock_timeout', value: `${Duration.toMillis(lock)}ms` }, { name: 'transaction_timeout', value: `${Duration.toMillis(transaction)}ms` }]);
+    static readonly settings = ({ timeouts }: Catalog) =>
+        Option.toArray(timeouts).flatMap(({ lock, transaction }) => [
+            { name: 'lock_timeout', value: `${Duration.toMillis(lock)}ms` },
+            { name: 'transaction_timeout', value: `${Duration.toMillis(transaction)}ms` },
+        ]);
     static readonly open = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, preamble: readonly Statement.Statement<object>[], required: readonly string[], filters: readonly string[], configurations: typeof Pg.Configurations.Type) {
         yield* Effect.all(preamble, { discard: true });
         const { search_path: path } = yield* SqlSchema.findOne({
@@ -222,7 +226,10 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const privileges = [...Option.toArray(runtime).map((grantee) => ({ grantee, all: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] })), ...Option.toArray(catalog.reader).map((grantee) => ({ grantee, all: ['SELECT'] }))].filter(({ grantee }) => grantee !== migrator);
         const grants = (on: Statement.Fragment, held: readonly (readonly [string, string])[]) =>
             privileges.flatMap(({ grantee, all }) => {
-                const missing = all.filter((privilege) => !held.some(([holder, granted]) => holder === grantee && granted === privilege));
+                const missing = Array.difference(
+                    all,
+                    held.filter(([holder]) => holder === grantee).map(([, granted]) => granted),
+                );
                 return Array.isReadonlyArrayNonEmpty(missing) ? [sql`GRANT ${sql.literal(missing.join(', '))} ON ${on} TO ${sql(grantee)}`] : [];
             });
         const stamped = (relation: Statement.Fragment, column: Option.Option<string>, name: string, recorded: Option.Option<typeof Reconcile.Identity.Type>, identity: typeof Reconcile.Identity.Type) =>

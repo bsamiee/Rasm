@@ -84,6 +84,7 @@ class Column extends Data.Class<{
                 Match.tag('Enum', ({ enums }) => enums.map(([, member]) => typeof member)),
                 Match.tag('String', 'TemplateLiteral', () => ['string']),
                 Match.tag('Number', () => ['number']),
+                Match.tag('Declaration', 'Arrays', () => ['blob']),
                 Match.orElse(({ _tag }) => [_tag]),
             );
         const boolean = decoded.some(({ _tag }) => _tag === 'Boolean');

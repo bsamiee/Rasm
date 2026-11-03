@@ -1,5 +1,5 @@
 import { rank } from '@rasm/search/rank';
-import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Formatter, flow, Layer, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, Exit, flow, Layer, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool } from 'effect/ai';
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse, HttpTraceContext } from 'effect/http';
 import { NetAddress } from 'effect/net';
@@ -18,11 +18,11 @@ const Scheme = Schema.String.pipe(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Server extends Context.Service<Server, { readonly uri: (path: string) => string; readonly register: <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, Exclude<R, McpServer.McpServer>> }>()('@rasm/mcp/Server') {
+class Server extends Context.Service<Server, { readonly uri: (path: string) => string; readonly register: <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, Exclude<R, McpServer.McpServer>> }>()('@rasm/mcp/server') {
     static readonly Scheme = Scheme;
     static readonly Instructions = Context.Reference<readonly string[]>('@rasm/mcp/Server/Instructions', { defaultValue: () => [] });
     static readonly ToolCall = Context.Reference<{ readonly add: (block: McpSchema.ContentBlock) => Effect.Effect<void>; readonly respond: (refusal: Error) => Effect.Effect<void> }>('@rasm/mcp/Server/ToolCall', { defaultValue: () => ({ add: () => Effect.void, respond: () => Effect.void }) });
-    static readonly orInternalError = <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.mapError(self, (error) => McpSchema.InternalError.make({ message: rendered(error) }));
+    static readonly orInternalError = Effect.mapError(({ message }: Error) => McpSchema.InternalError.make({ message }));
     static readonly layer = ({ scheme, retention }: { readonly scheme: typeof Scheme.Type; readonly retention: Duration.Duration }) =>
         Layer.effect(Server)(
             Effect.gen(function* () {
@@ -41,7 +41,10 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
                         function* (payload: Schema.Json) {
                             const [blocks, earlyResult] = yield* Effect.all([Ref.make(Array.empty<McpSchema.ContentBlock>()), Deferred.make<McpSchema.CallToolResult>()]);
                             const answer = Effect.zipWith(options.handle(payload), Ref.get(blocks), (result, added) => (result instanceof McpSchema.InputRequired ? result : McpSchema.CallToolResult.make({ ...result, content: [...result.content, ...added] }))).pipe(
-                                Effect.provideService(Server.ToolCall, { add: (block) => Ref.update(blocks, Array.append(block)), respond: (refusal) => Effect.asVoid(Deferred.succeed(earlyResult, McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: rendered(refusal) }), link] }))) }),
+                                Effect.provideService(Server.ToolCall, {
+                                    add: (block) => Ref.update(blocks, Array.append(block)),
+                                    respond: (refusal) => Effect.asVoid(Deferred.succeed(earlyResult, McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: refusal.message }), link] }))),
+                                }),
                             );
                             return yield* writes(options) ? record(options.tool.name, payload, answer, earlyResult) : answer;
                         },
@@ -95,7 +98,6 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const rendered = (error: unknown) => Array.map(Cause.prettyErrors(Cause.fail(error)), (pretty) => Formatter.format(pretty)).join('\n');
 const operationDuration = Metric.mapInput(
     Metric.histogram('mcp.server.operation.duration', {
         description: 'Duration of MCP server operations',
@@ -132,14 +134,14 @@ const executions = Effect.fnUntraced(function* (uri: string, retention: Duration
     );
     const record = Effect.fnUntraced(function* <E extends McpSchema.McpError, R>(tool: string, given: Schema.Json, answer: Effect.Effect<McpSchema.CallToolResult | McpSchema.InputRequired, E, R>, earlyResult: Deferred.Deferred<McpSchema.CallToolResult>) {
         const done = yield* Deferred.make<McpSchema.CallToolResult | McpSchema.InputRequired, E>();
-        const entry = Deferred.poll(done).pipe(
+        const entry: Effect.Effect<(typeof Executions.Type)[number]> = Deferred.poll(done).pipe(
             Effect.map(Option.map(Effect.exit)),
             Effect.flatMap(Effect.transposeOption),
             Effect.map((result) => ({ tool, arguments: given, result })),
         );
         const addEntry = Effect.gen(function* () {
             yield* Ref.update(entries, Array.append(entry));
-            yield* Effect.forkIn(Deferred.await(done).pipe(Effect.exit, Effect.andThen(Effect.sleep(retention)), Effect.andThen(Ref.update(entries, Array.filter((row) => row !== entry)))), scope);
+            yield* Effect.forkIn(Deferred.await(done).pipe(Effect.exit, Effect.andThen(Effect.sleep(retention)), Effect.andThen(Ref.update(entries, Array.difference([entry])))), scope);
         });
         yield* Effect.forkIn(Deferred.complete(done, answer), scope, { uninterruptible: true });
         const [outcome, pending] = yield* Effect.raceFirst(

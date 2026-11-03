@@ -44,7 +44,13 @@ class Plugin extends Context.Service<Plugin, Manifest>()('@rasm/uxp/plugin') {
                         panels,
                         Effect.fnUntraced(function* (panel) {
                             const held = yield* ScopedRef.fromAcquire(Effect.void);
-                            const fork = (element: HTMLElement) => Effect.flatMap(FiberSet.makeRuntime<Uxp | Plugin, void, never>(), (forked) => panel(element, flow(reported, Effect.ignore(), forked))).pipe(reported, Effect.forkScoped, Effect.asVoid);
+                            const fork = (element: HTMLElement) =>
+                                FiberSet.makeRuntime<Uxp | Plugin, void, never>().pipe(
+                                    Effect.flatMap((forked) => panel(element, flow(reported, Effect.ignore(), forked))),
+                                    reported,
+                                    Effect.forkScoped,
+                                    Effect.asVoid,
+                                );
                             return {
                                 show: (root?: unknown): Promise<void> => run(Effect.flatMap(Schema.decodeUnknownEffect(Schema.instanceOf(HTMLElement))(root), (element) => ScopedRef.set(held, fork(element)))),
                                 hide: (): Promise<void> => run(ScopedRef.set(held, Effect.void)),

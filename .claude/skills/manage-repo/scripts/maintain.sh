@@ -16,8 +16,7 @@ main() {
     mise exec -- pnpm prune
     mise exec -- playwright install --only-shell chromium
     launchctl kickstart -k "gui/${EUID}/dev.mise.pitchfork"
-    osascript -e 'quit app "Visual Studio Code"'
-    for _ in {1..30}; do pgrep -qx Code || break; sleep 1; done
+    watch-apps quit 'Visual Studio Code'
     mise exec -- pixi run --locked -e hdf5 pixi run --locked -e default code .
     mise prune --yes
 }

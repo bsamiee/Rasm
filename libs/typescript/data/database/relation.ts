@@ -1,4 +1,4 @@
-import { Array, Data, Effect, Equal, Option, Record, Schema, String, Struct } from 'effect';
+import { Array, Data, Effect, Equal, Exit, Option, Record, Schema, String, Struct } from 'effect';
 import { SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
 import { Column, type Field, type Fields, type Where } from '#/column';
 import { Engine } from '#/engine';
@@ -40,12 +40,13 @@ const like = /[\\%_]/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Relation<const F extends Fields = Fields, const O extends RelationOptions<F> = RelationOptions<F>> extends Data.Class<{
-    readonly schema: Schema.Struct<F>;
+class Relation<const Shape extends Fields = Fields, const Options extends RelationOptions<Shape> = RelationOptions<Shape>> extends Data.Class<{
+    readonly schema: Schema.Struct<Shape>;
+    readonly options: Option.Option<Options>;
     readonly name: string;
     readonly renamedFrom: Option.Option<string>;
     readonly key: Array.NonEmptyReadonlyArray<string>;
-    readonly columns: { readonly [K in Field<F>]: Column };
+    readonly columns: { readonly [K in Field<Shape>]: Column };
     readonly indexes: readonly {
         readonly keys: Array.NonEmptyReadonlyArray<{ readonly column: string; readonly casefold: boolean }>;
         readonly unique: boolean;
@@ -60,11 +61,11 @@ class Relation<const F extends Fields = Fields, const O extends RelationOptions<
     readonly tenant: Option.Option<{ readonly column: Column; readonly setting: string }>;
     readonly retired: { readonly columns: readonly string[]; readonly indexes: readonly (readonly string[])[] };
     readonly paths: readonly string[];
-    readonly queries: ReturnType<typeof queries<F, O>>;
+    readonly queries: ReturnType<typeof queries<Shape>>;
 }> {
     static readonly make = <const F extends Fields, const O extends RelationOptions<F> = Record<never, never>>(name: string, fields: F, ...[options]: 'id' extends Present<F> ? readonly [options?: O] : readonly [options: O & { readonly key: Array.NonEmptyReadonlyArray<Present<F>> }]): Relation<F, O> => {
         const [schema, declared] = [Schema.Struct(fields), { name: String.camelToSnake(name), ...definition<F>(fields, options ?? {}) }];
-        return new Relation<F, O>({ schema, ...declared, queries: queries<F, O>(schema, declared, options) });
+        return new Relation<F, O>({ schema, options: Option.fromUndefinedOr(options), ...declared, queries: queries(schema, declared) });
     };
     static readonly insert = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, rows: Array.NonEmptyReadonlyArray<Written<F, O>>) => Effect.catchTag(relation.queries.insert(rows), 'NoSuchElementError', Effect.die);
     static readonly upsert = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, rows: Array.NonEmptyReadonlyArray<Written<F, O>>, ...kept: readonly Exclude<Field<F>, keyof O['projections']>[]) => relation.queries.upsert({ rows, kept });
@@ -86,7 +87,13 @@ class Relation<const F extends Fields = Fields, const O extends RelationOptions<
             onSome: Effect.fnUntraced(function* ({ column, setting }: Option.Option.Value<Relation['tenant']>) {
                 const [sql, encoded] = yield* Effect.all([SqlClient.SqlClient, Schema.encodeEffect(column.schema)(id)]);
                 const scope = SqlSchema.findOne({ Request: Schema.String, Result: Schema.Struct({ prior: Schema.String }), execute: (value) => sql`WITH p AS MATERIALIZED (SELECT coalesce(current_setting(${setting}, true), '') AS prior) SELECT p.prior, set_config(${setting}, ${value}, true) FROM p` });
-                return yield* sql.withTransaction(Effect.acquireUseRelease(scope(`${encoded}`), () => effect, ({ prior }) => Effect.orDie(scope(prior))));
+                return yield* sql.withTransaction(
+                    Effect.acquireUseRelease(
+                        scope(`${encoded}`),
+                        () => effect,
+                        ({ prior }, exit) => (Exit.isSuccess(exit) ? Effect.orDie(scope(prior)) : Effect.void),
+                    ),
+                );
             }),
         });
 }
@@ -143,7 +150,7 @@ const selecting = (context: Fragments, filter: Statement.Fragment, ordering: (sc
             sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(flags.position)} <= ${count} ORDER BY ${sql.csv([sql`t.${sql(by.name)}`, ordering(outer)])}`,
     });
 };
-const queries = <F extends Fields, O extends RelationOptions<F>>(schema: Schema.Struct<F>, relation: Pick<Relation, 'name' | 'columns' | 'key' | 'search'>, options: O | undefined) => {
+const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Relation, 'name' | 'columns' | 'key' | 'search'>) => {
     const run = perform(relation);
     const all = Object.values<Column>(relation.columns);
     const named = (field: string) => Array.findFirst(all, (entry) => entry.field === field);
@@ -164,7 +171,16 @@ const queries = <F extends Fields, O extends RelationOptions<F>>(schema: Schema.
                 kept: Schema.Array(Schema.String),
             }),
             Result: Schema.Struct({ row: schema, inserted: Schema.BooleanFromBit }),
-            execute: ({ rows, kept }) => run((context) => context.engine.upsert(context, rows, written.filter(({ name, field }) => !(relation.key.includes(name) || kept.includes(field)))).pipe(Effect.map(Array.map(({ [context.flags.inserted]: inserted, ...row }) => ({ row, inserted }))))),
+            execute: ({ rows, kept }) =>
+                run((context) =>
+                    context.engine
+                        .upsert(
+                            context,
+                            rows,
+                            written.filter(({ name, field }) => !(relation.key.includes(name) || kept.includes(field))),
+                        )
+                        .pipe(Effect.map(Array.map(({ [context.flags.inserted]: inserted, ...row }) => ({ row, inserted })))),
+                ),
         }),
         select: SqlSchema.findAll({
             Request: Schema.Struct({ where: Selection, order: Schema.Array(Schema.Union([Schema.String, Schema.Struct({ descending: Schema.String })])), limit: Schema.Option(Schema.Natural), per: Schema.Option(Schema.String) }),
@@ -172,10 +188,10 @@ const queries = <F extends Fields, O extends RelationOptions<F>>(schema: Schema.
             execute: ({ where, order, limit, per }) => run((context) => selecting(context, conditions(context, all, where), ordering(context, order), limit, Option.flatMap(per, named))),
         }),
         remove: SqlSchema.findAll({ Request: Selection, Result: schema, execute: (where) => run((context) => context.sql`DELETE FROM ${context.owner} WHERE ${conditions(context, all, where)} RETURNING ${context.reads(context.unqualified)}`) }),
-        search: Option.map(Option.all({ searchable: relation.search, declared: Option.fromUndefinedOr(options?.search) }), ({ searchable, declared }) =>
+        search: Option.map(relation.search, (searchable) =>
             SqlSchema.findAll({
                 Request: Schema.Struct({ text: Schema.String, pattern: Schema.String, count: Schema.Natural, marks: Schema.Option(Schema.Struct({ open: Schema.String, close: Schema.String })) }),
-                Result: Schema.Struct({ row: schema, rank: Schema.Finite, highlight: Schema.OptionFromNullOr(Schema.fromJsonString(Schema.Record(Schema.Literals(declared.columns), Schema.NullOr(Schema.String)))) }),
+                Result: Schema.Struct({ row: schema, rank: Schema.Finite, highlight: Schema.OptionFromNullOr(Schema.fromJsonString(Schema.Record(Schema.String, Schema.NullOr(Schema.String)))) }),
                 execute: ({ text, pattern, count, marks }) => run((context) => context.engine.search(context, searchable, text, pattern, marks, count).pipe(Effect.map(Array.map(({ [context.flags.rank]: rank, [context.flags.highlight]: highlight, ...row }) => ({ row, rank, highlight }))))),
             }),
         ),

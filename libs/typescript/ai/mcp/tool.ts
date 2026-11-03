@@ -20,7 +20,16 @@ const registerTool = Object.assign(
         yield* server.register(
             Option.match(Context.getOption(tool.annotations, Visible), {
                 onNone: () => registration,
-                onSome: (visible) => Effect.provide(registration, McpServer.visibility(() => Effect.catch(visible, (error) => Effect.as(Effect.logError(`${tool.name} hidden after its visibility check failed`, error), false))).layer),
+                onSome: (visible) =>
+                    Effect.provide(
+                        registration,
+                        McpServer.visibility(() =>
+                            visible.pipe(
+                                Effect.tapCause((cause) => Effect.logError(`${tool.name} hidden after its visibility check failed`, cause)),
+                                Effect.orElseSucceed(() => false),
+                            ),
+                        ).layer,
+                    ),
             }),
         );
     }),

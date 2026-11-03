@@ -6,7 +6,7 @@ import type { RpcGroup } from 'effect/rpc';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Request = RpcGroup.Rpcs<typeof Requests>;
-type Envelope<Current extends Request = Request> = Current extends Request ? ReturnType<typeof Envelope<Current>>['Encoded'] : never;
+type Envelope<Current extends Request = Request> = Current extends Request ? Schema.Struct<{ readonly tag: Schema.Literal<Current['_tag']>; readonly label: Schema.String; readonly payload: Current['payloadSchema'] }>['Encoded'] : never;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ const answered =
     <S extends Schema.Top>(success: S, subject: string) =>
     (reply: typeof Reply.Type) =>
         Match.valueTags(reply, {
-            Value: ({ value }) => Schema.decodeUnknownEffect(success)(value),
+            Value: ({ value }) => Schema.decodeEffect(success)(value),
             Unmatched: Effect.fail,
             IllegalArgument: ({ message }) => Effect.fail(new Cause.IllegalArgumentError(message)),
             Thrown: (failed) => Effect.fail(Option.isSome(failed.line) ? HostError.thrown(`${subject}: ${failed.message}`, failed.line)(failed) : HostError.refused(subject)(failed)),

@@ -26,8 +26,9 @@ struct FontFaces {
 
     @Test
     func faceEncodesWireFaceShapeAndRoundTrips() throws {
-        let face: FontFace = FontFace(postscriptName: "Rasm-Bold", family: "Rasm", style: "Bold", displayName: "Rasm Bold", file: URL(filePath: "/Library/Fonts/Rasm.otf"))
-        let expected: JSONValue = try json(#"{"postscriptName":"Rasm-Bold","family":"Rasm","style":"Bold","displayName":"Rasm Bold","file":"file:///Library/Fonts/Rasm.otf"}"#)
+        let file: URL = URL.temporaryDirectory.appending(path: "Rasm.otf")
+        let face: FontFace = FontFace(postscriptName: "Rasm-Bold", family: "Rasm", style: "Bold", displayName: "Rasm Bold", file: file)
+        let expected: JSONValue = try json(#"{"postscriptName":"Rasm-Bold","family":"Rasm","style":"Bold","displayName":"Rasm Bold","file":"\#(file.absoluteString)"}"#)
         expectNoDifference(try wire(face), expected)
         expectNoDifference(try JSONDecoder().decode(FontFace.self, from: JSONEncoder().encodeLine(face)), face)
     }

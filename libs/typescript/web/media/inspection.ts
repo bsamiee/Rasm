@@ -52,7 +52,7 @@ const video = Effect.fnUntraced(function* (file: File) {
         element.src = url;
     });
 }, Effect.scoped);
-const read = Effect.fn('Inspection.read')((file: File, options: Options) =>
+const read = Effect.fn('read')((file: File, options: Options) =>
     Match.value(file.type).pipe(
         Match.when(String.startsWith('image/'), () => image(file, options)),
         Match.when(String.startsWith('video/'), () => video(file)),

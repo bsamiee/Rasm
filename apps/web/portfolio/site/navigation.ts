@@ -9,7 +9,11 @@ const Params = Schema.fromURLSearchParams(Schema.Struct({ project: EntryId, comp
 const Fragment = {
     top: '#top',
     work: '#work',
-    of: (project: typeof EntryId.Type, composition?: typeof CompositionId.Type) => Schema.encodeOption(Params)({ project, composition }).pipe(Option.map((params) => `#${params}`), Option.getOrElse(() => Fragment.work)),
+    of: (project: typeof EntryId.Type, composition?: typeof CompositionId.Type) =>
+        Schema.encodeOption(Params)({ project, composition }).pipe(
+            Option.map((params) => `#${params}`),
+            Option.getOrElse(() => Fragment.work),
+        ),
     read: (hash: string) => Schema.decodeOption(Params)(new URLSearchParams(hash.slice(1))),
 } as const;
 
@@ -29,7 +33,15 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     const located = (target: string) => Option.bind(Fragment.read(target), 'entry', ({ project }) => Array.findFirst(portfolio.entries, ({ id }) => id === project));
     const current = located(hash);
     const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
-    const selected = (entry: typeof Entry.Type) => first(entry, current.pipe(Option.filter((shown) => shown.entry === entry), Option.flatMapNullishOr(({ composition }) => composition), Option.getOrElse(() => selections[entry.id])));
+    const selected = (entry: typeof Entry.Type) =>
+        first(
+            entry,
+            current.pipe(
+                Option.filter((shown) => shown.entry === entry),
+                Option.flatMapNullishOr(({ composition }) => composition),
+                Option.getOrElse(() => selections[entry.id]),
+            ),
+        );
     const write = (method: 'pushState' | 'replaceState', target: string) => {
         history.scrollRestoration = Option.isSome(Fragment.read(target)) ? 'manual' : 'auto';
         if (location.hash !== target) {
@@ -65,17 +77,18 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
             history.scrollRestoration = 'auto';
             return;
         }
-        const target = located(location.hash);
-        if (Option.isNone(target)) {
-            write('replaceState', Fragment.work);
-            work.current?.scrollIntoView({ behavior: 'instant' });
-            return;
-        }
-        const { entry, composition } = target.value;
-        if (event === undefined || !Option.exists(current, (shown) => shown.entry.id === entry.id)) {
-            document.getElementById(entry.id)?.scrollIntoView({ behavior: 'instant' });
-        }
-        write('replaceState', Fragment.of(entry.id, first(entry, composition)));
+        Option.match(located(location.hash), {
+            onNone: () => {
+                write('replaceState', Fragment.work);
+                work.current?.scrollIntoView({ behavior: 'instant' });
+            },
+            onSome: ({ entry, composition }) => {
+                if (event === undefined || !Option.exists(current, (shown) => shown.entry.id === entry.id)) {
+                    document.getElementById(entry.id)?.scrollIntoView({ behavior: 'instant' });
+                }
+                write('replaceState', Fragment.of(entry.id, first(entry, composition)));
+            },
+        });
     });
     useEffect(() => {
         const [bar, section] = [sticky.current, work.current];
@@ -110,7 +123,15 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
             size.disconnect();
         };
     }, [portfolio.entries, sticky, work]);
-    return { active: current.pipe(Option.map(({ entry }) => entry.id), Option.getOrUndefined), selected, select, jump };
+    return {
+        active: current.pipe(
+            Option.map(({ entry }) => entry.id),
+            Option.getOrUndefined,
+        ),
+        selected,
+        select,
+        jump,
+    };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

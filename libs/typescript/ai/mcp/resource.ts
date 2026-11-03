@@ -1,6 +1,6 @@
 import { Array, Cause, Effect, Equal, flow, HashMap, HashSet, Number, Option, Predicate, Record, Ref, Schema, SchemaAST, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema, McpServer } from 'effect/ai';
-import { Route } from '#/route';
+import { complete, partial } from '#/route';
 import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -44,7 +44,17 @@ const make = Effect.fnUntraced(function* <A, I, R>({ schema, mimeType, changes }
         );
     const watch = (at: string) =>
         Effect.acquireRelease(
-            Ref.update(watched, HashMap.modifyAt(at, flow(Option.getOrElse(() => 0), Number.increment, Option.some))),
+            Ref.update(
+                watched,
+                HashMap.modifyAt(
+                    at,
+                    flow(
+                        Option.getOrElse(() => 0),
+                        Number.increment,
+                        Option.some,
+                    ),
+                ),
+            ),
             () => Ref.update(watched, HashMap.modifyAt(at, flow(Option.map(Number.decrement), Option.filter(Number.isGreaterThan(0))))),
         );
     const reply = (at: string, value: A) =>
@@ -59,16 +69,19 @@ const make = Effect.fnUntraced(function* <A, I, R>({ schema, mimeType, changes }
         Stream.mapEffect(() => SubscriptionRef.get(store)),
         Stream.flattenIterable,
         Stream.runForEach(
-            Effect.fnUntraced(function* ([key, entry]: readonly [string, Entry<A>]) {
-                const [value, watching] = yield* Effect.all([Effect.catchNoSuchElement(entry.read), Ref.get(watched)]);
-                const kept = Option.filter(value, (next) => HashMap.has(watching, key) || Equal.equals(next, entry.value));
-                yield* SubscriptionRef.update(store, (entries) => Option.match(kept, { onNone: () => HashMap.remove(entries, key), onSome: (next) => HashMap.modifyAt(entries, key, Option.map((held: Entry<A>) => ({ ...held, value: next }))) }));
-            }, Effect.ignoreCause({ log: 'Error' })),
+            Effect.fnUntraced(
+                function* ([key, entry]: readonly [string, Entry<A>]) {
+                    const [value, watching] = yield* Effect.all([Effect.catchNoSuchElement(entry.read), Ref.get(watched)]);
+                    const kept = Option.filter(value, (next) => HashMap.has(watching, key) || Equal.equals(next, entry.value));
+                    yield* SubscriptionRef.update(store, Option.match(kept, { onNone: () => HashMap.remove(key), onSome: (next) => HashMap.modify(key, Struct.assign({ value: next })) }));
+                },
+                Effect.ignoreCause({ log: 'Error' }),
+            ),
         ),
         Effect.forkScoped,
     );
     yield* SubscriptionRef.changes(store).pipe(
-        Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, current) => [current, Array.flatMap([...last], ([key, entry]) => (Option.exists(HashMap.get(current, key), ({ value }) => Equal.equals(value, entry.value)) ? [] : [...entry.uris]))]),
+        Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, current) => [current, Array.flatMap([...last], ([key, entry]) => (Option.contains(Option.map(HashMap.get(current, key), Struct.get('value')), entry.value) ? [] : [...entry.uris]))]),
         Stream.runForEach((uri) => server.notifications['notifications/resources/updated']({ uri })),
         Effect.forkScoped,
     );
@@ -139,13 +152,16 @@ const template = <const Schemas extends readonly Schema.Codec<unknown, unknown, 
         const canonical = Schema.encodeUnknownEffect(Schema.TemplateLiteralParser(interleaved(Array.map(schemas, (each) => Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.toCodecStringTree(each)))))));
         const keyed = (params: Params<Schemas>) => Effect.orDie(canonical(interleaved(params)));
         const reading = (params: Params<Schemas>, at: string) => Effect.provideContext(content(at, ...params), services);
-        const decodeArguments = Route.partial<Record<string, Schemas[number]>, Named<Schemas>>(Record.fromEntries(Array.map(schemas, (each, index) => [McpSchema.isParam(each) ? each.name : `param${index}`, each] as const)));
+        const decodeArguments = partial<Record<string, Schemas[number]>, Named<Schemas>>(Record.fromEntries(Array.map(schemas, (each, index) => [McpSchema.isParam(each) ? each.name : `param${index}`, each] as const)));
         yield* server.register(
-            McpServer.registerResource(segments, ...schemas)({
+            McpServer.registerResource(
+                segments,
+                ...schemas,
+            )({
                 ...descriptor,
                 mimeType: store.mimeType,
                 description: descriptor.description ?? SchemaAST.resolveDescription(schema.ast),
-                completion: Record.map({ ...completion }, (complete) => flow(Route.complete(decodeArguments, complete), Effect.provideContext(services))),
+                completion: Record.map({ ...completion }, (completing) => flow(complete(decodeArguments, completing), Effect.provideContext(services))),
                 content: (at, ...params) => Effect.flatMap(keyed(params), (key) => store.read(key, at, reading(params, at))),
             }),
         );

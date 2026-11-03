@@ -10,9 +10,13 @@ import { Page } from '#/page/render';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 interface Field extends Struct.Lambda {
-    (binding: { readonly type: string }): typeof Schema.UnknownFromJsonString | typeof Schema.String;
-    readonly '~lambda.out': this['~lambda.in'] extends { readonly type: 'json' } ? typeof Schema.UnknownFromJsonString : typeof Schema.String;
+    (binding: { readonly type: string }): typeof Json | typeof Schema.String;
+    readonly '~lambda.out': this['~lambda.in'] extends { readonly type: 'json' } ? typeof Json : typeof Schema.String;
 }
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Json = Schema.fromJsonString(Schema.Unknown);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -21,9 +25,14 @@ const server = <B extends Record.ReadonlyRecord<string, { readonly type: string 
     return Layer.unwrap(
         Effect.gen(function* () {
             const [env, files] = yield* Effect.all([
-                Config.schema(Schema.Struct(Struct.map(config.env, Struct.lambda<Field>(({ type }) => (type === 'json' ? Schema.UnknownFromJsonString : Schema.String))))).pipe(
-                    Effect.provide(ConfigProvider.layerAdd(ConfigProvider.fromUnknown(Record.filterMap(config.env, ({ type }) => (type === 'assets' ? Result.succeed(root) : Result.failVoid))), { asPrimary: true })),
-                ),
+                Config.schema(
+                    Schema.Struct(
+                        Struct.map(
+                            config.env,
+                            Struct.lambda<Field>(({ type }) => (type === 'json' ? Json : Schema.String)),
+                        ),
+                    ),
+                ).pipe(Effect.provide(ConfigProvider.layerAdd(ConfigProvider.fromUnknown(Record.filterMap(config.env, ({ type }) => (type === 'assets' ? Result.succeed(root) : Result.failVoid))), { asPrimary: true }))),
                 HttpStaticServer.make({ root }),
             ]);
             return HttpRouter.serve(

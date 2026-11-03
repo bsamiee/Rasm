@@ -7,7 +7,7 @@ import WatchAppsWire
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let helps: [(arguments: [String], names: [String])] = [
-    (["--help"], ["watch", "launch", "show", "read", "capture", "perform", "set"]),
+    (["--help"], ["watch", "launch", "show", "read", "capture", "perform", "set", "quit"]),
     (["watch", "--help"], ["<names>"]),
     (["launch", "--help"], ["<names>", "--new", "--document", "--arguments", "--environment"]),
     (["show", "--help"], ["<names>", "--pid"]),
@@ -15,13 +15,14 @@ private let helps: [(arguments: [String], names: [String])] = [
     (["capture", "--help"], ["<names>", "--pid", "--window", "--longest-side"]),
     (["perform", "--help"], ["<id>", "<action>"]),
     (["set", "--help"], ["<id>", "<value>"]),
+    (["quit", "--help"], ["<names>", "--pid", "--force"]),
 ]
 
 private let malformed: [[String]] = { (absent: String) -> [[String]] in
     [
         ["undeclared"], ["watch"], ["read", absent, "--undeclared"], ["read", absent, "--pid", "text"], ["read", absent, "\(absent).second", "--pid", "1"],
         ["capture", absent, "--longest-side", "0"], ["launch", absent, "--environment", "NAME"], ["launch", absent, "--document", "/\(absent)/absent.txt"],
-        ["perform", "not base64!", "AXPress"], ["set", "", "text"],
+        ["perform", "not base64!", "AXPress"], ["set", "", "text"], ["quit", absent, "--pid", "text"],
     ]
 }("dev.rasm.absent")
 

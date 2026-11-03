@@ -14,16 +14,12 @@ const menu = ({ area }: Menu) =>
             return Array.zipWith(Array.zip(every.id, every.name), every.area, ([id, name], within) => ({ id, name, area: within }));
         }),
     ).pipe(Effect.flatMap(Unmatched.matching('menu area', area, (row) => [row.area])));
-const invoke = (payload: typeof Menu.Invoke.Type) =>
-    menu(Menu.make({ area: Option.none() })).pipe(
-        Effect.flatMap(Unmatched.single('menu action', Option.some(String(payload.action)), ({ id, name, area }) => [`${id} ${name} (${area})`, String(id), name])),
-        Effect.flatMap((chosen) =>
-            commit(
-                payload.label,
-                Model.use(({ app }) => Effect.as(Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: HostError.refused(chosen.name) }), chosen)),
-            ),
-        ),
-    );
+const invoke = Effect.fn('invoke')(function* (payload: typeof Menu.Invoke.Type) {
+    const [{ app }, actions] = yield* Effect.all([Model, menu(Menu.make({ area: Option.none() }))]);
+    const chosen = yield* Unmatched.single(actions, 'menu action', Option.some(String(payload.action)), ({ id, name, area }) => [`${id} ${name} (${area})`, String(id), name]);
+    yield* commit(payload.label, Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: HostError.refused(chosen.name) }));
+    return chosen;
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

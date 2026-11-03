@@ -10,12 +10,12 @@ import { Server } from '#/server';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const main = <E>(
-    manifest: { readonly name: string; readonly version: string; readonly description: string },
-    { retention, instructions }: { readonly retention: Duration.Duration; readonly instructions: readonly string[] },
-    app: Layer.Layer<never, E, McpServer.McpServer | Server | HttpRouter.HttpRouter | HttpRouter.Request<'Error', unknown> | NodeServices.NodeServices>,
-): void =>
-    Effect.gen(function* () {
+const main = Effect.fnUntraced(
+    function* <E>(
+        manifest: { readonly name: string; readonly version: string; readonly description: string },
+        { retention, instructions }: { readonly retention: Duration.Duration; readonly instructions: readonly string[] },
+        app: Layer.Layer<never, E, McpServer.McpServer | Server | HttpRouter.HttpRouter | HttpRouter.Request<'Error', unknown> | NodeServices.NodeServices>,
+    ) {
         const name = yield* Schema.decodeEffect(Server.Scheme)(manifest.name);
         const settings = {
             listen: Flag.String('listen').pipe(Flag.withFallbackConfig(Config.String('MCP_LISTEN')), Flag.withSchema(Schema.InetAddressFromString), Flag.withDescription('Endpoint address as host:port or [IPv6]:port')),
@@ -28,7 +28,10 @@ const main = <E>(
                 Effect.provide(Otlp.layerFromConfig({ resource: { serviceName: name, serviceVersion: manifest.version } }).pipe(Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]), Layer.provideMerge(Logger.layer([Logger.consoleJson, Logger.tracerLogger])))),
             ),
         ).pipe(Command.run({ version: manifest.version }));
-    }).pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain({ teardown: (exit, onExit) => (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause) ? onExit(0) : Runtime.defaultTeardown(exit, onExit)) }));
+    },
+    Effect.provide(NodeServices.layer),
+    NodeRuntime.runMain({ teardown: (exit, onExit) => (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause) ? onExit(0) : Runtime.defaultTeardown(exit, onExit)) }),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

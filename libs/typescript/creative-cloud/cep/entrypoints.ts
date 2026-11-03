@@ -7,17 +7,17 @@ import { ExtensionManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Cep = { readonly evalScript: (script: string, callback: (reply: string) => void) => void; readonly getSystemPath: (type: string) => string; readonly getExtensionId: () => string };
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const UNEVALUATED = 'EvalScript error.';
+interface Cep {
+    readonly evalScript: (script: string, callback: (reply: string) => void) => void;
+    readonly getSystemPath: (type: string) => string;
+    readonly getExtensionId: () => string;
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Cep = Schema.Struct({ evalScript: Schema.declare(Predicate.isFunction), getSystemPath: Schema.declare(Predicate.isFunction), getExtensionId: Schema.declare(Predicate.isFunction) });
 const Panel = Schema.Struct({ __adobe_cep__: Schema.declare((host): host is Cep => Schema.is(Cep)(host)) });
-const Answer = Schema.Union([Schema.Literal(UNEVALUATED), Schema.fromJsonString(Reply)]);
+const Answer = Schema.Union([Schema.Literal('EvalScript error.'), Schema.fromJsonString(Reply)]);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -28,8 +28,8 @@ Effect.gen(function* () {
         return Effect.fnUntraced(function* (payload: Current['payloadSchema']['Type']) {
             const sent = yield* Effect.orDie(Schema.encodeEffect(request)({ tag: rpc._tag, label: payload.label, payload }));
             const reply = yield* Effect.callback<string>((resume) => cep.evalScript(`${ExtensionManifest.global}(${sent.replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029')})`, flow(Effect.succeed, resume)));
-            const answer = yield* Schema.decodeEffect(Answer)(reply);
-            return yield* answer === UNEVALUATED ? Effect.fail(HostError.make({ reason: { _tag: 'Unavailable' }, subject: `${payload.label}: ${ExtensionManifest.script} ${ExtensionManifest.global}` })) : answered(success, payload.label)(answer);
+            const answer = yield* Schema.decodeEffect(Answer)(reply).pipe(Effect.filterOrFail(Schema.is(Reply), () => HostError.make({ reason: { _tag: 'Unavailable' }, subject: `${payload.label}: ${ExtensionManifest.script} ${ExtensionManifest.global}` })));
+            return yield* answered(success, payload.label)(answer);
         });
     };
     // biome-ignore lint/nursery/noUnsafeTypeAssertion: each handler encodes its tag's payload and decodes its tag's success through that rpc's schemas, which a table built from the request map types as their union

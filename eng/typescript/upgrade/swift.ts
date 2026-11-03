@@ -65,7 +65,20 @@ Effect.gen(function* () {
     const major = { pattern: requirement('$URL', '$FROM') };
     const [matches, documents] = yield* Effect.all(
         [
-            Array.match(manifests, { onEmpty: () => Effect.succeed([]), onNonEmpty: (files) => Effect.flatMap(scan([{ id: 'major', rule: major }, { id: 'other', rule: { pattern: '.package(url: "$URL", $$$)', not: major } }], ['--json=compact', ...files]), Schema.decodeEffect(Matches)) }),
+            Array.match(manifests, {
+                onEmpty: () => Effect.succeed([]),
+                onNonEmpty: (files) =>
+                    Effect.flatMap(
+                        scan(
+                            [
+                                { id: 'major', rule: major },
+                                { id: 'other', rule: { pattern: '.package(url: "$URL", $$$)', not: major } },
+                            ],
+                            ['--json=compact', ...files],
+                        ),
+                        Schema.decodeEffect(Matches),
+                    ),
+            }),
             Effect.validate(projects, (file) => Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(Project)), { concurrency: 'unbounded' }),
         ],
         { concurrency: 'unbounded' },

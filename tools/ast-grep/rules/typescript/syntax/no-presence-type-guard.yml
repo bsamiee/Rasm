@@ -2,7 +2,7 @@
 id: no-presence-type-guard
 language: tsx
 severity: error
-ignores: ['libs/typescript/creative-cloud/extendscript/handle.ts', 'libs/typescript/creative-cloud/illustrator/host.ts']
+ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/illustrator/host.ts']
 utils:
     member:
         kind: member_expression, subscript_expression

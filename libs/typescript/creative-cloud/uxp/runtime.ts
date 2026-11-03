@@ -9,6 +9,7 @@ const IDENTIFIER = /^[$_\p{ID_Start}](?:[$\p{ID_Continue}]|\u200C|\u200D)*$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Thrown = Schema.Struct({ message: Schema.Unknown });
 const Script = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -45,7 +46,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof import('adobe:uxp'
         };
         try {
             const line = Predicate.hasProperty(cause, 'stack') && Predicate.isString(cause.stack) ? Array.head(lines) : Option.none();
-            return HostError.thrown(String(Predicate.hasProperty(cause, 'message') ? cause.message : cause), line)(cause);
+            return HostError.thrown(String(Option.match(Schema.decodeUnknownOption(Thrown)(cause), { onNone: () => cause, onSome: Struct.get('message') })), line)(cause);
         } finally {
             Error.prepareStackTrace = prepare;
         }
@@ -82,8 +83,12 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof import('adobe:uxp'
         const decoder = new TextDecoder();
         Effect.gen(function* () {
             const [{ script }, context, done] = yield* Effect.all([Schema.decodeUnknownEffect(Script)(modules.uxp), Effect.context<Uxp>(), Deferred.make<void>()]);
-            const answered = (chunk: string | Uint8Array) => Effect.andThen(Effect.sync(() => script.setResult(Predicate.isString(chunk) ? chunk : decoder.decode(chunk))), Deferred.succeed(done, undefined));
-            const failed = Effect.fnUntraced(function* (cause: Cause.Cause<unknown>) {
+            const answered = (chunk: string | Uint8Array) =>
+                Effect.andThen(
+                    Effect.sync(() => script.setResult(Predicate.isString(chunk) ? chunk : decoder.decode(chunk))),
+                    Deferred.succeed(done, undefined),
+                );
+            const failed = Effect.fnUntraced(function* (cause: Cause.Cause<E>) {
                 yield* Uxp.logged(cause);
                 const defect = yield* Effect.orDie(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)));
                 const encoded = RpcSerialization.json.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect));

@@ -19,12 +19,14 @@ class OwnerAccount extends Context.Service<OwnerAccount, { readonly email: strin
     static readonly layer = (email: string) => Layer.succeed(OwnerAccount, { email });
     static readonly session = Effect.gen(function* () {
         const [{ email }, user] = yield* Effect.all([OwnerAccount, User.current(sites)]);
-        if (Option.isNone(user)) {
-            return 'signedOut' satisfies typeof Session.Type;
-        }
-        const enrolled = Option.map(Array.head(yield* Relation.select(owner, { email: [email] })), ({ userId }) => userId);
-        const ownerId = Option.isNone(enrolled) && Option.exists(user.value.email, (value) => address.compare(value, email) === 0) ? Option.some((yield* Relation.ensure(owner, [{ email, userId: user.value.id }]))[0].userId) : enrolled;
-        return (Option.contains(ownerId, user.value.id) ? 'owner' : 'signedIn') satisfies typeof Session.Type;
+        return yield* Option.match(user, {
+            onNone: () => Effect.succeed<typeof Session.Type>('signedOut'),
+            onSome: Effect.fnUntraced(function* (signed) {
+                const enrolled = Option.map(Array.head(yield* Relation.select(owner, { email: [email] })), ({ userId }) => userId);
+                const ownerId = Option.isNone(enrolled) && Option.exists(signed.email, (value) => address.compare(value, email) === 0) ? Option.some((yield* Relation.ensure(owner, [{ email, userId: signed.id }]))[0].userId) : enrolled;
+                return (Option.contains(ownerId, signed.id) ? 'owner' : 'signedIn') satisfies typeof Session.Type;
+            }),
+        });
     }).pipe(Effect.catchTag(['SqlError', 'SchemaError'], unavailable), Effect.withSpan('OwnerAccount.session'));
     static readonly authorize = Effect.filterOrFail(
         OwnerAccount.session,

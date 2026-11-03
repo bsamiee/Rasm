@@ -115,18 +115,22 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const body = Array.takeWhile(depths, ({ next }) => next > 0);
         const cuts = Array.filterMap(body, ({ token, depth }, index) => (depth === 1 && token === ',' ? Result.succeed(index) : Result.failVoid));
         const segments = Array.window([-1, ...cuts, body.length], 2).map(([start, end]) => body.slice(start + 1, end).map(Struct.get('token')));
-        const comment = (token: string | undefined) => (token?.startsWith('/*') ? Option.some(token.slice(2, -2).trim()) : Option.none());
+        const comment = (token: Option.Option<string>) =>
+            Option.map(
+                Option.filter(token, (text) => text.startsWith('/*')),
+                (text) => text.slice(2, -2).trim(),
+            );
         const unquoted = (token: string) => UndefinedOr.match(quotes[token.charAt(0)], { onUndefined: () => token, onDefined: (close) => token.slice(1, -1).replaceAll(`${close}${close}`, close) });
         const defined = segments.flatMap((segment) =>
             Option.toArray(Option.filter(Array.head(segment), (first) => !keywords.includes(first.toUpperCase()))).map((first) => ({
                 name: unquoted(first),
-                identity: comment(segment[1]),
+                identity: comment(Array.get(segment, 1)),
                 constrained: Array.drop(segment, 1).some((token) => keywords.includes(token.toUpperCase())),
             })),
         );
         return {
             ...table,
-            identity: Option.getOrNull(comment(Array.take(tokens, Math.max(opening, 0)).find((token) => token.startsWith('/*')))),
+            identity: Option.getOrNull(comment(Array.findFirst(Array.take(tokens, Math.max(opening, 0)), (token) => token.startsWith('/*')))),
             columns: columns.map((column) => {
                 const found = Array.findFirst(defined, ({ name }) => name === column.name);
                 return { ...column, identity: Option.getOrNull(Option.flatMap(found, Struct.get('identity'))), constrained: Option.exists(found, Struct.get('constrained')) };
@@ -270,7 +274,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             opening: Array.isReadonlyArrayNonEmpty(rebuilds) || Array.isReadonlyArrayNonEmpty(resolved.removed) ? [sql`PRAGMA defer_foreign_keys = on`] : [],
             statements: [
                 ...live.virtual.filter(({ name }) => resolved.removed.some((owner) => name === `${owner}_fts`)).map(({ name }) => sql`DROP TABLE ${sql(name)}`),
-                ...resolved.created.flatMap(({ rendered }) => [rendered.create, ...rendered.indexes.map(({ text }) => text('')), ...Option.match(rendered.virtual, { onNone: () => [], onSome: (virtual) => [virtual.create, ...virtual.triggers.map(({ create }) => create)] })]),
+                ...resolved.created.flatMap(({ rendered: table }) => [table.create, ...table.indexes.map(({ text }) => text('')), ...Option.match(table.virtual, { onNone: () => [], onSome: (virtual) => [virtual.create, ...virtual.triggers.map(({ create }) => create)] })]),
                 ...altered.flatMap((entry) => [
                     ...entry.dropped.map(({ name }) => sql`DROP INDEX ${sql(name)}`),
                     ...entry.search.dropped,
@@ -282,8 +286,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                 ...rebuilding.map(({ create }) => create),
                 ...(rebuilding.some(({ live: row }) => sequenced(row)) ? [sql`INSERT INTO sqlite_sequence (name, seq) SELECT m.name, s.seq FROM sqlite_sequence s JOIN sqlite_schema m ON m.name = s.name || '__rebuild'`] : []),
                 ...rebuilding.map(({ copy }) => copy),
-                ...rebuilding.map(({ rendered }) => sql`DROP TABLE ${rendered.relation}`),
-                ...rebuilding.map(({ declared, rendered }) => sql`ALTER TABLE ${temporary(declared.name)} RENAME TO ${rendered.relation}`),
+                ...rebuilding.map(({ rendered: table }) => sql`DROP TABLE ${table.relation}`),
+                ...rebuilding.map(({ declared, rendered: table }) => sql`ALTER TABLE ${temporary(declared.name)} RENAME TO ${table.relation}`),
                 ...rebuilding.flatMap((entry) => [
                     ...entry.indexes,
                     ...entry.undeclared.map((index) => sql`${sql.literal(index.sql)}`),
@@ -291,7 +295,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                     ...entry.search.dropped,
                     ...entry.search.created,
                 ]),
-                ...(resolved.created.some(({ rendered }) => Array.isReadonlyArrayNonEmpty(rendered.indexes) || Option.isSome(rendered.virtual)) ||
+                ...(resolved.created.some(({ rendered: table }) => Array.isReadonlyArrayNonEmpty(table.indexes) || Option.isSome(table.virtual)) ||
                 altered.some(({ missing, search }) => Array.isReadonlyArrayNonEmpty(missing) || search.fresh) ||
                 rebuilding.some(({ indexes, search }) => Array.isReadonlyArrayNonEmpty(indexes) || search.fresh)
                     ? [sql`PRAGMA optimize`]

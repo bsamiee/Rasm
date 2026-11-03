@@ -20,14 +20,6 @@ const refusalError = flow(
     encodeEntries,
     Effect.map((reportText) => new Cause.IllegalArgumentError(reportText)),
 );
-const complete =
-    <Given, Values, RD, R>(decode: (resolved: Readonly<Record<string, string>>) => Effect.Effect<Given, Error, RD>, completing: (input: string, given: Given) => Effect.Effect<Values, Error, R>) =>
-    (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
-        Effect.flatMap(decode(context?.arguments ?? {}), (given) => completing(input, given));
-const partial = <Fields extends Schema.Struct.Fields, Given = Schema.Struct.Type<Fields>>(fields: Fields) => {
-    const decoders = Record.map(fields, (_, key) => Schema.decodeUnknownEffect(Schema.toCodecStringTree(Schema.Struct(Struct.pick(fields, [key])))));
-    return (resolved: Readonly<Record<string, string>>) => Effect.map(Effect.forEach(Record.values(decoders), (decode) => Effect.option(decode(resolved))), (picked): Partial<Given> => Object.assign({}, ...Array.getSomes(picked)));
-};
 const optional = <Chosen, Fields extends Schema.Struct.Fields, R>(route: Route<Chosen, Fields, R>): Route<Option.Option<Chosen>, Fields, R> => ({
     fields: route.fields,
     resolve: (given) => (Object.values(given).every((value) => Option.isOption(value) && Option.isNone(value)) ? Effect.succeedNone : Effect.asSome(route.resolve(given))),
@@ -51,7 +43,14 @@ const register =
                 const dependencies = yield* route.depends(chosen, routed);
                 const peeled = yield* Effect.forEach(Context.get(annotations, Tool.Readonly) ? [] : dependencies, (dependency) => Stream.peel(dependency.refusal, Sink.head()), { concurrency: 'unbounded' });
                 yield* Array.match(Array.getSomes(Array.map(peeled, ([first]) => Option.flatten(first))), { onEmpty: () => Effect.void, onNonEmpty: flow(refusalError, Effect.flatMap(Effect.fail)) });
-                yield* Stream.mergeAll(Array.map(peeled, Tuple.get(1)), { concurrency: 'unbounded' }).pipe(Stream.filter(Option.isSome), Stream.take(1), Stream.mapEffect(({ value }) => refusalError([value])), Stream.ignore({ log: 'Error' }), Stream.runForEach(respond), Effect.forkScoped);
+                yield* Stream.mergeAll(Array.map(peeled, Tuple.get(1)), { concurrency: 'unbounded' }).pipe(
+                    Stream.filter(Option.isSome),
+                    Stream.take(1),
+                    Stream.mapEffect(({ value }) => refusalError([value])),
+                    Stream.ignore({ log: 'Error' }),
+                    Stream.runForEach(respond),
+                    Effect.forkScoped,
+                );
                 return yield* Effect.onExitIf(
                     handle(parameters, chosen),
                     (exit) => !(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)),
@@ -64,8 +63,20 @@ const register =
             }, Effect.scoped),
         );
     };
-const Route = { complete, partial, optional, register };
+const complete =
+    <Given, Values, RD, R>(decode: (resolved: Readonly<Record<string, string>>) => Effect.Effect<Given, Error, RD>, completing: (input: string, given: Given) => Effect.Effect<Values, Error, R>) =>
+    (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
+        Effect.flatMap(decode(context?.arguments ?? {}), (given) => completing(input, given));
+const partial = <Fields extends Schema.Struct.Fields, Given = Schema.Struct.Type<Fields>>(fields: Fields) => {
+    const decoders = Record.map(fields, (_, key) => Schema.decodeUnknownEffect(Schema.toCodecStringTree(Schema.Struct(Struct.pick(fields, [key])))));
+    return (resolved: Readonly<Record<string, string>>): Effect.Effect<Partial<Given>, never, Schema.Struct<Fields>['DecodingServices']> =>
+        Effect.map(
+            Effect.forEach(Object.values(decoders), (decode) => Effect.option(decode(resolved))),
+            (picked) => Object.assign({}, ...Array.getSomes(picked)),
+        );
+};
+const Route = { optional, register };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Route };
+export { complete, partial, Route };

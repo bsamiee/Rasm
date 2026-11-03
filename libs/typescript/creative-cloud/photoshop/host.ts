@@ -10,6 +10,7 @@ import { Photoshop } from '#/contract';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const REJECTIONS = { Cancelled: 2, Unavailable: 9 } as const;
 const COLLECTIONS = {
     document: 'documents',
     textFont: 'fonts',
@@ -50,7 +51,7 @@ const Entry = Uxp.Entry.mapFields(Struct.assign({ isFile: Schema.Literal(true) }
 const Members = Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Finite]));
 const Parameter = Schema.Struct({ type: Schema.String, start: Schema.Int, end: Schema.Int, left: Schema.OptionFromOptionalKey(Schema.Struct({ start: Schema.Int, end: Schema.Int })) });
 const Declared = Schema.Struct({ body: Schema.Tuple([Schema.Struct({ expression: Schema.Struct({ body: Schema.Struct({ body: Schema.Tuple([Schema.Struct({ value: Schema.Struct({ params: Schema.Array(Parameter) }) })]) }) }) })]) });
-const Rejected = Schema.Struct({ number: Schema.Literals([2, 9]).transform(['Cancelled', 'Unavailable']) });
+const Rejected = Schema.Struct({ number: Schema.Literals([REJECTIONS.Cancelled, REJECTIONS.Unavailable]).transform(['Cancelled', 'Unavailable']) });
 const Executable = Schema.Tuple([Schema.Struct({ executablePath: Schema.Struct({ _path: Schema.String }) })]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -127,12 +128,23 @@ const traced = (value: object): Option.Option<{ readonly element: typeof Element
         const element = yield* Schema.decodeUnknownOption(Element)(value);
         const kind = yield* Schema.decodeUnknownOption(Kind)(String.uncapitalize(element.typename));
         const rooted = COLLECTIONS[kind] in app;
-        const container: object = rooted ? app : yield* Option.flatMap(Option.orElse(element.document, () => element.parent), owner);
+        const container: object = rooted
+            ? app
+            : yield* Option.flatMap(
+                  Option.orElse(element.document, () => element.parent),
+                  owner,
+              );
         const above = rooted ? [] : (yield* traced(container)).path;
         const selector = yield* Option.firstSomeOf([
             Option.map(element.id, (id) => Selector.cases.Identified.make({ id })),
-            Option.flatMap(Option.orElse(element.postScriptName, () => element.name), (name) => Selector.cases.Named.makeOption({ name })),
-            Option.map(Array.findFirstIndex(elements(container, kind), (each) => each === value), (index) => Selector.cases.Indexed.make({ index })),
+            Option.flatMap(
+                Option.orElse(element.postScriptName, () => element.name),
+                (name) => Selector.cases.Named.makeOption({ name }),
+            ),
+            Option.map(
+                Array.findFirstIndex(elements(container, kind), (each) => each === value),
+                (index) => Selector.cases.Indexed.make({ index }),
+            ),
         ]);
         return { element, path: [...above, [kind, selector] as const] };
     });
@@ -148,18 +160,27 @@ const encoded = (value: unknown): Effect.Effect<unknown> => {
     if (Predicate.isObject(value) && Object.getPrototypeOf(value) === Object.prototype) {
         return Effect.all(Record.map(value, encoded));
     }
-    return Predicate.isObjectKeyword(value) ? reference(value).pipe(Effect.flatMap(flow(Schema.encodeEffect(Reference), Effect.orDie)), Effect.catchTag('NoSuchElementError', () => Effect.succeed(value))) : Effect.succeed(value);
+    return Predicate.isObjectKeyword(value)
+        ? reference(value).pipe(
+              Effect.flatMap(flow(Schema.encodeEffect(Reference), Effect.orDie)),
+              Effect.catchTag('NoSuchElementError', () => Effect.succeed(value)),
+          )
+        : Effect.succeed(value);
 };
-const modal = <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>) =>
-    Effect.gen(function* () {
-        const services = yield* Effect.context<R>();
-        return yield* yield* Effect.tryPromise({
-            try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(Effect.raceFirst(body(context), cancelled(context)), { signal }), { commandName }),
-            catch: (cause) => Option.match(Schema.decodeUnknownOption(Rejected)(cause), { onNone: () => HostError.refused(commandName)(cause), onSome: ({ number: _tag }) => HostError.make({ reason: { _tag }, subject: commandName, cause }) }),
-        });
+const modal = Effect.fnUntraced(function* <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>) {
+    const services = yield* Effect.context<R>();
+    return yield* yield* Effect.tryPromise({
+        try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(Effect.raceFirst(body(context), cancelled(context)), { signal }), { commandName }),
+        catch: (cause) => Option.match(Schema.decodeUnknownOption(Rejected)(cause), { onNone: () => HostError.refused(commandName)(cause), onSome: ({ number: _tag }) => HostError.make({ reason: { _tag }, subject: commandName, cause }) }),
     });
+});
 const stored = (url: URL, opened: (files: Uxp['Service']['uxp']['storage']['localFileSystem'], href: string) => Promise<unknown>) =>
-    Effect.flatMap(Uxp, ({ uxp: { storage } }) => Effect.tryPromise({ try: () => opened(storage.localFileSystem, url.href), catch: HostError.refused(url.href) })).pipe(Effect.filterOrFail((found): found is File => Schema.is(Entry)(found), () => new Cause.IllegalArgumentError(`${url.href} names no file`)));
+    Effect.flatMap(Uxp, ({ uxp: { storage } }) => Effect.tryPromise({ try: () => opened(storage.localFileSystem, url.href), catch: HostError.refused(url.href) })).pipe(
+        Effect.filterOrFail(
+            (found): found is File => Schema.is(Entry)(found),
+            () => new Cause.IllegalArgumentError(`${url.href} names no file`),
+        ),
+    );
 const executed = (payload: ExecuteScript, { hostControl }: ExecutionContext) =>
     app.documents.filter(Predicate.isObjectKeyword).reduce(
         (inner, { id }) =>

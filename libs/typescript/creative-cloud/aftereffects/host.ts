@@ -24,7 +24,7 @@ export default handle({
         return { type: reflected(project)?.name, specifier: step('project'), name: project.file?.displayName, valid: true };
     },
     render: ({ target, longestSide, options, file: url }, resolve) => {
-        const composition = resolve(target).slice(-1)[0];
+        const [composition] = resolve(target).slice(-1);
         const accepted = reflected(CompItem)?.name;
         if (!(composition instanceof CompItem)) {
             throw illegal(`${target} names a ${reflected(composition)?.name}, render takes a ${accepted}`);

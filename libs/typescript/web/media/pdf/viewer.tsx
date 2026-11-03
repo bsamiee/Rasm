@@ -49,24 +49,25 @@ class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfVie
                 Effect.sync(() => new ResizeObserver(() => Object.assign(pdfViewer, { currentScaleValue: pdfViewer.currentScaleValue }).update())),
                 (created) => Effect.sync(() => created.disconnect()),
             );
-            const updates = yield* Queue.unbounded<(status: Status) => Status, Cause.UnknownError>();
-            const offered = (update: (status: Status) => Status) => Queue.offerUnsafe(updates, update);
-            const viewed = () => offered(identity);
             const initialized = () => {
                 pdfViewer.setPageLabels(labels);
                 Object.assign(pdfViewer, { ...view, currentScaleValue });
                 observer.observe(container);
             };
-            const found = (event: unknown) => Option.map(Schema.decodeUnknownOption(Found)(event), (update) => offered((status) => ({ ...status, ...update })));
-            const rendered = (event: unknown) => Option.map(Schema.decodeUnknownOption(Rendered)(event), ({ pageNumber, error }) => offered((status) => ({ ...status, failedPages: Predicate.isNullish(error) ? HashSet.remove(status.failedPages, pageNumber) : HashSet.add(status.failedPages, pageNumber) })));
-            eventBus.on('pagesinit', () => Result.match(Result.try(initialized), { onSuccess: viewed, onFailure: (error) => Queue.failCauseUnsafe(updates, Cause.fail(new Cause.UnknownError(error))) }), { signal });
-            ['pagechanging', 'scalechanging', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged'].forEach((name) => eventBus.on(name, viewed, { signal }));
-            ['updatefindmatchescount', 'updatefindcontrolstate'].forEach((name) => eventBus.on(name, found, { signal }));
-            eventBus.on('pagerendered', rendered, { signal });
-            linkService.setViewer(pdfViewer);
-            linkService.setDocument(document);
-            pdfViewer.setDocument(document);
-            return Stream.fromQueue(updates).pipe(
+            const registered = (updates: Queue.Queue<(status: Status) => Status, Cause.UnknownError | Cause.Done>) => {
+                const offered = (update: (status: Status) => Status) => Queue.offerUnsafe(updates, update);
+                const viewed = () => offered(identity);
+                const found = (event: unknown) => Option.map(Schema.decodeUnknownOption(Found)(event), (update) => offered((status) => ({ ...status, ...update })));
+                const rendered = (event: unknown) => Option.map(Schema.decodeUnknownOption(Rendered)(event), ({ pageNumber, error }) => offered((status) => ({ ...status, failedPages: Predicate.isNullish(error) ? HashSet.remove(status.failedPages, pageNumber) : HashSet.add(status.failedPages, pageNumber) })));
+                eventBus.on('pagesinit', () => Result.match(Result.try(initialized), { onSuccess: viewed, onFailure: (error) => Queue.failCauseUnsafe(updates, Cause.fail(new Cause.UnknownError(error))) }), { signal });
+                ['pagechanging', 'scalechanging', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged'].forEach((name) => eventBus.on(name, viewed, { signal }));
+                ['updatefindmatchescount', 'updatefindcontrolstate'].forEach((name) => eventBus.on(name, found, { signal }));
+                eventBus.on('pagerendered', rendered, { signal });
+                linkService.setViewer(pdfViewer);
+                linkService.setDocument(document);
+                pdfViewer.setDocument(document);
+            };
+            return Stream.callback<(status: Status) => Status, Cause.UnknownError>((updates) => Effect.sync(() => registered(updates))).pipe(
                 Stream.scan(
                     (): Status => ({ matchesCount: { current: 0, total: 0 }, failedPages: HashSet.empty() }),
                     (status, update) => update(status),

@@ -3,14 +3,13 @@ import type { Reply } from '@rasm/cep/contract';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Replied<Tag extends (typeof Reply.Encoded)['_tag']> = Extract<typeof Reply.Encoded, { readonly _tag: Tag }>;
-type Fields = Readonly<Record<string, unknown>>;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const runtime = () => {
-    const isRecord = (value: unknown): value is Fields => typeof value === 'object' && value !== null;
+    const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'object' && value !== null;
     const isList = (value: unknown): value is readonly unknown[] => Object.prototype.toString.call(value) === '[object Array]';
-    const isPlain = (value: unknown): value is Fields => isRecord(value) && Object.prototype.toString.call(value) === '[object Object]';
+    const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> => isRecord(value) && Object.prototype.toString.call(value) === '[object Object]';
     const finite = (value: unknown): number | undefined => (typeof value === 'number' && Math.abs(value) < Number.POSITIVE_INFINITY ? value : undefined);
     const message = (thrown: unknown): string => String(isRecord(thrown) ? thrown.message : thrown);
     const attempt = <A>(body: () => A): A | undefined => {
@@ -57,11 +56,14 @@ const runtime = () => {
         if (isList(value) || isPlain(value)) {
             return joined(value, specifier);
         }
+        return described(value, specifier);
+    };
+    const described = (value: unknown, specifier: (value: object) => string | undefined): string => {
         const at = isRecord(value) ? specifier(value) : undefined;
         const [type, name] = [read(read(value, 'reflect'), 'name'), read(value, 'name')];
         return at === undefined ? escaped(String(value)) : joined({ type: typeof type === 'string' ? type : String(value), specifier: at, name: typeof name === 'string' ? name : undefined, valid: true }, specifier);
     };
-    const joined = (value: Fields | readonly unknown[], specifier: (value: object) => string | undefined): string => {
+    const joined = (value: Readonly<Record<string, unknown>> | readonly unknown[], specifier: (value: object) => string | undefined): string => {
         const parts: string[] = [];
         if (isList(value)) {
             for (const item of value) {

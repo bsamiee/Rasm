@@ -14,11 +14,18 @@ class Access extends Schema.Class<Access, { readonly brand: unique symbol }>('Ac
     static readonly middleware = (sites: Parameters<typeof User.href>[0]) => Config.schema(Access, Access.binding).pipe(Config.option, Effect.map(Option.match({ onNone: () => Layer.empty, onSome: (access) => access.layer(sites) })), Layer.unwrap);
     layer(sites: Parameters<typeof User.href>[0]) {
         const { issuer, audience, jwks, logout } = this;
-        const signin = Effect.fn('Access.signin')(function* (request: HttpServerRequest.HttpServerRequest) {
-            const url = yield* Effect.orDie(Effect.fromOption(HttpServerRequest.toURL(request)));
-            return HttpServerResponse.redirect(Option.fromNullOr(url.searchParams.get(sites.returnTo)).pipe(Option.flatMap((target) => Option.fromNullOr(URL.parse(target, url.origin))), Option.filter(({ origin }) => origin === url.origin), Option.getOrElse(() => new URL('/', url.origin))));
+        const returning = Schema.Struct({ target: Schema.String }).pipe(Schema.encodeKeys({ target: sites.returnTo }));
+        const signin = Effect.fn('signin')(function* (request: HttpServerRequest.HttpServerRequest) {
+            const [url, returned] = yield* Effect.all([Effect.orDie(Effect.fromOption(HttpServerRequest.toURL(request))), Effect.option(HttpServerRequest.schemaSearchParams(returning))]);
+            return HttpServerResponse.redirect(
+                returned.pipe(
+                    Option.flatMap(({ target }) => Option.fromNullOr(URL.parse(target, url.origin))),
+                    Option.filter(({ origin }) => origin === url.origin),
+                    Option.getOrElse(() => new URL('/', url.origin)),
+                ),
+            );
         });
-        const identify = Effect.fn('Access.identify')(function* <E, R>(app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>) {
+        const identify = Effect.fn('identify')(function* <E, R>(app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>) {
             const request = yield* HttpServerRequest.HttpServerRequest;
             const anonymous = Headers.removeMany(request.headers, Object.values(sites.headers));
             const headers = yield* Effect.fromNullishOr(request.cookies.CF_Authorization).pipe(
@@ -34,7 +41,10 @@ class Access extends Schema.Class<Access, { readonly brand: unique symbol }>('Ac
         return Layer.mergeAll(
             HttpRouter.add('*', sites.paths.signin, signin),
             HttpRouter.add('*', sites.paths.signout, HttpServerResponse.redirect(logout)),
-            HttpRouter.middleware(Effect.map(Layer.build(keys), (services) => (app) => Effect.provideContext(identify(app), services)), { global: true }),
+            HttpRouter.middleware(
+                Effect.map(Layer.build(keys), (services) => (app) => Effect.provideContext(identify(app), services)),
+                { global: true },
+            ),
         );
     }
 }

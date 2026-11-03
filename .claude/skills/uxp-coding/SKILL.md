@@ -29,21 +29,10 @@ Host modules differ in DOM call form:
 |  [05]   | Acrobat      | None          | Acrobat JavaScript through `do script` |
 
 - `require` resolves the running host's DOM module alone, `uxp.host.name` names that host, and cross-host code takes host calls as arguments
-- Illustrator and Acrobat run source through one raw Apple event each, with no terminology read:
-
-```bash
-osascript -e 'on run argv' -e 'tell application id "<bundle id>"' \
-    -e '«event miscDjxM» (item 1 of argv) given «class JArg»:(rest of argv)' \
-    -e 'end tell' -e 'end run' "$(cat <file>.jsx)" <argument>...
-osascript -e 'tell application id "com.adobe.Acrobat.Pro"' \
-    -e '«event miscdosc» "try { encodeURIComponent(JSON.stringify(<expression>)) } catch (error) { encodeURIComponent(JSON.stringify({ failed: error.message })) }"' \
-    -e 'end tell'
-```
-
+- Illustrator and Acrobat without a link run source through Atelier `execute_script`, which sends their dictionary script command
 - Acrobat source runs privileged with `this` naming the front document, and `global` members persist between calls
 - Acrobat JavaScript holds `JSON`, `util`, `eval`, `new Function`, and arrow functions, and no `let`, `$`, `File`, or `reflect`
 - Acrobat answers an uncaught throw or a syntax error with -1708 and no text, and source catches its own throws
-- Acrobat replies in Mac Roman with `.` for each character it lacks, and `decodeURIComponent` restores the `encodeURIComponent` JSON source returns
 
 Context decides what code holds across calls:
 

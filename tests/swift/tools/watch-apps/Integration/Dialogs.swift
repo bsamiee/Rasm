@@ -9,10 +9,6 @@ import WatchAppsWire
 
 @testable import AppKitFixture
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-private let alertControls: Set<String> = Set(Button.alert.compactMap(\.identifier))
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 private struct Shape: Hashable {
@@ -72,7 +68,7 @@ extension Integration {
             let fixture: Fixture = try Fixture()
             let shown: (dialog: WatchAppsLine.Element, read: [WatchAppsLine.Element], lines: [WatchAppsLine], pid: Int32) = try await dialog(
                 .sheet,
-                showing: alertControls,
+                showing: Set(Button.alert.compactMap(\.identifier)),
                 answeredBy: "action-button-1",
                 in: fixture,
             )
@@ -126,7 +122,8 @@ extension Integration {
                 arguments: ["set", field.id, "typed text"],
                 as: WatchAppsLine.self,
             )
-            expectNoDifference(set.lines, [])
+            expectNoDifference(Set(set.lines.map(\.key)), [fixture.identifier])
+            expectNoDifference(phases(of: pid, in: set.lines).last, .responding)
             expectNoDifference(set.status, .exited(0))
             let after: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
             let written: WatchAppsLine.Control? = after.titled("Fixture 0")?.control("field")

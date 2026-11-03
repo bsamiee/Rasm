@@ -104,6 +104,7 @@ difftastic                           = "latest"
 hyperfine                            = "latest"
 resvg                                = "latest"
 imagemagick                          = "latest"
+"github:fonttools/fontspector"       = { version = "latest", version_prefix = "fontspector-v" }
 "pypi:ast-grep/ast-grep-mcp"         = "latest"
 "pypi:tavily-cli"                    = "latest"
 "pypi:mcp-for-blender"               = "latest"

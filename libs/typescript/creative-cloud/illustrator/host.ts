@@ -29,7 +29,7 @@ const specifier = (value: unknown): string | undefined => {
             return `${specifier(parent)}${indexed(kind, index)}`;
         }
     }
-    return;
+    return undefined;
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

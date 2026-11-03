@@ -11,7 +11,8 @@ type Members<E> = Extract<keyof E, Uppercase<string>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const STYLISTIC_TAGS = Array.makeBy(20, (index) => `ss${`${index + 1}`.padStart(2, '0')}`);
+const STYLISTIC_SETS = 20;
+const STYLISTIC_TAGS = Array.makeBy(STYLISTIC_SETS, (index) => `ss${`${index + 1}`.padStart(2, '0')}`);
 const NUMBERING = {
     DEFAULT_DIGITS: null,
     NATIVE_DIGITS: null,
@@ -130,9 +131,14 @@ const features = Schema.Struct({
         }),
     }),
 );
-const spacing = Schema.Struct(Struct.Record(Array.flatMap(Record.values(SPACING), Record.values), percent)).pipe(
+const spacing = Schema.Struct(Struct.Record(Array.flatMap(Object.values(SPACING), Record.values), percent)).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.spacing.schema), {
-        decode: SchemaGetter.transform((members) => Record.map(SPACING, (bounds) => Record.map(bounds, (member) => members[member]))),
+        decode: SchemaGetter.transform((members) =>
+            Record.map(
+                SPACING,
+                Record.map((member) => members[member]),
+            ),
+        ),
         encode: SchemaGetter.transform((values) => Record.collect(SPACING, (axis, bounds) => Record.mapEntries(bounds, (member, bound) => [member, values[axis][bound]])).reduce((all, each) => Record.union(all, each, identity))),
     }),
 );

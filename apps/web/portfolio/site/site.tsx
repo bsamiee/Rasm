@@ -1,7 +1,7 @@
 import { useAtomValue } from '@effect/atom-react';
 import { User } from '@rasm/hosting/user';
 import { ModalOverlay } from '@rasm/ui/dialog/overlay';
-import { flow, Option } from 'effect';
+import { flow, Option, Schema } from 'effect';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -19,6 +19,10 @@ import { StickyBar, WorkIndex } from '#/site/work-index.tsx';
 
 const edit = 'edit';
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Editing = Schema.fromURLSearchParams(Schema.Struct({ [edit]: Schema.String }));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Editor = lazy(() => import('#/editor/editor.tsx').then((module) => ({ default: module.Editor })));
@@ -27,7 +31,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
     const [preview, setPreview] = useState(Option.none<typeof PortfolioData.Type>());
     const requested = useSyncExternalStore(
         () => () => undefined,
-        () => session === 'owner' && new URLSearchParams(location.search).has(edit),
+        () => session === 'owner' && Option.isSome(Schema.decodeOption(Editing)(new URLSearchParams(location.search))),
         () => false,
     );
     const [toggled, setToggled] = useState(Option.none<boolean>());
