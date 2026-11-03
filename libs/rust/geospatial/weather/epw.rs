@@ -1,34 +1,45 @@
 use core::{
-    fmt, iter,
+    fmt,
+    marker::PhantomData,
     num::NonZero,
     range::{Range, RangeInclusive},
+    str::FromStr,
 };
 use std::io;
 
 use csv::{ReaderBuilder, StringRecord, WriterBuilder};
+use gauss_quad::GaussLegendre;
 use itertools::{Either, Itertools as _};
 use jiff::{
-    SignedDuration, Zoned, civil,
+    SignedDuration, Timestamp, civil,
     fmt::strtime::{self, BrokenDownTime},
     tz::{Offset, TimeZone},
 };
 use rasm_site::{Elevation, Place, Position};
 use rasm_solar::{Refraction, Sun, events};
 use serde::{
-    Deserialize, Serialize,
+    Deserialize, Deserializer, Serialize, Serializer,
     de::{DeserializeOwned, IgnoredAny},
+    ser::Error as _,
 };
+use serde_with::{DeserializeAs, DeserializeFromStr, SerializeAs, serde_as};
 use uom::si::{
     angle::degree,
-    f64::{Angle, HeatFluxDensity, Illuminance, Length, Luminance, MassDensity, Pressure, Ratio, SpecificHeatCapacity, ThermalConductivity, ThermodynamicTemperature, Time, Velocity},
+    available_energy::kilojoule_per_kilogram,
+    f64::{
+        Angle, AvailableEnergy, Frequency, HeatFluxDensity, Illuminance, Length, Luminance, MassDensity, Pressure, Ratio, SpecificHeatCapacity, TemperatureInterval, ThermalConductivity,
+        ThermodynamicTemperature, Time, Velocity,
+    },
+    frequency::cycle_per_hour,
     heat_flux_density::watt_per_square_meter,
     illuminance::lux,
     length::{centimeter, kilometer, meter, millimeter},
     luminance::candela_per_square_meter,
     mass_density::kilogram_per_cubic_meter,
     pressure::pascal,
-    ratio::{percent, ratio},
+    ratio::{part_per_thousand, percent, ratio},
     specific_heat_capacity::joule_per_kilogram_kelvin,
+    temperature_interval,
     thermal_conductivity::watt_per_meter_kelvin,
     thermodynamic_temperature::degree_celsius,
     time,
@@ -37,9 +48,9 @@ use uom::si::{
 use validated::Validated;
 
 use crate::{
-    Ceiling, Hour, Hours, Malformed, Record, Refusal, WeatherError,
+    Ceiling, Defect, Hour, Hours, Malformed, Record, Refusal, WeatherError, aligned, completed, cos_zenith,
     design::{self, Design},
-    extraterrestrial, refused, written,
+    extraterrestrial, length, refused, runs,
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -71,10 +82,25 @@ pub enum Kind {
     Extreme,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
+#[display(rename_all = "lowercase")]
+pub enum Term {
+    Rank,
+    Weekday,
+    Month,
+    Day,
+}
+
+pub(crate) trait Column {
+    type Quantity: Copy;
+    const MISSING: f64;
+    fn quantity(value: f64) -> Self::Quantity;
+    fn value(quantity: Self::Quantity) -> f64;
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(try_from = "String")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, DeserializeFromStr)]
 pub enum Day {
     Date { month: i8, day: i8 },
     Ordinal(i16),
@@ -92,27 +118,27 @@ impl Day {
         }
     }
 
-    fn checked(self) -> Result<Self, jiff::Error> {
+    fn checked(self) -> Result<Self, Malformed> {
         const LEAP_YEAR: i16 = 2000;
         match self {
-            Self::Date { month: _, day: _ } | Self::Ordinal(_) => self.resolved(LEAP_YEAR).map(|_| self),
-            Self::Weekday { nth: -1 | 1..=5, weekday: _, month } => civil::Date::new(LEAP_YEAR, month, 1).map(|_| self),
-            Self::Weekday { nth, weekday: _, month: _ } => Err(jiff::Error::from_args(format_args!("{nth} ranks no weekday of a month, which takes 1 to 5 or last"))),
+            Self::Date { month: _, day: _ } | Self::Ordinal(_) => Ok(self.resolved(LEAP_YEAR).map(|_| self)?),
+            Self::Weekday { nth: -1 | 1..=5, weekday: _, month } => Ok(civil::Date::new(LEAP_YEAR, month, 1).map(|_| self)?),
+            Self::Weekday { nth, weekday: _, month: _ } => Err(Malformed::Day { text: nth.to_string(), term: Term::Rank }),
         }
     }
 }
 
-impl TryFrom<String> for Day {
-    type Error = jiff::Error;
+impl FromStr for Day {
+    type Err = Malformed;
 
-    fn try_from(value: String) -> Result<Self, jiff::Error> {
-        let spaced = value.replace(['/', ':', '-'], " ");
+    fn from_str(s: &str) -> Result<Self, Malformed> {
+        let spaced = s.replace(['/', ':', '-'], " ");
         let tokens = spaced.split_whitespace().filter(|token| !(token.eq_ignore_ascii_case("in") || token.eq_ignore_ascii_case("of"))).collect_vec();
-        let month_named = |token: &str| named("%b", token, BrokenDownTime::month);
-        let weekday_named = |token: &str| named("%a", token, BrokenDownTime::weekday);
-        let unnamed = || jiff::Error::from_args(format_args!("{value} is no EPW day"));
+        let month_named = |token: &str| named("%b", token, BrokenDownTime::month, Term::Month);
+        let weekday_named = |token: &str| named("%a", token, BrokenDownTime::weekday, Term::Weekday);
+        let unnamed = || Malformed::Day { text: s.to_owned(), term: Term::Day };
         match *tokens {
-            [ordinal] => ordinal.parse().map(Self::Ordinal).map_err(|source| jiff::Error::from_args(format_args!("{ordinal} in {value}: {source}"))),
+            [ordinal] => ordinal.parse().map(Self::Ordinal).map_err(|source| Malformed::Ordinal { text: ordinal.to_owned(), source }),
             [first, second] => match (first.parse().ok(), second.parse().ok()) {
                 (Some(month), Some(day)) => Ok(Self::Date { month, day }),
                 (Some(day), None) => month_named(second).map(|month| Self::Date { month, day }),
@@ -120,13 +146,21 @@ impl TryFrom<String> for Day {
                 (None, None) => Err(unnamed()),
             },
             [rank, first, second] => {
-                let nth = if rank.eq_ignore_ascii_case("last") { Some(-1) } else { rank.trim_end_matches(char::is_alphabetic).parse().ok() }.ok_or_else(unnamed)?;
+                let nth = if rank.eq_ignore_ascii_case("last") { Some(-1) } else { rank.trim_end_matches(char::is_alphabetic).parse().ok() }
+                    .ok_or_else(|| Malformed::Day { text: rank.to_owned(), term: Term::Rank })?;
                 let (weekday, month) = weekday_named(first).map(|weekday| (weekday, second)).or_else(|_| weekday_named(second).map(|weekday| (weekday, first)))?;
                 month_named(month).map(|named_month| Self::Weekday { nth, weekday, month: named_month })
             }
             _ => Err(unnamed()),
         }
         .and_then(Self::checked)
+    }
+}
+
+impl Serialize for Day {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        serializer.serialize_str(&text(*self).map_err(S::Error::custom)?)
     }
 }
 
@@ -159,15 +193,22 @@ pub struct Period {
     pub days: RangeInclusive<Day>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[serde_as]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Ground {
+    #[serde_as(as = "Stated<Depth>")]
     pub depth: Length,
+    #[serde_as(as = "Option<Stated<Conductivity>>")]
     pub conductivity: Option<ThermalConductivity>,
+    #[serde_as(as = "Option<Stated<Density>>")]
     pub density: Option<MassDensity>,
+    #[serde_as(as = "Option<Stated<SpecificHeat>>")]
     pub specific_heat: Option<SpecificHeatCapacity>,
+    #[serde_as(as = "[Stated<Temperature>; 12]")]
     pub monthly: [ThermodynamicTemperature; 12],
 }
 
+#[serde_as]
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 struct Row {
@@ -177,68 +218,218 @@ struct Row {
     hour: i8,
     minute: i8,
     flags: String,
-    dry_bulb: Option<f64>,
-    dew_point: Option<f64>,
-    relative_humidity: Option<f64>,
-    pressure: Option<f64>,
-    extraterrestrial_horizontal: Option<f64>,
-    extraterrestrial_normal: Option<f64>,
-    infrared: Option<f64>,
-    global_irradiance: Option<f64>,
-    direct_irradiance: Option<f64>,
-    diffuse_irradiance: Option<f64>,
-    global_illuminance: Option<f64>,
-    direct_illuminance: Option<f64>,
-    diffuse_illuminance: Option<f64>,
-    zenith_luminance: Option<f64>,
-    wind_direction: Option<f64>,
-    wind_speed: Option<f64>,
-    total_sky_cover: Option<f64>,
-    opaque_sky_cover: Option<f64>,
-    visibility: Option<f64>,
-    ceiling: Option<f64>,
+    #[serde_as(as = "Coded<Temperature>")]
+    dry_bulb: Option<ThermodynamicTemperature>,
+    #[serde_as(as = "Coded<Temperature>")]
+    dew_point: Option<ThermodynamicTemperature>,
+    #[serde_as(as = "Coded<Humidity>")]
+    relative_humidity: Option<Ratio>,
+    #[serde_as(as = "Coded<Barometric>")]
+    pressure: Option<Pressure>,
+    #[serde_as(as = "Coded<Irradiance>")]
+    extraterrestrial_horizontal: Option<HeatFluxDensity>,
+    #[serde_as(as = "Coded<Irradiance>")]
+    extraterrestrial_normal: Option<HeatFluxDensity>,
+    #[serde_as(as = "Coded<Irradiance>")]
+    infrared: Option<HeatFluxDensity>,
+    #[serde_as(as = "Coded<Irradiance>")]
+    global_irradiance: Option<HeatFluxDensity>,
+    #[serde_as(as = "Coded<Irradiance>")]
+    direct_irradiance: Option<HeatFluxDensity>,
+    #[serde_as(as = "Coded<Irradiance>")]
+    diffuse_irradiance: Option<HeatFluxDensity>,
+    #[serde_as(as = "Coded<Daylight>")]
+    global_illuminance: Option<Illuminance>,
+    #[serde_as(as = "Coded<Daylight>")]
+    direct_illuminance: Option<Illuminance>,
+    #[serde_as(as = "Coded<Daylight>")]
+    diffuse_illuminance: Option<Illuminance>,
+    #[serde_as(as = "Coded<Zenith>")]
+    zenith_luminance: Option<Luminance>,
+    #[serde_as(as = "Coded<Direction>")]
+    wind_direction: Option<Angle>,
+    #[serde_as(as = "Coded<Speed>")]
+    wind_speed: Option<Velocity>,
+    #[serde_as(as = "Coded<Cover>")]
+    total_sky_cover: Option<Ratio>,
+    #[serde_as(as = "Coded<Cover>")]
+    opaque_sky_cover: Option<Ratio>,
+    #[serde_as(as = "Coded<Visibility>")]
+    visibility: Option<Length>,
+    #[serde_as(as = "Ceilings")]
+    ceiling: Option<Ceiling>,
     observation: Option<i8>,
     present_weather: String,
-    precipitable_water: Option<f64>,
-    aerosol_optical_depth: Option<f64>,
-    snow_depth: Option<f64>,
-    since_snowfall: Option<f64>,
-    albedo: Option<f64>,
-    precipitation: Option<f64>,
-    precipitation_period: Option<f64>,
+    #[serde_as(as = "Coded<Water>")]
+    precipitable_water: Option<Length>,
+    #[serde_as(as = "Coded<Aerosol>")]
+    aerosol_optical_depth: Option<Ratio>,
+    #[serde_as(as = "Coded<Snow>")]
+    snow_depth: Option<Length>,
+    #[serde_as(as = "Coded<Days>")]
+    since_snowfall: Option<Time>,
+    #[serde_as(as = "Coded<Albedo>")]
+    albedo: Option<Ratio>,
+    #[serde_as(as = "Coded<Water>")]
+    precipitation: Option<Length>,
+    #[serde_as(as = "Coded<Accumulation>")]
+    precipitation_period: Option<Time>,
 }
 
-struct Column<Q> {
-    missing: f64,
-    quantity: fn(f64) -> Q,
-    value: fn(Q) -> f64,
+pub(crate) struct Coded<C>(PhantomData<C>);
+
+pub(crate) struct Stated<C>(PhantomData<C>);
+
+struct Ceilings;
+
+macro_rules! columns {
+    ($($column:ident($quantity:ty, $unit:ty, $missing:expr);)*) => {$(
+        pub(crate) struct $column;
+
+        impl Column for $column {
+            type Quantity = $quantity;
+            const MISSING: f64 = $missing;
+            fn quantity(value: f64) -> $quantity { <$quantity>::new::<$unit>(value) }
+            fn value(quantity: $quantity) -> f64 { quantity.get::<$unit>() }
+        }
+    )*};
+}
+
+columns! {
+    Temperature(ThermodynamicTemperature, degree_celsius, 99.9);
+    Humidity(Ratio, percent, 999.0);
+    Barometric(Pressure, pascal, 999_999.0);
+    Irradiance(HeatFluxDensity, watt_per_square_meter, 9999.0);
+    Daylight(Illuminance, lux, 999_900.0);
+    Zenith(Luminance, candela_per_square_meter, 9999.0);
+    Direction(Angle, degree, 999.0);
+    Speed(Velocity, meter_per_second, 999.0);
+    Visibility(Length, kilometer, 9999.0);
+    Water(Length, millimeter, 999.0);
+    Aerosol(Ratio, ratio, 0.999);
+    Snow(Length, centimeter, 999.0);
+    Days(Time, time::day, 99.0);
+    Albedo(Ratio, ratio, 999.0);
+    Accumulation(Time, time::hour, 99.0);
+    Depth(Length, meter, f64::INFINITY);
+    Conductivity(ThermalConductivity, watt_per_meter_kelvin, f64::INFINITY);
+    Density(MassDensity, kilogram_per_cubic_meter, f64::INFINITY);
+    SpecificHeat(SpecificHeatCapacity, joule_per_kilogram_kelvin, f64::INFINITY);
+    Interval(TemperatureInterval, temperature_interval::degree_celsius, f64::INFINITY);
+    MoistureRatio(Ratio, part_per_thousand, f64::INFINITY);
+    Enthalpy(AvailableEnergy, kilojoule_per_kilogram, f64::INFINITY);
+    Shielding(Frequency, cycle_per_hour, f64::INFINITY);
+    Elapsed(Time, time::hour, f64::INFINITY);
+}
+
+struct Cover;
+
+impl Column for Cover {
+    type Quantity = Ratio;
+
+    const MISSING: f64 = 99.0;
+
+    fn quantity(value: f64) -> Ratio { Ratio::new::<ratio>(value / 10.0) }
+
+    fn value(quantity: Ratio) -> f64 { quantity.get::<ratio>() * 10.0 }
+}
+
+impl<'de, C> DeserializeAs<'de, Option<C::Quantity>> for Coded<C>
+where C: Column
+{
+    fn deserialize_as<D>(deserializer: D) -> Result<Option<C::Quantity>, D::Error>
+    where D: Deserializer<'de> {
+        Option::<f64>::deserialize(deserializer).map(|value| value.filter(|stated| *stated < C::MISSING).map(C::quantity))
+    }
+}
+
+impl<C> SerializeAs<Option<C::Quantity>> for Coded<C>
+where C: Column
+{
+    fn serialize_as<S>(source: &Option<C::Quantity>, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        serializer.serialize_f64(source.map_or(C::MISSING, |quantity| written(C::value(quantity))))
+    }
+}
+
+impl<'de, C> DeserializeAs<'de, C::Quantity> for Stated<C>
+where C: Column
+{
+    fn deserialize_as<D>(deserializer: D) -> Result<C::Quantity, D::Error>
+    where D: Deserializer<'de> {
+        f64::deserialize(deserializer).map(C::quantity)
+    }
+}
+
+impl<C> SerializeAs<C::Quantity> for Stated<C>
+where C: Column
+{
+    fn serialize_as<S>(source: &C::Quantity, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        serializer.serialize_f64(written(C::value(*source)))
+    }
+}
+
+impl<'de> DeserializeAs<'de, Option<Ceiling>> for Ceilings {
+    fn deserialize_as<D>(deserializer: D) -> Result<Option<Ceiling>, D::Error>
+    where D: Deserializer<'de> {
+        Option::<f64>::deserialize(deserializer)
+            .map(|code| code.and_then(|code| CEILINGS.iter().find(|&&(threshold, _)| code >= threshold).map_or_else(|| Some(Ceiling::Height(Length::new::<meter>(code))), |&(_, ceiling)| ceiling)))
+    }
+}
+
+impl SerializeAs<Option<Ceiling>> for Ceilings {
+    fn serialize_as<S>(source: &Option<Ceiling>, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        match *source {
+            Some(Ceiling::Height(height)) => serializer.serialize_f64(written(height.get::<meter>())),
+            stated @ (None | Some(Ceiling::Cirroform | Ceiling::Unlimited)) => CEILINGS.iter().find(|&&(_, ceiling)| ceiling == stated).map(|&(code, _)| code).serialize(serializer),
+        }
+    }
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
 
 const CEILINGS: [(f64, Option<Ceiling>); 3] = [(99_999.0, None), (88_888.0, Some(Ceiling::Cirroform)), (77_777.0, Some(Ceiling::Unlimited))];
-const TEMPERATURE: Column<ThermodynamicTemperature> = Column { missing: 99.9, quantity: ThermodynamicTemperature::new::<degree_celsius>, value: |temperature| temperature.get::<degree_celsius>() };
-const HUMIDITY: Column<Ratio> = Column { missing: 999.0, quantity: Ratio::new::<percent>, value: |humidity| humidity.get::<percent>() };
-const PRESSURE: Column<Pressure> = Column { missing: 999_999.0, quantity: Pressure::new::<pascal>, value: |pressure| pressure.get::<pascal>() };
-const IRRADIANCE: Column<HeatFluxDensity> = Column { missing: 9999.0, quantity: HeatFluxDensity::new::<watt_per_square_meter>, value: |irradiance| irradiance.get::<watt_per_square_meter>() };
-const ILLUMINANCE: Column<Illuminance> = Column { missing: 999_900.0, quantity: Illuminance::new::<lux>, value: |illuminance| illuminance.get::<lux>() };
-const LUMINANCE: Column<Luminance> = Column { missing: 9999.0, quantity: Luminance::new::<candela_per_square_meter>, value: |luminance| luminance.get::<candela_per_square_meter>() };
-const DIRECTION: Column<Angle> = Column { missing: 999.0, quantity: Angle::new::<degree>, value: |direction| direction.get::<degree>() };
-const SPEED: Column<Velocity> = Column { missing: 999.0, quantity: Velocity::new::<meter_per_second>, value: |speed| speed.get::<meter_per_second>() };
-const COVER: Column<Ratio> = Column { missing: 99.0, quantity: |tenths| Ratio::new::<ratio>(tenths / 10.0), value: |cover| cover.get::<ratio>() * 10.0 };
-const VISIBILITY: Column<Length> = Column { missing: 9999.0, quantity: Length::new::<kilometer>, value: |visibility| visibility.get::<kilometer>() };
-const WATER: Column<Length> = Column { missing: 999.0, quantity: Length::new::<millimeter>, value: |water| water.get::<millimeter>() };
-const AEROSOL: Column<Ratio> = Column { missing: 0.999, quantity: Ratio::new::<ratio>, value: |depth| depth.get::<ratio>() };
-const SNOW: Column<Length> = Column { missing: 999.0, quantity: Length::new::<centimeter>, value: |snow| snow.get::<centimeter>() };
-const DAYS: Column<Time> = Column { missing: 99.0, quantity: Time::new::<time::day>, value: |elapsed| elapsed.get::<time::day>() };
-const ALBEDO: Column<Ratio> = Column { missing: 999.0, quantity: Ratio::new::<ratio>, value: |reflected| reflected.get::<ratio>() };
-const ACCUMULATION: Column<Time> = Column { missing: 99.0, quantity: Time::new::<time::hour>, value: |period| period.get::<time::hour>() };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn read<R>(mut reader: R) -> Result<Epw, WeatherError>
+macro_rules! transferred {
+    ($record:ident { $($field:ident: $value:expr),* $(,)? } from $source:ident) => {
+        $record {
+            $($field: $value,)*
+            dry_bulb: $source.dry_bulb,
+            dew_point: $source.dew_point,
+            relative_humidity: $source.relative_humidity,
+            pressure: $source.pressure,
+            infrared: $source.infrared,
+            global_irradiance: $source.global_irradiance,
+            direct_irradiance: $source.direct_irradiance,
+            diffuse_irradiance: $source.diffuse_irradiance,
+            global_illuminance: $source.global_illuminance,
+            direct_illuminance: $source.direct_illuminance,
+            diffuse_illuminance: $source.diffuse_illuminance,
+            zenith_luminance: $source.zenith_luminance,
+            wind_direction: $source.wind_direction,
+            wind_speed: $source.wind_speed,
+            total_sky_cover: $source.total_sky_cover,
+            opaque_sky_cover: $source.opaque_sky_cover,
+            visibility: $source.visibility,
+            ceiling: $source.ceiling,
+            precipitable_water: $source.precipitable_water,
+            aerosol_optical_depth: $source.aerosol_optical_depth,
+            snow_depth: $source.snow_depth,
+            since_snowfall: $source.since_snowfall,
+            albedo: $source.albedo,
+            precipitation: $source.precipitation,
+            precipitation_period: $source.precipitation_period,
+        }
+    };
+}
+
+pub fn read<R>(reader: R, refraction: Option<Refraction>, delta_t: Option<SignedDuration>) -> Result<Epw, WeatherError>
 where R: io::Read {
-    fn header<T, F>(headers: &[(Keyword, &StringRecord, StringRecord)], keyword: Keyword, decode: F) -> Validated<T, (Record, Malformed)>
+    fn header<T, F>(headers: &[(Keyword, StringRecord, StringRecord)], keyword: Keyword, decode: F) -> Validated<T, (Record, Malformed)>
     where F: FnOnce(&StringRecord, &StringRecord) -> Result<T, Malformed> {
         Validated::from(
             headers
@@ -255,32 +446,31 @@ where R: io::Read {
         record.iter().skip(preceding).collect::<StringRecord>().deserialize::<Vec<Option<T>>>(None).map(|stated| stated.into_iter().flatten())
     }
 
-    fn present<Q>(column: &Column<Q>, value: Option<f64>) -> Option<Q> { value.filter(|stated| *stated < column.missing).map(column.quantity) }
-
-    let hour = |row: Row, offset: Offset, per_hour: NonZero<u8>| -> Result<Hour, Malformed> {
-        let step = SignedDuration::from_hours(1).div_f64(f64::from(per_hour.get()));
+    fn interval(row: &Row, offset: Offset, per_hour: NonZero<u8>) -> Result<Range<Timestamp>, jiff::Error> {
         let elapsed = if per_hour > NonZero::<u8>::MIN { SignedDuration::from_mins(i64::from(row.minute)) } else { SignedDuration::from_hours(1) };
         let end = offset.to_timestamp(civil::DateTime::new(row.year, row.month, row.day, row.hour.saturating_sub(1), 0, 0, 0)?.checked_add(elapsed)?)?;
-        Ok(Hour {
-            interval: Range { start: end.checked_sub(step)?, end },
-            dry_bulb: present(&TEMPERATURE, row.dry_bulb),
-            dew_point: present(&TEMPERATURE, row.dew_point),
-            relative_humidity: present(&HUMIDITY, row.relative_humidity),
-            pressure: present(&PRESSURE, row.pressure),
-            infrared: present(&IRRADIANCE, row.infrared),
-            global_irradiance: present(&IRRADIANCE, row.global_irradiance),
-            direct_irradiance: present(&IRRADIANCE, row.direct_irradiance),
-            diffuse_irradiance: present(&IRRADIANCE, row.diffuse_irradiance),
-            global_illuminance: present(&ILLUMINANCE, row.global_illuminance),
-            direct_illuminance: present(&ILLUMINANCE, row.direct_illuminance),
-            diffuse_illuminance: present(&ILLUMINANCE, row.diffuse_illuminance),
-            zenith_luminance: present(&LUMINANCE, row.zenith_luminance),
-            wind_direction: present(&DIRECTION, row.wind_direction),
-            wind_speed: present(&SPEED, row.wind_speed),
-            total_sky_cover: present(&COVER, row.total_sky_cover),
-            opaque_sky_cover: present(&COVER, row.opaque_sky_cover),
-            visibility: present(&VISIBILITY, row.visibility),
-            ceiling: row.ceiling.and_then(|code| CEILINGS.iter().find(|&&(threshold, _)| code >= threshold).map_or_else(|| Some(Ceiling::Height(Length::new::<meter>(code))), |&(_, ceiling)| ceiling)),
+        Ok(Range { start: end.checked_sub(SignedDuration::from_hours(1).div_f64(f64::from(per_hour.get())))?, end })
+    }
+
+    fn redated(records: Vec<Hour>, zone: &TimeZone) -> Result<Vec<Hour>, jiff::Error> {
+        let first = records.first().map(|record| zone.to_datetime(record.interval.start));
+        records
+            .into_iter()
+            .scan((first.map(civil::DateTime::year), first), |(year, previous), record| {
+                let local = zone.to_datetime(record.interval.start);
+                if previous.replace(local).is_some_and(|earlier| (local.month(), local.day(), local.time()) < (earlier.month(), earlier.day(), earlier.time())) {
+                    *year = year.map(|stated| stated.strict_add(1));
+                }
+                Some(year.map(|stated| (stated, record)))
+            })
+            .flatten()
+            .map(|(stated, record)| crate::redated(record, zone, stated))
+            .collect()
+    }
+
+    let hour = |row: Row, offset: Offset, per_hour: NonZero<u8>| -> Result<Hour, Malformed> {
+        Ok(transferred!(Hour {
+            interval: interval(&row, offset, per_hour)?,
             present_weather: row
                 .present_weather
                 .trim_matches(|stated: char| stated.is_whitespace() || matches!(stated, '\'' | '"'))
@@ -288,21 +478,13 @@ where R: io::Read {
                 .as_array::<9>()
                 .filter(|_| row.observation == Some(0))
                 .map(|codes| codes.map(|code| if code.is_ascii_digit() { code.strict_sub(b'0') } else { 9 })),
-            precipitable_water: present(&WATER, row.precipitable_water),
-            aerosol_optical_depth: present(&AEROSOL, row.aerosol_optical_depth),
-            snow_depth: present(&SNOW, row.snow_depth),
-            since_snowfall: present(&DAYS, row.since_snowfall),
-            albedo: present(&ALBEDO, row.albedo),
-            precipitation: present(&WATER, row.precipitation),
-            precipitation_period: present(&ACCUMULATION, row.precipitation_period),
-        })
+            flags: Some(row.flags).filter(|flags| !flags.is_empty()),
+        } from row))
     };
-    let mut bytes = Vec::new();
-    reader.read_to_end(&mut bytes).map_err(csv::Error::from)?;
     let lines = ReaderBuilder::new()
         .has_headers(false)
         .flexible(true)
-        .from_reader(bytes.trim_prefix(b"\xEF\xBB\xBF"))
+        .from_reader(reader)
         .byte_records()
         .map_ok(|line| {
             let position = line.position().cloned();
@@ -311,10 +493,10 @@ where R: io::Read {
             text
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let (headers, rows): (Vec<_>, Vec<_>) = lines.iter().partition_map(|line| {
+    let (headers, rows): (Vec<_>, Vec<_>) = lines.into_iter().partition_map(|line| {
         let mut record = line.clone();
         record.trim();
-        match record.deserialize::<Keyword>(None) {
+        match StringRecord::from(vec![record.get(0).unwrap_or_default()]).deserialize::<Keyword>(None) {
             Ok(stated) => Either::Left((stated, line, record)),
             Err(csv::Error { .. }) => Either::Right(record),
         }
@@ -325,33 +507,23 @@ where R: io::Read {
     });
     let data = header(&headers, Keyword::DataPeriods, |_, record| {
         let (_, _, per_hour, _, weekday) = record.deserialize::<(IgnoredAny, IgnoredAny, NonZero<u8>, IgnoredAny, &str)>(None)?;
-        Ok((per_hour, named("%a", weekday, BrokenDownTime::weekday)?))
+        Ok((per_hour, named("%a", weekday, BrokenDownTime::weekday, Term::Weekday)?))
     });
     let stamp = location.iter().next().zip(data.iter().next()).map(|(&(_, _, offset, _), &(per_hour, _))| (offset, per_hour));
-    let design = header(&headers, Keyword::DesignConditions, |_, record| record.deserialize::<(IgnoredAny, Vec<String>)>(None).and_then(|(_, stated)| design::decode(&stated)).map_err(Malformed::Csv));
+    let design = header(&headers, Keyword::DesignConditions, |_, record| Ok(design::decode(&record.iter().skip(1).collect())?));
     let periods = header(&headers, Keyword::Periods, |_, record| {
         Ok(repeated::<(String, Kind, Day, Day)>(record, 2)?.map(|(name, kind, start, last)| Period { name, kind, days: RangeInclusive { start, last } }).collect_vec())
     });
-    let ground = header(&headers, Keyword::GroundTemperatures, |_, record| {
-        Ok(repeated::<(f64, Option<f64>, Option<f64>, Option<f64>, [f64; 12])>(record, 2)?
-            .map(|(depth, conductivity, density, specific_heat, monthly)| Ground {
-                depth: Length::new::<meter>(depth),
-                conductivity: conductivity.map(ThermalConductivity::new::<watt_per_meter_kelvin>),
-                density: density.map(MassDensity::new::<kilogram_per_cubic_meter>),
-                specific_heat: specific_heat.map(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>),
-                monthly: monthly.map(TEMPERATURE.quantity),
-            })
-            .collect_vec())
-    });
+    let ground = header(&headers, Keyword::GroundTemperatures, |_, record| Ok(repeated::<Ground>(record, 2)?.collect_vec()));
     let calendar = header(&headers, Keyword::Holidays, |_, record| {
         let (_, _, start, last) = record.deserialize::<(IgnoredAny, IgnoredAny, String, String)>(None)?;
         let saving =
-            (!start.trim_start_matches('0').is_empty()).then(|| Day::try_from(start).and_then(|first| Day::try_from(last).map(|end| RangeInclusive { start: first, last: end }))).transpose()?;
+            (!start.trim_start_matches('0').is_empty()).then(|| start.parse::<Day>().and_then(|first| last.parse::<Day>().map(|end| RangeInclusive { start: first, last: end }))).transpose()?;
         Ok((saving, repeated::<(String, Day)>(record, 5)?.collect_vec()))
     });
     let comment = |stated| header(&headers, stated, |line, _| Ok(line.iter().skip(1).join(",").trim_matches([',', ' ']).to_owned()));
     let comments = comment(Keyword::FirstComment).map2(comment(Keyword::SecondComment), |first, second| [first, second]);
-    let hours = rows
+    let decoded = rows
         .into_iter()
         .filter_map(|record| {
             let decoded = match record.deserialize::<Row>(None) {
@@ -361,173 +533,108 @@ where R: io::Read {
             Some(decoded.map_err(|malformed| (Record::Row(record.position().map_or_default(csv::Position::line)), malformed)))
         })
         .collect::<Validated<Vec<Hour>, _>>();
-    let (((station, position, offset, elevation), design, periods, ground), (daylight_saving, holidays), comments, ((_, weekday), hours)) = location
+    let (((station, position, offset, elevation), design, periods, ground), (daylight_saving, holidays), comments, ((_, weekday), records)) = location
         .map4(design, periods, ground, |location, design, periods, ground| (location, design, periods, ground))
-        .map4(calendar, comments, data.map2(hours, |data, hours| (data, hours)), |stated, calendar, comments, series| (stated, calendar, comments, series))
-        .ok()
-        .map_err(|records| WeatherError::Records { records })?;
-    Ok(Epw {
-        station,
-        design,
-        periods,
-        ground,
-        daylight_saving,
-        holidays,
-        comments,
-        weekday,
-        hours: Hours::try_new(Sun::new(Place { position, elevation, zone: TimeZone::fixed(offset) }, Some(Refraction::Standard), None)?, hours)?,
-    })
+        .map4(calendar, comments, data.map2(decoded, |data, records| (data, records)), |stated, calendar, comments, series| (stated, calendar, comments, series))
+        .ok()?;
+    let zone = TimeZone::fixed(offset);
+    let records = if runs(&records).count() > 1 { redated(records, &zone)? } else { records };
+    let hours = Hours::try_new(Sun::new(Place { position, elevation, zone }, refraction, delta_t)?, records)?;
+    Ok(Epw { station, design, periods, ground, daylight_saving, holidays, comments, weekday, hours: completed(&hours)? })
 }
 
 pub fn write<W>(epw: &Epw, writer: W) -> Result<(), WeatherError>
 where W: io::Write {
-    fn coded<Q>(column: &Column<Q>, quantity: Option<Q>) -> f64 { quantity.map_or(column.missing, |stated| written((column.value)(stated))) }
-
-    const STEPS: u8 = 60;
     let Epw { station, design, periods, ground, daylight_saving, holidays, comments: [first_comment, second_comment], weekday, hours } = epw;
     let sun: &Sun = hours.as_ref();
     let place: &Place = sun.as_ref();
     let offset = place.zone.to_fixed_offset()?;
     let series: &[Hour] = hours.as_ref();
-    let length = |record: &Hour| record.interval.end.duration_since(record.interval.start);
-    let step = match series {
-        [first, ..] => length(first),
-        [] => SignedDuration::from_hours(1),
-    };
-    let Some(per_hour) = (1..=STEPS).filter_map(NonZero::new).find(|records| STEPS.is_multiple_of(records.get()) && SignedDuration::from_mins(i64::from(STEPS.strict_div(records.get()))) == step)
-    else {
-        return refused([Refusal::Step(0)]);
+    let hour = SignedDuration::from_hours(1);
+    let step = series.first().map_or(hour, |record| length(record.interval));
+    let per_hour =
+        (aligned(hour, step) && aligned(step, SignedDuration::from_mins(1))).then(|| (1..=u8::MAX).filter_map(NonZero::new).find(|records| hour.checked_div(i32::from(records.get())) == Some(step)));
+    let Some(per_hour) = per_hour.flatten() else {
+        return refused([Refusal::Hour { index: 0, defect: Defect::Step }]);
     };
     refused(
         series
             .iter()
-            .positions(|record| {
-                length(record) != step || offset.to_datetime(record.interval.end).time().duration_since(civil::Time::midnight()).as_nanos().checked_rem_euclid(step.as_nanos()) != Some(0)
-            })
-            .map(Refusal::Step),
+            .positions(|record| length(record.interval) != step || !aligned(offset.to_datetime(record.interval.end).time().duration_since(civil::Time::midnight()), step))
+            .map(|index| Refusal::Hour { index, defect: Defect::Step }),
     )?;
-    let spread = 0.15_f64.sqrt();
-    let received = |record: &Hour, lit: &[Range<Zoned>]| {
-        lit.iter()
-            .skip(lit.partition_point(|window| window.end.timestamp() <= record.interval.start))
-            .take_while(|window| window.start.timestamp() < record.interval.end)
-            .cartesian_product([(0.5 - spread, 5.0 / 18.0), (0.5, 8.0 / 18.0), (0.5 + spread, 5.0 / 18.0)])
-            .try_fold((HeatFluxDensity::default(), HeatFluxDensity::default()), |(horizontal, normal), (window, (node, weight))| {
-                let (from, to) = (window.start.timestamp().max(record.interval.start), window.end.timestamp().min(record.interval.end));
-                let (prepared, position) = rasm_solar::position(sun, from.checked_add(to.duration_since(from).mul_f64(node))?)?;
-                let arriving = extraterrestrial(&prepared) * (weight * to.duration_since(from).div_duration_f64(length(record)));
-                Ok::<_, WeatherError>((horizontal + arriving * position.elevation_angle().to_radians().sin().max(0.0), normal + arriving))
-            })
-    };
-    let extraterrestrial = series
-        .chunk_by(|earlier, later| earlier.interval.end == later.interval.start)
-        .filter_map(|run| run.first().zip(run.last()).map(|(first, last)| (run, Range { start: first.interval.start, end: last.interval.end })))
-        .map(|(run, interval)| {
-            events::windows(sun, interval, Angle::default()).map_err(WeatherError::Solar).and_then(|lit| run.iter().map(|record| received(record, &lit)).collect::<Result<Vec<_>, _>>())
-        })
-        .flatten_ok()
-        .collect::<Result<Vec<_>, _>>()?;
-    let row = |(record, (extraterrestrial_horizontal, extraterrestrial_normal)): (&Hour, (HeatFluxDensity, HeatFluxDensity))| -> Result<Row, jiff::Error> {
+    let checked = |keyword: Keyword, day: Day| Validated::from(day.checked().map_err(|malformed| (Record::Header(keyword), malformed)));
+    periods
+        .iter()
+        .flat_map(|period| [period.days.start, period.days.last])
+        .map(|day| checked(Keyword::Periods, day))
+        .chain(daylight_saving.iter().flat_map(|saving| [saving.start, saving.last]).chain(holidays.iter().map(|&(_, day)| day)).map(|day| checked(Keyword::Holidays, day)))
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()?;
+    let rule = GaussLegendre::new(const { NonZero::new(3).unwrap() });
+    let incoming = events::sampled(sun, series.iter().map(|record| record.interval), &rule)?.into_iter().into_grouping_map_by(|&(index, _, _, _)| index).fold(
+        (HeatFluxDensity::default(), HeatFluxDensity::default()),
+        |(on_horizontal, on_normal), _, (index, prepared, position, duration)| {
+            let arriving = extraterrestrial(&prepared) * series.get(index).map_or_default(|record| duration.get::<time::second>() / length(record.interval).as_secs_f64());
+            (on_horizontal + arriving * cos_zenith(&position), on_normal + arriving)
+        },
+    );
+    let row = |(index, record): (usize, &Hour)| -> Result<Row, jiff::Error> {
         let before = offset.to_datetime(record.interval.end).checked_sub(SignedDuration::from_mins(1))?;
-        Ok(Row {
+        let (extraterrestrial_horizontal, extraterrestrial_normal) = incoming.get(&index).copied().unwrap_or_default();
+        Ok(transferred!(Row {
             year: before.year(),
             month: before.month(),
             day: before.day(),
             hour: before.hour().strict_add(1),
             minute: before.minute().strict_add(1),
-            flags: String::new(),
-            dry_bulb: Some(coded(&TEMPERATURE, record.dry_bulb)),
-            dew_point: Some(coded(&TEMPERATURE, record.dew_point)),
-            relative_humidity: Some(coded(&HUMIDITY, record.relative_humidity)),
-            pressure: Some(coded(&PRESSURE, record.pressure)),
-            extraterrestrial_horizontal: Some(coded(&IRRADIANCE, Some(extraterrestrial_horizontal))),
-            extraterrestrial_normal: Some(coded(&IRRADIANCE, Some(extraterrestrial_normal))),
-            infrared: Some(coded(&IRRADIANCE, record.infrared)),
-            global_irradiance: Some(coded(&IRRADIANCE, record.global_irradiance)),
-            direct_irradiance: Some(coded(&IRRADIANCE, record.direct_irradiance)),
-            diffuse_irradiance: Some(coded(&IRRADIANCE, record.diffuse_irradiance)),
-            global_illuminance: Some(coded(&ILLUMINANCE, record.global_illuminance)),
-            direct_illuminance: Some(coded(&ILLUMINANCE, record.direct_illuminance)),
-            diffuse_illuminance: Some(coded(&ILLUMINANCE, record.diffuse_illuminance)),
-            zenith_luminance: Some(coded(&LUMINANCE, record.zenith_luminance)),
-            wind_direction: Some(coded(&DIRECTION, record.wind_direction)),
-            wind_speed: Some(coded(&SPEED, record.wind_speed)),
-            total_sky_cover: Some(coded(&COVER, record.total_sky_cover)),
-            opaque_sky_cover: Some(coded(&COVER, record.opaque_sky_cover)),
-            visibility: Some(coded(&VISIBILITY, record.visibility)),
-            ceiling: match record.ceiling {
-                Some(Ceiling::Height(height)) => Some(height.get::<meter>()),
-                stated @ (None | Some(Ceiling::Cirroform | Ceiling::Unlimited)) => CEILINGS.iter().find(|&&(_, ceiling)| ceiling == stated).map(|&(code, _)| code),
-            },
+            flags: record.flags.clone().unwrap_or_default(),
+            extraterrestrial_horizontal: Some(extraterrestrial_horizontal),
+            extraterrestrial_normal: Some(extraterrestrial_normal),
             observation: Some(record.present_weather.map_or(9, |_| 0)),
             present_weather: record.present_weather.unwrap_or([9; 9]).iter().join(""),
-            precipitable_water: Some(coded(&WATER, record.precipitable_water)),
-            aerosol_optical_depth: Some(coded(&AEROSOL, record.aerosol_optical_depth)),
-            snow_depth: Some(coded(&SNOW, record.snow_depth)),
-            since_snowfall: Some(coded(&DAYS, record.since_snowfall)),
-            albedo: Some(coded(&ALBEDO, record.albedo)),
-            precipitation: Some(coded(&WATER, record.precipitation)),
-            precipitation_period: Some(coded(&ACCUMULATION, record.precipitation_period)),
-        })
+        } from record))
     };
-    let rows = iter::zip(series, extraterrestrial).map(row).collect::<Result<Vec<_>, _>>()?;
-    let dated = series.array_windows().all(|[earlier, later]| earlier.interval.end == later.interval.start) && rows.first().zip(rows.last()).is_some_and(|(first, last)| first.year != last.year);
-    let date = |written: &Row| if dated { format!("{}/{}/{}", written.month, written.day, written.year) } else { format!("{}/{}", written.month, written.day) };
-    let rendered = |stated: Day| -> Result<String, jiff::Error> {
-        match stated.checked()? {
-            Day::Date { month, day } => Ok(format!("{month}/{day}")),
-            Day::Ordinal(ordinal) => Ok(ordinal.to_string()),
-            Day::Weekday { nth, weekday: rule_weekday, month } => {
-                let mut names = BrokenDownTime::default();
-                names.set_weekday(Some(rule_weekday));
-                names.set_month(Some(month))?;
-                names.to_string("%A in %B").map(|rule| if nth == -1 { format!("Last {rule}") } else { format!("{nth} {rule}") })
-            }
-        }
-    };
-    let text = |keyword| move |stated: Day| rendered(stated).map_err(|source| (Record::Header(keyword), Malformed::Time(source)));
-    let (typical, saving, special) = periods
-        .iter()
-        .map(|Period { name, kind, days }| Validated::from(text(Keyword::Periods)(days.start)).map2(Validated::from(text(Keyword::Periods)(days.last)), |first, end| (name, *kind, first, end)))
-        .collect::<Validated<Vec<_>, _>>()
-        .map3(
-            daylight_saving
-                .map_or_else(|| Validated::Good(vec![String::from("0"); 2]), |stated| [stated.start, stated.last].into_iter().map(text(Keyword::Holidays)).collect::<Validated<Vec<_>, _>>()),
-            holidays.iter().map(|(name, day)| text(Keyword::Holidays)(*day).map(|written| (name, written))).collect::<Validated<Vec<_>, _>>(),
-            |typical, saving, special| (typical, saving, special),
-        )
-        .ok()
-        .map_err(|records| WeatherError::Records { records })?;
-    let mut names = BrokenDownTime::default();
-    names.set_weekday(Some(*weekday));
+    let rows = series.iter().enumerate().map(row).collect::<Result<Vec<_>, _>>()?;
+    let dated = runs(series).count() == 1 && rows.first().zip(rows.last()).is_some_and(|(first, last)| first.year != last.year);
+    let date = |stated: &Row| if dated { format!("{}/{}/{}", stated.month, stated.day, stated.year) } else { format!("{}/{}", stated.month, stated.day) };
+    let saving = daylight_saving.map_or_else(|| Ok(vec![String::from("0"); 2]), |saving| [saving.start, saving.last].into_iter().map(text).collect::<Result<Vec<_>, _>>())?;
     let mut output = WriterBuilder::new().has_headers(false).flexible(true).from_writer(writer);
     output.serialize((Keyword::Location, station, place.position, Time::new::<time::second>(f64::from(offset.seconds())).get::<time::hour>(), place.elevation))?;
     output.serialize((Keyword::DesignConditions, design::encode(design.as_ref())))?;
-    output.serialize((Keyword::Periods, periods.len(), typical))?;
-    output.serialize((
-        Keyword::GroundTemperatures,
-        ground.len(),
-        ground
-            .iter()
-            .map(|Ground { depth, conductivity, density, specific_heat, monthly }| {
-                (
-                    depth.get::<meter>(),
-                    conductivity.map(|stated| stated.get::<watt_per_meter_kelvin>()),
-                    density.map(|stated| stated.get::<kilogram_per_cubic_meter>()),
-                    specific_heat.map(|stated| stated.get::<joule_per_kilogram_kelvin>()),
-                    monthly.map(|mean| coded(&TEMPERATURE, Some(mean))),
-                )
-            })
-            .collect_vec(),
-    ))?;
-    output.serialize((Keyword::Holidays, if rows.iter().any(|written| (written.month, written.day) == (2, 29)) { "Yes" } else { "No" }, saving, holidays.len(), special))?;
+    output.serialize((Keyword::Periods, periods.len(), periods.iter().map(|Period { name, kind, days }| (name, kind, days.start, days.last)).collect_vec()))?;
+    output.serialize((Keyword::GroundTemperatures, ground.len(), ground))?;
+    output.serialize((Keyword::Holidays, if rows.iter().any(|stated| (stated.month, stated.day) == (2, 29)) { "Yes" } else { "No" }, saving, holidays.len(), holidays))?;
     output.serialize((Keyword::FirstComment, first_comment))?;
     output.serialize((Keyword::SecondComment, second_comment))?;
-    output.serialize((Keyword::DataPeriods, 1, per_hour, "Data", names.to_string("%A")?, rows.first().map(date), rows.last().map(date)))?;
-    rows.iter().try_for_each(|written| output.serialize(written))?;
+    output.serialize((Keyword::DataPeriods, 1, per_hour, "Data", names(Some(*weekday), None, "%A")?, rows.first().map(date), rows.last().map(date)))?;
+    rows.iter().try_for_each(|stated| output.serialize(stated))?;
     output.flush().map_err(|source| WeatherError::Csv(source.into()))
 }
 
-fn named<T>(format: &str, token: &str, field: fn(&BrokenDownTime) -> Option<T>) -> Result<T, jiff::Error> {
-    strtime::parse(format, token.get(..3).unwrap_or(token)).and_then(|names| field(&names).ok_or_else(|| jiff::Error::from_args(format_args!("{token} matches {format} without naming it"))))
+fn named<T>(format: &str, token: &str, field: fn(&BrokenDownTime) -> Option<T>, term: Term) -> Result<T, Malformed> {
+    field(&strtime::parse(format, token.get(..3).unwrap_or(token))?).ok_or_else(|| Malformed::Day { text: token.to_owned(), term })
+}
+
+fn text(day: Day) -> Result<String, jiff::Error> {
+    Ok(match day {
+        Day::Date { month, day } => format!("{month}/{day}"),
+        Day::Ordinal(ordinal) => ordinal.to_string(),
+        Day::Weekday { nth, weekday, month } => {
+            let rule = names(Some(weekday), Some(month), "%A in %B")?;
+            if nth == -1 { format!("Last {rule}") } else { format!("{nth} {rule}") }
+        }
+    })
+}
+
+fn names(weekday: Option<civil::Weekday>, month: Option<i8>, format: &str) -> Result<String, jiff::Error> {
+    let mut names = BrokenDownTime::default();
+    names.set_weekday(weekday);
+    names.set_month(month)?;
+    names.to_string(format)
+}
+
+fn written(value: f64) -> f64 {
+    const DECIMALS: f64 = 1.0e9;
+    (value * DECIMALS).round() / DECIMALS
 }

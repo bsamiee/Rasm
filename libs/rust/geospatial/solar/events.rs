@@ -1,8 +1,11 @@
-use core::{iter, range::Range};
+use core::{iter, num::NonZero, range::Range};
 
-use jiff::{SignedDuration, Timestamp, Zoned};
+use gauss_quad::GaussLegendre;
+use itertools::Itertools as _;
+use jiff::{SignedDuration, Span, Timestamp, Zoned};
 use nalgebra::{UnitQuaternion, UnitVector3};
-use solar_positioning::{ElevationTarget, Events, Horizon, SolarEvents, SolarPositions, time::JulianDate};
+use nonempty_collections::nev;
+use solar_positioning::{ElevationTarget, Events, Horizon, PreparedPositions, SolarEvents, SolarPosition, SolarPositions, time::JulianDate};
 use uom::si::{
     angle::degree,
     f64::{Angle, Time},
@@ -10,7 +13,7 @@ use uom::si::{
     time::second,
 };
 
-use crate::{Operation, SolarError, Sun, direction, julian, position, positioning, prepared};
+use crate::{Input, Operation, SolarError, Sun, at, direction, julian, position, positioning, prepared};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -20,15 +23,14 @@ const DAY: SignedDuration = SignedDuration::from_hours(24);
 
 pub fn events(sun: &Sun, interval: Range<Timestamp>, horizon: Horizon) -> Result<Events<Zoned>, SolarError> {
     let (start, end) = julian_interval(sun, interval)?;
-    let [first, last] = [interval.start, interval.end].map(|at| at.to_zoned(sun.place.zone.clone()));
+    let zoned = |at: Timestamp| at.to_zoned(sun.place.zone.clone());
     let found = SolarEvents::new().for_interval_from_julian(start.julian_date(), end, sun.location, start.delta_t(), horizon).map_err(positioning(Operation::Search(interval)))?;
-    let [rises, transits, sets] = [found.rises, found.transits, found.sets].try_map(|dates| dates.into_iter().map(|date| instant(sun, interval, start, date)).try_collect::<Vec<_>>())?;
-    Ok(Events { start: first, end: last, rises, transits, sets, ..found })
+    let [rises, transits, sets] = [found.rises, found.transits, found.sets].try_map(|dates| dates.into_iter().map(|date| instant(interval, start, date).map(zoned)).collect::<Result<Vec<_>, _>>())?;
+    Ok(Events { start: zoned(interval.start), end: zoned(interval.end), rises, transits, sets, ..found })
 }
 
-pub fn windows(sun: &Sun, interval: Range<Timestamp>, elevation: Angle) -> Result<Vec<Range<Zoned>>, SolarError> {
+pub fn windows(sun: &Sun, interval: Range<Timestamp>, elevation: Angle) -> Result<Vec<Range<Timestamp>>, SolarError> {
     let (start, end) = julian_interval(sun, interval)?;
-    let [first, last] = [interval.start, interval.end].map(|at| at.to_zoned(sun.place.zone.clone()));
     let searched = positioning(Operation::Search(interval));
     let target = ElevationTarget { angle: elevation.get::<degree>(), height: sun.place.elevation.get::<meter>(), refraction: sun.refraction };
     let (_, initial) = prepared(sun, start).map_err(searched)?;
@@ -40,36 +42,49 @@ pub fn windows(sun: &Sun, interval: Range<Timestamp>, elevation: Angle) -> Resul
     };
     let crossings = iter::successors(Some(step((start.julian_date(), !lit))), |previous| previous.as_ref().ok().copied().flatten().map(step))
         .map_while(Result::transpose)
-        .try_collect::<Vec<_>>()
+        .collect::<Result<Vec<_>, _>>()
         .map_err(searched)?;
     let lit_at_end = lit == crossings.len().is_multiple_of(2);
-    let inner = crossings.into_iter().map(|(date, _)| instant(sun, interval, start, date)).try_collect::<Vec<_>>()?;
-    Ok(iter::chain(lit.then_some(first), inner)
-        .chain(lit_at_end.then_some(last))
+    let inner = crossings.into_iter().map(|(date, _)| instant(interval, start, date)).collect::<Result<Vec<_>, _>>()?;
+    Ok(iter::chain(lit.then_some(interval.start), inner)
+        .chain(lit_at_end.then_some(interval.end))
         .array_chunks::<2>()
         .map(|[rise, set]| Range { start: rise, end: set })
         .filter(|window| window.start < window.end)
         .collect())
 }
 
-pub fn path(sun: &Sun, north: UnitQuaternion<f64>, interval: Range<Timestamp>, step: SignedDuration) -> Result<Vec<(UnitVector3<f64>, Time)>, SolarError> {
-    let width = step.is_positive().then(|| step.as_secs_f64()).ok_or(SolarError::Step { step })?;
-    windows(sun, interval, Angle::new::<degree>(0.0))?
+pub fn sampled<I>(sun: &Sun, cells: I, rule: &GaussLegendre) -> Result<Vec<(usize, PreparedPositions, SolarPosition, Time)>, SolarError>
+where I: IntoIterator<Item = Range<Timestamp>> {
+    let cells = cells.into_iter().collect_vec();
+    let Some((start, end)) = cells.iter().map(|cell| cell.start).min().zip(cells.iter().map(|cell| cell.end).max()) else {
+        return Ok(Vec::new());
+    };
+    let lit = windows(sun, Range { start, end }, Angle::default())?;
+    cells
         .into_iter()
-        .flat_map(|window| {
-            let [lit, dark] = [window.start, window.end].map(|at| at.timestamp().duration_since(interval.start).as_secs_f64());
-            ((lit / width).floor().to_int_saturating::<usize>()..(dark / width).ceil().to_int_saturating::<usize>()).map(move |cell| {
-                let lower = nalgebra::convert::<usize, f64>(cell) * width;
-                [lower.max(lit), (lower + width).min(dark)]
-            })
+        .enumerate()
+        .flat_map(|(index, cell)| {
+            lit.iter()
+                .skip(lit.partition_point(|window| window.end <= cell.start))
+                .take_while(move |window| window.start < cell.end)
+                .map(move |window| (index, Range { start: window.start.max(cell.start), end: window.end.min(cell.end) }))
         })
-        .filter(|[from, to]| from < to)
-        .map(|[from, to]| {
-            let at = SignedDuration::try_from_secs_f64(from.midpoint(to)).and_then(|offset| interval.start.checked_add(offset))?;
-            let (_, sampled) = position(sun, at)?;
-            Ok((direction(sampled, north), Time::new::<second>(to - from)))
+        .cartesian_product(rule.as_node_weight_pairs())
+        .map(|((index, part), &(node, weight))| -> Result<_, SolarError> {
+            let (prepared, sampled) = position(sun, at(part, node.midpoint(1.0))?)?;
+            Ok((index, prepared, sampled, Time::new::<second>(part.end.duration_since(part.start).as_secs_f64() * weight / 2.0)))
         })
-        .try_collect()
+        .collect()
+}
+
+pub fn path(sun: &Sun, north: UnitQuaternion<f64>, interval: Range<Timestamp>, step: SignedDuration) -> Result<Vec<(UnitVector3<f64>, Time)>, SolarError> {
+    step.is_positive().ok_or(nev![Input::Step(step)])?;
+    let cells = interval.start.series(Span::try_from(step)?).take_while(|at| *at < interval.end).chain([interval.end]).tuple_windows().map(|(start, end)| Range { start, end });
+    Ok(sampled(sun, cells, &GaussLegendre::new(NonZero::<usize>::MIN))?
+        .into_iter()
+        .map(|(_, _, sampled, duration)| (direction(Angle::new::<degree>(sampled.azimuth()), Angle::new::<degree>(sampled.elevation_angle()), north), duration))
+        .collect())
 }
 
 fn julian_interval(sun: &Sun, interval: Range<Timestamp>) -> Result<(JulianDate, f64), SolarError> {
@@ -77,6 +92,6 @@ fn julian_interval(sun: &Sun, interval: Range<Timestamp>) -> Result<(JulianDate,
     Ok((start, start.julian_date() + interval.end.duration_since(interval.start).div_duration_f64(DAY)))
 }
 
-fn instant(sun: &Sun, interval: Range<Timestamp>, start: JulianDate, date: f64) -> Result<Zoned, jiff::Error> {
-    SignedDuration::try_from_secs_f64((date - start.julian_date()) * DAY.as_secs_f64()).and_then(|offset| interval.start.checked_add(offset)).map(|at| at.to_zoned(sun.place.zone.clone()))
+fn instant(interval: Range<Timestamp>, start: JulianDate, date: f64) -> Result<Timestamp, jiff::Error> {
+    SignedDuration::try_from_secs_f64((date - start.julian_date()) * DAY.as_secs_f64()).and_then(|offset| interval.start.checked_add(offset))
 }

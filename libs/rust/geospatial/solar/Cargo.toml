@@ -32,6 +32,7 @@ itertools            = { workspace = true }
 jiff                 = { workspace = true }
 nalgebra             = { workspace = true }
 ndarray              = { workspace = true }
+gauss-quad           = { workspace = true }
 rstar                = { workspace = true }
 uom                  = { workspace = true }
 solar-positioning    = { workspace = true }

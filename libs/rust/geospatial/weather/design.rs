@@ -1,37 +1,41 @@
+use core::f64::consts::PI;
+
 use csv::StringRecord;
+use itertools::Itertools as _;
+use jiff::civil;
+use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use statrs::{
+    consts::EULER_MASCHERONI,
+    statistics::{Data, OrderStatistics as _, Statistics as _},
+};
 use uom::si::{
-    angle::degree,
-    available_energy::kilojoule_per_kilogram,
+    available_energy::joule_per_kilogram,
     f64::{Angle, AvailableEnergy, Frequency, Ratio, TemperatureInterval, ThermodynamicTemperature, Time, Velocity},
-    frequency::cycle_per_hour,
-    ratio::part_per_thousand,
+    ratio::ratio,
     temperature_interval,
-    thermodynamic_temperature::degree_celsius,
-    time::hour,
+    thermodynamic_temperature::kelvin,
     velocity::meter_per_second,
 };
 
-use crate::written;
+use crate::{
+    Hour, Hours, WeatherError, bearing,
+    comfort::{Psychrometrics, psychrometrics},
+    epw::{Direction, Elapsed, Enthalpy, Interval, MoistureRatio, Shielding, Speed, Stated, Temperature},
+    heading, local, weighted,
+};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 enum Heading {
     Heating,
     Cooling,
     Extremes,
 }
 
-type Column = Option<f64>;
-type HeatingColumns = (Option<i8>, [Column; 2], [[Column; 3]; 2], [[Column; 2]; 2], [Column; 2]);
-type CoolingColumns = (Option<i8>, Column, [[Column; 2]; 3], [[Column; 2]; 3], [Column; 2], [[Column; 3]; 3], [[Column; 2]; 3]);
-type AnnualColumns = ([Column; 2], [Column; 2], [[Column; 2]; 4]);
-type Opening<'source> = (u8, &'source str, &'source str, Heading, HeatingColumns);
-type Central = (Heading, CoolingColumns, Column, Heading, [Column; 3]);
-type Ashrae2009<'source> = (Opening<'source>, Central, Column, AnnualColumns);
-type Ashrae2021<'source> = (Opening<'source>, Column, Central, AnnualColumns);
-type Ashrae2025<'source> = (u8, &'source str, Heading, HeatingColumns, Column, Central, AnnualColumns, AnnualColumns);
+type Sample<'hour> = (civil::DateTime, &'hour Hour, Option<Psychrometrics>);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -52,37 +56,55 @@ pub enum Edition {
     Ashrae2025 { shielding: Option<Frequency>, wet_bulb: Annual },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[serde_as]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct Humidification {
+    #[serde_as(as = "Option<Stated<Temperature>>")]
     pub dew_point: Option<ThermodynamicTemperature>,
+    #[serde_as(as = "Option<Stated<MoistureRatio>>")]
     pub humidity_ratio: Option<Ratio>,
+    #[serde_as(as = "Option<Stated<Temperature>>")]
     pub dry_bulb: Option<ThermodynamicTemperature>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[serde_as]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct Heating {
     pub month: Option<i8>,
+    #[serde_as(as = "[Option<Stated<Temperature>>; 2]")]
     pub dry_bulb: [Option<ThermodynamicTemperature>; 2],
     pub humidification: [Humidification; 2],
+    #[serde_as(as = "[(Option<Stated<Speed>>, Option<Stated<Temperature>>); 2]")]
     pub wind: [(Option<Velocity>, Option<ThermodynamicTemperature>); 2],
+    #[serde_as(as = "(Option<Stated<Speed>>, Option<Stated<Direction>>)")]
     pub coincident: (Option<Velocity>, Option<Angle>),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[serde_as]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct Cooling {
     pub month: Option<i8>,
+    #[serde_as(as = "Option<Stated<Interval>>")]
     pub range: Option<TemperatureInterval>,
+    #[serde_as(as = "[(Option<Stated<Temperature>>, Option<Stated<Temperature>>); 3]")]
     pub dry_bulb: [(Option<ThermodynamicTemperature>, Option<ThermodynamicTemperature>); 3],
+    #[serde_as(as = "[(Option<Stated<Temperature>>, Option<Stated<Temperature>>); 3]")]
     pub wet_bulb: [(Option<ThermodynamicTemperature>, Option<ThermodynamicTemperature>); 3],
+    #[serde_as(as = "(Option<Stated<Speed>>, Option<Stated<Direction>>)")]
     pub coincident: (Option<Velocity>, Option<Angle>),
     pub dehumidification: [Humidification; 3],
+    #[serde_as(as = "[(Option<Stated<Enthalpy>>, Option<Stated<Temperature>>); 3]")]
     pub enthalpy: [(Option<AvailableEnergy>, Option<ThermodynamicTemperature>); 3],
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[serde_as]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct Annual {
+    #[serde_as(as = "[Option<Stated<Temperature>>; 2]")]
     pub mean: [Option<ThermodynamicTemperature>; 2],
+    #[serde_as(as = "[Option<Stated<Interval>>; 2]")]
     pub deviation: [Option<TemperatureInterval>; 2],
+    #[serde_as(as = "[[Option<Stated<Temperature>>; 2]; 4]")]
     pub returns: [[Option<ThermodynamicTemperature>; 2]; 4],
 }
 
@@ -93,11 +115,89 @@ pub struct Extremes {
     pub dry_bulb: Annual,
 }
 
+#[serde_as]
 #[derive(Deserialize, Serialize)]
-struct Ashrae2017<'source>(#[serde(borrow)] Opening<'source>, Central, AnnualColumns, #[serde(default, skip_serializing_if = "Option::is_none")] Column);
+struct Ashrae2009<'source> {
+    count: u8,
+    source: &'source str,
+    blank: &'source str,
+    heating_label: Heading,
+    heating: Heating,
+    cooling_label: Heading,
+    cooling: Cooling,
+    #[serde_as(as = "Option<Stated<Elapsed>>")]
+    hours: Option<Time>,
+    extremes_label: Heading,
+    #[serde_as(as = "[Option<Stated<Speed>>; 3]")]
+    wind: [Option<Velocity>; 3],
+    #[serde_as(as = "Option<Stated<Temperature>>")]
+    wet_bulb: Option<ThermodynamicTemperature>,
+    dry_bulb: Annual,
+}
+
+#[serde_as]
+#[derive(Deserialize, Serialize)]
+struct Ashrae2017<'source> {
+    count: u8,
+    source: &'source str,
+    blank: &'source str,
+    heating_label: Heading,
+    heating: Heating,
+    cooling_label: Heading,
+    cooling: Cooling,
+    #[serde_as(as = "Option<Stated<Temperature>>")]
+    wet_bulb: Option<ThermodynamicTemperature>,
+    extremes_label: Heading,
+    #[serde_as(as = "[Option<Stated<Speed>>; 3]")]
+    wind: [Option<Velocity>; 3],
+    dry_bulb: Annual,
+    #[serde_as(as = "Option<Stated<Temperature>>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    minimum_wet_bulb: Option<ThermodynamicTemperature>,
+}
+
+#[serde_as]
+#[derive(Deserialize, Serialize)]
+struct Ashrae2021<'source> {
+    count: u8,
+    source: &'source str,
+    blank: &'source str,
+    heating_label: Heading,
+    heating: Heating,
+    #[serde_as(as = "Option<Stated<Shielding>>")]
+    shielding: Option<Frequency>,
+    cooling_label: Heading,
+    cooling: Cooling,
+    #[serde_as(as = "Option<Stated<Temperature>>")]
+    wet_bulb: Option<ThermodynamicTemperature>,
+    extremes_label: Heading,
+    #[serde_as(as = "[Option<Stated<Speed>>; 3]")]
+    wind: [Option<Velocity>; 3],
+    dry_bulb: Annual,
+}
+
+#[serde_as]
+#[derive(Deserialize, Serialize)]
+struct Ashrae2025<'source> {
+    count: u8,
+    source: &'source str,
+    heating_label: Heading,
+    heating: Heating,
+    #[serde_as(as = "Option<Stated<Shielding>>")]
+    shielding: Option<Frequency>,
+    cooling_label: Heading,
+    cooling: Cooling,
+    #[serde_as(as = "Option<Stated<Temperature>>")]
+    wet_bulb: Option<ThermodynamicTemperature>,
+    extremes_label: Heading,
+    #[serde_as(as = "[Option<Stated<Speed>>; 3]")]
+    wind: [Option<Velocity>; 3],
+    dry_bulb: Annual,
+    annual_wet_bulb: Annual,
+}
 
 #[derive(Serialize)]
-enum Conditions<'source> {
+enum Layout<'source> {
     #[serde(rename = "0")]
     Absent,
     Ashrae2009(Ashrae2009<'source>),
@@ -114,106 +214,156 @@ pub fn profile(peak: ThermodynamicTemperature, range: TemperatureInterval) -> [T
     RANGE_FRACTIONS.map(|fraction| peak - range * fraction)
 }
 
-pub(crate) fn decode(fields: &[String]) -> Result<Option<Design>, csv::Error> {
-    let record: StringRecord = fields.iter().map(|field| if matches!(field.as_str(), "N/A" | "N_A") { "" } else { field.as_str() }).collect();
-    let celsius = |value: Column| value.map(ThermodynamicTemperature::new::<degree_celsius>);
-    let interval = |value: Column| value.map(TemperatureInterval::new::<temperature_interval::degree_celsius>);
-    let velocity = |value: Column| value.map(Velocity::new::<meter_per_second>);
-    let factor = |value: Column| value.map(Frequency::new::<cycle_per_hour>);
-    let humidification = |[dew_point, humidity_ratio, dry_bulb]: [Column; 3]| Humidification {
-        dew_point: celsius(dew_point),
-        humidity_ratio: humidity_ratio.map(Ratio::new::<part_per_thousand>),
-        dry_bulb: celsius(dry_bulb),
+pub fn computed(hours: &Hours, source: String, coincidence: Ratio) -> Result<Design, WeatherError> {
+    const HEATING: [f64; 2] = [0.004, 0.01];
+    const COOLING: [f64; 3] = [0.996, 0.99, 0.98];
+    const WIND: [f64; 3] = [0.99, 0.975, 0.95];
+    const RETURNS: [f64; 4] = [5.0, 10.0, 20.0, 50.0];
+    fn level<T>(within: &[T], field: impl Fn(&T) -> Option<f64>, share: f64) -> Option<f64> {
+        let values = within.iter().filter_map(field).collect_vec();
+        (!values.is_empty()).then(|| Data::new(values).quantile(share))
+    }
+    fn coincident<T>(within: &[T], primary: impl Fn(&T) -> Option<f64>, share: f64, band: f64, other: impl Fn(&T) -> Option<f64>) -> Option<f64>
+    where T: Copy {
+        average(&window(within, primary, share, band), other)
+    }
+    let band = coincidence.get::<ratio>();
+    let samples = hours
+        .records
+        .iter()
+        .map(|hour| {
+            let state = match (hour.dry_bulb, hour.relative_humidity, hour.pressure) {
+                (Some(dry_bulb), Some(humidity), Some(pressure)) => psychrometrics(dry_bulb, humidity, pressure)?,
+                (None | Some(_), None | Some(_), None | Some(_)) => None,
+            };
+            Ok((local(hours, hour), hour, state))
+        })
+        .collect::<Result<Vec<Sample<'_>>, WeatherError>>()?;
+    let dry_bulb = |sample: &Sample<'_>| sample.1.dry_bulb.map(|value| value.value);
+    let wet_bulb = |sample: &Sample<'_>| sample.2.map(|state| state.wet_bulb.value);
+    let dew_point = |sample: &Sample<'_>| sample.2.and_then(|state| state.dew_point).map(|value| value.value);
+    let humidity_ratio = |sample: &Sample<'_>| sample.2.map(|state| state.humidity_ratio.value);
+    let enthalpy = |sample: &Sample<'_>| sample.2.map(|state| state.enthalpy.value);
+    let speed = |sample: &Sample<'_>| sample.1.wind_speed.map(|value| value.value);
+    let temperature = |value: Option<f64>| value.map(ThermodynamicTemperature::new::<kelvin>);
+    let velocity = |value: Option<f64>| value.map(Velocity::new::<meter_per_second>);
+    let prevailing = |share: f64| {
+        let toward = window(&samples, dry_bulb, share, band).iter().filter_map(|sample| sample.1.wind_direction.map(heading)).sum::<Vector2<f64>>();
+        (toward.norm() > 0.0).then(|| bearing(toward))
     };
-    let coincident = |[speed, direction]: [Column; 2]| (velocity(speed), direction.map(Angle::new::<degree>));
-    let paired = |[first, second]: [Column; 2]| (celsius(first), celsius(second));
-    let annual = |(mean, deviation, returns): AnnualColumns| Annual { mean: mean.map(celsius), deviation: deviation.map(interval), returns: returns.map(|pair| pair.map(celsius)) };
-    let design = |source: &str,
-                  edition: Edition,
-                  (heating_month, heating_dry_bulb, heating_humidification, heating_wind, heating_coincident): HeatingColumns,
-                  (cooling_month, range, cooling_dry_bulb, cooling_wet_bulb, cooling_coincident, dehumidification, enthalpy): CoolingColumns,
-                  wind: [Column; 3],
-                  wet_bulb: Column,
-                  dry_bulb: AnnualColumns| {
-        Design {
-            source: source.to_owned(),
-            edition,
-            heating: Heating {
-                month: heating_month,
-                dry_bulb: heating_dry_bulb.map(celsius),
-                humidification: heating_humidification.map(humidification),
-                wind: heating_wind.map(|[speed, coincident_dry_bulb]| (velocity(speed), celsius(coincident_dry_bulb))),
-                coincident: coincident(heating_coincident),
-            },
-            cooling: Cooling {
-                month: cooling_month,
-                range: interval(range),
-                dry_bulb: cooling_dry_bulb.map(paired),
-                wet_bulb: cooling_wet_bulb.map(paired),
-                coincident: coincident(cooling_coincident),
-                dehumidification: dehumidification.map(humidification),
-                enthalpy: enthalpy.map(|[energy, coincident_dry_bulb]| (energy.map(AvailableEnergy::new::<kilojoule_per_kilogram>), celsius(coincident_dry_bulb))),
-            },
-            extremes: Extremes { wind: wind.map(velocity), wet_bulb: celsius(wet_bulb), dry_bulb: annual(dry_bulb) },
-        }
+    let monthly = samples.iter().copied().into_group_map_by(|sample| sample.0.month());
+    let (coldest, hottest) = monthly
+        .iter()
+        .filter_map(|(&month, within)| average(within, dry_bulb).map(|mean| (month, mean)))
+        .minmax_by(|(_, colder), (_, warmer)| colder.total_cmp(warmer))
+        .into_option()
+        .map(|((coldest, _), (hottest, _))| (coldest, hottest))
+        .unzip();
+    let within = |month: Option<i8>| month.and_then(|month| monthly.get(&month)).map_or_default(Clone::clone);
+    let range = within(hottest)
+        .into_iter()
+        .into_group_map_by(|sample| sample.0.date())
+        .into_values()
+        .filter_map(|day| day.iter().filter_map(dry_bulb).minmax_by(f64::total_cmp).into_option())
+        .map(|(low, high)| (high - low, 1.0));
+    let humidification = |share: f64| Humidification {
+        dew_point: temperature(level(&samples, dew_point, share)),
+        humidity_ratio: coincident(&samples, dew_point, share, band, humidity_ratio).map(Ratio::new::<ratio>),
+        dry_bulb: temperature(coincident(&samples, dew_point, share, band, dry_bulb)),
     };
+    let yearly =
+        samples.iter().copied().into_group_map_by(|sample| sample.0.year()).into_values().filter_map(|year| year.iter().filter_map(dry_bulb).minmax_by(f64::total_cmp).into_option()).collect_vec();
+    let [highs, lows] = [yearly.iter().map(|&(_, high)| high).collect_vec(), yearly.iter().map(|&(low, _)| low).collect_vec()];
+    let [mean_high, mean_low] = [&highs, &lows].map(|values| (!values.is_empty()).then(|| values.iter().mean()));
+    let [spread_high, spread_low] = [&highs, &lows].map(|values| (values.len() > 1).then(|| values.iter().std_dev()));
+    let returned = |period: f64| {
+        let factor = -(6.0_f64.sqrt() / PI) * (EULER_MASCHERONI + (period / (period - 1.0)).ln().ln());
+        [(mean_high, spread_high, 1.0), (mean_low, spread_low, -1.0)].map(|(mean, spread, direction): (Option<f64>, Option<f64>, f64)| {
+            mean.zip(spread).map(|(mean, spread)| ThermodynamicTemperature::new::<kelvin>((direction * factor).mul_add(spread, mean)))
+        })
+    };
+    Ok(Design {
+        source,
+        edition: Edition::Ashrae2021 { shielding: None },
+        heating: Heating {
+            month: coldest,
+            dry_bulb: HEATING.map(|share| temperature(level(&samples, dry_bulb, share))),
+            humidification: HEATING.map(humidification),
+            wind: HEATING.map(|share| 1.0 - share).map(|share| (velocity(level(&within(coldest), speed, share)), temperature(coincident(&within(coldest), speed, share, band, dry_bulb)))),
+            coincident: (velocity(coincident(&samples, dry_bulb, HEATING[0], band, speed)), prevailing(HEATING[0])),
+        },
+        cooling: Cooling {
+            month: hottest,
+            range: weighted(range).map(TemperatureInterval::new::<temperature_interval::kelvin>),
+            dry_bulb: COOLING.map(|share| (temperature(level(&samples, dry_bulb, share)), temperature(coincident(&samples, dry_bulb, share, band, wet_bulb)))),
+            wet_bulb: COOLING.map(|share| (temperature(level(&samples, wet_bulb, share)), temperature(coincident(&samples, wet_bulb, share, band, dry_bulb)))),
+            coincident: (velocity(coincident(&samples, dry_bulb, COOLING[0], band, speed)), prevailing(COOLING[0])),
+            dehumidification: COOLING.map(humidification),
+            enthalpy: COOLING.map(|share| (level(&samples, enthalpy, share).map(AvailableEnergy::new::<joule_per_kilogram>), temperature(coincident(&samples, enthalpy, share, band, dry_bulb)))),
+        },
+        extremes: Extremes {
+            wind: WIND.map(|share| velocity(level(&samples, speed, share))),
+            wet_bulb: temperature(samples.iter().filter_map(wet_bulb).reduce(f64::max)),
+            dry_bulb: Annual {
+                mean: [temperature(mean_high), temperature(mean_low)],
+                deviation: [spread_high, spread_low].map(|spread| spread.map(TemperatureInterval::new::<temperature_interval::kelvin>)),
+                returns: RETURNS.map(returned),
+            },
+        },
+    })
+}
+
+fn window<T>(within: &[T], primary: impl Fn(&T) -> Option<f64>, share: f64, band: f64) -> Vec<T>
+where T: Copy {
+    let ranked = within.iter().filter_map(|sample| primary(sample).map(|value| (value, *sample))).sorted_by(|(left, _), (right, _)| left.total_cmp(right)).collect_vec();
+    let count = nalgebra::convert::<usize, f64>(ranked.len());
+    let [low, high] = [share - band, share + band].map(|bound| (bound.clamp(0.0, 1.0) * count).to_int_saturating::<usize>());
+    let low = low.min(ranked.len().saturating_sub(1));
+    ranked.get(low..high.max(low.strict_add(1)).min(ranked.len())).unwrap_or_default().iter().map(|&(_, sample)| sample).collect()
+}
+
+fn average<T>(within: &[T], field: impl Fn(&T) -> Option<f64>) -> Option<f64> { weighted(within.iter().filter_map(|sample| field(sample).map(|value| (value, 1.0)))) }
+
+pub(crate) fn decode(record: &StringRecord) -> Result<Option<Design>, csv::Error> {
+    let record: StringRecord = record.iter().map(|field| if matches!(field, "N/A" | "N_A") { "" } else { field }).collect();
     match (record.deserialize::<Option<u8>>(None)?, record.len(), record.get(19) == Some("Cooling"), record.get(1).is_some_and(|source| source.contains("2017"))) {
         (None | Some(0), ..) => Ok(None),
-        (Some(_), 69, true, false) => record.deserialize::<Ashrae2009<'_>>(None).map(|((_, source, _, _, heating), (_, cooling, hours, _, wind), wet_bulb, dry_bulb)| {
-            Some(design(source, Edition::Ashrae2009 { hours: hours.map(Time::new::<hour>) }, heating, cooling, wind, wet_bulb, dry_bulb))
-        }),
-        (Some(_), 68, ..) | (Some(_), 69, true, true) =>
-            record.deserialize::<Ashrae2017<'_>>(None).map(|Ashrae2017((_, source, _, _, heating), (_, cooling, wet_bulb, _, wind), dry_bulb, minimum_wet_bulb)| {
-                Some(design(source, Edition::Ashrae2017 { minimum_wet_bulb: celsius(minimum_wet_bulb) }, heating, cooling, wind, wet_bulb, dry_bulb))
-            }),
-        (Some(_), 69, ..) => record.deserialize::<Ashrae2021<'_>>(None).map(|((_, source, _, _, heating), shielding, (_, cooling, wet_bulb, _, wind), dry_bulb)| {
-            Some(design(source, Edition::Ashrae2021 { shielding: factor(shielding) }, heating, cooling, wind, wet_bulb, dry_bulb))
-        }),
-        (Some(_), ..) => record.deserialize::<Ashrae2025<'_>>(None).map(|(_, source, _, heating, shielding, (_, cooling, wet_bulb, _, wind), dry_bulb, annual_wet_bulb)| {
-            Some(design(source, Edition::Ashrae2025 { shielding: factor(shielding), wet_bulb: annual(annual_wet_bulb) }, heating, cooling, wind, wet_bulb, dry_bulb))
-        }),
+        (Some(_), 69, true, false) => record.deserialize::<Ashrae2009<'_>>(None).map(
+            |Ashrae2009 { count: _, source, blank: _, heating_label: _, heating, cooling_label: _, cooling, hours, extremes_label: _, wind, wet_bulb, dry_bulb }| {
+                Some(Design { source: source.to_owned(), edition: Edition::Ashrae2009 { hours }, heating, cooling, extremes: Extremes { wind, wet_bulb, dry_bulb } })
+            },
+        ),
+        (Some(_), 68, ..) | (Some(_), 69, true, true) => record.deserialize::<Ashrae2017<'_>>(None).map(
+            |Ashrae2017 { count: _, source, blank: _, heating_label: _, heating, cooling_label: _, cooling, wet_bulb, extremes_label: _, wind, dry_bulb, minimum_wet_bulb }| {
+                Some(Design { source: source.to_owned(), edition: Edition::Ashrae2017 { minimum_wet_bulb }, heating, cooling, extremes: Extremes { wind, wet_bulb, dry_bulb } })
+            },
+        ),
+        (Some(_), 69, ..) => record.deserialize::<Ashrae2021<'_>>(None).map(
+            |Ashrae2021 { count: _, source, blank: _, heating_label: _, heating, shielding, cooling_label: _, cooling, wet_bulb, extremes_label: _, wind, dry_bulb }| {
+                Some(Design { source: source.to_owned(), edition: Edition::Ashrae2021 { shielding }, heating, cooling, extremes: Extremes { wind, wet_bulb, dry_bulb } })
+            },
+        ),
+        (Some(_), ..) => record.deserialize::<Ashrae2025<'_>>(None).map(
+            |Ashrae2025 { count: _, source, heating_label: _, heating, shielding, cooling_label: _, cooling, wet_bulb, extremes_label: _, wind, dry_bulb, annual_wet_bulb }| {
+                Some(Design { source: source.to_owned(), edition: Edition::Ashrae2025 { shielding, wet_bulb: annual_wet_bulb }, heating, cooling, extremes: Extremes { wind, wet_bulb, dry_bulb } })
+            },
+        ),
     }
 }
 
 pub(crate) fn encode(design: Option<&Design>) -> impl Serialize {
-    let celsius = |temperature: Option<ThermodynamicTemperature>| temperature.map(|stated| written(stated.get::<degree_celsius>()));
-    let interval = |difference: Option<TemperatureInterval>| difference.map(|stated| written(stated.get::<temperature_interval::degree_celsius>()));
-    let speed = |velocity: Option<Velocity>| velocity.map(|stated| written(stated.get::<meter_per_second>()));
-    let factor = |shielding: Option<Frequency>| shielding.map(|stated| written(stated.get::<cycle_per_hour>()));
-    let humidification =
-        |Humidification { dew_point, humidity_ratio, dry_bulb }: Humidification| [celsius(dew_point), humidity_ratio.map(|stated| written(stated.get::<part_per_thousand>())), celsius(dry_bulb)];
-    let coincident = |(velocity, direction): (Option<Velocity>, Option<Angle>)| [speed(velocity), direction.map(|stated| written(stated.get::<degree>()))];
-    let paired = |(first, second): (Option<ThermodynamicTemperature>, Option<ThermodynamicTemperature>)| [celsius(first), celsius(second)];
-    let annual = |Annual { mean, deviation, returns }: Annual| (mean.map(celsius), deviation.map(interval), returns.map(|pair| pair.map(celsius)));
-    let Some(Design { source, edition, heating, cooling, extremes }) = design else {
-        return Conditions::Absent;
+    let Some(Design { source, edition, heating, cooling, extremes: Extremes { wind, wet_bulb, dry_bulb } }) = design else {
+        return Layout::Absent;
     };
-    let heating_columns = (
-        heating.month,
-        heating.dry_bulb.map(celsius),
-        heating.humidification.map(humidification),
-        heating.wind.map(|(velocity, dry_bulb)| [speed(velocity), celsius(dry_bulb)]),
-        coincident(heating.coincident),
-    );
-    let cooling_columns = (
-        cooling.month,
-        interval(cooling.range),
-        cooling.dry_bulb.map(paired),
-        cooling.wet_bulb.map(paired),
-        coincident(cooling.coincident),
-        cooling.dehumidification.map(humidification),
-        cooling.enthalpy.map(|(energy, dry_bulb)| [energy.map(|stated| written(stated.get::<kilojoule_per_kilogram>())), celsius(dry_bulb)]),
-    );
-    let wind = extremes.wind.map(speed);
-    let wet_bulb = celsius(extremes.wet_bulb);
-    let dry_bulb = annual(extremes.dry_bulb);
-    let opening = (1, source.as_str(), "", Heading::Heating, heating_columns);
-    let central = |last: Column| (Heading::Cooling, cooling_columns, last, Heading::Extremes, wind);
+    let (source, heating, cooling, wind, wet_bulb, dry_bulb) = (source.as_str(), *heating, *cooling, *wind, *wet_bulb, *dry_bulb);
+    let (count, blank, heating_label, cooling_label, extremes_label) = (1, "", Heading::Heating, Heading::Cooling, Heading::Extremes);
     match *edition {
-        Edition::Ashrae2009 { hours } => Conditions::Ashrae2009((opening, central(hours.map(|stated| written(stated.get::<hour>()))), wet_bulb, dry_bulb)),
-        Edition::Ashrae2017 { minimum_wet_bulb } => Conditions::Ashrae2017(Ashrae2017(opening, central(wet_bulb), dry_bulb, celsius(minimum_wet_bulb))),
-        Edition::Ashrae2021 { shielding } => Conditions::Ashrae2021((opening, factor(shielding), central(wet_bulb), dry_bulb)),
+        Edition::Ashrae2009 { hours } => Layout::Ashrae2009(Ashrae2009 { count, source, blank, heating_label, heating, cooling_label, cooling, hours, extremes_label, wind, wet_bulb, dry_bulb }),
+        Edition::Ashrae2017 { minimum_wet_bulb } =>
+            Layout::Ashrae2017(Ashrae2017 { count, source, blank, heating_label, heating, cooling_label, cooling, wet_bulb, extremes_label, wind, dry_bulb, minimum_wet_bulb }),
+        Edition::Ashrae2021 { shielding } =>
+            Layout::Ashrae2021(Ashrae2021 { count, source, blank, heating_label, heating, shielding, cooling_label, cooling, wet_bulb, extremes_label, wind, dry_bulb }),
         Edition::Ashrae2025 { shielding, wet_bulb: annual_wet_bulb } =>
-            Conditions::Ashrae2025((1, source.as_str(), Heading::Heating, heating_columns, factor(shielding), central(wet_bulb), dry_bulb, annual(annual_wet_bulb))),
+            Layout::Ashrae2025(Ashrae2025 { count, source, heating_label, heating, shielding, cooling_label, cooling, wet_bulb, extremes_label, wind, dry_bulb, annual_wet_bulb }),
     }
 }

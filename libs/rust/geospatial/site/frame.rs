@@ -1,5 +1,6 @@
 use geo::AffineTransform;
-use nalgebra::{Point3, Similarity3, UnitQuaternion, Vector3};
+use geo_types::{Coord, Point};
+use nalgebra::{Isometry3, Matrix4, Point3, UnitQuaternion, Vector3};
 use uom::si::{
     angle::radian,
     f64::{Angle, Length, Ratio},
@@ -8,8 +9,8 @@ use uom::si::{
 };
 
 use crate::{
-    Elevation, SiteError,
-    crs::{Crs, Factors},
+    Elevation, Position, SiteError,
+    crs::{Context, Crs, Factors, Transformation},
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -37,12 +38,20 @@ pub enum Toward {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Anchor {
+    Grid(Point3<f64>),
+    Site { position: Position, elevation: Elevation },
+}
+
 #[derive(Debug, Clone, PartialEq, derive_more::AsRef)]
 pub struct Frame {
     #[as_ref]
     crs: Crs,
     #[as_ref]
-    similarity: Similarity3<f64>,
+    isometry: Isometry3<f64>,
+    #[as_ref]
+    scale: Vector3<f64>,
     #[as_ref]
     factors: Factors,
     #[as_ref]
@@ -50,16 +59,20 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn from_anchor(crs: Crs, anchor: Point3<f64>, north: North, rotation: Angle, scale: Scale) -> Result<Self, SiteError> {
-        let refused = || SiteError::Anchor { anchor, rotation, scale };
-        let positive = match scale {
-            Scale::Grid | Scale::Ground => true,
-            Scale::Stated(stated) => stated.get::<ratio>().is_normal() && stated.is_sign_positive(),
+    pub fn from_anchor(crs: Crs, anchor: Anchor, north: North, rotation: Angle, scale: Scale) -> Result<Self, SiteError> {
+        let factors = crs.factors()?;
+        let anchor = match anchor {
+            Anchor::Grid(grid) => grid,
+            Anchor::Site { position, elevation } => {
+                let Point(Coord { x, y }) = Transformation::new(Crs::WGS84, crs.clone(), Context::default())?.apply(position.0)?;
+                Point3::new(x, y, elevation.get::<meter>() / factors(Point3::new(x, y, 0.0))?.grid_unit.get::<meter>())
+            }
         };
-        (anchor.iter().all(|coordinate| coordinate.is_finite()) && rotation.is_finite() && positive).ok_or_else(refused)?;
-        let factors = crs.factors()?(anchor)?;
+        let refused = || SiteError::Anchor { anchor, rotation, scale };
+        anchor.iter().all(|coordinate| coordinate.is_finite()).ok_or_else(refused)?;
+        let factors = factors(anchor)?;
         let unit = factors.grid_unit.get::<meter>();
-        let stretch = match scale {
+        let horizontal = match scale {
             Scale::Grid => 1.0,
             Scale::Ground => factors.parallel_scale.get::<ratio>() * factors.elevation_scale.get::<ratio>(),
             Scale::Stated(stated) => stated.get::<ratio>(),
@@ -68,22 +81,28 @@ impl Frame {
             North::Grid => rotation.get::<radian>(),
             North::True => rotation.get::<radian>() + factors.meridian_convergence.get::<radian>(),
         };
-        let elevation = Elevation::try_new(Length::new::<meter>(anchor.z * unit)).ok().filter(|_| turn.is_finite() && stretch.is_normal() && stretch.is_sign_positive()).ok_or_else(refused)?;
-        Ok(Self { crs, similarity: Similarity3::new(anchor.coords, Vector3::z() * turn, stretch), factors, elevation })
+        let stretch = Vector3::new(horizontal, horizontal, unit.recip());
+        let elevation = Elevation::try_new(Length::new::<meter>(anchor.z * unit))
+            .ok()
+            .filter(|_| turn.is_finite() && stretch.iter().all(|factor| factor.is_normal() && factor.is_sign_positive()))
+            .ok_or_else(refused)?;
+        Ok(Self { crs, isometry: Isometry3::new(anchor.coords, Vector3::z() * turn), scale: stretch, factors, elevation })
     }
 
     #[must_use]
-    pub fn true_north(&self) -> UnitQuaternion<f64> {
-        UnitQuaternion::from_axis_angle(&Vector3::z_axis(), self.factors.meridian_convergence.get::<radian>()) * self.similarity.isometry.rotation.inverse()
+    pub fn true_north(&self) -> UnitQuaternion<f64> { UnitQuaternion::from_axis_angle(&Vector3::z_axis(), self.factors.meridian_convergence.get::<radian>()) * self.isometry.rotation.inverse() }
+
+    #[must_use]
+    pub fn matrix(&self, toward: Toward) -> Matrix4<f64> {
+        match toward {
+            Toward::Grid => self.isometry.to_homogeneous() * Matrix4::new_nonuniform_scaling(&self.scale),
+            Toward::Site => Matrix4::new_nonuniform_scaling(&self.scale.map(f64::recip)) * self.isometry.inverse().to_homogeneous(),
+        }
     }
 
     #[must_use]
     pub fn affine(&self, toward: Toward) -> AffineTransform<f64> {
-        let matrix = match toward {
-            Toward::Grid => self.similarity,
-            Toward::Site => self.similarity.inverse(),
-        }
-        .to_homogeneous();
+        let matrix = self.matrix(toward);
         AffineTransform::new(matrix.m11, matrix.m12, matrix.m14, matrix.m21, matrix.m22, matrix.m24)
     }
 }

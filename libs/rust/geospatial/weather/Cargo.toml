@@ -28,14 +28,17 @@ nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive_more          = { workspace = true }
+bounded-integer      = { workspace = true }
 itertools            = { workspace = true }
 csv                  = { workspace = true }
 serde                = { workspace = true }
+serde_with           = { workspace = true }
 jiff                 = { workspace = true }
 nalgebra             = { workspace = true }
 ndarray              = { workspace = true }
 ndarray-interp       = { workspace = true }
 statrs               = { workspace = true }
+gauss-quad           = { workspace = true }
 uom                  = { workspace = true }
 grib                 = { workspace = true }
 solar-positioning    = { workspace = true }

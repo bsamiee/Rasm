@@ -1,4 +1,4 @@
-#![feature(array_try_map, float_conversions, iter_array_chunks, iterator_try_collect, type_changing_struct_update)]
+#![feature(array_try_map, float_conversions, iter_array_chunks, type_changing_struct_update)]
 
 use core::range::Range;
 
@@ -10,9 +10,10 @@ use rasm_proximity::ProximityError;
 use rasm_site::Place;
 use solar_positioning::{Location, PreparedPositions, RefractionCorrection, SolarPosition, SolarPositions, delta_t, time::JulianDate};
 use uom::si::{
-    angle::degree,
-    f64::{Length, ThermodynamicTemperature},
+    angle::{degree, radian},
+    f64::{Angle, Length, Ratio, ThermodynamicTemperature},
     length::meter,
+    ratio::ratio,
     thermodynamic_temperature::{degree_celsius, kelvin},
 };
 
@@ -36,14 +37,14 @@ pub enum Input {
     Cell(usize),
     #[display("non-finite edge {_0}")]
     Edge(usize),
-    #[display("non-finite sun {_0}")]
-    Sun(usize),
     #[display("non-finite direction {_0}")]
     Direction(usize),
     #[display("negative or non-finite duration {_0}")]
     Duration(usize),
     #[display("non-finite cap")]
     Cap,
+    #[display("non-positive step {_0}")]
+    Step(SignedDuration),
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -68,17 +69,13 @@ pub struct Sun {
 
 impl Sun {
     pub fn new(place: Place, refraction: Option<Refraction>, delta_t: Option<SignedDuration>) -> Result<Self, SolarError> {
-        const LAPSE_RATE: f64 = 0.0065;
-        const BAROMETRIC_EXPONENT: f64 = 5.25588;
         let elevation = *place.elevation;
-        let kelvins = |celsius| ThermodynamicTemperature::new::<degree_celsius>(celsius).get::<kelvin>();
         let refraction = refraction
             .map(|refraction| match refraction {
                 Refraction::Standard => {
                     let sea = RefractionCorrection::standard();
-                    let temperature = (-LAPSE_RATE).mul_add(elevation.get::<meter>(), sea.temperature());
-                    RefractionCorrection::new(sea.pressure() * (kelvins(temperature) / kelvins(sea.temperature())).powf(BAROMETRIC_EXPONENT), temperature)
-                        .map_err(positioning(Operation::Atmosphere(elevation)))
+                    let (temperature, pressure) = lapsed(ThermodynamicTemperature::new::<degree_celsius>(sea.temperature()), elevation);
+                    RefractionCorrection::new(sea.pressure() * pressure.get::<ratio>(), temperature.get::<degree_celsius>()).map_err(positioning(Operation::Atmosphere(elevation)))
                 }
                 Refraction::Stated(correction) => Ok(correction),
             })
@@ -94,8 +91,6 @@ impl Sun {
 pub enum SolarError {
     #[error("solar-positioning refused the {operation}")]
     Positioning { operation: Operation, source: solar_positioning::Error },
-    #[error("sampling step {step} is not positive")]
-    Step { step: SignedDuration },
     #[error("refused {}", inputs.iter().format(", "))]
     Refused { inputs: NEVec<Input> },
     #[error(transparent)]
@@ -104,14 +99,31 @@ pub enum SolarError {
     Proximity(#[from] ProximityError),
 }
 
+impl From<NEVec<Input>> for SolarError {
+    fn from(value: NEVec<Input>) -> Self { Self::Refused { inputs: value } }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn position(sun: &Sun, at: Timestamp) -> Result<(PreparedPositions, SolarPosition), SolarError> { prepared(sun, julian(sun, at)?).map_err(positioning(Operation::Position(at))) }
 
 #[must_use]
-pub fn direction(position: SolarPosition, north: UnitQuaternion<f64>) -> UnitVector3<f64> { toward(north, position.azimuth().to_radians(), position.elevation_angle().to_radians()) }
+pub fn direction(azimuth: Angle, altitude: Angle, north: UnitQuaternion<f64>) -> UnitVector3<f64> {
+    north * (UnitQuaternion::from_euler_angles(altitude.get::<radian>(), 0.0, -azimuth.get::<radian>()) * Vector3::y_axis())
+}
 
-fn toward(north: UnitQuaternion<f64>, azimuth: f64, altitude: f64) -> UnitVector3<f64> { north * (UnitQuaternion::from_euler_angles(altitude, 0.0, -azimuth) * Vector3::y_axis()) }
+#[must_use]
+pub fn lapsed(temperature: ThermodynamicTemperature, rise: Length) -> (ThermodynamicTemperature, Ratio) {
+    const LAPSE_RATE: f64 = 0.0065;
+    const BAROMETRIC_EXPONENT: f64 = 5.25588;
+    let base = temperature.get::<kelvin>();
+    let lifted = (-LAPSE_RATE).mul_add(rise.get::<meter>(), base);
+    (ThermodynamicTemperature::new::<kelvin>(lifted), Ratio::new::<ratio>((lifted / base).powf(BAROMETRIC_EXPONENT)))
+}
+
+pub fn at(interval: Range<Timestamp>, share: f64) -> Result<Timestamp, SolarError> {
+    SignedDuration::try_from_secs_f64(interval.end.duration_since(interval.start).as_secs_f64() * share).and_then(|offset| interval.start.checked_add(offset)).map_err(SolarError::Time)
+}
 
 fn prepared(sun: &Sun, date: JulianDate) -> Result<(PreparedPositions, SolarPosition), solar_positioning::Error> {
     let prepared = SolarPositions::new().for_time_from_julian(date)?;
@@ -140,7 +152,7 @@ fn finite(values: &[f64]) -> bool { values.iter().all(|value| value.is_finite())
 
 fn refused<I>(inputs: I) -> Result<(), SolarError>
 where I: IntoIterator<Item = Input> {
-    NEVec::try_from_vec(inputs.into_iter().collect()).map_or(Ok(()), |inputs| Err(SolarError::Refused { inputs }))
+    NEVec::try_from_vec(inputs.into_iter().collect()).map_or(Ok(()), |inputs| Err(inputs.into()))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

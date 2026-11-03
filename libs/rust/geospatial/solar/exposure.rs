@@ -17,15 +17,18 @@ use uom::si::{
     time::second,
 };
 
-use crate::{
-    Input, SolarError,
-    dome::{Patch, patches},
-    finite, refused,
-};
+use crate::{Input, SolarError, dome::patches, finite, refused};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub type Sensor = (Point3<f64>, UnitVector3<f64>);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkyMeasure {
+    ViewFactor,
+    Exposure,
+    VerticalComponent,
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -50,22 +53,39 @@ where
     I: IntoIterator<Item: Borrow<(UnitVector3<f64>, Time)>>,
 {
     let checked = suns.into_iter().enumerate().map(|(index, sun)| match *sun.borrow() {
-        (direction, _) if !finite(direction.as_slice()) => Err(SolarError::Refused { inputs: nev![Input::Sun(index)] }),
-        (_, duration) if !(duration.is_finite() && duration.get::<second>() >= 0.0) => Err(SolarError::Refused { inputs: nev![Input::Duration(index)] }),
+        (direction, _) if !finite(direction.as_slice()) => Err(SolarError::from(nev![Input::Direction(index)])),
+        (_, duration) if !(duration.is_finite() && duration.get::<second>() >= 0.0) => Err(SolarError::from(nev![Input::Duration(index)])),
         (direction, duration) => Ok((direction, duration.get::<second>())),
     });
     Ok(accumulated(assembly, translucent, offset, sensors, checked, |cosine| f64::from(cosine > 0.0))?.mapv(Time::new::<second>))
 }
 
-pub fn sky_view<S>(assembly: &Assembly, translucent: &HashMap<usize, Transmittance, S>, offset: Distance, subdivision: NonZero<u8>, sensors: &[Sensor]) -> Result<Array1<Ratio>, SolarError>
-where S: BuildHasher + Sync {
+pub fn sky_view<S>(
+    assembly: &Assembly,
+    translucent: &HashMap<usize, Transmittance, S>,
+    offset: Distance,
+    subdivision: NonZero<u8>,
+    sensors: &[Sensor],
+    measure: SkyMeasure,
+) -> Result<Array1<Ratio>, SolarError>
+where
+    S: BuildHasher + Sync,
+{
+    let luminance: fn(f64) -> f64 = match measure {
+        SkyMeasure::ViewFactor | SkyMeasure::Exposure => |_| 1.0,
+        SkyMeasure::VerticalComponent => |height| 2.0_f64.mul_add(height, 1.0) / 3.0,
+    };
+    let response: fn(f64) -> f64 = match measure {
+        SkyMeasure::ViewFactor | SkyMeasure::VerticalComponent => |cosine| cosine,
+        SkyMeasure::Exposure => |cosine| f64::from(cosine > 0.0),
+    };
     let sky = patches(subdivision, UnitQuaternion::identity())
         .into_iter()
         .filter(|patch| patch.direction.z > 0.0)
-        .map(|Patch { direction, solid_angle }| (direction, solid_angle.get::<steradian>()))
-        .collect::<Vec<_>>();
-    let hemisphere = sky.iter().fold(0.0, |sum, (direction, steradians)| direction.z.mul_add(*steradians, sum));
-    Ok(accumulated(assembly, translucent, offset, sensors, sky.into_iter().map(Ok), |cosine| cosine)?.mapv(|projected| Ratio::new::<ratio>(projected / hemisphere)))
+        .map(|patch| (patch.direction, luminance(patch.direction.z) * patch.solid_angle.get::<steradian>()))
+        .collect_vec();
+    let horizontal = sky.iter().map(|&(direction, weight)| response(direction.z) * weight).sum::<f64>();
+    Ok(accumulated(assembly, translucent, offset, sensors, sky.into_iter().map(Ok), response)?.mapv(|received| Ratio::new::<ratio>(received / horizontal)))
 }
 
 fn accumulated<S>(
