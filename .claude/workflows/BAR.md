@@ -41,4 +41,5 @@ Code a workflow run writes in any language meets every line, judged hunk by hunk
 - Adversaries read the diff against base and the files whole, with no earlier agent's report, each pass at equal depth and aggression
 - Later passes lean to collapsing existing types, structs, enums, classes, models, constants, strings and functions into stronger logic
 - Skills, rules, names and messages change by replacing or rewriting the line that owns a fact, and text appended to an existing line is a regression
+- Agents run commands in the foreground and end their turn with their result
 - Reports reach the owner as results and decisions, and a finding is acted on or left unsaid

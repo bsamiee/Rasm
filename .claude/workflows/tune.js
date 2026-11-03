@@ -3,7 +3,7 @@ export const meta = {
   description: 'Mine one language\'s committed code into its skills and checks: miners, a writer and adversary per skill and per check batch, one close',
   whenToUse: 'args.language a languages.js key, args.base the commit before the mined work, args.exclude paths other runs edit; skill and check paths committed at launch',
   phases: [
-    { title: 'Map', detail: 'changed files in units; rules, utils, outline, typed checks and config files with user CPU per rule against the baseline' },
+    { title: 'Map', detail: 'changed files in units; rules, utils, outline, typed checks and config files with the baseline rule's cost' },
     { title: 'Read', detail: 'a miner per diff unit, a mapper per check batch' },
     { title: 'Skills', detail: 'per skill with findings a writer, an adversary over its diff and whole, a clean-prose pass' },
     { title: 'Rules', detail: 'per batch a writer and an adversary, the util, typed checker and config writers after every other batch' },
@@ -57,7 +57,6 @@ const listed = (lines) => lines.map((line) => `- ${line}`).join('\n')
 const section = (title, lines) => lines.length > 0 ? `${title}:\n${listed(lines)}\n` : ''
 const loads = (skills) => skills.map((skill) => `Skill(${skill})`).join(', ')
 const changed = (paths) => `each file \`git status --short --untracked-files=all -- ${paths}\` lists`
-const costs = (baseline, held) => `\nUser CPU, \`${row.baseline}\` ${baseline} ms:\n${listed(held.map((rule) => `${rule.id} ${rule.user} ms`))}`
 const later = (batch) => LATE_OWNERS.slice(LATE_OWNERS.indexOf(batch.name) + 1)
 const scopes = (batch) => ({
   rules: `${batch.paths.join(', ')} and rules you add under ${RULES}`,
@@ -83,7 +82,7 @@ const owner = (batches, path) => {
 const route = (batches, found) => {
   const checks = found.flatMap((result) => result.checks).map((finding) => ({ ...finding, file: relative(finding.path) }))
   const fresh = [...new Set(checks.filter((finding) => !owner(batches, finding.file) && folderOf(finding.file)).map((finding) => folderOf(finding.file)))]
-    .map((folder) => ({ name: `new:${folder.replace(`${RULES}/`, '')}`, kind: 'new', paths: [folder], costs: '' }))
+    .map((folder) => ({ name: `new:${folder.replace(`${RULES}/`, '')}`, kind: 'new', paths: [folder] }))
   const holder = (file) => owner(batches, file) ?? fresh.find((batch) => batch.paths[0] === folderOf(file))
   log(`check findings with no owner: ${checks.filter((finding) => !holder(finding.file)).map((finding) => finding.path).join(', ') || 'none'}`)
   return { fresh, found: (batch) => checks.filter((finding) => holder(finding.file) === batch).map((finding) => `${finding.path}: ${finding.finding}`) }
@@ -113,7 +112,7 @@ Replace, add or remove a snippet, section or rule where the mined code justifies
 const rebuild = (skill, skillSet) => agent(`Load Skill(${skill}) and Skill(search-code), and read the SKILL.md of each of ${skillSet.filter((other) => other !== skill).join(', ')} whose frontmatter \`description\` covers a changed passage. ${BAR}
 Adversary for .claude/skills/${skill}. Read ${changed(`.claude/skills/${skill}`)} against \`git show HEAD:<file>\` hunk by hunk, removals included, then the skill whole. Rebuild in place each passage, snippet and rule weaker than the code in the tree, wrong against the package sources under ${row.sources} at ${RELEASE}, or owned by another skill. Edit only .claude/skills/${skill}. Return at most 6 lines: what you rebuilt, and the skill's bytes at HEAD and now.`, { label: `adversary:${skill}`, phase: 'Skills', model: 'opus' })
 const map = (batch) => agent(`Load Skill(use-ast-grep) and Skill(manage-repo). ${BAR}
-Map ${batch.paths.join(', ')}: for each file, ${ASK[batch.kind]}. ${OWNERS} Edit nothing. Return (structured) one action per file, and for a config file one per row with path \`<file>#<table>.<row>\`, each with the form it takes and the reason.${batch.costs}`, {
+Map ${batch.paths.join(', ')}: for each file, ${ASK[batch.kind]}. ${OWNERS} Edit nothing. Return (structured) one action per file, and for a config file one per row with path \`<file>#<table>.<row>\`, each with the form it takes and the reason.`, {
   label: `map:${batch.name}`,
   phase: 'Read',
   schema: {
@@ -126,7 +125,7 @@ const write = (batch, plan, found, moves) => {
   const actions = (plan?.actions ?? []).filter((action) => action.action !== 'keep').map((action) => `${action.path}: ${action.action}, ${action.reason}`)
   return actions.length + found.length + moves.length === 0 ? Promise.resolve(null) : agent(`Load Skill(use-ast-grep), Skill(manage-repo), Skill(${row.skills[0]}) and Skill(clean-prose). ${BAR}
 Writer for ${batch.paths.join(', ')}.
-${section('Act on the map', actions)}${section(`Findings mined between ${args.base} and HEAD`, found)}${section(batch.kind === 'utils' ? 'Util changes rule writers returned, each carried to every caller' : 'Moves other writers returned, each adding its row or check and deleting the rule or check it replaces', moves)}${OWNERS} Delete each check about comments or dividers and each ast-grep rule syntax cannot decide soundly. Add a check only for a form the mined code shows and no check decides.${row.metadata.length > 0 ? ` A rule for a form one release introduces or retires sets \`metadata\` ${row.metadata.join(' or ')}.` : ''}${typed ? ` A ${typed.name} check follows the modules beside it and its cases join ${typed.tests}.` : ''} Ids, names and messages are short, agent-facing and clean-prose. Record one before and one after hit state per rule you edit or add, as rule-building states, under a directory from \`mktemp -d\`, and run those scans alone.${batch.kind === 'rules' || batch.kind === 'new' ? ' A util change a rule needs returns as a move to utils naming the util and the change.' : ''}${later(batch).length > 0 ? ` A fact ${later(batch).join(' or ')} takes leaves its rule or check in place and returns as a move naming its path and the row or check replacing it.` : ''}${batch.costs}
+${section('Act on the map', actions)}${section(`Findings mined between ${args.base} and HEAD`, found)}${section(batch.kind === 'utils' ? 'Util changes rule writers returned, each carried to every caller' : 'Moves other writers returned, each adding its row or check and deleting the rule or check it replaces', moves)}${OWNERS} Delete each check about comments or dividers and each ast-grep rule syntax cannot decide soundly. Add a check only for a form the mined code shows and no check decides.${row.metadata.length > 0 ? ` A rule for a form one release introduces or retires sets \`metadata\` ${row.metadata.join(' or ')}.` : ''}${typed ? ` A ${typed.name} check follows the modules beside it and its cases join ${typed.tests}.` : ''} Ids, names and messages are short, agent-facing and clean-prose. Record one before and one after hit state per rule you edit or add, as rule-building states, under a directory from \`mktemp -d\`, and run those scans alone.${batch.kind === 'rules' || batch.kind === 'new' ? ' A util change a rule needs returns as a move to utils naming the util and the change.' : ''}${later(batch).length > 0 ? ` A fact ${later(batch).join(' or ')} takes leaves its rule or check in place and returns as a move naming its path and the row or check replacing it.` : ''}
 Edit only ${scopes(batch)}. Return (structured) the files you edited, added or deleted, the hit state files, the moves, and at most 10 lines: each rule, check or row removed, renamed, changed or added, with its old and new id.`, {
     label: `rules:${batch.name}`,
     phase: 'Rules',
@@ -144,14 +143,14 @@ Adversary for ${batch.paths.join(', ')}. Read ${changed(result.files.join(' '))}
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Map')
-const listing = agent(`Load Skill(use-ast-grep) and read its references/rule-building.md. ${BAR} List every rule file under ${RULES} with its id; every file under ${UTILS} with ${OUTLINE};${typed ? ` each file under ${typed.paths.join(', ')} and each test file under ${typed.tests} as its own entry;` : ''} and ${row.config.paths.join(', ')} with each member file holding ${row.config.rows}. Then measure every rule once with ${COST}. Edit nothing. Return (structured) the rules with their user CPU ms, \`${row.baseline}\`'s user CPU ms as the baseline, the utils with the outline,${typed ? ` the ${typed.name} modules and tests as typed,` : ''} and the config files as configs.`, {
+const listing = agent(`Load Skill(use-ast-grep) and read its references/rule-building.md. ${BAR} List every rule file under ${RULES} with its id; every file under ${UTILS} with ${OUTLINE};${typed ? ` each file under ${typed.paths.join(', ')} and each test file under ${typed.tests} as its own entry;` : ''} and ${row.config.paths.join(', ')} with each member file holding ${row.config.rows}. Then measure \`${row.baseline}\` alone with ${COST}, in the foreground. Edit nothing. Return (structured) the rules with their ids, \`${row.baseline}\`'s user CPU ms as the baseline, the utils with the outline,${typed ? ` the ${typed.name} modules and tests as typed,` : ''} and the config files as configs.`, {
   label: 'map:checks',
   phase: 'Map',
   schema: {
     type: 'object',
     properties: {
       baseline: { type: 'number' },
-      rules: { type: 'array', items: { type: 'object', properties: { path: TEXT, id: TEXT, user: { type: 'number' } }, required: ['path', 'id', 'user'] } },
+      rules: { type: 'array', items: { type: 'object', properties: { path: TEXT, id: TEXT }, required: ['path', 'id'] } },
       utils: LIST,
       configs: LIST,
       ...(typed ? { typed: LIST } : {}),
@@ -189,10 +188,10 @@ const inventory = await listing
 if (!inventory) throw new Error('map:checks returned nothing')
 const rules = inventory.rules.map((rule) => ({ ...rule, path: relative(rule.path) })).sort((a, b) => a.path.localeCompare(b.path))
 const batches = [
-  ...chunked(rules, CHUNK).map((held, index) => ({ name: `rules-${index + 1}`, kind: 'rules', paths: held.map((rule) => rule.path), costs: costs(inventory.baseline, held) })),
-  { name: 'utils', kind: 'utils', paths: inventory.utils.map(relative), costs: '' },
-  ...(typed ? [{ name: typed.name, kind: 'typed', paths: inventory.typed.map(relative), costs: '' }] : []),
-  { name: 'config', kind: 'config', paths: inventory.configs.map(relative), costs: '' },
+  ...chunked(rules, CHUNK).map((held, index) => ({ name: `rules-${index + 1}`, kind: 'rules', paths: held.map((rule) => rule.path) })),
+  { name: 'utils', kind: 'utils', paths: inventory.utils.map(relative) },
+  ...(typed ? [{ name: typed.name, kind: 'typed', paths: inventory.typed.map(relative) }] : []),
+  { name: 'config', kind: 'config', paths: inventory.configs.map(relative) },
 ]
 const early = batches.filter((batch) => batch.kind === 'rules')
 const late = batches.filter((batch) => batch.kind !== 'rules')
@@ -224,6 +223,5 @@ Update every mention of an id the writers renamed or removed across the tree: sk
 - a rule, util or outline: \`nx run rasm:lint:ast-grep\`, with \`nx run rasm:lint:yamllint\` and \`nx run rasm:lint:yamlfmt\` over its files
 - a config row: ${row.config.targets.map((target) => `\`${target}\``).join(', ')}${typed ? `\n- a ${typed.name} file: \`${typed.run}\` and \`${typed.test}\`` : ''}
 - a skill: \`${PROSE} .claude/skills/<skill>\`${row.snippet ? `\n- a changed snippet: piped through \`${row.snippet}\`` : ''}
-Measure each changed or added rule with ${COST}. Fix each finding once at its cause (the code it names, or the check when it misfires), and rebuild each rule costing above twice \`${row.baseline}\`${exclude.length > 0 ? `, except findings under ${exclude.join(', ')}` : ''}. Then rerun the commands and costs once. Return at most 10 lines: findings fixed, any left, and each changed rule's cost against its cost before.
-${costs(inventory.baseline, rules)}`, { label: 'close', phase: 'Close' })
+Measure each changed or added rule, and each changed rule as HEAD holds it, once with ${COST} in the foreground. Fix each finding once at its cause (the code it names, or the check when it misfires), and rebuild each rule costing above twice \`${row.baseline}\`${exclude.length > 0 ? `, except findings under ${exclude.join(', ')}` : ''}. Then rerun the commands and costs once. Return at most 10 lines: findings fixed, any left, and each changed rule's cost against its cost before and \`${row.baseline}\`'s ${inventory.baseline} ms.`, { label: 'close', phase: 'Close' })
 return { skills: shaped ?? [], rules: reports, close: close ?? 'close agent returned nothing' }
