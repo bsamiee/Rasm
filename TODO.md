@@ -15,7 +15,7 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 - Stages: map, readers per file group and root, per group an editor, adversaries in sequence and a verdict, cross-group sets, a lead, one check
 - Tune: `tune.js` with `language`, `base` and `exclude` mines commits since `base` into that language's skills and checks
 - Rows: `languages.js` holds each language's skills, sources, release, companion, catalog and checkers for `deepen.js` and `tune.js`
-- Extension research: `extension-research.js` with `key` one domain note, or `architecture` for the capability matrix and `TYPESCRIPT.md` rows
+- Extension research: `extension-research.js` with `key` one domain note, or `mode` plan and `key` one domain for its build plan
 - Harness depth: `harness-depth.js` with `key`, `base`, `name`, `apps`, `skills` and `products`
 - Folder guidance: `guidance.js` once the tree is committed after a round of rebuilds
 - Commits: tree committed and pushed before the InPage rerun, after its work closes, and before the extension phases
@@ -23,7 +23,7 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 ### State
 
 - **TypeScript:** all fourteen `[03]` rows built.
-- **Rust paused:** no new run starts until the TypeScript extension closes; the runs below finish and count as built.
+- **Rust paused:** reopens with the first TypeScript extension run.
 - **Rust rows built:** telemetry, command, output, screen, daemon, mcp, mesh, proximity, planar, implicit, site, solar, dependency, network, layout, optimize, stats, analysis, spectra, dynamics, form, tables, linework, views, annotation, sheets, typeset, ifc, weather, pdf, workbooks, cad.
 - **Rust rows left:** facets, scene, pointcloud, terrain, features, energy, daylight, query, lake, fields.
 - **Deepened:** cli, typeset, ifc, analysis, layout, implicit, dependency, annotation, mesh, site, solar, weather.
@@ -37,8 +37,9 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 3. **Harnesses:** run logging is committed (`1193208fe`); the depth pass in `.artifacts/workflows/harnesses/depth-brief.md` and the app launch route pass in `.artifacts/workflows/launch/depth-brief.md` (both running), which also routes waits on Claude Code task output to the completion notice and leaves Swift at zero findings; then the open host proofs.
 4. **Font library:** `libs/python/typography` and the `foundry` CLI at `tools/foundry` (running) from `.artifacts/workflows/fonts/DECISION.md` and `ARCHITECTURE.md`, 2,650 to 4,000 lines; a general tool for building, refining and verifying any font, Perso-Arabic one domain of it, each change rebuilding only what it reaches, with no flag a question does not need; each round pushed; then 2 to 3 `deepen.js` rounds over both paths with `.artifacts/workflows/fonts/deepen-brief.md` as input, each from the round before, the first collapsing the type, class, constant and string spam the build left into fewer, richer objects with higher-order operations for fonts in general and agent-facing CLI use; then `tune.js` over Python, which can run beside InPage.
 5. **Font files:** `assets/fonts` rebuilt through the library: one folder per family holding its faces, quality raised with agents reading rendered glyphs for weight, proportion, joining and mark placement against Perso-Arabic principles, and each file stating its metrics, features and behavior completely; it follows the library rounds and blocks nothing.
-6. **Rust, after the TypeScript extension:** three build runs in RUST.md order and three deepen runs at once, each commit freeing its slot; `tune.js` over Rust every few commits.
+6. **Rust, from the first TypeScript extension run:** three build slots in RUST.md order and three deepen slots, each commit freeing its slot; once deepen targets run out, deepen runs over a whole group (geospatial, cli) or chosen crates; `tune.js` over Rust every few commits.
 7. **Folder guidance:** once the TypeScript extension and the Rust queue are committed.
+8. **Drain:** every item above and every open defect closes; [03] alone stays.
 
 ### Open defects
 
@@ -61,13 +62,13 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 3. **Distill:** `rebuilt/` rewritten into `distilled/` by one distiller per algorithm family, each held identical by its own A/B harness, then adversaries per family and across the product.
 4. **InPage:** `deepen` with `.artifacts/workflows/typescript-extension/inpage/args.json` and `base` the commit pushed before launch, then `tune` with `language` typescript from that base.
 5. **Research:** one `extension-research` run per domain note at a time, in the order typography, perso-arabic, composition, grids, indesign, data, mcp, print, color, each pushed before the next.
-6. **Architecture:** `extension-research` with `key` architecture writes the capability matrix into `ARCHITECTURE.md` and the `TYPESCRIPT.md` [03] rows, and runs again over a family once its distill closes.
-7. **Rows:** one `deepen` run per `TYPESCRIPT.md` [03] row once its `[AFTER]` rows are committed and its gates answered: `mode` build with `key`, `base` the commit pushed before it, `inputs` the evidence its matrix rows name, `oracle` a product proof covering it and `exclude` a nested row's folder, the typography row in `mode` deepen over the InPage result; then `tune` with `language` typescript from the row's base, pushed before the next row.
+6. **Plans:** once the InPage run and its tune are committed, one `extension-research` run with `mode` plan per domain (typography, grids, color, indesign, data, mcp), writing the domain's plan at `.artifacts/workflows/typescript-extension/<domain>/PLAN.md` from its distilled products, rebuilt code and research, and its `ARCHITECTURE.md` and `TYPESCRIPT.md` [03] rows.
+7. **Rows:** one `deepen` run per `TYPESCRIPT.md` [03] row once its `[AFTER]` rows are committed and its gates answered: `mode` build with `key`, `base` the commit pushed before it, `inputs` its domain plan and the evidence the plan names, `oracle` a product proof covering it and `exclude` a nested row's folder, the typography row in `mode` deepen over the InPage result; then `tune` with `language` typescript from the row's base, pushed before the next row.
 
 ### State
 
-- **Running:** `internals-finish` on color alone with one binary round (preferences, right-to-left, composers and guides distilled).
-- **InPage:** library and Atelier committed; plan at `.artifacts/workflows/typescript-extension/inpage/PLAN.md`; oracle `proof/ab.ts` in `docs/research/applications/indesign/products/typesetting/inpage-typesetting-tool`.
+- **InPage:** library and Atelier committed; plan at `.artifacts/workflows/typescript-extension/inpage/PLAN.md`; oracle `proof/ab.ts` in `docs/research/applications/indesign/products/typesetting/inpage-typesetting-tool`, failing only on the plan's two open typography rows (`kerns` past a non-joining letter, the `0x` symbol cell).
+- **Color:** no further distill; `docs/research/applications/indesign/internals/adobe-indesign-color` and the color research stand as its evidence.
 - **Research notes:** cleaned to principles at their owners, pre-clean copies in `.artifacts/workflows/typescript-extension/base/`.
 - **Harnesses:** one launch path for every host, each run logged under `.artifacts/logs/harnesses/` with its summary in the CLI result; agents launch, drive and quit apps through watch-apps, and the hook routes every other form there.
 - **Next proofs:** host cases written and not run (second script decompile, Grid Calculator, ScribeDOOR, script domains) and ScribeDOOR for Illustrator run on it; ScribeDOOR's trial ends around 8 November.
