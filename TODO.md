@@ -37,7 +37,8 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 1. **Rust:** six runs at once, three rows in RUST.md order and three depth runs, each landing freeing its slot; `rust-tune` from `24ede74fc` after 2 to 3 land, and again every few landings.
 2. **InPage:** depth pass, clean-prose agents, `typescript-tune`, then one manual audit (every page of the InPage manual against our logic) with its fixes and a tune if justified.
 3. **Then:** one focused agent per open defect, and `typescript-sweep` once no other run edits TypeScript. Depth order: `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`, then each landed row not yet deepened.
-4. **Folder guidance:** once the sweep and the Rust queue settle.
+4. **InPage depth rerun:** once the sweep and all other TypeScript work land (it may overlap the extension planning), rerun the depth pass verbatim from `.artifacts/workflows/typescript-extension/inpage/depth-prompt.md`.
+5. **Folder guidance:** once the sweep and the Rust queue settle.
 
 ### Open defects
 
