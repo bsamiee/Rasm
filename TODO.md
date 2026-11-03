@@ -32,6 +32,14 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 - **Folder guidance:** `guidance.js` once the tree settles.
 - **Commits:** the tree is committed and pushed before the InPage rerun, after its work closes, and before the extension phases.
 
+### Delegation
+
+- **Briefs:** a prompt states the goal, its inputs and the bar; it holds no pass number, no narrowed scope, no validation language and no negative framing.
+- **Adversaries:** every pass reads whole and unanchored at equal depth and aggression; a later pass leans to collapsing existing types, constants, strings and functions into stronger logic, never by moving or nesting them.
+- **Diffs:** passes and tunes judge `git diff` against their base hunk by hunk, small wins and small regressions included; growth stands only where a capability needs it.
+- **Prose:** skills, rules, names and messages change by replacing or rewriting the line that owns a fact; text appended to an existing line is sediment.
+- **Reports:** the owner hears results and decisions; a finding is acted on or left unsaid.
+
 ### State
 
 - **TypeScript:** all fourteen `[03]` rows landed.
@@ -44,7 +52,7 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 
 ### Queue
 
-1. **TypeScript close:** the sweep audit (running) judges and reduces the sweep's growth and checks the tree to zero; then `typescript-tune` from `2a7c018e2`.
+1. **TypeScript close:** the sweep audit landed (`5febba4b7`); the workflow review (five reviewers and the lead's findings in `.artifacts/workflows/review/`) rebuilds the workflows and one tune for every language; then that tune over TypeScript from `2a7c018e2`.
 2. **Push**, then the **InPage depth rerun** from `.artifacts/workflows/typescript-extension/inpage/depth-prompt-2.md` (one Fable agent), with its follow-up depth, clean prose and refinement of modified content.
 3. **Push**, then the extension phases 4 to 7 in [02], pushing before the first run.
 4. **Harnesses:** run logging landed (`1193208fe`); the depth pass in `.artifacts/workflows/harnesses/depth-brief.md` and the app launch route pass in `.artifacts/workflows/launch/depth-brief.md` (both running); then the open host proofs.

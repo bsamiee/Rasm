@@ -1,7 +1,7 @@
 export const meta = {
   name: 'typescript-tune',
   description: 'Mine committed TypeScript into the TypeScript skills and checks: readers, per skill a writer, adversary and clean-prose pass, per rule batch a writer, one check',
-  whenToUse: 'args.base the commit before the TypeScript work it mines; no TypeScript run lands beside it.',
+  whenToUse: 'args.base the commit before the TypeScript work it mines; args.exclude the paths runs still edit; no TypeScript run lands beside it.',
   phases: [
     { title: 'Map', detail: 'every changed file in units, TypeScript rules and utils, scan time per rule' },
     { title: 'Read', detail: 'a miner per unit of the diff, a mapper per rule batch, utils and config' },
@@ -81,5 +81,5 @@ const [shaped, ruled] = await Promise.all([skills, tuned])
 phase('Close')
 const checked = await agent(`Load Skill(use-ast-grep). The rule writers reported:
 ${ruled.filter(Boolean).join('\n\n')}
-Run \`nx run rasm:lint:ast-grep\`, \`nx run rasm:lint:biome\` and \`nx run-many -t typecheck:tsc\` once, fix every finding at its cause once (the code a finding names, or the rule when it misfires; never a suppression or a lowered severity), then run them once more. Then time the whole scan with ${TIME('')}. Return at most 10 lines: findings fixed, any that remain, and the scan time against ${map?.scan} ms before.`, { label: 'close', phase: 'Close' })
+Run \`nx run rasm:lint:ast-grep\`, \`nx run rasm:lint:biome\` and \`nx run-many -t typecheck:tsc\` once, fix every finding at its cause once (the code a finding names, or the rule when it misfires; never a suppression or a lowered severity), then run them once more. Leave findings under ${(args.exclude ?? []).join(', ') || 'no path'}: runs still editing them fix their own. Then time the whole scan with ${TIME('')}. Return at most 10 lines: findings fixed, any that remain, and the scan time against ${map?.scan} ms before.`, { label: 'close', phase: 'Close' })
 return { skills: shaped, rules: ruled, checked }
