@@ -48,7 +48,7 @@ windows-service = "0.8.1"                                             # Windows 
 
 # --- [ERRORS]
 annotate-snippets    = "0.12.17"                                   # Diagnostics rendered over source spans
-anyhow               = "1.0.104"                                   # Erased error sources `untyped_error` lint examples wrap and nuts-rs chain results rasm-stats downcasts to `NutsError`, and argmin reports rasm-analysis downcasts to its own error
+anyhow               = "1.0.104"                                   # Erased error sources `untyped_error` lint examples wrap and nuts-rs chain results rasm-stats downcasts to `NutsError`
 nonempty-collections = { version = "1.4.0", features = ["serde"] } # Non-empty vectors, sets, and maps that hold accumulated errors
 sysexits             = "0.13.0"                                    # Process exit statuses each crate error converts into at the host
 thiserror            = "2.0.21"                                    # Error enums that consumers match by variant
@@ -89,6 +89,7 @@ bytes               = { version = "1.12.1", features = ["serde"] }              
 cbor4ii             = { version = "1.2.4", features = ["serde1", "use_std"] }                                # CBOR codec
 csv                 = "1.4.0"                                                                                # CSV records decoded into and encoded from typed rows
 data-encoding       = "2.11.1"                                                                               # Base64, base32, and hex codecs
+data-encoding-macro = "0.1.21"                                                                               # Custom encodings checked at compile time
 itoa                = "1.0.18"                                                                               # Integer text through a stack buffer, the form serde_json writes integers in
 json-patch          = "4.2.0"                                                                                # JSON Patch apply and diff over JSON values
 jsonptr             = "0.8.2"                                                                                # JSON Pointer resolution with typed failures
@@ -179,20 +180,21 @@ ignore                = "0.4.34"                                                
 notify                = { version = "9.0.0-rc.7", features = ["tokio"] }                                                                                                                                    # File system change events
 notify-debouncer-full = { version = "0.8.0-rc.2", features = ["tokio"] }                                                                                                                                    # Debounced, rename-aware change batches
 tempfile              = "3.27.0"                                                                                                                                                                            # Temporary files and atomic writes that keep occupied destinations
+typed-path            = { version = "0.13.0", default-features = false }                                                                                                                                    # Archive entry names normalized by Unix path rules on every host
 
 # --- [COMPRESSION]
-async-compression = { version = "0.4.51", features = ["tokio", "gzip", "zlib", "zstd", "brotli", "lz4", "xz", "bzip2"] }                                                 # Compression over async byte streams
-brotli            = "9.1.1"                                                                                                                                              # Brotli streams
-bzip2             = "0.6.1"                                                                                                                                              # bzip2 streams
-flate2            = { version = "1.1.10", default-features = false, features = ["zlib-rs", "runtime_detection"] }                                                        # Deflate, zlib, and gzip streams, default `rust_backend` compiles miniz_oxide beside zlib-rs
-lz4_flex          = "0.14.0"                                                                                                                                             # LZ4 block and frame codecs
-lzma-rust2        = "0.24.0"                                                                                                                                             # XZ, LZMA, and LZIP streams
-qbsdiff           = "1.4.4"                                                                                                                                              # Binary deltas between file versions
-sevenz-rust2      = { version = "0.24.2", features = ["zstd"] }                                                                                                          # 7z archives
-snap              = "1.1.2"                                                                                                                                              # Snappy frames
-tar               = "0.4.46"                                                                                                                                             # Tar archives
-zip               = { version = "9.2.2", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "lzma", "ppmd", "zstd", "xz", "jiff-02"] } # ZIP archives with ZIP64 and AES, default `time` adds time beside jiff
-zstd              = { version = "0.14.3", features = ["zstdmt"] }                                                                                                        # Zstandard frames with dictionaries
+async-compression = { version = "0.4.51", features = ["tokio", "gzip", "zlib", "zstd", "brotli", "lz4", "xz", "bzip2"] } # Compression over async byte streams
+brotli            = "9.1.1"                                                                                              # Brotli streams
+bzip2             = "0.6.1"                                                                                              # bzip2 streams
+flate2            = { version = "1.1.10", default-features = false, features = ["zlib-rs", "runtime_detection"] }        # Deflate, zlib, and gzip streams, default `rust_backend` compiles miniz_oxide beside zlib-rs
+lz4_flex          = "0.14.0"                                                                                             # LZ4 block and frame codecs
+lzma-rust2        = "0.24.0"                                                                                             # XZ, LZMA, and LZIP streams
+qbsdiff           = "1.4.4"                                                                                              # Binary deltas between file versions
+sevenz-rust2      = { version = "0.24.2", features = ["zstd"] }                                                          # 7z archives
+snap              = "1.1.2"                                                                                              # Snappy frames
+tar               = "0.4.46"                                                                                             # Tar archives
+zip               = { version = "9.2.2", default-features = false, features = ["deflate-flate2-zlib-rs"] }               # ZIP archives with ZIP64, stored and deflated entries
+zstd              = { version = "0.14.3", features = ["zstdmt"] }                                                        # Zstandard frames with dictionaries
 
 # --- [CRYPTOGRAPHY]
 argon2                   = "0.6.0"                                                                                               # Password hashing in PHC strings
@@ -387,29 +389,29 @@ zarrs_icechunk     = { version = "0.6.0", default-features = false, features = [
 zarrs_object_store = "0.6.2"                                                                                                                                                                       # Object stores as zarrs async stores at the object_store release DataFusion links
 
 # --- [MATHEMATICS]
-almost         = "0.2.0"                                                                                        # Relative float equality csaps tests data sites with
-average        = { version = "0.17.0", default-features = false, features = ["std", "serde"] }                  # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
-bytemuck       = "1.25.2"                                                                                       # nalgebra point slices read in place as the coordinate arrays k-d tree batches take
-csaps          = "0.5.0"                                                                                        # Cubic smoothing splines over weighted curves and grids, adds itertools 0.14 and, through the alga default of its sprs, approx 0.3 and num-complex 0.2 beside the catalog's, its LDL solve is LGPL-2.1 sprs-ldl
-dashu          = "0.6.2"                                                                                        # Arbitrary-precision integers, rationals, and floats
-faer           = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg"] } # Dense and sparse decompositions and solves, default `rand` adds rand 0.9 beside rand 0.10
-gauss-quad     = { version = "0.3.2", default-features = false, features = ["rayon"] }                          # Gauss-Legendre and other quadrature rules over parallel nodes, default `libm` swaps std math for libm
-glam           = { version = "0.34.2", features = ["serde"] }                                                   # SIMD f32 vector and matrix math in graphics code
-glamx          = { version = "0.3.1", features = ["nalgebra"] }                                                 # parry poses converted to and from nalgebra isometries
-inari          = "2.0.0"                                                                                        # Interval arithmetic with verified enclosures
-iso_currency   = { version = "0.7.1", features = ["with-serde"] }                                               # ISO 4217 currency codes and minor units
-nalgebra       = { version = "0.35.0", features = ["serde-serialize", "convert-glam033", "convert-bytemuck"] }  # Fixed-size vectors, points, and transforms at every geometry signature, vectors and points crossing into parry's glam values, dynamic matrices of sampled designs, draws and dependence, and `convert` for counts entering float arithmetic
-ndarray        = { version = "0.17.2", features = ["rayon", "serde"] }                                          # N-dimensional arrays holding grids, matrices, and analysis data
-ndarray-interp = "0.6.0"                                                                                        # Bilinear and cubic interpolation over ndarray grids at sample points
-num-complex    = "0.4.6"                                                                                        # Complex values of spectra, transfer functions, FFT bins and polynomial roots
-num-dual       = "0.15.1"                                                                                       # Forward-mode automatic differentiation
-rand           = { version = "0.10.3", features = ["chacha"] }                                                  # Seeded generators passed into domain functions
-rand_distr     = "0.6.0"                                                                                        # Sampling distributions over passed-in generators
-rust_decimal   = { version = "1.43.0", features = ["serde-with-str"] }                                          # Fixed-scale decimals holding money and exact values
-sobol_burley   = "0.5.0"                                                                                        # Owen-scrambled Sobol sequences for low-discrepancy sampling
-statrs         = "0.19.1"                                                                                       # Distributions and descriptive statistics
-twofloat       = "0.8.4"                                                                                        # Double-double arithmetic in ill-conditioned predicates
-uom            = { version = "0.38.0", features = ["use_serde"] }                                               # Quantities with dimensions checked at compile time
+almost         = "0.2.0"                                                                                                # Relative float equality csaps tests data sites with
+average        = { version = "0.17.0", default-features = false, features = ["std", "serde"] }                          # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
+bytemuck       = "1.25.2"                                                                                               # nalgebra point slices read in place as the coordinate arrays k-d tree batches take
+csaps          = "0.5.0"                                                                                                # Cubic smoothing splines over weighted curves and grids, adds itertools 0.14 and, through the alga default of its sprs, approx 0.3 and num-complex 0.2 beside the catalog's, its LDL solve is LGPL-2.1 sprs-ldl
+dashu          = "0.6.2"                                                                                                # Arbitrary-precision integers, rationals, and floats
+faer           = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg"] }         # Dense and sparse decompositions and solves, default `rand` adds rand 0.9 beside rand 0.10
+gauss-quad     = { version = "0.3.2", default-features = false, features = ["rayon"] }                                  # Gauss-Legendre and other quadrature rules over parallel nodes, default `libm` swaps std math for libm
+glam           = { version = "0.34.2", features = ["serde"] }                                                           # SIMD f32 vector and matrix math in graphics code
+glamx          = { version = "0.3.1", features = ["nalgebra"] }                                                         # parry poses converted to and from nalgebra isometries
+inari          = "2.0.0"                                                                                                # Interval arithmetic with verified enclosures
+iso_currency   = { version = "0.7.1", features = ["with-serde"] }                                                       # ISO 4217 currency codes and minor units
+nalgebra       = { version = "0.35.0", features = ["serde-serialize", "convert-glam033", "convert-bytemuck", "rayon"] } # Fixed-size vectors, points, and transforms at every geometry signature, vectors and points crossing into parry's glam values, dynamic matrices of sampled designs, draws and dependence, and `convert` for counts entering float arithmetic
+ndarray        = { version = "0.17.2", features = ["rayon", "serde"] }                                                  # N-dimensional arrays holding grids, matrices, and analysis data
+ndarray-interp = "0.6.0"                                                                                                # Bilinear and cubic interpolation over ndarray grids at sample points
+num-complex    = "0.4.6"                                                                                                # Complex values of spectra, transfer functions, FFT bins and polynomial roots
+num-dual       = "0.15.1"                                                                                               # Forward-mode automatic differentiation
+rand           = { version = "0.10.3", features = ["chacha"] }                                                          # Seeded generators passed into domain functions
+rand_distr     = "0.6.0"                                                                                                # Sampling distributions over passed-in generators
+rust_decimal   = { version = "1.43.0", features = ["serde-with-str"] }                                                  # Fixed-scale decimals holding money and exact values
+sobol_burley   = "0.5.0"                                                                                                # Owen-scrambled Sobol sequences for low-discrepancy sampling
+statrs         = "0.19.1"                                                                                               # Distributions and descriptive statistics
+twofloat       = "0.8.4"                                                                                                # Double-double arithmetic in ill-conditioned predicates
+uom            = { version = "0.38.0", features = ["use_serde"] }                                                       # Quantities with dimensions checked at compile time
 
 # --- [SIGNALS]
 apodize      = "1.0.0"                                     # Symmetric Hann, Hamming, four-term Blackman–Harris, Nuttall, triangular and generalized cosine windows
@@ -431,9 +433,9 @@ nlopt       = "0.8.1"                                                           
 nuts-rs     = "0.19.1"                                                                     # No-U-Turn sampling chains over a `CpuLogpFunc`
 
 # --- [GRAPHS]
-dugong           = "0.9.3"                                                               # Layered layout of directed graphs with routed edges and clusters, at the release merman-render links
+dugong           = "0.10.0-alpha.1"                                                      # Layered layout of directed graphs with routed edges and clusters, at the release merman-render links
 leiden-rs        = { version = "0.8.1", default-features = false, features = ["rayon"] } # Leiden community detection over a `GraphDataBuilder` graph holding node masses, default `cli` adds clap and `gryf` a second graph library
-manatee          = "0.9.3"                                                               # Force-directed fCoSE layout with constraints, at the release merman-render links
+manatee          = "0.10.0-alpha.1"                                                      # Force-directed fCoSE layout with constraints, at the release merman-render links
 petgraph         = { version = "0.8.3", features = ["serde-1"] }                         # Graph structures with incremental acyclic order, traversal, ordering, shortest paths, maximum flow, and spanning forests
 petgraph-graphml = "5.0.0"                                                               # GraphML output of graphs
 rustworkx-core   = "0.18.1"                                                              # Keyed topological order, DAG layers, cycle search, simple cycles, pruned Dijkstra visits, eigenvector and Katz centrality, connected components, biconnected blocks, minimum cuts, matchings, and Steiner trees over petgraph
@@ -541,8 +543,8 @@ usvg        = { version = "0.47.0", default-features = false, features = ["text"
 wgpu        = "30.0.1"                                                              # WebGPU compute and rendering over native backends
 
 # --- [VISUALIZATION]
-merman = { version = "0.9.3", default-features = false, features = ["all-diagrams", "svg", "layout-cytoscape", "native-fonts"] } # Mermaid diagrams parsed, laid out, and rendered to SVG against caller font bytes, defaults add ELK layout and math
-plotly = "0.14.1"                                                                                                                # Plotly chart documents
+merman = { version = "0.10.0-alpha.1", default-features = false, features = ["all-diagrams", "svg", "layout-cytoscape", "native-fonts"] } # Mermaid diagrams parsed, laid out, and rendered to SVG against caller font bytes, defaults add ELK layout and math
+plotly = "0.14.1"                                                                                                                         # Plotly chart documents
 
 # --- [DOCUMENTS]
 calamine         = "0.37.0"                                                                                                    # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff
@@ -633,12 +635,12 @@ rasm-planar     = { path = "libs/rust/geometry/planar", version = "1.0.0" }    #
 rasm-implicit   = { path = "libs/rust/geometry/implicit", version = "1.0.0" }  # Implicit fields every Rasm geometry consumer composes: trees at an f64 origin with recentring, value and gradient sampling across a caller thread pool, minimal surface lattices, constant and graded shell walls, JIT octree meshing over a world domain into a parry triangle mesh
 rasm-stats      = { path = "libs/rust/numerics/stats", version = "1.0.0" }     # Statistics every Rasm numerics consumer composes: named bounded spaces, mergeable summaries, dependence matrices, designs, intervals, NUTS calibration, Guideline 14 grading, Saltelli and Morris sensitivity
 rasm-linework   = { path = "libs/rust/drawing/linework", version = "1.0.0" }   # Presentation model every Rasm drawing output reads: colors, pens, linetypes, hatch patterns, regions, edge classes, text, glyph runs, elements and pages, with strokes, region booleans and offsets, hatches and cleanup
-rasm-views      = { path = "libs/rust/drawing/views", version = "1.0.0" }      # Hidden-line views every Rasm drawing set composes: parallel frames with an oblique receding vector and perspective frames, crease, silhouette, boundary and cut edges classified visible or hidden, near-plane section regions, visible faces and sun shadows, strokes under per-class pens
+rasm-views      = { path = "libs/rust/drawing/views", version = "1.0.0" }      # Hidden-line views every Rasm drawing set composes: parallel frames with an oblique receding vector and perspective frames with a lens shift, crease, silhouette, boundary and cut edges classified visible or hidden, near-plane section regions, visible faces and sun shadows, strokes under per-class pens
 rasm-annotation = { path = "libs/rust/drawing/annotation", version = "1.0.0" } # Annotation every Rasm drawing set composes: text set from caller fonts into glyph runs and outlines, length and angle notation, dimensions, leaders, revision clouds, breaklines, arrows and scale bars, SVG symbols with text slots, legends and schedule tables, each with its text mask
-rasm-pdf        = { path = "libs/rust/documents/pdf", version = "1.0.0" }      # PDF documents every Rasm app opens, authors, edits, reads and proofs: drawing sets from linework pages with layers, measure viewports, outlines, tags and PDF/A, UA and X standards, assembly, forms, redaction, revision overlays, PAdES signing, page walks, OCR, validation and tiled soft proofs
+rasm-pdf        = { path = "libs/rust/documents/pdf", version = "1.0.0" }      # PDF documents every Rasm app opens, authors, edits, reads and proofs: drawing sets from linework pages with layers, measure viewports, outlines, tags and PDF/A, UA and X standards, page fields, assembly, forms, redaction, revision overlays, PAdES signing, page walks, OCR, validation and tiled soft proofs
 rasm-site       = { path = "libs/rust/geospatial/site", version = "1.0.0" }    # Where a site is and how its coordinates convert: latitude, longitude and elevation, time zones, parcel boundaries, CRS transformations, grid convergence and scale, site frames anchored to a grid
 rasm-solar      = { path = "libs/rust/geospatial/solar", version = "1.0.0" }   # Sun every Rasm site consumer composes: SPA positions under the site's standard-atmosphere refraction beside their prepared Earth-Sun distance and declination and sky directions at an instant, rises, transits and sets over an interval, the windows above an apparent elevation and the lit sun path, Tregenza and Reinhart sky patches after the ground patch and the patch a direction falls in, incidence, sun hours and sky view through opaque and translucent obstacles, solar rights and collection envelopes
-rasm-weather    = { path = "libs/rust/geospatial/weather", version = "1.0.0" } # Weather every Rasm site consumer composes: EPW and GRIB2 hour series at a site, ASHRAE design conditions, calendar summaries and quantiles, degree days, running mean outdoor temperature, wind roses and profiles, psychrometrics, outdoor SolarCal conditions, UTCI, PMV and adaptive comfort, Perez and CIE sky matrices over Reinhart patches and irradiance on sensors
+rasm-weather    = { path = "libs/rust/geospatial/weather", version = "1.0.0" } # Weather every Rasm site consumer composes: EPW and GRIB2 hour series at a site resampled to any step, ASHRAE design conditions, calendar summaries and quantiles, degree days, running mean outdoor temperature, wind roses and profiles, psychrometrics, outdoor SolarCal conditions, UTCI, PMV and adaptive comfort, Perez and CIE sky matrices over Reinhart patches and irradiance on sensors
 rasm-dependency = { path = "libs/rust/graphs/dependency", version = "1.0.0" }  # Evaluation graph every Rasm consumer of a dependency order composes: cycle refusal naming every closing path, whole input rewiring, keyed order, layers, invalidation reach, dependency-driven propagation with early cutoff, transitive reduction, condensation, simple cycles, tearing, deadline-bounded critical path schedules
 rasm-optimize   = { path = "libs/rust/numerics/optimize", version = "1.0.0" }  # Optimization every Rasm numerics consumer composes: bounded nonlinear solves over a named space with vector constraints and global search, conic and semidefinite programs from typed cone blocks with data-update sweeps, solved allocation models with capacity duals, constrained Pareto ranking with crowding
 rasm-spectra    = { path = "libs/rust/numerics/spectra", version = "1.0.0" }   # Spectra every Rasm numerics consumer composes: Fourier, real, cosine, analytic and chirp-z zoom transforms of planes along any axis, Fourier resampling, series convolution, correlation and regularized deconvolution, Welch power, cross and transfer estimates and spectrograms, causal and zero-phase Butterworth, biquad and A and C weighting cascades with their responses, IEC 61260 fractional-octave bands and filter banks, ISO 3382-1 decay under optional converged Lundeby truncation and its room-acoustic parameter set
@@ -646,8 +648,8 @@ rasm-tables     = { path = "libs/rust/data/tables", version = "1.0.0" }        #
 rasm-network    = { path = "libs/rust/graphs/network", version = "1.0.0" }     # Network analysis every Rasm consumer of a street, circulation or utility network composes: inbound and outbound catchment trees within a radius, heuristic routes, angular segment graphs with turn costs, radius-bounded reach, closeness, gravity and betweenness, eigenvector centrality, weak and strong components, biconnected blocks and minimum cuts, maximum flow with its cut, weighted matchings, spanning and Steiner trees, hierarchical and seeded Leiden communities
 rasm-layout     = { path = "libs/rust/graphs/layout", version = "1.0.0" }      # Drawn layouts every Rasm diagram consumer composes: layered dagre layouts with ranked, routed and labeled edges and clusters, incremental fCoSE force layouts with alignment and placement constraints and anchored edges, every absent and self-nesting node refused in one error before either engine, straight, one-bend orthogonal and fanned parallel routes, a member to the nearest side of its cluster and stepped loops on any side, GraphML and DOT export
 rasm-typeset    = { path = "libs/rust/documents/typeset", version = "1.0.0" }  # Typst documents compiled in process to PDF, SVG, PNG, HTML and bundles, with Universe packages and Mermaid diagrams
-rasm-ifc        = { path = "libs/rust/interchange/ifc", version = "1.0.0" }    # IFC5 models every Rasm BIM consumer composes: IFCX layers and import closures under SRI integrity, federation and composition with schema validation, typed attribute values with uom quantities, overlays and diffs, spatial and systems graphs, georeference codes, alignment stations, instanced geometry with presentation colors, BCF 3.0 issues keyed by node UUID
-rasm-analysis   = { path = "libs/rust/numerics/analysis", version = "1.0.0" }  # Analysis every Rasm numerics consumer composes: weighted observations, polynomial regression and nonlinear model fits with covariance, smoothing splines over curves and grids, natural-neighbor interpolation of scattered data, bracketed and polynomial roots, adaptive quadrature
+rasm-ifc        = { path = "libs/rust/interchange/ifc", version = "1.0.0" }    # IFC5 models every Rasm BIM consumer composes: IFCX layers and import closures under SRI integrity, federation and composition with schema validation, typed attribute values with uom quantities, overlays and diffs, spatial and systems graphs, georeference codes, alignment stations, instanced geometry with presentation colors and glTF materials, BCF 2.1 and 3.0 issues keyed by node UUID
+rasm-analysis   = { path = "libs/rust/numerics/analysis", version = "1.0.0" }  # Analysis every Rasm numerics consumer composes: weighted multi-response observations, regularized and robust polynomial, nonlinear and separable fits with influence and covariance estimators, smoothing, monotone and periodic splines, natural-neighbor, constrained and kriging interpolation, roots with sensitivities, adaptive cubature
 rasm-dynamics   = { path = "libs/rust/numerics/dynamics", version = "1.0.0" }  # Dynamics every Rasm simulation consumer composes: time grids and trajectories, ODE and DAE solves with forward sensitivities, adjoint gradients and parallel sweeps over designs, lumped thermal RC networks with steady states, FMI 2 and 3 co-simulation units with real, integer and Boolean ports, a cancellable non-iterative Gauss-Seidel master over a torn coupling order
 
 # --- [LINTS] ----------------------------------------------------------------------------

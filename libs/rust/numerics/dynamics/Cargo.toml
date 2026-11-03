@@ -4,7 +4,7 @@
 name                 = "rasm-dynamics"
 version.workspace    = true
 edition.workspace    = true
-description          = "Dynamic simulation over time grids: ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities, adjoint gradients of integral and pointwise objectives and parallel sweeps over parameter designs, lumped thermal RC networks with steady states and parameter sensitivities, FMI 2 and 3 co-simulation units with real, integer and Boolean ports, real ports in SI units, and a cancellable non-iterative Gauss-Seidel master over a torn coupling order with type- and unit-checked connections"
+description          = "Dynamic simulation over time grids: ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities, adjoint gradients of integral and pointwise objectives and parallel sweeps over parameter designs, lumped thermal RC networks with steady states and parameter sensitivities, FMI 2 and 3 co-simulation units with real, integer and Boolean ports, real ports stating their SI base unit, and a cancellable non-iterative Gauss-Seidel master over a torn coupling order with type- and unit-checked connections"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["ode", "simulation", "co-simulation", "fmi", "thermal-network"]

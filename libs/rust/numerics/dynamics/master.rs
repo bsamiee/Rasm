@@ -1,4 +1,8 @@
-use core::{iter, ops::ControlFlow};
+use core::{
+    iter,
+    ops::ControlFlow,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use nalgebra::DMatrix;
 use nonempty_collections::NEVec;
@@ -10,7 +14,7 @@ use rasm_dependency::cycles::{self, Torn};
 use uom::si::f64::Time;
 use validated::Validated;
 
-use crate::{Causality, Connection, DynamicsError, Endpoint, Grid, Port, Stop, Trajectory, cosimulation::Fmu, lumped::Instance};
+use crate::{Causality, Connection, DynamicsError, Endpoint, Grid, Kind, Port, Stop, Trajectory, cosimulation::Fmu, lumped::Instance};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -42,7 +46,7 @@ impl AsRef<[Port]> for Subsystem {
 }
 
 impl Subsystem {
-    pub fn set(&mut self, values: impl IntoIterator<Item = (u32, f64)>) -> Result<(), NEVec<DynamicsError>> {
+    pub fn set(&mut self, values: impl IntoIterator<Item = (usize, f64)>) -> Result<(), NEVec<DynamicsError>> {
         let (references, values): (Vec<_>, Vec<_>) = values.into_iter().unzip();
         references
             .iter()
@@ -53,7 +57,7 @@ impl Subsystem {
         self.write(&references, &values).map_err(NEVec::new)
     }
 
-    fn write(&mut self, references: &[u32], values: &[f64]) -> Result<(), DynamicsError> {
+    fn write(&mut self, references: &[usize], values: &[f64]) -> Result<(), DynamicsError> {
         match self {
             Self::Fmu(fmu) => fmu.set(references, values),
             Self::Network(instance) => {
@@ -66,29 +70,33 @@ impl Subsystem {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: &Grid, probes: &[Endpoint]) -> Result<Trajectory, NEVec<DynamicsError>> {
+pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: &Grid, probes: &[Endpoint], cancel: &AtomicBool) -> Result<Trajectory, NEVec<DynamicsError>> {
     fn pass(
         ordered: &mut [(usize, Subsystem)],
         couplings: &mut [(Endpoint, Reading)],
         recorded: &mut [Reading],
         time: Time,
-        mut act: impl FnMut(&mut Subsystem, &[u32], &[f64]) -> Result<ControlFlow<()>, DynamicsError>,
-    ) -> Result<Option<usize>, NEVec<DynamicsError>> {
+        mut act: impl FnMut(&mut Subsystem, &[usize], &[f64]) -> Result<ControlFlow<Time>, DynamicsError>,
+    ) -> Result<Option<(usize, Time)>, NEVec<DynamicsError>> {
         ordered
             .iter_mut()
             .map(|(index, subsystem)| try {
                 let failure = failed(*index, time);
                 let (references, inputs): (Vec<_>, Vec<_>) = couplings.iter().filter(|(target, _)| target.subsystem == *index).map(|(target, reading)| (target.reference, reading.value)).unzip();
-                let flow = act(subsystem, &references, &inputs).map_err(failure)?;
-                let due = couplings.iter_mut().map(|(_, reading)| reading).chain(&mut *recorded).filter(|reading| reading.source.subsystem == *index).collect::<Vec<_>>();
-                let sources = due.iter().map(|reading| reading.source.reference).collect::<Vec<_>>();
-                let read = match subsystem {
-                    Subsystem::Fmu(fmu) => fmu.get(&sources),
-                    Subsystem::Network(instance) => Ok(instance.get(&sources)),
+                match act(subsystem, &references, &inputs).map_err(failure)? {
+                    ControlFlow::Break(reached) => Some((*index, reached)),
+                    ControlFlow::Continue(()) => {
+                        let due = couplings.iter_mut().map(|(_, reading)| reading).chain(&mut *recorded).filter(|reading| reading.source.subsystem == *index).collect::<Vec<_>>();
+                        let sources = due.iter().map(|reading| reading.source.reference).collect::<Vec<_>>();
+                        let read = match subsystem {
+                            Subsystem::Fmu(fmu) => fmu.get(&sources),
+                            Subsystem::Network(instance) => Ok(instance.get(&sources)),
+                        }
+                        .map_err(failure)?;
+                        iter::zip(due, read).for_each(|(reading, value)| reading.value = reading.scale.mul_add(value, reading.shift));
+                        None
+                    }
                 }
-                .map_err(failure)?;
-                iter::zip(due, read).for_each(|(reading, value)| reading.value = reading.scale.mul_add(value, reading.shift));
-                flow.break_value().map(|()| *index)
             })
             .find_map(Result::transpose)
             .transpose()
@@ -101,19 +109,20 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
             .ok_or(DynamicsError::Endpoint { endpoint, causality })
     };
     let couple = |connection @ Connection { source, target }: Connection| match Validated::from(port(source, Causality::Output)).map2(Validated::from(port(target, Causality::Input)), |exit, entry| {
-        match (exit.unit, entry.unit) {
-            (Some(from), Some(to)) => (from.exponents == to.exponents && [from, to].iter().all(|unit| unit.factor.is_normal() && unit.offset.is_finite()))
-                .ok_or(DynamicsError::Units { connection, units: [from, to] })
-                .map(|()| (target, Reading { source, scale: from.factor / to.factor, shift: (from.offset - to.offset) / to.factor, value: f64::NAN })),
-            (None, _) | (_, None) => Ok((target, Reading { source, scale: 1.0, shift: 0.0, value: f64::NAN })),
-        }
+        exit.kind
+            .conversion(entry.kind)
+            .map(|(scale, shift)| (target, Reading { source, scale, shift, value: f64::NAN }))
+            .ok_or_else(|| DynamicsError::Connection { connection, kinds: Box::new([exit.kind, entry.kind]) })
     }) {
         Validated::Good(related) => Validated::from(related),
         Validated::Fail(refused) => Validated::Fail(refused),
     };
     let probe = |source: Endpoint| {
-        port(source, Causality::Output).map(|&Port { name: _, causality: _, reference: _, unit }| {
-            let (scale, shift) = unit.map_or((1.0, 0.0), |stated| (stated.factor, stated.offset));
+        port(source, Causality::Output).map(|exit| {
+            let (scale, shift) = match exit.kind {
+                Kind::Real(Some(unit)) => (unit.factor, unit.offset),
+                Kind::Real(None) | Kind::Integer | Kind::Boolean => (1.0, 0.0),
+            };
             Reading { source, scale, shift, value: f64::NAN }
         })
     };
@@ -131,13 +140,13 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
     let evaluation = rasm_dependency::evaluation(graph).map_err(|source| NEVec::new(DynamicsError::from(source)))?;
     let mut slots = subsystems.into_iter().map(Some).collect::<Vec<_>>();
     let mut ordered = evaluation.order().nodes_iter().filter_map(|node| Some((node.index(), slots.get_mut(node.index())?.take()?))).collect::<Vec<_>>();
-    let (&start, &end) = grid.first().zip(grid.last()).ok_or_else(|| NEVec::new(DynamicsError::Empty))?;
+    let start = *grid.first();
     pass(&mut ordered, &mut couplings, &mut recorded, start, |subsystem, _, _| {
         match subsystem {
-            Subsystem::Fmu(fmu) => fmu.initialize(start, end),
+            Subsystem::Fmu(fmu) => fmu.initialize(grid),
             Subsystem::Network(_) => Ok(()),
         }
-        .map(|()| ControlFlow::Continue(()))
+        .map(ControlFlow::Continue)
     })?;
     pass(&mut ordered, &mut couplings, &mut recorded, start, |subsystem, references, inputs| {
         subsystem.write(references, inputs)?;
@@ -145,13 +154,17 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
             Subsystem::Fmu(fmu) => fmu.exit(),
             Subsystem::Network(_) => Ok(()),
         }
-        .map(|()| ControlFlow::Continue(()))
+        .map(ControlFlow::Continue)
     })?;
-    let mut times = vec![start];
+    let mut times = NEVec::new(start);
     let mut columns = recorded.iter().map(|reading| reading.value).collect::<Vec<_>>();
-    let ended = grid
+    let stop = grid
+        .as_ref()
         .array_windows()
-        .map(|&[time, next]| try {
+        .map(|&[time, next]| {
+            if cancel.load(Ordering::Relaxed) {
+                return Ok::<_, NEVec<DynamicsError>>(Some(Stop::Cancelled));
+            }
             let requested = pass(&mut ordered, &mut couplings, &mut recorded, time, |subsystem, references, inputs| {
                 subsystem.write(references, inputs)?;
                 match subsystem {
@@ -163,11 +176,11 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
                 times.push(next);
                 columns.extend(recorded.iter().map(|reading| reading.value));
             }
-            requested.map(|subsystem| (Stop::Request { subsystem }, time))
+            Ok(requested.map(|(subsystem, reached)| Stop::Request { subsystem, time: reached }))
         })
         .find_map(Result::transpose)
         .transpose()?;
-    let (stop, reached) = ended.map_or((None, end), |(stop, time)| (Some(stop), time));
+    let reached = *times.last();
     ordered
         .iter_mut()
         .map(|(index, subsystem)| {
@@ -179,8 +192,8 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
         })
         .collect::<Validated<(), _>>()
         .ok()?;
-    let values = DMatrix::from_vec(recorded.len(), times.len(), columns);
-    Ok(Trajectory { times, values, stop })
+    let values = DMatrix::from_vec(recorded.len(), times.len().get(), columns);
+    Ok(Trajectory { times: times.into(), values, stop })
 }
 
 const fn failed(subsystem: usize, time: Time) -> impl Fn(DynamicsError) -> DynamicsError + Copy { move |source| DynamicsError::Subsystem { subsystem, time, source: Box::new(source) } }

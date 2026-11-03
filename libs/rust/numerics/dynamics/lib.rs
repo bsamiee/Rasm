@@ -1,4 +1,4 @@
-#![feature(deref_patterns, try_blocks)]
+#![feature(deref_patterns, float_conversions, try_blocks)]
 
 use core::{fmt, iter};
 use std::path::PathBuf;
@@ -74,19 +74,33 @@ pub enum Kind {
     Boolean,
 }
 
+impl Kind {
+    #[must_use]
+    pub fn conversion(self, target: Self) -> Option<(f64, f64)> {
+        match (self, target) {
+            (Self::Real(Some(from)), Self::Real(Some(to))) => {
+                let (scale, shift) = (from.factor / to.factor, (from.offset - to.offset) / to.factor);
+                (from.exponents == to.exponents && scale.is_normal() && shift.is_finite()).then_some((scale, shift))
+            }
+            (Self::Real(None), Self::Real(_)) | (Self::Real(_), Self::Real(None)) | (Self::Integer, Self::Integer) | (Self::Boolean, Self::Boolean) => Some((1.0, 0.0)),
+            (Self::Real(_), Self::Integer | Self::Boolean) | (Self::Integer, Self::Real(_) | Self::Boolean) | (Self::Boolean, Self::Real(_) | Self::Integer) => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Port {
     pub name: String,
     pub causality: Causality,
-    pub reference: u32,
+    pub reference: usize,
     pub kind: Kind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
-#[display("value reference {reference} of subsystem {subsystem}")]
+#[display("port {reference} of subsystem {subsystem}")]
 pub struct Endpoint {
     pub subsystem: usize,
-    pub reference: u32,
+    pub reference: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,27 +111,27 @@ pub struct Connection {
 
 #[nutype::nutype(
     validate(
-        with = |instants: &Vec<Time>| -> Result<(), DynamicsError> {
-            match instants {
-                [] => Err(DynamicsError::Empty),
-                [first, ..] => iter::chain(
-                    (!first.is_finite()).then_some((0, *first)),
-                    iter::zip(1.., instants.array_windows()).filter(|&(_, [earlier, instant])| !instant.is_finite() || instant <= earlier).map(|(index, &[_, instant])| (index, instant)),
+        with = |instants: &NEVec<Time>| -> Result<(), DynamicsError> {
+            let first = *instants.first();
+            NEVec::try_from_vec(
+                iter::chain(
+                    (!first.is_finite()).then_some((0, first)),
+                    iter::zip(1.., instants.as_ref().array_windows()).filter(|&(_, [earlier, instant])| !instant.is_finite() || instant <= earlier).map(|(index, &[_, instant])| (index, instant)),
                 )
-                .next()
-                .map_or(Ok(()), |(index, instant)| Err(DynamicsError::Instant { index, instant })),
-            }
+                .collect(),
+            )
+            .map_or(Ok(()), |instants| Err(DynamicsError::Instants { instants }))
         },
         error = DynamicsError
     ),
     derive(Debug, Clone, PartialEq, Deref)
 )]
-pub struct Grid(Vec<Time>);
+pub struct Grid(NEVec<Time>);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Stop {
     Root { function: usize },
-    Request { subsystem: usize },
+    Request { subsystem: usize, time: Time },
     Cancelled,
 }
 
@@ -149,17 +163,18 @@ pub enum Operation {
 
 #[derive(Debug, thiserror::Error)]
 pub enum DynamicsError {
-    #[error("time grid holds no instant")]
-    Empty,
-    #[error("instant {} at index {index} is not finite or does not follow its predecessor", instant.into_format_args(second, Abbreviation))]
-    Instant { index: usize, instant: Time },
+    #[error(
+        "instants {} are not finite or do not follow their predecessors",
+        instants.iter().format_with(", ", |(index, instant), write| write(&format_args!("{} at index {index}", instant.into_format_args(second, Abbreviation))))
+    )]
+    Instants { instants: NEVec<(usize, Time)> },
     #[error("a scenario of {found} parameters meets a problem of {expected}")]
     Parameters { expected: usize, found: usize },
     #[error(transparent)]
     Solver(#[from] DiffsolError),
     #[error("node {} holds capacity {} that is negative or not finite", node.index(), capacity.into_format_args(joule_per_kelvin, Abbreviation))]
     Capacity { node: NodeIndex, capacity: HeatCapacity },
-    #[error("edge {} holds conductance {} that is not positive and finite", edge.index(), conductance.into_format_args(watt_per_kelvin, Abbreviation))]
+    #[error("edge {} holds conductance {} that is not a positive normal number", edge.index(), conductance.into_format_args(watt_per_kelvin, Abbreviation))]
     Conductance { edge: EdgeIndex, conductance: ThermalConductance },
     #[error("{found} initial temperatures meet a network of {nodes} nodes")]
     Initial { nodes: usize, found: usize },
@@ -173,13 +188,13 @@ pub enum DynamicsError {
     Version { path: PathBuf, major: u64 },
     #[error("{operation} failed")]
     Fmi { operation: Operation, source: fmi::Error },
-    #[error("no parameter or input port answers value reference {reference}")]
-    Reference { reference: u32 },
+    #[error("port {reference} is no parameter or input")]
+    Reference { reference: usize },
     #[error("{endpoint} names no {causality} port")]
     Endpoint { endpoint: Endpoint, causality: Causality },
     #[error("connection from {} to {} joins {}, which no conversion relates", connection.source, connection.target, kinds.iter().format(" to "))]
     Connection { connection: Connection, kinds: Box<[Kind; 2]> },
-    #[error("subsystem {subsystem} at {}", time.into_format_args(second, Abbreviation))]
+    #[error("subsystem {subsystem} failed at {}", time.into_format_args(second, Abbreviation))]
     Subsystem { subsystem: usize, time: Time, source: Box<Self> },
     #[error(transparent)]
     Dependency(#[from] DependencyError),

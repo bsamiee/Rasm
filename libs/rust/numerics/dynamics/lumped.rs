@@ -1,14 +1,21 @@
-use core::{cell::RefCell, iter};
-use std::rc::Rc;
+use core::{
+    cell::{RefCell, RefMut},
+    iter,
+};
+use std::{borrow::Cow, collections::HashSet};
 
-use diffsol::{DiffsolError, FaerContext, FaerSparseMat, FaerVec, LaError, OdeBuilder, OdeEquationsImplicitSens, OdeSolverProblem};
+use diffsol::{
+    ConstantOp, ConstantOpSens, ConstantOpSensAdjoint, FaerContext, FaerSparseMat, FaerVec, LinearOp, LinearOpTranspose, Matrix, NonLinearOp, NonLinearOpAdjoint, NonLinearOpJacobian, NonLinearOpSens,
+    NonLinearOpSensAdjoint, OdeBuilder, OdeEquations, OdeEquationsAdjoint, OdeEquationsImplicitAdjoint, OdeEquationsImplicitSens, OdeEquationsRef, OdeSolverProblem, Op, UnitCallable, Vector as _,
+    VectorCommon as _, error::OdeSolverError,
+};
 use faer::{
     Accum, ColMut, ColRef, Par, Side,
     linalg::solvers::Solve as _,
-    sparse::{CreationError, SparseColMat, SparseColMatRef, Triplet, linalg::matmul::sparse_dense_matmul},
+    sparse::{CreationError, Pair, SparseColMat, SparseColMatRef, SymbolicSparseColMat, Triplet, linalg::matmul::sparse_dense_matmul},
 };
-use itertools::izip;
-use nonempty_collections::NEVec;
+use itertools::{Itertools as _, izip};
+use nonempty_collections::{NEVec, nev};
 use petgraph::{
     algo::kosaraju_scc,
     graph::{EdgeIndex, NodeIndex, UnGraph},
@@ -16,10 +23,12 @@ use petgraph::{
 };
 use uom::{
     ConstZero as _,
+    fmt::DisplayStyle::Abbreviation,
     si::{
-        f64::{HeatCapacity, Power, ThermalConductance, ThermodynamicTemperature, Time},
+        f64::{HeatCapacity, Power, TemperatureInterval, ThermalConductance, ThermodynamicTemperature, Time},
         heat_capacity::joule_per_kelvin,
         power::{self, watt},
+        temperature_interval,
         thermal_conductance::watt_per_kelvin,
         thermodynamic_temperature::{self, kelvin},
         time::second,
@@ -28,9 +37,13 @@ use uom::{
 use validated::Validated;
 
 use crate::{
-    BaseUnit, Causality, DynamicsError, Grid, Port,
+    BaseUnit, Causality, DynamicsError, Grid, Kind, Port,
     ode::{self, Method},
 };
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Drive<'network, Value> = Box<dyn Fn(Time, &mut [Value]) + 'network>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -46,21 +59,40 @@ pub enum Parameter {
     Capacity(NodeIndex),
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Options {
+    pub rtol: Option<f64>,
+    pub atol: Option<TemperatureInterval>,
+    pub sens_rtol: Option<f64>,
+    pub sens_atol: Option<TemperatureInterval>,
+    pub sensors: Option<NEVec<NodeIndex>>,
+}
+
 #[derive(Debug, Clone, derive_more::AsRef)]
 pub struct Network {
     #[as_ref]
     graph: UnGraph<Node, ThermalConductance>,
     incidence: SparseColMat<usize, f64>,
+    rows: Vec<Option<usize>>,
 }
 
 impl Network {
     pub fn new(graph: UnGraph<Node, ThermalConductance>) -> Result<Self, NEVec<DynamicsError>> {
-        let assembled = SparseColMat::try_new_from_triplets(
+        let assembled = SparseColMat::<usize, f64>::try_new_from_triplets(
             graph.edge_count(),
             graph.node_count(),
             &graph.edge_references().flat_map(|edge| [Triplet::new(edge.id().index(), edge.source().index(), 1.0), Triplet::new(edge.id().index(), edge.target().index(), -1.0)]).collect::<Vec<_>>(),
         )
-        .map_err(assembly);
+        .map_err(DynamicsError::from);
+        let rows = graph
+            .node_weights()
+            .scan(0_usize.., |states, node| {
+                Some(match node {
+                    Node::Capacity(_) => states.next(),
+                    Node::Boundary => None,
+                })
+            })
+            .collect::<Vec<_>>();
         graph
             .node_references()
             .filter_map(|(node, weight)| match *weight {
@@ -73,36 +105,387 @@ impl Network {
             }))
             .map(Err)
             .collect::<Validated<(), _>>()
-            .map2(Validated::from(assembled), |(), incidence| Self { graph, incidence })
+            .map2(Validated::from(assembled), |(), incidence| Self { graph, incidence, rows })
             .ok()
+    }
+
+    fn row(&self, node: NodeIndex) -> Option<usize> { self.rows.get(node.index()).copied().flatten() }
+
+    fn free<'values, Value>(&self, values: &'values [Value]) -> impl Iterator<Item = &'values Value> { iter::zip(&self.rows, values).filter(|(row, _)| row.is_some()).map(|(_, value)| value) }
+
+    fn capacities(&self) -> impl Iterator<Item = HeatCapacity> {
+        self.graph.node_weights().filter_map(|node| match node {
+            Node::Capacity(capacity) => Some(*capacity),
+            Node::Boundary => None,
+        })
+    }
+
+    fn holding<Slot>(&self, slots: impl IntoIterator<Item = Slot>) -> impl Iterator<Item = Option<Slot>> {
+        self.capacities().scan(slots.into_iter(), |pending, capacity| Some((capacity > HeatCapacity::ZERO).then(|| pending.next()).flatten()))
+    }
+
+    fn stiffness(&self, conductances: impl IntoIterator<Item = f64>) -> impl Iterator<Item = (usize, usize, f64)> {
+        iter::zip(self.graph.edge_references(), conductances)
+            .flat_map(|(edge, conductance)| {
+                let (source, target) = (self.row(edge.source()), self.row(edge.target()));
+                [(source, source, conductance), (target, target, conductance), (source, target, -conductance), (target, source, -conductance)]
+            })
+            .filter_map(|(row, column, value)| Some((row?, column?, value)))
     }
 }
 
-enum Row<Slot> {
-    Capacity(HeatCapacity, Slot),
-    Massless,
-    Boundary,
+struct Scratch {
+    prescribed: Vec<ThermodynamicTemperature>,
+    heats: Vec<Power>,
+    temperatures: Vec<f64>,
+    differences: Vec<f64>,
+    flux: Vec<f64>,
+    inflows: Vec<f64>,
+    nets: Vec<f64>,
+    weights: Vec<f64>,
+}
+
+impl Scratch {
+    fn new(network: &Network, prescribed: Vec<ThermodynamicTemperature>) -> Self {
+        let (nodes, edges, states) = (network.graph.node_count(), network.graph.edge_count(), network.rows.iter().flatten().count());
+        Self {
+            prescribed,
+            heats: vec![Power::ZERO; nodes],
+            temperatures: vec![0.0; nodes],
+            differences: vec![0.0; edges],
+            flux: vec![0.0; edges],
+            inflows: vec![0.0; nodes],
+            nets: vec![0.0; states],
+            weights: vec![0.0; states],
+        }
+    }
+
+    fn conduct(&mut self, network: &Network, conductances: impl IntoIterator<Item = f64>) {
+        let incidence = network.incidence.as_ref();
+        difference(incidence, &self.temperatures, &mut self.differences);
+        izip!(&mut self.flux, &self.differences, conductances).for_each(|(flow, change, conductance)| *flow = change * conductance);
+        sparse_dense_matmul(ColMut::from_slice_mut(&mut self.inflows).as_mat_mut(), Accum::Replace, incidence.transpose(), ColRef::from_slice(&self.flux).as_mat(), -1.0, Par::Seq);
+    }
+
+    fn balance(&mut self, network: &Network, conductances: impl IntoIterator<Item = f64>, state: &[f64]) {
+        spread(network, state, self.prescribed.iter().map(ThermodynamicTemperature::get::<kelvin>), &mut self.temperatures);
+        self.conduct(network, conductances);
+        izip!(&mut self.nets, network.free(&self.inflows), network.free(&self.heats)).for_each(|(net, inflow, heat)| *net = inflow + heat.get::<watt>());
+    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-#[derive(Debug, derive_more::AsRef)]
+// --- [EQUATIONS]
+struct Equations<'network> {
+    network: Cow<'network, Network>,
+    sensors: Vec<NodeIndex>,
+    temperature: Drive<'network, ThermodynamicTemperature>,
+    heat: Drive<'network, Power>,
+    initial: Vec<f64>,
+    parameters: Vec<f64>,
+    scales: Vec<f64>,
+    scratch: RefCell<Scratch>,
+    context: FaerContext,
+}
+
+impl Equations<'_> {
+    fn conductances(&self) -> impl Iterator<Item = f64> { self.parameters.iter().take(self.network.graph.edge_count()).copied() }
+
+    fn drive(&self, scratch: &mut Scratch, time: f64) {
+        let instant = Time::new::<second>(time);
+        (self.temperature)(instant, &mut scratch.prescribed);
+        (self.heat)(instant, &mut scratch.heats);
+    }
+
+    fn balanced(&self, x: &FaerVec<f64>, time: f64) -> RefMut<'_, Scratch> {
+        let mut scratch = self.scratch.borrow_mut();
+        self.drive(&mut scratch, time);
+        scratch.balance(&self.network, self.conductances(), x.inner().col_as_slice(0));
+        scratch
+    }
+
+    fn sensitivity<'scratch>(&'scratch self, scratch: &'scratch Scratch) -> impl Iterator<Item = (usize, usize, f64)> {
+        let network: &'scratch Network = &self.network;
+        iter::zip(network.graph.edge_references(), &scratch.differences)
+            .flat_map(move |(edge, &change)| {
+                [(edge.source(), -change), (edge.target(), change)].into_iter().filter_map(move |(node, value)| {
+                    let row = network.row(node)?;
+                    Some((row, edge.id().index(), value * self.scales.get(row)?))
+                })
+            })
+            .chain(izip!(0_usize.., network.holding(network.graph.edge_count()..), &scratch.nets, &self.scales).filter_map(|(row, column, net, scale)| Some((row, column?, -net * scale * scale))))
+    }
+
+    fn masses(&self) -> impl Iterator<Item = (usize, usize, f64)> { self.network.capacities().positions(|capacity| capacity > HeatCapacity::ZERO).map(|row| (row, row, 1.0)) }
+
+    fn readings(&self) -> impl Iterator<Item = (usize, usize)> { self.sensors.iter().enumerate().filter_map(|(sensor, &node)| Some((sensor, self.network.row(node)?))) }
+}
+
+impl Op for Equations<'_> {
+    type T = f64;
+    type V = FaerVec<f64>;
+    type M = FaerSparseMat<f64>;
+    type C = FaerContext;
+
+    fn context(&self) -> &Self::C { &self.context }
+
+    fn nstates(&self) -> usize { self.initial.len() }
+
+    fn nout(&self) -> usize { self.sensors.len() }
+
+    fn nparams(&self) -> usize { self.parameters.len() }
+}
+
+impl<'equations> OdeEquationsRef<'equations> for Equations<'_> {
+    type Mass = Free<'equations>;
+    type Rhs = Free<'equations>;
+    type Root = UnitCallable<FaerSparseMat<f64>>;
+    type Init = Free<'equations>;
+    type Out = &'equations Self;
+    type Reset = UnitCallable<FaerSparseMat<f64>>;
+}
+
+impl OdeEquations for Equations<'_> {
+    fn rhs(&self) -> <Self as OdeEquationsRef<'_>>::Rhs { Free(self) }
+
+    fn mass(&self) -> Option<<Self as OdeEquationsRef<'_>>::Mass> { self.network.capacities().any(|capacity| capacity <= HeatCapacity::ZERO).then_some(Free(self)) }
+
+    fn out(&self) -> Option<<Self as OdeEquationsRef<'_>>::Out> { Some(self) }
+
+    fn init(&self) -> <Self as OdeEquationsRef<'_>>::Init { Free(self) }
+
+    fn set_params(&mut self, p: &Self::V) {
+        self.parameters = p.clone_as_vec();
+        self.scales = scales(&self.network, &self.parameters);
+    }
+
+    fn get_params(&self, p: &mut Self::V) { p.for_each_batch_host([], |held, [], _| held.copy_from_slice(&self.parameters)); }
+}
+
+impl NonLinearOp for Equations<'_> {
+    fn call_inplace(&self, x: &Self::V, t: Self::T, y: &mut Self::V) {
+        let scratch = &mut *self.scratch.borrow_mut();
+        (self.temperature)(Time::new::<second>(t), &mut scratch.prescribed);
+        y.for_each_batch_host([x], |outputs, [state], _| {
+            iter::zip(outputs, &self.sensors).for_each(|(output, &node)| {
+                let reading = match self.network.row(node) {
+                    Some(row) => state.get(row).copied(),
+                    None => scratch.prescribed.get(node.index()).map(ThermodynamicTemperature::get::<kelvin>),
+                };
+                if let Some(value) = reading {
+                    *output = value;
+                }
+            });
+        });
+    }
+}
+
+impl NonLinearOpJacobian for Equations<'_> {
+    fn jac_mul_inplace(&self, _x: &Self::V, _t: Self::T, v: &Self::V, y: &mut Self::V) {
+        y.for_each_batch_host([v], |outputs, [direction], _| {
+            iter::zip(outputs, &self.sensors).for_each(|(output, &node)| *output = self.network.row(node).and_then(|row| direction.get(row)).copied().unwrap_or_default());
+        });
+    }
+
+    fn jacobian_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { pattern(self.nout(), self.nstates(), self.readings().map(|(sensor, row)| (sensor, row, 1.0))) }
+}
+
+impl NonLinearOpSens for Equations<'_> {
+    fn sens_mul_inplace(&self, _x: &Self::V, _t: Self::T, _v: &Self::V, y: &mut Self::V) { y.fill(0.0); }
+
+    fn sens_inplace(&self, _x: &Self::V, _t: Self::T, _y: &mut Self::M) {}
+
+    fn sens_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { pattern(self.nout(), self.nparams(), iter::empty()) }
+}
+
+impl NonLinearOpAdjoint for Equations<'_> {
+    fn jac_transpose_mul_inplace(&self, _x: &Self::V, _t: Self::T, directions: &Self::V, y: &mut Self::V) {
+        y.for_each_batch_host([directions], |products, [direction], _| {
+            products.fill(0.0);
+            self.readings().for_each(|(sensor, row)| {
+                if let (Some(product), Some(change)) = (products.get_mut(row), direction.get(sensor)) {
+                    *product -= change;
+                }
+            });
+        });
+    }
+
+    fn adjoint_inplace(&self, _x: &Self::V, _t: Self::T, y: &mut Self::M) { assign(y, self.readings().map(|(sensor, row)| (row, sensor, -1.0))); }
+
+    fn adjoint_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { pattern(self.nstates(), self.nout(), self.readings().map(|(sensor, row)| (row, sensor, -1.0))) }
+}
+
+impl NonLinearOpSensAdjoint for Equations<'_> {
+    fn sens_transpose_mul_inplace(&self, _x: &Self::V, _t: Self::T, _v: &Self::V, y: &mut Self::V) { y.fill(0.0); }
+
+    fn sens_adjoint_inplace(&self, _x: &Self::V, _t: Self::T, _y: &mut Self::M) {}
+
+    fn sens_adjoint_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { pattern(self.nparams(), self.nout(), iter::empty()) }
+}
+
+struct Free<'equations>(&'equations Equations<'equations>);
+
+impl Op for Free<'_> {
+    type T = f64;
+    type V = FaerVec<f64>;
+    type M = FaerSparseMat<f64>;
+    type C = FaerContext;
+
+    fn context(&self) -> &Self::C { &self.0.context }
+
+    fn nstates(&self) -> usize { self.0.initial.len() }
+
+    fn nout(&self) -> usize { self.0.initial.len() }
+
+    fn nparams(&self) -> usize { self.0.parameters.len() }
+}
+
+impl NonLinearOp for Free<'_> {
+    fn call_inplace(&self, x: &Self::V, t: Self::T, y: &mut Self::V) {
+        let scratch = &mut *self.0.scratch.borrow_mut();
+        self.0.drive(scratch, t);
+        y.for_each_batch_host([x], |rates, [state], _| {
+            scratch.balance(&self.0.network, self.0.conductances(), state);
+            izip!(rates, &scratch.nets, &self.0.scales).for_each(|(rate, net, scale)| *rate = net * scale);
+        });
+    }
+}
+
+impl NonLinearOpJacobian for Free<'_> {
+    fn jac_mul_inplace(&self, _x: &Self::V, _t: Self::T, v: &Self::V, y: &mut Self::V) {
+        let scratch = &mut *self.0.scratch.borrow_mut();
+        y.for_each_batch_host([v], |products, [direction], _| {
+            spread(&self.0.network, direction, iter::repeat(0.0), &mut scratch.temperatures);
+            scratch.conduct(&self.0.network, self.0.conductances());
+            izip!(products, self.0.network.free(&scratch.inflows), &self.0.scales).for_each(|(product, inflow, scale)| *product = inflow * scale);
+        });
+    }
+
+    fn jacobian_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { pattern(self.nstates(), self.nstates(), self.0.network.stiffness(self.0.conductances())) }
+
+    fn jacobian_inplace(&self, _x: &Self::V, _t: Self::T, y: &mut Self::M) {
+        assign(y, self.0.network.stiffness(self.0.conductances()).filter_map(|(row, column, value)| Some((row, column, -value * self.0.scales.get(row)?))));
+    }
+}
+
+impl NonLinearOpSens for Free<'_> {
+    fn sens_mul_inplace(&self, x: &Self::V, time: Self::T, directions: &Self::V, y: &mut Self::V) {
+        let scratch = &mut *self.0.balanced(x, time);
+        let edges = self.0.network.graph.edge_count();
+        y.for_each_batch_host([directions], |products, [direction], _| {
+            scratch.conduct(&self.0.network, direction.iter().take(edges).copied());
+            izip!(products, self.0.network.free(&scratch.inflows), &scratch.nets, &self.0.scales, self.0.network.holding(direction.iter().skip(edges))).for_each(
+                |(product, inflow, net, scale, change)| {
+                    *product = scale * (net * scale).mul_add(-change.copied().unwrap_or_default(), *inflow);
+                },
+            );
+        });
+    }
+
+    fn sens_inplace(&self, x: &Self::V, t: Self::T, y: &mut Self::M) { assign(y, self.0.sensitivity(&self.0.balanced(x, t))); }
+
+    fn sens_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { pattern(self.nstates(), self.nparams(), self.0.sensitivity(&self.0.scratch.borrow())) }
+}
+
+impl NonLinearOpAdjoint for Free<'_> {
+    fn jac_transpose_mul_inplace(&self, _x: &Self::V, _t: Self::T, directions: &Self::V, y: &mut Self::V) {
+        let scratch = &mut *self.0.scratch.borrow_mut();
+        y.for_each_batch_host([directions], |products, [direction], _| {
+            izip!(&mut scratch.weights, direction, &self.0.scales).for_each(|(weight, change, scale)| *weight = change * scale);
+            spread(&self.0.network, &scratch.weights, iter::repeat(0.0), &mut scratch.temperatures);
+            scratch.conduct(&self.0.network, self.0.conductances());
+            iter::zip(products, self.0.network.free(&scratch.inflows)).for_each(|(product, inflow)| *product = -inflow);
+        });
+    }
+
+    fn adjoint_inplace(&self, _x: &Self::V, _t: Self::T, y: &mut Self::M) {
+        assign(y, self.0.network.stiffness(self.0.conductances()).filter_map(|(row, column, value)| Some((row, column, value * self.0.scales.get(column)?))));
+    }
+
+    fn adjoint_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { self.jacobian_sparsity() }
+}
+
+impl NonLinearOpSensAdjoint for Free<'_> {
+    fn sens_transpose_mul_inplace(&self, x: &Self::V, time: Self::T, directions: &Self::V, y: &mut Self::V) {
+        let scratch = &mut *self.0.balanced(x, time);
+        let edges = self.0.network.graph.edge_count();
+        y.for_each_batch_host([directions], |products, [direction], _| {
+            izip!(&mut scratch.weights, direction, &self.0.scales).for_each(|(weight, change, scale)| *weight = change * scale);
+            spread(&self.0.network, &scratch.weights, iter::repeat(0.0), &mut scratch.temperatures);
+            difference(self.0.network.incidence.as_ref(), &scratch.temperatures, &mut scratch.flux);
+            let mut slots = products.iter_mut();
+            izip!(slots.by_ref().take(edges), &scratch.differences, &scratch.flux).for_each(|(product, change, weighted)| *product = change * weighted);
+            izip!(self.0.network.holding(slots), &scratch.weights, &scratch.nets, &self.0.scales).for_each(|(slot, weight, net, scale)| {
+                if let Some(product) = slot {
+                    *product = weight * net * scale;
+                }
+            });
+        });
+    }
+
+    fn sens_adjoint_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> {
+        pattern(self.nparams(), self.nstates(), self.0.sensitivity(&self.0.scratch.borrow()).map(|(row, column, value)| (column, row, value)))
+    }
+}
+
+impl ConstantOp for Free<'_> {
+    fn call_inplace(&self, _t: Self::T, y: &mut Self::V) { y.for_each_batch_host([], |state, [], _| state.copy_from_slice(&self.0.initial)); }
+}
+
+impl ConstantOpSens for Free<'_> {
+    fn sens_mul_inplace(&self, _t: Self::T, _v: &Self::V, y: &mut Self::V) { y.fill(0.0); }
+
+    fn sens_inplace(&self, _t: Self::T, _y: &mut Self::M) {}
+
+    fn sens_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { pattern(self.nstates(), self.nparams(), iter::empty()) }
+}
+
+impl ConstantOpSensAdjoint for Free<'_> {
+    fn sens_transpose_mul_inplace(&self, _t: Self::T, _v: &Self::V, y: &mut Self::V) { y.fill(0.0); }
+}
+
+impl LinearOp for Free<'_> {
+    fn gemv_inplace(&self, x: &Self::V, _t: Self::T, beta: Self::T, y: &mut Self::V) {
+        y.for_each_batch_host([x], |products, [direction], _| {
+            izip!(products, direction, self.0.network.capacities()).for_each(|(product, change, capacity)| {
+                *product = if capacity > HeatCapacity::ZERO { beta.mul_add(*product, *change) } else { beta * *product };
+            });
+        });
+    }
+
+    fn matrix_inplace(&self, _t: Self::T, y: &mut Self::M) { assign(y, self.0.masses()); }
+
+    fn sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { pattern(self.nstates(), self.nstates(), self.0.masses()) }
+}
+
+impl LinearOpTranspose for Free<'_> {
+    fn gemv_transpose_inplace(&self, x: &Self::V, time: Self::T, beta: Self::T, y: &mut Self::V) { LinearOp::gemv_inplace(self, x, time, beta, y); }
+
+    fn transpose_inplace(&self, _t: Self::T, y: &mut Self::M) { assign(y, self.0.masses()); }
+
+    fn transpose_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { self.sparsity() }
+}
+
+// --- [INSTANCE]
+#[derive(derive_more::Debug, derive_more::AsRef)]
 pub struct Instance {
-    network: Network,
+    #[debug(skip)]
+    problem: OdeSolverProblem<Equations<'static>>,
     method: Method,
     state: Vec<ThermodynamicTemperature>,
-    temperatures: Vec<ThermodynamicTemperature>,
-    heats: Vec<Power>,
     #[as_ref([Port])]
     ports: Vec<Port>,
 }
 
 impl Instance {
-    pub(crate) fn set(&mut self, references: &[u32], values: &[f64]) {
+    pub(crate) fn set(&mut self, references: &[usize], values: &[f64]) {
+        let equations = &mut self.problem.eqn;
+        let scratch = equations.scratch.get_mut();
         iter::zip(references, values).for_each(|(&reference, &value)| {
-            let node = NodeIndex::<u32>::from(reference);
-            if let Some(weight) = self.network.graph.node_weight(node)
-                && let (Some(held), Some(gain)) = (self.temperatures.get_mut(node.index()), self.heats.get_mut(node.index()))
+            let node = NodeIndex::new(reference);
+            if let Some(weight) = equations.network.graph.node_weight(node)
+                && let (Some(held), Some(gain)) = (scratch.prescribed.get_mut(node.index()), scratch.heats.get_mut(node.index()))
             {
                 match weight {
                     Node::Boundary => *held = ThermodynamicTemperature::new::<kelvin>(value),
@@ -112,16 +495,15 @@ impl Instance {
         });
     }
 
-    pub(crate) fn get(&self, references: &[u32]) -> Vec<f64> {
-        references.iter().filter_map(|&reference| self.state.get(NodeIndex::<u32>::from(reference).index())).map(ThermodynamicTemperature::get::<kelvin>).collect()
-    }
+    pub(crate) fn get(&self, references: &[usize]) -> Vec<f64> { references.iter().filter_map(|&reference| self.state.get(reference)).map(ThermodynamicTemperature::get::<kelvin>).collect() }
 
     pub(crate) fn step(&mut self, time: Time, next: Time) -> Result<(), DynamicsError> {
-        let grid = Grid::try_new(vec![time, next])?;
-        let trajectory =
-            ode::trajectory(&problem(&self.network, &self.state, time, |_, held| held.copy_from_slice(&self.temperatures), |_, gains| gains.copy_from_slice(&self.heats))?, self.method, &grid)?;
-        if let Some(reached) = trajectory.values.column_iter().next_back() {
-            iter::zip(&mut self.state, reached).for_each(|(state, &value)| *state = ThermodynamicTemperature::new::<kelvin>(value));
+        let grid = Grid::try_new(nev![time, next])?;
+        self.problem.t0 = time.get::<second>();
+        self.problem.eqn.initial = self.problem.eqn.network.free(&self.state).map(ThermodynamicTemperature::get::<kelvin>).collect();
+        let reached = ode::trajectory(&self.problem, self.method, &grid)?;
+        if let Some(column) = reached.values.column_iter().next_back() {
+            self.state = column.iter().copied().map(ThermodynamicTemperature::new::<kelvin>).collect();
         }
         Ok(())
     }
@@ -129,42 +511,35 @@ impl Instance {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn parameters(network: &Network) -> impl Iterator<Item = Parameter> { nominal(network).map(|(parameter, _)| parameter) }
+pub fn parameters(network: &Network) -> impl Iterator<Item = (Parameter, f64)> {
+    network.graph.edge_references().map(|edge| (Parameter::Conductance(edge.id()), edge.weight().get::<watt_per_kelvin>())).chain(network.graph.node_references().filter_map(|(node, weight)| {
+        match *weight {
+            Node::Capacity(capacity) => (capacity > HeatCapacity::ZERO).then(|| (Parameter::Capacity(node), capacity.get::<joule_per_kelvin>())),
+            Node::Boundary => None,
+        }
+    }))
+}
 
 pub fn steady(network: &Network, time: Time, temperature: impl Fn(Time, &mut [ThermodynamicTemperature]), heat: impl Fn(Time, &mut [Power])) -> Result<Vec<ThermodynamicTemperature>, DynamicsError> {
-    let (graph, nodes) = (&network.graph, network.graph.node_count());
-    let free = |node: NodeIndex| graph.node_weight(node) != Some(&Node::Boundary);
-    NEVec::try_from_vec(kosaraju_scc(graph).into_iter().filter(|component| component.iter().all(|&node| free(node))).collect())
-        .map_or(Ok(()), |components| Err(DynamicsError::Floating { components }))?;
-    let (mut prescribed, mut gains) = (vec![ThermodynamicTemperature::default(); nodes], vec![Power::ZERO; nodes]);
-    temperature(time, &mut prescribed);
-    heat(time, &mut gains);
-    let anchors = iter::zip(graph.node_weights(), &prescribed)
-        .map(|(node, boundary)| match node {
-            Node::Boundary => boundary.get::<kelvin>(),
-            Node::Capacity(_) => 0.0,
+    floating(network, |node| matches!(node, Node::Boundary))?;
+    let conductances = || network.graph.edge_weights().map(ThermalConductance::get::<watt_per_kelvin>);
+    let mut scratch = Scratch::new(network, vec![ThermodynamicTemperature::default(); network.graph.node_count()]);
+    temperature(time, &mut scratch.prescribed);
+    heat(time, &mut scratch.heats);
+    let unmeasurable = izip!(0_usize.., network.graph.node_weights(), &scratch.prescribed, &scratch.heats)
+        .filter_map(|(node, weight, prescribed, gain)| match weight {
+            Node::Boundary => (!prescribed.is_finite()).then(|| format!("temperature {} of boundary node {node}", prescribed.into_format_args(kelvin, Abbreviation))),
+            Node::Capacity(_) => (!gain.is_finite()).then(|| format!("heat {} into node {node}", gain.into_format_args(watt, Abbreviation))),
         })
         .collect::<Vec<_>>();
-    let (mut flux, mut inflows) = (vec![0.0; graph.edge_count()], vec![0.0; nodes]);
-    conduction(network.incidence.as_ref(), graph.edge_weights().map(ThermalConductance::get::<watt_per_kelvin>), &anchors, &mut flux, &mut inflows);
-    let mut solution = izip!(graph.node_weights(), &anchors, &inflows, &gains)
-        .map(|(node, &anchor, &inflow, gain)| match node {
-            Node::Boundary => anchor,
-            Node::Capacity(_) => inflow + gain.get::<watt>(),
-        })
-        .collect::<Vec<_>>();
-    let triplets = graph
-        .edge_references()
-        .flat_map(|edge| {
-            let (source, target, conductance) = (edge.source(), edge.target(), edge.weight().get::<watt_per_kelvin>());
-            let coupled = (free(source) && free(target)).then_some(-conductance);
-            [(source, source, free(source).then_some(conductance)), (target, target, free(target).then_some(conductance)), (source, target, coupled), (target, source, coupled)]
-        })
-        .chain(graph.node_indices().filter(|&node| !free(node)).map(|node| (node, node, Some(1.0))))
-        .filter_map(|(row, column, value)| value.map(|entry| Triplet::new(row.index(), column.index(), entry)))
-        .collect::<Vec<_>>();
-    SparseColMat::<usize, f64>::try_new_from_triplets(nodes, nodes, &triplets).map_err(assembly)?.sp_cholesky(Side::Lower)?.solve_in_place(ColMut::from_slice_mut(&mut solution));
-    Ok(solution.into_iter().map(ThermodynamicTemperature::new::<kelvin>).collect())
+    unmeasurable.is_empty().ok_or_else(|| refused(format!("forcing at {} holds values that are not finite: {}", time.into_format_args(second, Abbreviation), unmeasurable.iter().format(", "))))?;
+    let states = scratch.nets.len();
+    scratch.balance(network, conductances(), &vec![0.0; states]);
+    SparseColMat::<usize, f64>::try_new_from_triplets(states, states, &network.stiffness(conductances()).map(|(row, column, value)| Triplet::new(row, column, value)).collect::<Vec<_>>())?
+        .sp_cholesky(Side::Lower)?
+        .solve_in_place(ColMut::from_slice_mut(&mut scratch.nets));
+    spread(network, &scratch.nets, scratch.prescribed.iter().map(ThermodynamicTemperature::get::<kelvin>), &mut scratch.temperatures);
+    Ok(scratch.temperatures.into_iter().map(ThermodynamicTemperature::new::<kelvin>).collect())
 }
 
 pub fn problem<'network, Temperature, Heat>(
@@ -173,117 +548,132 @@ pub fn problem<'network, Temperature, Heat>(
     start: Time,
     temperature: Temperature,
     heat: Heat,
-) -> Result<OdeSolverProblem<impl OdeEquationsImplicitSens<M = FaerSparseMat<f64>, V = FaerVec<f64>, T = f64, C = FaerContext> + use<'network, Temperature, Heat>>, DynamicsError>
+    options: Options,
+) -> Result<
+    OdeSolverProblem<
+        impl OdeEquationsImplicitSens<M = FaerSparseMat<f64>, V = FaerVec<f64>, T = f64, C = FaerContext> + OdeEquationsImplicitAdjoint + OdeEquationsAdjoint + use<'network, Temperature, Heat>,
+    >,
+    DynamicsError,
+>
 where
-    Temperature: Fn(Time, &mut [ThermodynamicTemperature]),
-    Heat: Fn(Time, &mut [Power]),
+    Temperature: Fn(Time, &mut [ThermodynamicTemperature]) + 'network,
+    Heat: Fn(Time, &mut [Power]) + 'network,
 {
-    per_node(network, initial)?;
-    let (nodes, edges, incidence) = (network.graph.node_count(), network.graph.edge_count(), network.incidence.as_ref());
-    let initial_state = initial.iter().map(ThermodynamicTemperature::get::<kelvin>).collect::<Vec<_>>();
-    let heat = Rc::new(heat);
-    let sensed = Rc::clone(&heat);
-    let drive = RefCell::new((vec![0.0; edges], vec![0.0; nodes], initial.to_vec(), vec![Power::ZERO; nodes]));
-    let rhs = move |temperatures: &[f64], parameters: &[f64], time: f64, rates: &mut [f64]| {
-        let (flux, inflows, boundary, gains) = &mut *drive.borrow_mut();
-        let instant = Time::new::<second>(time);
-        temperature(instant, boundary);
-        (*heat)(instant, gains);
-        conduction(incidence, parameters.iter().take(edges).copied(), temperatures, flux, inflows);
-        izip!(rates, rows(network, parameters.iter().skip(edges).copied()), &*inflows, &*boundary, &*gains, temperatures).for_each(|(rate, row, &inflow, prescribed, gain, &current)| {
-            *rate = match row {
-                Row::Capacity(_, capacity) => (inflow + gain.get::<watt>()) / capacity,
-                Row::Massless => inflow + gain.get::<watt>(),
-                Row::Boundary => prescribed.get::<kelvin>() - current,
-            };
-        });
-    };
-    let jacobian = RefCell::new((vec![0.0; edges], vec![0.0; nodes]));
-    let jac = move |_: &[f64], parameters: &[f64], _: f64, direction: &[f64], product: &mut [f64]| {
-        let (flux, inflows) = &mut *jacobian.borrow_mut();
-        conduction(incidence, parameters.iter().take(edges).copied(), direction, flux, inflows);
-        izip!(product, rows(network, parameters.iter().skip(edges).copied()), &*inflows, direction).for_each(|(entry, row, &inflow, &change)| {
-            *entry = match row {
-                Row::Capacity(_, capacity) => inflow / capacity,
-                Row::Massless => inflow,
-                Row::Boundary => -change,
-            };
-        });
-    };
-    let sensitivity = RefCell::new((vec![0.0; edges], vec![0.0; nodes], vec![0.0; nodes], vec![Power::ZERO; nodes]));
-    let sens = move |temperatures: &[f64], parameters: &[f64], time: f64, direction: &[f64], product: &mut [f64]| {
-        let (flux, inflows, response, gains) = &mut *sensitivity.borrow_mut();
-        (*sensed)(Time::new::<second>(time), gains);
-        conduction(incidence, parameters.iter().take(edges).copied(), temperatures, flux, inflows);
-        conduction(incidence, direction.iter().take(edges).copied(), temperatures, flux, response);
-        izip!(product, rows(network, iter::zip(parameters.iter().skip(edges), direction.iter().skip(edges))), &*inflows, &*response, &*gains).for_each(|(entry, row, &inflow, &change, gain)| {
-            *entry = match row {
-                Row::Capacity(_, (&capacity, &scale)) => ((inflow + gain.get::<watt>()) / capacity).mul_add(-scale, change) / capacity,
-                Row::Massless => change,
-                Row::Boundary => 0.0,
-            };
-        });
-    };
-    let mass = move |direction: &[f64], _: &[f64], _: f64, beta: f64, product: &mut [f64]| {
-        izip!(product, rows(network, iter::repeat(())), direction).for_each(|(entry, row, &change)| {
-            *entry = match row {
-                Row::Capacity(_, ()) => beta.mul_add(*entry, change),
-                Row::Massless | Row::Boundary => beta * *entry,
-            };
-        });
-    };
-    OdeBuilder::<FaerSparseMat<f64>>::new()
+    transient(Cow::Borrowed(network), initial, start, Box::new(temperature), Box::new(heat), options)
+}
+
+pub fn instance(network: Network, initial: Vec<ThermodynamicTemperature>, method: Method, options: Options) -> Result<Instance, DynamicsError> {
+    let Options { rtol, atol, sens_rtol, sens_atol, sensors } = options;
+    let outputs = sensed(&network, sensors)?.into_iter().collect::<HashSet<_>>();
+    let temperature = Kind::Real(Some(BaseUnit::of::<thermodynamic_temperature::Dimension>()));
+    let ports = network
+        .graph
+        .node_weights()
+        .enumerate()
+        .map(|(reference, node)| match node {
+            Node::Boundary => Port { name: format!("temperature of node {reference}"), causality: Causality::Input, reference, kind: temperature },
+            Node::Capacity(_) => Port { name: format!("heat into node {reference}"), causality: Causality::Input, reference, kind: Kind::Real(Some(BaseUnit::of::<power::Dimension>())) },
+        })
+        .chain(network.graph.node_indices().filter(|node| outputs.contains(node)).map(|node| Port {
+            name: format!("temperature of node {}", node.index()),
+            causality: Causality::Output,
+            reference: node.index(),
+            kind: temperature,
+        }))
+        .collect();
+    let problem = transient(Cow::Owned(network), &initial, Time::ZERO, Box::new(|_, _| ()), Box::new(|_, _| ()), Options { rtol, atol, sens_rtol, sens_atol, sensors: None })?;
+    Ok(Instance { problem, method, state: initial, ports })
+}
+
+fn transient<'network>(
+    network: Cow<'network, Network>,
+    initial: &[ThermodynamicTemperature],
+    start: Time,
+    temperature: Drive<'network, ThermodynamicTemperature>,
+    heat: Drive<'network, Power>,
+    options: Options,
+) -> Result<OdeSolverProblem<Equations<'network>>, DynamicsError> {
+    let Options { rtol, atol, sens_rtol, sens_atol, sensors } = options;
+    let (nodes, found) = (network.graph.node_count(), initial.len());
+    (found == nodes).ok_or(DynamicsError::Initial { nodes, found })?;
+    let unusable = iter::chain(
+        initial.iter().positions(|start_temperature| !start_temperature.is_finite()).map(|node| format!("initial temperature of node {node} is not finite")),
+        [("relative tolerance", rtol), ("sensitivity relative tolerance", sens_rtol)]
+            .into_iter()
+            .filter_map(|(name, tolerance)| tolerance.filter(|value| !(value.is_finite() && *value >= 0.0)).map(|value| format!("{name} {value} is negative or not finite"))),
+    )
+    .chain([("absolute tolerance", atol), ("sensitivity absolute tolerance", sens_atol)].into_iter().filter_map(|(name, tolerance)| {
+        tolerance
+            .filter(|value| !(value.is_normal() && value.is_sign_positive()))
+            .map(|value| format!("{name} {} is not a positive normal number", value.into_format_args(temperature_interval::kelvin, Abbreviation)))
+    }))
+    .collect::<Vec<_>>();
+    unusable.is_empty().ok_or_else(|| refused(unusable.join("; ")))?;
+    floating(&network, |node| match node {
+        Node::Capacity(capacity) => *capacity > HeatCapacity::ZERO,
+        Node::Boundary => true,
+    })?;
+    let state = network.free(initial).map(ThermodynamicTemperature::get::<kelvin>).collect::<Vec<_>>();
+    (!state.is_empty()).ok_or_else(|| refused(format!("a network of {nodes} boundary nodes holds no state to integrate")))?;
+    let (sensors, parameters) = (sensed(&network, sensors)?, parameters(&network).map(|(_, value)| value).collect::<Vec<_>>());
+    let (scales, scratch) = (scales(&network, &parameters), RefCell::new(Scratch::new(&network, initial.to_vec())));
+    let interval = |tolerance: TemperatureInterval| [tolerance.get::<temperature_interval::kelvin>()];
+    let massful = network.capacities().map(|capacity| capacity > HeatCapacity::ZERO).collect::<Vec<_>>();
+    let builder = atol.map(interval).into_iter().fold(rtol.into_iter().fold(OdeBuilder::<FaerSparseMat<f64>>::new(), OdeBuilder::rtol), OdeBuilder::atol);
+    sens_atol
+        .map(interval)
+        .into_iter()
+        .fold(sens_rtol.into_iter().fold(builder, OdeBuilder::sens_rtol), OdeBuilder::sens_atol)
         .t0(start.get::<second>())
-        .p(nominal(network).map(|(_, value)| value))
-        .rhs_sens_implicit(rhs, jac, sens)
-        .mass(mass)
-        .init_sens(move |_: &[f64], _: f64, state: &mut [f64]| state.copy_from_slice(&initial_state), |_: &[f64], _: f64, _: &[f64], state: &mut [f64]| state.fill(0.0), nodes)
-        .build()
+        .p(parameters.iter().copied())
+        .param_scales(parameters.iter().copied())
+        .build_from_eqn(Equations { network, sensors, temperature, heat, initial: state, parameters, scales, scratch, context: FaerContext::default() })
+        .map(|mut problem| {
+            problem.atol = FaerVec::from_vec(iter::zip(problem.atol.clone_as_vec(), massful).map(|(tolerance, held)| if held { tolerance } else { f64::INFINITY }).collect(), *problem.context());
+            problem
+        })
         .map_err(DynamicsError::from)
 }
 
-pub fn instance(network: Network, initial: Vec<ThermodynamicTemperature>, method: Method) -> Result<Instance, DynamicsError> {
-    per_node(&network, &initial)?;
-    let ports = iter::zip(0_u32.., network.graph.node_weights())
-        .flat_map(|(reference, node)| {
-            let temperature = Port { name: format!("temperature of node {reference}"), causality: Causality::Output, reference, unit: Some(BaseUnit::of::<thermodynamic_temperature::Dimension>()) };
-            let input = match node {
-                Node::Boundary => Port { causality: Causality::Input, ..temperature.clone() },
-                Node::Capacity(_) => Port { name: format!("heat into node {reference}"), causality: Causality::Input, reference, unit: Some(BaseUnit::of::<power::Dimension>()) },
-            };
-            [input, temperature]
-        })
-        .collect();
-    let heats = vec![Power::ZERO; initial.len()];
-    Ok(Instance { network, method, state: initial.clone(), temperatures: initial, heats, ports })
+fn scales(network: &Network, parameters: &[f64]) -> Vec<f64> { network.holding(parameters.iter().skip(network.graph.edge_count())).map(|capacity| capacity.map_or(1.0, |held| held.recip())).collect() }
+
+fn floating(network: &Network, anchored: impl Fn(&Node) -> bool) -> Result<(), DynamicsError> {
+    NEVec::try_from_vec(kosaraju_scc(&network.graph).into_iter().filter(|component| !component.iter().any(|&node| network.graph.node_weight(node).is_some_and(&anchored))).collect())
+        .map_or(Ok(()), |components| Err(DynamicsError::Floating { components }))
 }
 
-fn nominal(network: &Network) -> impl Iterator<Item = (Parameter, f64)> {
-    network.graph.edge_references().map(|edge| (Parameter::Conductance(edge.id()), edge.weight().get::<watt_per_kelvin>())).chain(
-        iter::zip(network.graph.node_indices(), rows(network, iter::repeat(()))).filter_map(|(node, row)| match row {
-            Row::Capacity(capacity, ()) => Some((Parameter::Capacity(node), capacity.get::<joule_per_kelvin>())),
-            Row::Massless | Row::Boundary => None,
-        }),
-    )
+fn sensed(network: &Network, requested: Option<NEVec<NodeIndex>>) -> Result<Vec<NodeIndex>, DynamicsError> {
+    let nodes = network.graph.node_count();
+    let selected = requested.map_or_else(|| network.graph.node_indices().collect(), Vec::<NodeIndex>::from);
+    selected.iter().find(|sensor| sensor.index() >= nodes).map_or(Ok(()), |sensor| Err(refused(format!("sensor node {} lies outside a network of {nodes} nodes", sensor.index()))))?;
+    Ok(selected)
 }
 
-fn rows<Slot>(network: &Network, slots: impl IntoIterator<Item = Slot>) -> impl Iterator<Item = Row<Slot>> {
-    network.graph.node_weights().scan(slots.into_iter(), |pending, node| match *node {
-        Node::Capacity(capacity) if capacity > HeatCapacity::ZERO => pending.next().map(|value| Row::Capacity(capacity, value)),
-        Node::Capacity(_) => Some(Row::Massless),
-        Node::Boundary => Some(Row::Boundary),
-    })
+fn refused(reason: String) -> DynamicsError { DynamicsError::Solver(OdeSolverError::BuilderError(reason).into()) }
+
+fn spread(network: &Network, state: &[f64], boundaries: impl IntoIterator<Item = f64>, temperatures: &mut [f64]) {
+    izip!(temperatures, &network.rows, boundaries).for_each(|(temperature, row, boundary)| *temperature = row.and_then(|index| state.get(index).copied()).unwrap_or(boundary));
 }
 
-fn conduction(incidence: SparseColMatRef<'_, usize, f64>, conductances: impl IntoIterator<Item = f64>, temperatures: &[f64], flux: &mut [f64], inflows: &mut [f64]) {
-    sparse_dense_matmul(ColMut::from_slice_mut(flux).as_mat_mut(), Accum::Replace, incidence, ColRef::from_slice(temperatures).as_mat(), 1.0, Par::Seq);
-    iter::zip(&mut *flux, conductances).for_each(|(flow, conductance)| *flow *= conductance);
-    sparse_dense_matmul(ColMut::from_slice_mut(inflows).as_mat_mut(), Accum::Replace, incidence.transpose(), ColRef::from_slice(flux).as_mat(), -1.0, Par::Seq);
+fn difference(incidence: SparseColMatRef<'_, usize, f64>, temperatures: &[f64], differences: &mut [f64]) {
+    sparse_dense_matmul(ColMut::from_slice_mut(differences).as_mat_mut(), Accum::Replace, incidence, ColRef::from_slice(temperatures).as_mat(), 1.0, Par::Seq);
 }
 
-fn per_node(network: &Network, initial: &[ThermodynamicTemperature]) -> Result<(), DynamicsError> {
-    let (nodes, found) = (network.graph.node_count(), initial.len());
-    (found == nodes).ok_or(DynamicsError::Initial { nodes, found })
+fn pattern(nrows: usize, ncols: usize, entries: impl IntoIterator<Item = (usize, usize, f64)>) -> Option<SymbolicSparseColMat<usize>> {
+    match SymbolicSparseColMat::try_new_from_indices(nrows, ncols, &entries.into_iter().map(|(row, column, _)| Pair::new(row, column)).collect::<Vec<_>>()) {
+        Ok((symbolic, _)) => Some(symbolic),
+        Err(CreationError::Generic(_) | CreationError::OutOfBounds { row: _, col: _ }) => None,
+    }
 }
 
-fn assembly(source: CreationError) -> DynamicsError { DynamicsError::Solver(DiffsolError::LaError(LaError::MatrixError(source.into()))) }
+fn assign(matrix: &mut FaerSparseMat<f64>, entries: impl IntoIterator<Item = (usize, usize, f64)>) {
+    if let Some(batch) = matrix.inner_mut().first_mut() {
+        let (symbolic, values) = batch.parts_mut();
+        values.fill(0.0);
+        entries.into_iter().for_each(|(row, column, value)| {
+            if let Some(entry) = values.get_mut(symbolic.col_range(column).start.strict_add(symbolic.row_idx_of_col_raw(column).partition_point(|&index| index < row))) {
+                *entry += value;
+            }
+        });
+    }
+}

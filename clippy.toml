@@ -15,7 +15,7 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
-arithmetic-side-effects-allowed       = ["centrality::Centrality", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Transform", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "typst::layout::Axes", "uom::si::Quantity"]
+arithmetic-side-effects-allowed       = ["centrality::Centrality", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Isometry", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Transform", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "typst::layout::Axes", "uom::si::Quantity"]
 arithmetic-side-effects-allowed-unary = ["kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
@@ -29,20 +29,16 @@ pub-underscore-fields-behavior = "AllPubFields"
 # --- [GRAPH]
 allowed-duplicate-crates = [
     "syn",                   # 1 under `derive_builder` 0.11 and `darling` 0.14 of newest `clarabel` 0.11.1, under `nuts-derive` of newest `nuts-rs` 0.19.1, and under `derive-new` 0.5 and `prost-derive` 0.11 of `tract-onnx` 0.22.5 that the `pdf_oxide` 0.3.78 `ocr-tract` feature takes, 2 under proc macros not on `syn` 3 (`asn1-rs-derive`, `comemo-macros`, `der_derive`, `derive_more-impl`, `enum_dispatch`, `jiff-static`, `nalgebra-macros`, `palette_derive`, `phf_macros`, `prost-derive`, `strum_macros`, `tracing-attributes`, `typst-macros`, `zerocopy-derive`)
-    "darling",               # 0.14 under `derive_builder` 0.11 of newest `clarabel` 0.11.1 beside 0.24 under `serde_with_macros` of newest `serde_with` 3.24.0 and `instability`
-    "darling_core",          # 0.14 under `darling` 0.14 beside 0.24 under `darling` 0.24
-    "darling_macro",         # 0.14 under `darling` 0.14 beside 0.24 under `darling` 0.24
     "strsim",                # 0.10 under `darling_core` 0.14 beside 0.11 under `darling_core` 0.24 and `clap_builder`
     "getrandom",             # 0.2 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440) and under `tract-onnx-opl` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature, 0.3 under `ahash`, `jsonschema`, `referencing`, and `rand_core` 0.9, 0.4 under `rand` 0.10, `uuid`, `tempfile`, `jobserver`, `lopdf` 0.46.0, and `pdf_oxide` 0.3.78
     "rand",                  # 0.8 under `lipsum` 0.9 of `typst-library` 0.15.1 and under `tract-onnx-opl` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature, 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace`, newest `leiden-rs` 0.8.1, and `rav1e` 0.8 of `ravif`, which the `rayon` feature of `image` 0.25.10 takes through the weak `ravif?/threading` (rust-clippy#16440), beside 0.10 under rmcp `server-side-http`, newest `rustworkx-core` 0.18.1, and `lopdf` 0.46.0
     "rand_core",             # 0.6 under `rand` 0.8 and `rand_chacha` 0.3, 0.9 under `rand` 0.9 beside 0.10 under `rand` 0.10
     "r-efi",                 # 5 under `getrandom` 0.3 beside 6 under `getrandom` 0.4
     "matchit",               # 0.8.4 pinned exactly by newest `axum` 0.8.9 beside 0.9 for resource URI routes
-    "bitflags",              # 1 under newest `defmt` 1.2.0 through the weak `defmt?/alloc` of `jiff` 0.2.38 and `jiff-core` 0.1.1 (rust-clippy#16440), beside 2 under `nix`, `rustix`, `tower-http`, `meshopt`, and `parry3d-f64`
-    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.9, `opentelemetry-proto` 0.33.1, `typst-svg` 0.15.1, `krilla` 0.8.2, `usvg` 0.47.0, and `hayro-svg` 0.7.0 and 0.8.0 beside 0.23 under newest `hyper-util` 0.1.21, `reqwest`, `rmcp`, `merman-render` 0.9.3, and `pdf_oxide` 0.3.78
+    "bitflags",              # 1 under newest `defmt` 1.2.0 through the weak `defmt?/alloc` of `jiff` 0.2.39 and `jiff-core` 0.1.2 (rust-clippy#16440), beside 2 under `nix`, `rustix`, `tower-http`, `meshopt`, and `parry3d-f64`
+    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.9, `opentelemetry-proto` 0.33.1, `typst-svg` 0.15.1, `krilla` 0.8.2, `usvg` 0.47.0, and `hayro-svg` 0.7.0 and 0.8.0 beside 0.23 under newest `hyper-util` 0.1.21, `reqwest`, `rmcp`, `merman-render` 0.10.0-alpha.1, and `pdf_oxide` 0.3.78
     "core-foundation",       # 0.9 under `system-configuration` 0.7, which newest `hyper-util` 0.1.21 pins, beside 0.10 under `security-framework` and `rustls-platform-verifier`
     "cpufeatures",           # 0.2 under newest `const-hex` 1.19.3 that `opentelemetry-proto` serde reads beside 0.3 under `chacha20` for `rand` 0.10
-    "windows-sys",           # 0.52 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440), beside 0.61 under `tokio`, `mio`, `socket2`, and `rustls-platform-verifier`
     "glam",                  # 0.30, 0.31, and 0.32 under newest `nalgebra` 0.35.0 through the weak `glam03x?/std` of its `std` feature (rust-clippy#16440), beside 0.33 under `glamx` and nalgebra `convert-glam033`
     "convert_case",          # 0.10 under newest `derive_more-impl` 2.1.1 beside 0.11 under `kinded_macros` 0.5.1, which newest `nutype_macros` 0.8.0 takes
     "synstructure",          # 0.13 under `asn1-rs-derive` 0.6 of `x509-parser` 0.18 that the `pdf_oxide` 0.3.78 `signatures` feature takes beside 0.14 under `yoke-derive` and `zerofrom-derive`
@@ -55,13 +51,10 @@ allowed-duplicate-crates = [
     "equator-macro",         # 0.2 and 0.4 under `equator` 0.2 and 0.4 beside 0.6 under `equator` 0.6
     "thiserror",             # 1 under newest `clarabel` 0.11.1 and under `sysctl` 0.6, which the `std` feature of newest `gemm-common` 0.19.0 under `faer` takes on Apple targets, beside 2 under every Rasm crate
     "thiserror-impl",        # 1 under `thiserror` 1 beside 2 under `thiserror` 2
-    "hashbrown",             # 0.12 under `indexmap` 1 through the weak `indexmap_1?/std` of newest `serde_with` 3.24.0 (rust-clippy#16440), 0.15 under newest `petgraph` 0.8.3, 0.16 under `spade` 2.15.1 of `parry3d-f64`, beside 0.17 under `indexmap` 2 and `parry3d-f64`
     "foldhash",              # 0.1 under newest `rustworkx-core` 0.18.1 and under `hashbrown` 0.15 of newest `petgraph` 0.8.3, beside 0.2 under `hashbrown` 0.17 that `indexmap` and `rustworkx-core` take
     "web-time",              # 0.2 under the wasm target of newest `clarabel` 0.11.1 beside 1 under the wasm targets of newest `nuts-rs` 0.19.1, `indicatif` and `tracing-opentelemetry`
     "ndarray",               # 0.16 under `tract-core` and `tract-data` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature beside 0.17, the catalog row, under `pdf_oxide`, `csaps`, `sprs`, `rustworkx-core`, `rasm-analysis`, `rasm-solar`, `rasm-spectra`, and `rasm-weather`
     "num-bigint",            # 0.5 under `arrow-buffer` 59.3.2, the release `datafusion` 55 and `deltalake` 1.1 link, beside 0.4 under `num-rational` of `nalgebra` 0.35 and `fraction` of `jsonschema` 0.60
-    "zip",                   # 8 under newest `fmi` 0.8.0 beside 9, the catalog row, under `rasm-ifc` and `office_oxide` of `pdf_oxide`
-    "typed-path",            # 0.12 under `zip` 8 beside 0.13, the catalog row, under `zip` 9 and `rasm-ifc`
     "zstd",                  # 0.13 under `arrow-ipc` and `parquet` 59.3.2, the `zstd` feature of `tiff` 0.11.3, and the default `zstd` of `zip` 8 that newest `fmi` 0.8.0 takes, beside 0.14 under `compression-codecs` of `async-compression`, which `tower-http` under `reqwest` 0.13 takes
     "zstd-safe",             # 7 under `zstd` 0.13 beside 8 under `zstd` 0.14 and `compression-codecs` of `async-compression`
     "brotli",                # 8 under the `brotli` codec of `parquet` 59.3.2, which `datafusion` 55 and `deltalake` 1.1 take with its defaults, and under `hayro-cmap` of `hayro-interpret` 0.7 and 0.8, beside 9 under `compression-codecs` of `async-compression` under `reqwest` 0.13 and under `pdf_oxide` 0.3.78
@@ -76,26 +69,19 @@ allowed-duplicate-crates = [
     "toml",                  # 0.8 under `typst-syntax`, `typst-library`, and `typst-eval` 0.15.1 beside 1 under `rasm-command`, `dylint_linting`, and `dylint_internal`
     "serde_spanned",         # 0.6 under `toml` 0.8 and `toml_edit` 0.22 beside 1 under `toml` 1
     "toml_datetime",         # 0.6 under `toml` 0.8 and `toml_edit` 0.22 beside 1 under `toml` 1 and `toml_edit` 0.25
-    "toml_edit",             # 0.22 under `toml` 0.8 beside 0.25 under `dylint_internal`
     "winnow",                # 0.7 under `toml_edit` 0.22 beside 1 under `toml` 1, `toml_edit` 0.25, and `toml_parser`
-    "strum",                 # 0.27 under `biblatex` 0.12, the default `biblatex` of `hayagriva` 0.10.1 that `typst-library` takes, beside 0.28 under `jsonschema`, `ratatui-core`, and every Rasm crate deriving it
-    "strum_macros",          # 0.27 under `strum` 0.27 beside 0.28 under `strum` 0.28
     "nom",                   # 7 under `x509-parser` 0.18, `asn1-rs`, `der-parser`, and `rusticata-macros` of the `pdf_oxide` 0.3.78 `signatures` feature and under `cexpr` of `bindgen`, beside 8 under `pdf_oxide`, `lopdf` 0.46.0, `tract-data` and `tract-nnef` 0.22.5, `av1-grain`, and `nom-language`
     "unicode-width",         # 0.1 under `codespan-reporting` 0.11 of typst-kit `emit-diagnostics` beside 0.2 under `annotate-snippets`, `ratatui-core`, `merman-core`, and `merman-render`
-    "fancy-regex",           # 0.16 under `syntect` 5.3 of `typst-library` beside 0.19 under `jsonschema`
-    "float-cmp",             # 0.9 under `krilla` 0.8.2 and the default `approx-eq` of `strict-num` under `usvg` beside 0.10 under `meshopt`
     "miniz_oxide",           # 0.8 under `png` 0.18, which `typst-library`, `krilla`, and `tiny-skia` take, and under `exr` 1.74, which the `rayon` feature of `image` 0.25.10 takes through the weak `exr?/rayon` (rust-clippy#16440), beside 0.9 under `flate2`
     "rand_chacha",           # 0.3 under `lipsum` 0.9 of `typst-library` and under `rand` 0.8 beside 0.9 under `rand` 0.9 and `rav1e` 0.8
-    "pastey",                # 0.1 under `htmlize` 1.1 of `merman-core`, under `tract-core` and `tract-linalg` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature, and under `av-scenechange` 0.14 of `rav1e` beside 0.2 under `rmcp` and `dylint_internal`
     "phf",                   # 0.13 under `typst-library` and `hayro-interpret` 0.7 and 0.8 beside 0.14 under the default `fast_match_color` of `cssparser` 0.38 that `merman-core` and `merman-render` take and under `pdf_oxide` 0.3.78
     "phf_shared",            # 0.13 under `phf` 0.13 beside 0.14 under `phf` 0.14
     "phf_generator",         # 0.13 under `phf_macros` 0.13 beside 0.14 under `phf_macros` 0.14
     "phf_macros",            # 0.13 under `phf` 0.13 `macros` beside 0.14 under `phf` 0.14 `macros`
     "quick-xml",             # 0.38 under `citationberg` 0.7 of `hayagriva` beside 0.42 under `merman-render`
     "roxmltree",             # 0.20 under `fontconfig-parser` of the fontdb `fontconfig` krilla-svg turns on, on Linux and BSD, beside 0.21 under `usvg`, `typst-library`, and `merman-render`
-    "font-types",            # 0.11 under `read-fonts` 0.39 of `skrifa` 0.42, which `krilla` 0.8.2, `krilla-svg`, `subsetter`, `hayro-interpret` 0.7, and `glifo` 0.1 take, and under `write-fonts` 0.48 of `subsetter`, beside 0.12 under `read-fonts` 0.41, 0.43, and 0.46 of `skrifa` 0.44 under `parley_engine` and `glifo` 0.4, 0.46 under `hayro-interpret` 0.8, and 0.49 under `rasm-annotation`
+    "font-types",            # 0.11 under `read-fonts` 0.39 of `skrifa` 0.42, which `krilla` 0.8.2, `krilla-svg`, `subsetter`, `hayro-interpret` 0.7, and `glifo` 0.1 take, and under `write-fonts` 0.48 of `subsetter`, beside 0.12 under `read-fonts` 0.41 of `skrifa` 0.44, which `parley_engine` and `glifo` 0.4 take, 0.43 of `skrifa` 0.46, which `hayro-interpret` 0.8 takes, and 0.46 of `skrifa` 0.49, which `rasm-annotation` takes
     "fearless_simd",         # 0.4 under `hayro-jpeg2000` 0.3 and `vello_common` 0.0.8 and 0.0.9, 0.7 under `vello_common` 0.3, beside 1 under `hayro` 0.8, `hayro-jbig2` 0.3, and `hayro-jpeg2000` 0.4
-    "vello_common",          # 0.0.8 under `vello_cpu` 0.0.8 of `hayro` 0.7, which `typst-render` and `typst-svg` take, and 0.0.9 under `glifo` 0.1.1 of that `vello_cpu`, beside 0.3 under `vello_cpu` 0.3 of `hayro` 0.8 and `glifo` 0.4 of that `vello_cpu`
     "hayro-syntax",          # 0.7 under `hayro-write` 0.7 of `krilla` 0.8.2, `hayro-interpret` 0.7, and `typst-library` 0.15.1 beside 0.8 under `hayro-interpret` 0.8 and `rasm-pdf`
     "hayro-ccitt",           # 0.3 under `hayro-syntax` 0.7 beside 0.4 under `hayro-jbig2` 0.3 and `hayro-syntax` 0.8
     "hayro-jpeg2000",        # 0.3 under `hayro-syntax` 0.7 of `typst-library` 0.15.1 and `krilla` 0.8.2 beside 0.4 under `grib` 0.20.2, `hayro-syntax` 0.8, and the `pdf_oxide` 0.3.78 `jpeg2000` feature
