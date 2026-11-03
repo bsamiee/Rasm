@@ -38,7 +38,7 @@ pub fn mesh(shape: &Shape, evaluation: &Evaluation<'_>, size: f64, boundary: Bou
     let vars = bind(shape, evaluation, domain.center, half);
     singular(shape, &vars, evaluation.cancel.as_ref(), domain.center, depth, centered(Vector3::repeat(extent)))?;
     let settings = Settings { depth, world_to_model: Matrix4::new_scaling(extent), threads: evaluation.threads, cancel: evaluation.cancel.clone().unwrap_or_default() };
-    let Mesh { triangles, vertices } = Octree::build(&BoundShape::new(shape.shape.clone(), &vars).map_err(ShapeBulkEvalError::from)?, &settings).ok_or(ImplicitError::Cancelled)?.walk_dual();
+    let Mesh { triangles, vertices } = Octree::build(&BoundShape::new(shape.jit.clone(), &vars).map_err(ShapeBulkEvalError::from)?, &settings).ok_or(ImplicitError::Cancelled)?.walk_dual();
     let indices = triangles
         .into_iter()
         .map(|triangle| <[usize; 3]>::from(triangle).try_map(u32::try_from))

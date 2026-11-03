@@ -63,7 +63,7 @@ pub fn solid(evaluation: &Evaluation<'_>, kind: Lattice, cell: UnitCell, form: F
         Form::Network => nodal(kind),
         Form::Sheet => nodal(kind).abs(),
     };
-    let count = u32::from(resolution.get());
+    let count = NonZero::<u32>::from(resolution).get();
     let step = TAU / f64::from(count);
     let grid = iproduct!(0..count, 0..count, 0..count).map(|(x, y, z)| Point3::new(x, y, z).map(|index| (f64::from(index) + 0.5) * step));
     let mut levels = Data::new(sample::<f64>(&Shape::from(Field { origin: Point3::origin(), tree: tree.clone() }), evaluation, grid)?);
@@ -106,8 +106,8 @@ pub fn truss(kind: Truss, cell: UnitCell, radius: impl Into<Tree>, fillet: f64) 
         let middle = Vector3::from(twice).cast::<f32>() * scale;
         let half = cell.world * (Vector3::from(direction).cast::<f32>() * scale);
         let along = ((x.clone() * half.x + y.clone() * half.y + z.clone() * half.z) / half.norm_squared()).max(-1.0_f32).min(1.0_f32);
-        let [u, v, w] = [(&x, middle.x), (&y, middle.y), (&z, middle.z)].map(|(axis, at)| (axis.clone() + (half_turn - at)).modulo(turn) - half_turn);
-        norm([x.clone() - along.clone() * half.x, y.clone() - along.clone() * half.y, z.clone() - along * half.z]).remap_affine(cell.world).remap_xyz(u, v, w)
+        let [wrapped_x, wrapped_y, wrapped_z] = [(&x, middle.x), (&y, middle.y), (&z, middle.z)].map(|(axis, at)| (axis.clone() + (half_turn - at)).modulo(turn) - half_turn);
+        norm([x.clone() - along.clone() * half.x, y.clone() - along.clone() * half.y, z.clone() - along * half.z]).remap_affine(cell.world).remap_xyz(wrapped_x, wrapped_y, wrapped_z)
     };
     struts
         .into_iter()

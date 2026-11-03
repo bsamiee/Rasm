@@ -3,6 +3,7 @@
 use core::{
     array,
     borrow::Borrow,
+    iter,
     num::{NonZero, TryFromIntError},
     ops::ControlFlow,
     range::RangeInclusive,
@@ -85,13 +86,13 @@ pub struct Shape {
     offset: [Var; 3],
     half: [Var; 3],
     #[derive_where(skip)]
-    shape: JitShape,
-    #[derive_where(skip)]
     float: ShapeTape<<JitFloatSliceEval as BulkEvaluator>::Tape>,
     #[derive_where(skip)]
     grad: ShapeTape<<JitGradSliceEval as BulkEvaluator>::Tape>,
     #[derive_where(skip)]
     interval: ShapeTape<<JitIntervalEval as TracingEvaluator>::Tape>,
+    #[derive_where(skip)]
+    jit: JitShape,
 }
 
 impl From<Field> for Shape {
@@ -101,8 +102,8 @@ impl From<Field> for Shape {
         let half = array::from_fn(|_| Var::new());
         let [ox, oy, oz] = offset.map(Tree::from);
         let [hx, hy, hz] = half.map(Tree::from);
-        let shape = JitShape::from(tree.remap_xyz(x.clone() + ox, y.clone() + oy, z.clone() + oz).max((x.abs() - hx).max(y.abs() - hy).max(z.abs() - hz)));
-        Self { origin, offset, half, float: shape.ez_float_slice_tape(), grad: shape.ez_grad_slice_tape(), interval: shape.ez_interval_tape(), shape }
+        let jit = JitShape::from(tree.remap_xyz(x.clone() + ox, y.clone() + oy, z.clone() + oz).max((x.abs() - hx).max(y.abs() - hy).max(z.abs() - hz)));
+        Self { origin, offset, half, float: jit.ez_float_slice_tape(), grad: jit.ez_grad_slice_tape(), interval: jit.ez_interval_tape(), jit }
     }
 }
 
@@ -175,7 +176,12 @@ pub fn project(
             let samples = sample::<(f64, Vector3<f64>)>(shape, evaluation, steps.iter().copied().filter_map(ControlFlow::continue_value)).map_err(|error| match error {
                 ImplicitError::NotFinite { index } =>
                     steps.iter().enumerate().filter(|(_, step)| step.is_continue()).nth(index).map_or(error, |(point, _)| ImplicitError::NotFinite { index: point }),
-                other => other,
+                unmapped @ (ImplicitError::Evaluation(_)
+                | ImplicitError::Singular { cell: _ }
+                | ImplicitError::Resolution { size: _, extent: _ }
+                | ImplicitError::Cancelled
+                | ImplicitError::Capacity { vertices: _, source: _ }
+                | ImplicitError::Mesh(_)) => unmapped,
             })?;
             steps.iter_mut().filter(|step| step.is_continue()).zip(samples).for_each(|(step, (value, gradient))| {
                 *step = match *step {
@@ -217,11 +223,8 @@ fn bind(shape: &Shape, evaluation: &Evaluation<'_>, center: Point3<f64>, half: O
         .flatten()
         .map(|(&index, &value)| (index, value))
         .chain(
-            shape
-                .offset
-                .into_iter()
-                .chain(shape.half)
-                .zip(local(shape.origin, center).iter().chain(half.unwrap_or(Vector3::repeat(f32::INFINITY)).iter()).copied())
+            iter::chain(shape.offset, shape.half)
+                .zip(iter::chain(&local(shape.origin, center), &half.unwrap_or_else(|| Vector3::repeat(f32::INFINITY))).copied())
                 .filter_map(|(var, value)| var.index().map(|index| (index, value))),
         )
         .fold(ShapeVars::new(), |mut bound, (index, value)| {
@@ -273,6 +276,11 @@ fn interval(evaluator: &mut ShapeTracingEval<JitIntervalEval>, shape: &Shape, va
 }
 
 fn subdivide<A>(cancel: Option<&CancelToken>, depth: u8, cell: Cell, state: A, visit: &mut impl FnMut(A, Cell, bool) -> Result<ControlFlow<A, A>, ImplicitError>) -> Result<A, ImplicitError> {
+    let children = |(lower, upper): Cell| {
+        let middle = lower.lerp(&upper, 0.5);
+        let halves = [(lower, middle), (middle, upper)];
+        iproduct!(halves, halves, halves).map(|((xl, xu), (yl, yu), (zl, zu))| (Vector3::new(xl.x, yl.y, zl.z), Vector3::new(xu.x, yu.y, zu.z)))
+    };
     cancellation_point(cancel)?;
     match (visit(state, cell, depth == 0)?, depth.checked_sub(1)) {
         (flow, None) | (flow @ ControlFlow::Break(_), Some(_)) => Ok(flow.into_value()),
@@ -290,12 +298,6 @@ fn singular(shape: &Shape, vars: &ShapeVars<f32>, cancel: Option<&CancelToken>, 
             (Classification::Straddling, false, true) => Err(ImplicitError::Singular { cell: span(center, cell) }),
         }
     })
-}
-
-fn children((lower, upper): Cell) -> impl Iterator<Item = Cell> {
-    let middle = lower.lerp(&upper, 0.5);
-    let halves = [(lower, middle), (middle, upper)];
-    iproduct!(halves, halves, halves).map(|((xl, xu), (yl, yu), (zl, zu))| (Vector3::new(xl.x, yl.y, zl.z), Vector3::new(xu.x, yu.y, zu.z)))
 }
 
 fn depth(extent: f32, size: f64) -> Result<u8, ImplicitError> {
