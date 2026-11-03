@@ -51,7 +51,7 @@ Face roles, outline geometry, design rules and requirements are domain code with
 - `libs/python/typography/pyproject.toml` is one packaged uv workspace member on the `blender` pattern, joined to root `members` and `uv.lock` first
 - Later typography work joins the same member as further top-level packages
 - Manifest: hatchling, `dev-mode-dirs = [".."]`, `[project] dependencies` naming each import, `[tool.ruff] extend`, `[tool.deptry]`
-- `tools/foundry/pyproject.toml` is a packaged member with `[project.scripts] foundry = "foundry.app:app"` depending on `typography` by workspace source
+- `tools/foundry/pyproject.toml` is a packaged member, `[project.scripts] foundry = "foundry.app:app"`, depending on `typography` by workspace source
 - `tools/foundry` takes an `install` target running `uv tool install` over the project, so `foundry` sits on PATH over its previous install
 - Nx infers a project per `py.typed` directory with its `tests/python` folder, and ty, mypy and refurb run as root targets
 - `follow_untyped_imports` rows for `ufo2ft.*`, `ots.*`, `ttfautohint.*` and `youseedee.*` join the `fontTools.*` and `pathops.*` row
