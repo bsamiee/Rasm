@@ -1,14 +1,13 @@
 use core::iter;
 
-use kurbo::{Affine, BezPath, Line, PathEl, Point, Shape as _, Vec2};
+use kurbo::{Affine, BezPath, Line, PathSeg, Point, QuadSpline, Shape as _};
 use nonempty_collections::NEVec;
 use rasm_linework::{Anchor, Baseline, Placement, Width};
-use validated::Validated;
 
 use crate::{
-    AnnotationError, Content, Graphics, Head, Terminator, bounds, indexed, polyline, stroked, symbols,
-    text::{Frame, Typesetter, labelled},
-    tipped, transformed, validated,
+    AnnotationError, Content, Graphics, Head, Terminator, bounds, drawn, indexed, joined, polyline, stroked,
+    text::{Frame, Typesetter},
+    tipped, transformed,
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -53,14 +52,11 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
     let end = along(style.leader.landing.into_inner());
     let underlined = match content {
         Content::Label(label) => label.frame == Some(Frame::Underline),
-        Content::Symbol(_) => false,
+        Content::Symbol(_) | Content::Control(_) => false,
     };
     let (at, baseline) = if underlined { (Point::new(end.x, end.y - style.gap.into_inner()), Baseline::Bottom) } else { (end, Baseline::Middle) };
-    let drawn = match content {
-        Content::Label(label) => labelled(typesetter, style, label, at, Vec2::new(1.0, 0.0), anchor, baseline)?,
-        Content::Symbol(instance) => symbols::draw(typesetter, style, placement, &symbols::Instance { at: placement.inverse() * at, ..instance.clone() })?,
-    };
-    let extent = bounds(&drawn);
+    let drawn = drawn(typesetter, style, placement, content, at, anchor, baseline)?;
+    let extent = bounds(&drawn, Affine::IDENTITY);
     let [near, far] = match (drawn.masks.iter().all(|mask| mask.is_empty()), anchor) {
         (true, Anchor::Start | Anchor::Middle | Anchor::End) => [end.x; 2],
         (false, Anchor::Start | Anchor::Middle) => [extent.x0, extent.x1],
@@ -75,23 +71,13 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
                 Curve::Straight => polyline(iter::once(tip).chain(points).chain(iter::once(elbow))),
                 Curve::Spline => {
                     let approach = along(-0.5 * points.last().copied().unwrap_or(tip).distance(elbow));
-                    let controls = points.into_iter().chain(iter::once(approach)).collect::<Vec<_>>();
-                    iter::once(PathEl::MoveTo(tip))
-                        .chain(controls.array_windows().map(|&[control, next]| PathEl::QuadTo(control, control.midpoint(next))))
-                        .chain(controls.last().map(|&control| PathEl::QuadTo(control, elbow)))
-                        .collect::<BezPath>()
+                    BezPath::from_path_segments(QuadSpline::new(iter::once(tip).chain(points).chain([approach, elbow]).collect()).to_quads().map(PathSeg::Quad))
                 }
             }
         })
         .collect::<Vec<_>>();
-    let heads = indexed(iter::zip(legs.iter(), &paths).map(|(leg, path)| {
-        let terminator = leg.head.map_or_else(|| style.leader.terminator.clone(), |head| Terminator { head, ..style.leader.terminator.clone() });
-        tipped(&terminator, &path.segments().collect::<Vec<_>>(), style.tolerance).map_err(NEVec::from)
-    }));
+    let terminator = &style.leader.terminator;
+    let heads = indexed(iter::zip(legs.iter(), &paths).map(|(leg, path)| tipped(terminator, leg.head.unwrap_or(terminator.head), path.segments(), style.tolerance).map_err(NEVec::from))).map(|elements| Graphics { elements, .. });
     let outline = landing.path_elements(style.tolerance.into_inner()).chain(paths.iter().flat_map(BezPath::iter)).collect::<BezPath>();
-    Validated::from(stroked(outline, &style.pen, None))
-        .map3(validated(heads), validated(transformed(drawn, Affine::translate((reach, 0.0)))), |stroke, terminators, moved| {
-            [Graphics { elements: iter::once(stroke).chain(terminators).collect(), masks: Vec::new() }, moved].into_iter().collect()
-        })
-        .ok()
+    joined([stroked(outline, &style.pen, None)], [heads, transformed(drawn, Affine::translate((reach, 0.0)))])
 }

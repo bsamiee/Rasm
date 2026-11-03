@@ -2,9 +2,8 @@
 
 use core::{
     borrow::Borrow,
-    f64::consts::{FRAC_1_SQRT_2, FRAC_PI_2},
+    f64::consts::FRAC_1_SQRT_2,
     iter,
-    ops::ControlFlow,
 };
 use std::sync::Arc;
 
@@ -73,14 +72,14 @@ pub enum Geometry {
     Parallel,
     #[display("span is no longer than its gaps")]
     Gap,
-    #[display("division is not a positive finite length")]
-    Division,
     #[display("extent is not positive and finite")]
     Extent,
     #[display("domain spans no values")]
     Domain,
     #[display("station lies outside its line")]
     Station,
+    #[display("spans columns the table lacks or another cell holds")]
+    Overlap,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, derive_more::Display)]
@@ -144,15 +143,16 @@ pub struct Style {
 pub enum Content {
     Label(text::Label),
     Symbol(symbols::Instance),
+    Control(tolerances::FeatureControl),
 }
 
 #[derive(Debug, Clone)]
 pub enum Annotation {
     Note(text::Note),
     Dimension(dimensions::Dimension),
-    FeatureControl(dimensions::FeatureControl),
+    FeatureControl(tolerances::FeatureControl),
     Leader(leaders::Leader),
-    Mark(marks::Mark),
+    Mark(Box<marks::Mark>),
     Symbol(symbols::Instance),
     Legend(legends::Legend),
     Table(Box<tables::Table>),
@@ -160,14 +160,14 @@ pub enum Annotation {
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Graphics {
-    pub elements: Vec<Element>,
-    pub masks: Vec<Region>,
+    pub elements: Vec<Element> = Vec::new(),
+    pub masks: Vec<Region> = Vec::new(),
 }
 
 impl FromIterator<Self> for Graphics {
-    fn from_iter<I>(parts: I) -> Self
+    fn from_iter<I>(iter: I) -> Self
     where I: IntoIterator<Item = Self> {
-        parts.into_iter().fold(Self::default(), |Self { mut elements, mut masks }, part| {
+        iter.into_iter().fold(Self::default(), |Self { mut elements, mut masks }, part| {
             elements.extend(part.elements);
             masks.extend(part.masks);
             Self { elements, masks }
@@ -203,8 +203,6 @@ pub enum AnnotationError {
     Geometry(Geometry),
     #[error("{0} lies outside the linework model")]
     Unsupported(Feature),
-    #[error("cell at row {row}, column {column} spans columns the table lacks or another cell holds")]
-    Cell { row: usize, column: usize },
     #[error("{subject}")]
     Within { subject: Subject, source: Box<Self> },
 }
@@ -220,7 +218,7 @@ where I: IntoIterator<Item: Borrow<Annotation>> {
     let graphics = indexed(annotations.into_iter().map(|annotation| match annotation.borrow() {
         Annotation::Note(note) => text::draw(typesetter, style, placement, note),
         Annotation::Dimension(dimension) => dimensions::draw(typesetter, style, placement, dimension),
-        Annotation::FeatureControl(control) => dimensions::controlled(typesetter, style, placement, control),
+        Annotation::FeatureControl(control) => tolerances::draw(typesetter, style, placement, control),
         Annotation::Leader(leader) => leaders::draw(typesetter, style, placement, leader),
         Annotation::Mark(mark) => marks::draw(typesetter, style, placement, mark),
         Annotation::Symbol(instance) => symbols::draw(typesetter, style, placement, instance),
@@ -229,6 +227,18 @@ where I: IntoIterator<Item: Borrow<Annotation>> {
     }))?;
     let mask = regions::boolean(&Region::default(), graphics.iter().flat_map(|drawn| &drawn.masks), BinaryOp::Union, style.tolerance).map_err(AnnotationError::from)?;
     Ok(Drawing { graphics, mask })
+}
+
+pub(crate) fn drawn(typesetter: &mut text::Typesetter, style: &Style, placement: Placement, content: &Content, at: Point, anchor: Anchor, baseline: Baseline) -> Result<Graphics, NEVec<AnnotationError>> {
+    let base = placement.inverse() * at;
+    match content {
+        Content::Label(label) => text::labelled(typesetter, style, label, at, Vec2::new(1.0, 0.0), anchor, baseline),
+        Content::Symbol(instance) => symbols::draw(typesetter, style, placement, &symbols::Instance { at: base, ..instance.clone() }),
+        Content::Control(control) => tolerances::draw(typesetter, style, placement, &tolerances::FeatureControl { at: base, ..control.clone() }).and_then(|frame| {
+            let middle = bounds(&frame, Affine::IDENTITY).center().y;
+            transformed(frame, Affine::translate((0.0, at.y - middle)))
+        }),
+    }
 }
 
 pub(crate) fn within<T>(subject: &Subject, result: Result<T, NEVec<AnnotationError>>) -> Validated<T, AnnotationError> {
@@ -243,7 +253,15 @@ where I: IntoIterator<Item = Result<T, NEVec<AnnotationError>>> {
     results.into_iter().enumerate().map(|(index, result)| within(&Subject::Item(index), result)).collect::<Validated<Vec<_>, _>>().ok()
 }
 
-pub(crate) fn validated<T>(result: Result<T, NEVec<AnnotationError>>) -> Validated<T, AnnotationError> { result.map_or_else(Validated::Fail, Validated::Good) }
+pub(crate) const fn validated<T>(result: Result<T, NEVec<AnnotationError>>) -> Validated<T, AnnotationError> { result.map_or_else(Validated::Fail, Validated::Good) }
+
+pub(crate) fn joined<E, G>(elements: E, graphics: G) -> Result<Graphics, NEVec<AnnotationError>>
+where
+    E: IntoIterator<Item = Result<Element, AnnotationError>>,
+    G: IntoIterator<Item = Result<Graphics, NEVec<AnnotationError>>>,
+{
+    elements.into_iter().collect::<Validated<Vec<_>, _>>().map2(graphics.into_iter().map(validated).collect::<Validated<Vec<_>, _>>(), |elements, drawn| iter::once(Graphics { elements, .. }).chain(drawn).collect()).ok()
+}
 
 pub(crate) fn stroked(shape: BezPath, pen: &Pen, linetype: Option<Linetype>) -> Result<Element, AnnotationError> {
     Path::try_new(shape).map(|path| Element::Stroke { path, pen: pen.clone(), linetype }).map_err(|error| LineworkError::from(error).into())
@@ -260,10 +278,10 @@ pub(crate) fn colored(color: AlphaColor<Srgb>) -> Result<(Color, Opacity), Annot
         .map_err(|(OpacityError::FiniteViolated | OpacityError::GreaterOrEqualViolated | OpacityError::LessOrEqualViolated)| AnnotationError::Unsupported(Feature::Opacity))
 }
 
-pub(crate) fn terminated(terminator: &Terminator, tip: Point, toward: Vec2, tolerance: Tolerance) -> Result<Element, AnnotationError> {
+pub(crate) fn terminated(terminator: &Terminator, head: Head, tip: Point, toward: Vec2, tolerance: Tolerance) -> Result<Element, AnnotationError> {
     (toward.is_finite() && toward != Vec2::ZERO).ok_or(AnnotationError::Geometry(Geometry::Coincident))?;
     let basis = oriented(tip, toward);
-    let Terminator { size, head, pen } = terminator;
+    let Terminator { size, head: _, pen } = terminator;
     let length = size.into_inner();
     let accuracy = tolerance.into_inner();
     let solid = |shape: BezPath| filled(&(basis * shape), FillRule::NonZero, pen.color.clone(), pen.opacity, tolerance);
@@ -292,19 +310,28 @@ pub(crate) fn terminated(terminator: &Terminator, tip: Point, toward: Vec2, tole
     }
 }
 
-pub(crate) fn tipped(terminator: &Terminator, segments: &[PathSeg], tolerance: Tolerance) -> Result<Element, AnnotationError> {
-    let accuracy = tolerance.into_inner();
-    let (first, last) = segments.first().zip(segments.last()).ok_or(AnnotationError::Geometry(Geometry::Coincident))?;
-    let base = segments
-        .iter()
-        .try_fold(terminator.size.into_inner().max(accuracy), |left, segment| {
-            let length = segment.arclen(accuracy);
-            if left <= length { ControlFlow::Break(segment.eval(segment.inv_arclen(left, accuracy))) } else { ControlFlow::Continue(left - length) }
+pub(crate) fn measured(segments: impl IntoIterator<Item = PathSeg>, accuracy: f64) -> Vec<(PathSeg, f64, f64)> {
+    segments
+        .into_iter()
+        .scan(0.0, |total: &mut f64, segment| {
+            let from = *total;
+            *total += segment.arclen(accuracy);
+            Some((segment, from, *total))
         })
-        .break_value()
-        .unwrap_or_else(|| last.end());
-    let tip = first.start();
-    terminated(terminator, tip, tip - base, tolerance)
+        .collect()
+}
+
+pub(crate) fn station(measured: &[(PathSeg, f64, f64)], at: f64, accuracy: f64) -> Option<(PathSeg, f64)> {
+    measured.get(measured.partition_point(|&(_, _, to)| to < at)).filter(|_| at >= 0.0).map(|&(segment, from, to)| (segment, segment.inv_arclen((at - from).min(to - from), accuracy)))
+}
+
+pub(crate) fn tipped(terminator: &Terminator, head: Head, segments: impl IntoIterator<Item = PathSeg>, tolerance: Tolerance) -> Result<Element, AnnotationError> {
+    let accuracy = tolerance.into_inner();
+    let measured = measured(segments, accuracy);
+    let length = measured.last().map_or_default(|&(_, _, to)| to);
+    let [tip, base] = [0.0, terminator.size.into_inner().max(accuracy).min(length)].map(|at| station(&measured, at, accuracy).map(|(segment, parameter)| segment.eval(parameter)));
+    let (tip, base) = tip.zip(base).ok_or(AnnotationError::Geometry(Geometry::Coincident))?;
+    terminated(terminator, head, tip, tip - base, tolerance)
 }
 
 pub(crate) fn transformed(graphics: Graphics, affine: Affine) -> Result<Graphics, NEVec<AnnotationError>> {
@@ -315,7 +342,8 @@ pub(crate) fn transformed(graphics: Graphics, affine: Affine) -> Result<Graphics
         .ok()
 }
 
-pub(crate) fn bounds(graphics: &Graphics) -> Rect { graphics.masks.iter().map(Shape::bounding_box).reduce(|left, right| left.union(right)).unwrap_or_default() }
+#[must_use]
+pub fn bounds(graphics: &Graphics, frame: Affine) -> Rect { graphics.masks.iter().map(|mask| (frame * mask.to_path(0.0)).bounding_box()).reduce(|left, right| left.union(right)).unwrap_or_default() }
 
 pub(crate) fn graduated<I>(typesetter: &mut text::Typesetter, style: &Style, basis: Affine, size: Size, ticks: I, (direction, anchor, baseline): (Vec2, Anchor, Baseline)) -> Result<Graphics, NEVec<AnnotationError>>
 where I: IntoIterator<Item = (f64, Option<String>)> {
@@ -337,7 +365,7 @@ where I: IntoIterator<Item = (f64, Option<String>)> {
         .collect::<Validated<Vec<_>, _>>();
     let bar = Region::new(&(basis * Rect::new(0.0, 0.0, length, thickness + gap).to_path(accuracy)), FillRule::NonZero, style.tolerance).map_err(AnnotationError::from);
     Validated::from(stroked(basis * outline, &style.pen, None))
-        .map3(Validated::from(bar), labels, |stroke, bar, lettered| iter::once(Graphics { elements: vec![stroke], masks: vec![bar] }).chain(lettered).collect())
+        .map3(Validated::from(bar), labels, |stroke, bar, texts| iter::once(Graphics { elements: vec![stroke], masks: vec![bar] }).chain(texts).collect())
         .ok()
 }
 
@@ -347,7 +375,10 @@ pub(crate) fn located(placement: Placement, at: Point, angle: Angle) -> (Point, 
 
 pub(crate) fn oriented(origin: Point, direction: Vec2) -> Affine { Affine::rotate(direction.atan2()).then_translate(origin.to_vec2()) }
 
-pub(crate) fn readable(direction: Vec2) -> Vec2 { if (-FRAC_PI_2..FRAC_PI_2).contains(&direction.atan2()) { direction } else { -direction } }
+pub(crate) fn readable(direction: Vec2) -> Vec2 {
+    let upright = if direction.x.abs() <= direction.y.abs() * (f64::EPSILON * 64.0) { direction.y <= 0.0 } else { direction.x > 0.0 };
+    if upright { direction } else { -direction }
+}
 
 pub(crate) const fn fraction(anchor: Anchor) -> f64 {
     match anchor {
@@ -369,8 +400,6 @@ pub(crate) fn edges(sizes: impl IntoIterator<Item = f64>) -> impl Iterator<Item 
     }))
 }
 
-pub(crate) fn model(value: f64) -> Length { Length::new::<millimeter>(value) }
-
 pub(crate) fn units(length: Length) -> f64 { length.get::<millimeter>() }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -383,3 +412,4 @@ pub mod notation;
 pub mod symbols;
 pub mod tables;
 pub mod text;
+pub mod tolerances;

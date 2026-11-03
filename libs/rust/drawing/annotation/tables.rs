@@ -1,4 +1,5 @@
 use core::{iter, num::NonZero, range::Range};
+use std::{borrow::Cow, collections::HashSet};
 
 use enum_map::EnumMap;
 use itertools::Itertools as _;
@@ -9,11 +10,10 @@ use rasm_linework::{Anchor, Baseline, Pen, Placement, Region, Width, WidthError,
 use validated::Validated;
 
 use crate::{
-    AnnotationError, Content, Geometry, Graphics, Subject, bounds, edges, fraction,
+    AnnotationError, Content, Geometry, Graphics, Subject, bounds, drawn, edges, fraction, joined,
     legends::{self, Swatch},
     stroked,
-    symbols::{self, Instance},
-    text::{Label, Typesetter, labelled},
+    text::{Label, Typesetter},
     transformed, validated, within,
 };
 
@@ -65,40 +65,54 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         let share = excess.max(0.0) / sizes.iter().enumerate().filter(|&(index, _)| grown(index)).map(|_| 1.0).sum::<f64>();
         sizes.into_iter().enumerate().map(|(index, size)| if grown(index) { size + share } else { size }).collect()
     }
+
+    fn merged<I>(cells: I) -> HashSet<(usize, usize)>
+    where I: IntoIterator<Item = (Range<usize>, Range<usize>)> {
+        cells.into_iter().flat_map(|(crossing, along)| (crossing.start.saturating_add(1)..crossing.end).flat_map(move |boundary| along.into_iter().map(move |index| (boundary, index)))).collect()
+    }
+
     let Table { at, columns, rows: lines, header, rules, height } = table;
     let gap = style.gap.into_inner();
     let accuracy = style.tolerance.into_inner();
     let origin = *placement * *at;
-    let [count, depth] = [columns.len().get(), lines.len().get()];
+    let depth = lines.len().get();
     let header = (*header).min(depth);
-    let (_, placed) = lines.iter().enumerate().fold((vec![0_usize; count], Vec::new()), |(free, mut placed), (row, line)| {
-        let closing = if row < header { header } else { depth };
-        let (free, _) = line.iter().fold((free, 0_usize), |(mut free, cursor), cell| {
-            let column = (cursor..count).find(|&index| free.get(index).is_some_and(|&from| from <= row)).unwrap_or(count);
-            let end = column.saturating_add(NonZero::<usize>::from(cell.columns).get());
-            let bottom = row.saturating_add(NonZero::<usize>::from(cell.rows).get()).min(closing);
-            placed.push(match (columns.get(column), free.get_mut(column..end).filter(|spanned| spanned.iter().all(|&from| from <= row))) {
-                (Some(&lead), Some(spanned)) => {
-                    spanned.fill(bottom);
-                    Ok((Range::from(row..bottom), Range::from(column..end), cell, lead))
-                }
-                (None, None | Some(_)) | (Some(_), None) => Err(AnnotationError::Cell { row, column }),
-            });
-            (free, end)
-        });
-        (free, placed)
-    });
-    let placed = placed.into_iter().collect::<Validated<Vec<_>, _>>().ok()?;
+    let placed = {
+        let count = columns.len().get();
+        lines
+            .iter()
+            .enumerate()
+            .flat_map(|(row, line)| line.iter().map(move |cell| (row, cell)))
+            .scan((vec![0_usize; count], None::<(usize, usize)>), |(free, last), (row, cell)| {
+                let cursor = last.filter(|&(previous, _)| previous == row).map_or_default(|(_, end)| end);
+                let column = (cursor..count).find(|&index| free.get(index).is_some_and(|&from| from <= row)).unwrap_or(count);
+                let end = column.saturating_add(NonZero::<usize>::from(cell.columns).get());
+                let bottom = row.saturating_add(NonZero::<usize>::from(cell.rows).get()).min(if row < header { header } else { depth });
+                *last = Some((row, end));
+                Some(match (columns.get(column), free.get_mut(column..end).filter(|spanned| spanned.iter().all(|&from| from <= row))) {
+                    (Some(&lead), Some(spanned)) => {
+                        spanned.fill(bottom);
+                        Validated::Good((Range::from(row..bottom), Range::from(column..end), cell, lead))
+                    }
+                    (None, None | Some(_)) | (Some(_), None) => within(&Subject::Cell { row, column }, Err(AnnotationError::Geometry(Geometry::Overlap).into())),
+                })
+            })
+            .collect::<Validated<Vec<_>, _>>()
+            .ok()?
+    };
     let open = |index: usize| columns.get(index).is_some_and(|column| column.width.is_none());
-    let set = |typesetter: &mut Typesetter, cell: &Cell, lead: &Column, max_advance: Option<Width>| match &cell.content {
-        Content::Label(label) => labelled(typesetter, style, &Label { max_advance: max_advance.or(label.max_advance), ..label.clone() }, Point::ORIGIN, Vec2::new(1.0, 0.0), cell.anchor.unwrap_or(lead.anchor), Baseline::Top),
-        Content::Symbol(instance) => symbols::draw(typesetter, style, placement, &Instance { at: placement.inverse() * Point::ORIGIN, ..instance.clone() }),
+    let mut set = |cell: &Cell, lead: &Column, max_advance: Option<Width>| {
+        let content = match &cell.content {
+            Content::Label(label) => Cow::Owned(Content::Label(Label { max_advance: max_advance.or(label.max_advance), ..label.clone() })),
+            other @ (Content::Symbol(_) | Content::Control(_)) => Cow::Borrowed(other),
+        };
+        drawn(typesetter, style, placement, &content, Point::ORIGIN, cell.anchor.unwrap_or(lead.anchor), Baseline::Top)
     };
     let boxed = |cell: &Cell, graphics: &Graphics| match cell.content {
-        Content::Label(_) => bounds(graphics),
-        Content::Symbol(_) => bounds(graphics).inflate(gap, gap),
+        Content::Label(_) => bounds(graphics, Affine::IDENTITY),
+        Content::Symbol(_) | Content::Control(_) => bounds(graphics, Affine::IDENTITY).inflate(gap, gap),
     };
-    let measured = placed.iter().map(|&(_, span, cell, lead)| span.into_iter().any(open).then(|| set(typesetter, cell, &lead, None))).collect::<Vec<_>>();
+    let measured = placed.iter().map(|&(_, span, cell, lead)| span.into_iter().any(open).then(|| set(cell, &lead, None))).collect::<Vec<_>>();
     let widths = iter::zip(&placed, &measured)
         .filter_map(|(&(_, span, cell, _), sized)| sized.as_ref()?.as_ref().ok().map(|graphics| (span, boxed(cell, graphics).width())))
         .sorted_by_key(|&(span, _)| span.end.strict_sub(span.start))
@@ -110,7 +124,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
                 sized.unwrap_or_else(|| {
                     Width::try_new(gap.mul_add(-2.0, widths.get(span).map_or_default(|spanned| spanned.iter().sum::<f64>())))
                         .map_err(|(WidthError::FiniteViolated | WidthError::GreaterOrEqualViolated)| AnnotationError::Geometry(Geometry::Gap).into())
-                        .and_then(|advance| set(typesetter, cell, &lead, Some(advance)))
+                        .and_then(|advance| set(cell, &lead, Some(advance)))
                 }),
             )
         })
@@ -122,62 +136,46 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         .fold(vec![gap * 2.0; depth], |sizes, (rows, need)| spread(sizes, rows, |_| true, need));
     let across = edges(widths.iter().copied()).collect::<Vec<_>>();
     let width = across.last().copied().unwrap_or_default();
-    let crossed = |boundary: usize, span: Range<usize>| span.start < boundary && boundary < span.end;
-    let total = |from: usize, to: usize| heights.get(from..to).map_or_default(|sizes| sizes.iter().sum::<f64>());
-    let segments = height.map_or_else(
-        || vec![Range::from(header..depth)],
-        |bound| {
-            let room = bound.into_inner() - total(0, header);
-            let (mut segments, start, _) = (header.saturating_add(1)..=depth).filter(|&boundary| boundary == depth || !placed.iter().any(|&(rows, ..)| crossed(boundary, rows))).fold(
-                (Vec::new(), header, header),
-                |(mut segments, start, last), boundary| {
-                    if total(start, boundary) > room && last > start {
-                        segments.push(Range::from(start..last));
-                        (segments, last, boundary)
-                    } else {
-                        (segments, start, boundary)
-                    }
-                },
-            );
-            segments.push(Range::from(start..depth));
-            segments
-        },
-    );
+    let segments = {
+        let tops = edges(heights.iter().copied()).collect::<Vec<_>>();
+        let total = |from: usize, to: usize| tops.get(to).zip(tops.get(from)).map_or_default(|(bottom, top)| bottom - top);
+        let room = height.map(|bound| bound.into_inner() - total(0, header));
+        let spanned = placed.iter().flat_map(|&(rows, ..)| rows.start.saturating_add(1)..rows.end).collect::<HashSet<_>>();
+        let boundaries = (header.saturating_add(1)..=depth).filter(|boundary| *boundary == depth || !spanned.contains(boundary)).collect::<Vec<_>>();
+        let end = |start: usize| {
+            let mut after = boundaries.iter().copied().skip_while(|&boundary| boundary <= start);
+            after.clone().take_while(|&boundary| room.is_none_or(|room| total(start, boundary) <= room)).last().or_else(|| after.next()).unwrap_or(depth)
+        };
+        iter::successors(Some(Range::from(header..end(header))), |page| (page.end < depth).then(|| Range::from(page.end..end(page.end)))).collect::<Vec<_>>()
+    };
     let mut segment = |offset: f64, body: Range<usize>| -> Result<Graphics, NEVec<AnnotationError>> {
         let kept = (0..header).chain(body).collect::<Vec<_>>();
-        let local = kept.iter().enumerate().fold(vec![None; depth], |mut local, (index, &row)| {
-            if let Some(slot) = local.get_mut(row) {
-                *slot = Some(index);
-            }
-            local
-        });
         let down = edges(kept.iter().map(|&row| heights.get(row).copied().unwrap_or_default())).collect::<Vec<_>>();
         let basis = Affine::translate((origin.x + offset, origin.y));
+        let local = |row: usize| if row < header { Some(row) } else { body.contains(&row).then(|| header.strict_add(row.strict_sub(body.start))) };
         let grid = iter::zip(&placed, &sets)
-            .filter_map(|(&(rows, span, cell, lead), graphics)| local.get(rows.start).copied().flatten().map(|start| (Range::from(start..start.saturating_add(rows.end.strict_sub(rows.start))), span, cell, lead, graphics)))
+            .filter_map(|(&(rows, span, cell, lead), graphics)| local(rows.start).map(|start| (Range::from(start..start.saturating_add(rows.end.strict_sub(rows.start))), span, cell, lead, graphics)))
             .collect::<Vec<_>>();
-        let lettering = grid
+        let row_breaks = &merged(grid.iter().map(|&(rows, span, ..)| (rows, span)));
+        let column_breaks = &merged(grid.iter().map(|&(rows, span, ..)| (span, rows)));
+        let contents = grid
             .iter()
             .map(|&(rows, span, cell, lead, graphics)| {
                 let Some(((&left, &right), (&top, &bottom))) = across.get(span.start).zip(across.get(span.end)).zip(down.get(rows.start).zip(down.get(rows.end))) else {
-                    return Validated::Fail(NEVec::new(AnnotationError::Cell { row: rows.start, column: span.start }));
+                    return within(&Subject::Cell { row: rows.start, column: span.start }, Err(AnnotationError::Geometry(Geometry::Overlap).into()));
                 };
                 let extent = boxed(cell, graphics);
                 let [horizontal, vertical] = [cell.anchor.unwrap_or(lead.anchor), cell.vertical.unwrap_or(lead.vertical)].map(fraction);
                 let shift = Vec2::new((right - left - extent.width()).mul_add(horizontal, left - extent.x0), (bottom - top - extent.height()).mul_add(vertical, top - extent.y0));
                 let rect = basis.transform_rect_bbox(Rect::new(left, top, right, bottom));
-                cell.fill
-                    .iter()
-                    .map(|sample| validated(legends::swatched(typesetter, style, placement, sample, rect)))
-                    .collect::<Validated<Vec<_>, _>>()
-                    .map2(validated(transformed(graphics.clone(), basis * Affine::translate(shift))), |fills, moved| fills.into_iter().chain(iter::once(moved)).collect::<Graphics>())
+                validated(joined([], cell.fill.iter().map(|sample| legends::swatched(typesetter, style, placement, sample, rect)).chain(iter::once(transformed(graphics.clone(), basis * Affine::translate(shift))))))
             })
             .collect::<Validated<Vec<_>, _>>();
         let ruled = |boundary: usize, y: f64| {
             across
                 .array_windows()
                 .enumerate()
-                .filter(move |&(column, _)| !grid.iter().any(|&(rows, span, ..)| crossed(boundary, rows) && span.contains(&column)))
+                .filter(move |&(column, _)| !row_breaks.contains(&(boundary, column)))
                 .map(move |(_, &[left, right])| PathSeg::Line(Line::new((left, y), (right, y))))
         };
         let reach = down.last().copied().unwrap_or_default();
@@ -192,7 +190,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
                     .flat_map(|&(boundary, x)| {
                         down.array_windows()
                             .enumerate()
-                            .filter(move |&(row, _)| !grid.iter().any(|&(rows, span, ..)| crossed(boundary, span) && rows.contains(&row)))
+                            .filter(move |&(row, _)| !column_breaks.contains(&(boundary, row)))
                             .map(move |(_, &[top, bottom])| PathSeg::Line(Line::new((x, top), (x, bottom))))
                     })
                     .collect(),
@@ -206,7 +204,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             .collect::<Validated<Vec<_>, _>>();
         let mask = Region::new(&basis.transform_rect_bbox(Rect::new(0.0, 0.0, width, reach)), FillRule::NonZero, style.tolerance).map_err(AnnotationError::from);
         strokes
-            .map3(lettering, Validated::from(mask), |rulings, cells, region| iter::once(Graphics { elements: rulings, masks: vec![region] }).chain(cells).collect())
+            .map3(contents, Validated::from(mask), |rulings, cells, region| iter::once(Graphics { elements: rulings, masks: vec![region] }).chain(cells).collect())
             .ok()
     };
     let offsets = edges(iter::repeat_n(width + gap, segments.len())).collect::<Vec<_>>();

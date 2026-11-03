@@ -2,11 +2,14 @@ use core::{any::TypeId, iter, num::NonZero, ops::Div};
 
 use itertools::{Itertools as _, Position};
 use rasm_linework::Visibility;
-use rust_decimal::RoundingStrategy;
+use rust_decimal::{
+    RoundingStrategy,
+    prelude::{FromPrimitive as _, ToPrimitive as _},
+};
 use uom::{
     Conversion,
     si::{
-        Unit as _,
+        self, Unit as _,
         angle::{self, degree, minute, radian, second},
         area,
         f64::{Angle, Area, Length, Ratio, Volume},
@@ -143,8 +146,11 @@ pub fn decimal(notation: &Decimal, value: f64, sign: Sign) -> String {
 }
 
 #[must_use]
-pub fn quantity<Quantity>(notation: &Decimal, unit: Unit<Quantity>, symbol: Visibility, value: Quantity, sign: Sign) -> String
-where Quantity: Div<Output = Ratio> {
+pub fn quantity<D>(notation: &Decimal, unit: Unit<si::Quantity<D, si::SI<f64>, f64>>, symbol: Visibility, value: si::Quantity<D, si::SI<f64>, f64>, sign: Sign) -> String
+where
+    D: si::Dimension + ?Sized,
+    si::Quantity<D, si::SI<f64>, f64>: Div<Output = Ratio>,
+{
     let number = decimal(notation, (value / unit.one).get::<ratio>(), sign);
     match symbol {
         Visibility::Visible => format!("{number}{}{}", if unit.spaced { " " } else { "" }, unit.symbol),
@@ -154,6 +160,16 @@ where Quantity: Div<Output = Ratio> {
 
 #[must_use]
 pub fn linear(notation: &Linear, length: Length, sign: Sign) -> String {
+    fn imperial(sign: &str, magnitude: rust_decimal::Decimal, feet: Option<Zeros>, exact: bool, inches: impl Fn(rust_decimal::Decimal, bool) -> String) -> String {
+        match feet.zip(split(magnitude, rust_decimal::Decimal::from(12))) {
+            None => format!("{sign}{}\"", inches(magnitude, false)),
+            Some((zeros, (count, rest))) => match (zeros.feet == Visibility::Visible || !count.is_zero(), exact && rest.is_zero() && zeros.inches == Visibility::Hidden) {
+                (false, _) => format!("{sign}{}\"", inches(rest, false)),
+                (true, true) => format!("{sign}{count}'"),
+                (true, false) => format!("{sign}{count}'-{}\"", inches(rest, true)),
+            },
+        }
+    }
     match *notation {
         Linear::Decimal { unit, decimal: digits, symbol } => quantity(&digits, unit, symbol, length, sign),
         Linear::Imperial { inches: Inches::Fractional(denominator), feet } => {
@@ -163,13 +179,13 @@ pub fn linear(notation: &Linear, length: Length, sign: Sign) -> String {
             else {
                 return value.to_string();
             };
-            let fraction = u16::try_from(numerator).ok().and_then(NonZero::new).map(|numerator| {
+            let fraction = numerator.to_u16().and_then(NonZero::new).map(|numerator| {
                 let shift = numerator.trailing_zeros().min(parts.trailing_zeros());
-                (numerator.get().strict_shr(shift), parts.get().strict_shr(shift))
+                format!("{}/{}", numerator.get().strict_shr(shift), parts.get().strict_shr(shift))
             });
-            imperial(signed(count, sign), whole, feet, fraction.is_none(), |inches, shown| match fraction {
-                Some((numerator, denominator)) if !shown && inches.is_zero() => format!("{numerator}/{denominator}"),
-                Some((numerator, denominator)) => format!("{inches} {numerator}/{denominator}"),
+            imperial(signed(count, sign), whole, feet, fraction.is_none(), |inches, shown| match &fraction {
+                Some(reduced) if !shown && inches.is_zero() => reduced.clone(),
+                Some(reduced) => format!("{inches} {reduced}"),
                 None => inches.to_string(),
             })
         }
@@ -202,8 +218,8 @@ pub fn angular(notation: &Angular, angle: Angle, sign: Sign) -> String {
                 return value.to_string();
             };
             let numbers = iter::once(degrees.to_string()).chain(places.iter().rev().with_position().map(|(position, place)| match position {
-                Position::Last | Position::Only => written(&digits, *place),
-                Position::First | Position::Middle => place.to_string(),
+                Position { is_first: _, is_last: true } => written(&digits, *place),
+                Position { is_first: _, is_last: false } => place.to_string(),
             }));
             let marks = [degree::abbreviation(), minute::abbreviation(), second::abbreviation()];
             format!("{}{}", signed(total, sign), numbers.zip(marks).map(|(number, mark)| format!("{number}{mark}")).join(""))
@@ -236,7 +252,7 @@ pub fn slope(notation: &Slope, gradient: Ratio) -> String {
 }
 
 fn rounded(value: f64, step: rust_decimal::Decimal) -> Option<rust_decimal::Decimal> {
-    rust_decimal::Decimal::try_from(value).ok()?.checked_div(step)?.round_dp_with_strategy(0, RoundingStrategy::MidpointAwayFromZero).checked_mul(step)
+    rust_decimal::Decimal::from_f64(value)?.checked_div(step)?.round_dp_with_strategy(0, RoundingStrategy::MidpointAwayFromZero).checked_mul(step)
 }
 
 fn split(value: rust_decimal::Decimal, radix: rust_decimal::Decimal) -> Option<(rust_decimal::Decimal, rust_decimal::Decimal)> { Some((value.checked_div(radix)?.trunc(), value.checked_rem(radix)?)) }
@@ -263,15 +279,4 @@ fn written(notation: &Decimal, magnitude: rust_decimal::Decimal) -> String {
             grouping.map_or_else(|| integer.to_owned(), |mark| integer.chars().collect::<Vec<_>>().rchunks(3).rev().map(|group| group.iter().collect::<String>()).join(&mark.to_string())),
     };
     if decimals.is_empty() { whole } else { format!("{whole}{separator}{decimals}") }
-}
-
-fn imperial(sign: &str, magnitude: rust_decimal::Decimal, feet: Option<Zeros>, exact: bool, inches: impl Fn(rust_decimal::Decimal, bool) -> String) -> String {
-    match feet.zip(split(magnitude, rust_decimal::Decimal::from(12))) {
-        None => format!("{sign}{}\"", inches(magnitude, false)),
-        Some((zeros, (count, rest))) => match (zeros.feet == Visibility::Visible || !count.is_zero(), exact && rest.is_zero() && zeros.inches == Visibility::Hidden) {
-            (false, _) => format!("{sign}{}\"", inches(rest, false)),
-            (true, true) => format!("{sign}{count}'"),
-            (true, false) => format!("{sign}{count}'-{}\"", inches(rest, true)),
-        },
-    }
 }
