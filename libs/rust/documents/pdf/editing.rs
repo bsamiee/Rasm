@@ -1,17 +1,13 @@
-use lopdf::{Dictionary, Object};
+use pdf_oxide::editor::DocumentEditor;
+
+use crate::{Document, PdfError};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn resolved<'structure>(structure: &'structure lopdf::Document, object: &'structure Object) -> Result<&'structure Object, lopdf::Error> {
-    static NULL: Object = Object::Null;
-    match structure.dereference(object) {
-        Err(lopdf::Error::ObjectNotFound(_)) => Ok(&NULL),
-        found => found.map(|(_, target)| target),
-    }
-}
-
-fn entry<'structure>(structure: &'structure lopdf::Document, holder: &'structure Dictionary, key: &str) -> Result<Option<&'structure Object>, lopdf::Error> {
-    Ok(holder.has(key.as_bytes()).then(|| holder.get(key.as_bytes()).and_then(|value| resolved(structure, value))).transpose()?.filter(|value| !value.is_null()))
+fn edited<T>(document: &Document, edit: impl FnOnce(&mut DocumentEditor) -> pdf_oxide::Result<T>) -> Result<(Document, T), PdfError> {
+    let mut editor = crate::editor(document)?;
+    let outcome = edit(&mut editor)?;
+    Ok((Document::new(editor.save_to_bytes()?, None)?, outcome))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

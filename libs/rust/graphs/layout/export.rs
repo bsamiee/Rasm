@@ -33,7 +33,7 @@ pub enum Format {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn write<N, E, Ty, W>(format: Format, node: impl Fn(&N) -> Attributes<'_>, edge: impl Fn(&E) -> Attributes<'_>, drawing: &Drawing<N, E, Ty>, writer: W) -> Result<(), LayoutError>
+pub fn write<N, E, Ty, W>(format: Format, node: impl Fn(&N) -> Attributes<'_>, edge: impl Fn(&E) -> Attributes<'_>, drawing: &Drawing<N, E, Ty>, mut writer: W) -> Result<(), LayoutError>
 where
     Ty: EdgeType,
     W: io::Write,
@@ -59,7 +59,10 @@ where
             .export_edge_weights(Box::new(borrowed))
             .to_writer(writer)
         }
-        Format::Dot(unit) => dot(unit, node, edge, drawing, writer)?,
+        Format::Dot(unit) => {
+            let document = dot(unit, node, edge, drawing)?;
+            write!(writer, "{document}")
+        }
     }
     .map_err(|source| LayoutError::Export { format, source })
 }
@@ -70,14 +73,12 @@ fn merged(geometry: impl IntoIterator<Item = (&'static str, String)>, attributes
     kept
 }
 
-fn dot<N, E, Ty, W>(unit: Length, node: impl Fn(&N) -> Attributes<'_>, edge: impl Fn(&E) -> Attributes<'_>, drawing: &Drawing<N, E, Ty>, mut writer: W) -> Result<io::Result<()>, LayoutError>
-where
-    Ty: EdgeType,
-    W: io::Write,
-{
+fn dot<N, E, Ty>(unit: Length, node: impl Fn(&N) -> Attributes<'_>, edge: impl Fn(&E) -> Attributes<'_>, drawing: &Drawing<N, E, Ty>) -> Result<impl fmt::Display, LayoutError>
+where Ty: EdgeType {
     const ARROW_LENGTH: f64 = 10.0;
     const ARROW_NORMAL: (&str, f64) = ("normal", 1.0);
     const DIRECTIONS: [(&str, [bool; 2]); 4] = [("forward", [false, true]), ("back", [true, false]), ("both", [true, true]), ("none", [false, false])];
+    const POS: &str = "pos";
     fn quoted(text: &str) -> impl fmt::Display {
         fmt::from_fn(move |formatter| {
             write!(
@@ -97,9 +98,7 @@ where
             )
         })
     }
-    fn listed(attributes: &Attributes<'_>) -> impl fmt::Display {
-        attributes.iter().format_with(", ", |(key, value), sink| sink(&format_args!("{}={}", quoted(key), quoted(value))))
-    }
+    fn listed(attributes: &Attributes<'_>) -> impl fmt::Display { attributes.iter().format_with(", ", |(key, value), sink| sink(&format_args!("{}={}", quoted(key), quoted(value)))) }
     fn arrow(name: &str) -> f64 {
         const ARROW_GAP: (&str, f64) = ("none", 0.5);
         const ARROW_MODIFIERS: [&str; 5] = ["o", "l", "r", "e", "half"];
@@ -142,15 +141,18 @@ where
     let (points, inches) = (unit.get::<point_computer>(), unit.get::<inch>());
     let Rect { x0: _, y0, x1: _, y1 } = drawing.canvas;
     let placement = Affine::FLIP_Y.then_translate(Vec2::new(0.0, y0 + y1)).then_scale(points);
-    let coordinates = |point: Point| {
+    let coordinates = move |point: Point| {
         let Point { x, y } = placement * point;
         format!("{x},{y}")
     };
     let arrows = |index: EdgeIndex, attributes: &Attributes<'_>| -> Result<[Option<f64>; 2], LayoutError> {
         let value = |key: &str| attributes.iter().rev().find(|(name, _)| *name == key).map(|(_, value)| &**value);
-        let length = value("arrowsize").map(|size| size.parse::<f64>().map_err(|source| LayoutError::Arrowsize { edge: index, value: size.to_owned(), source })).transpose()?.unwrap_or(1.0) * ARROW_LENGTH / points;
+        let length = value("arrowsize").map(|size| size.parse::<f64>().map_err(|source| LayoutError::Arrowsize { edge: index, value: size.to_owned(), source })).transpose()?.unwrap_or(1.0)
+            * ARROW_LENGTH
+            / points;
         let [tail, head] = value("dir").and_then(|dir| DIRECTIONS.into_iter().find_map(|(name, drawn)| (name == dir).then_some(drawn))).unwrap_or([false, directed]);
-        Ok([(tail, "arrowtail"), (head, "arrowhead")].map(|(drawn, key)| Some(length * arrow(value(key).filter(|name| !name.is_empty()).unwrap_or(ARROW_NORMAL.0))).filter(|&clip| drawn && clip > 0.0)))
+        Ok([(tail, "arrowtail"), (head, "arrowhead")]
+            .map(|(drawn, key)| Some(length * arrow(value(key).filter(|name| !name.is_empty()).unwrap_or(ARROW_NORMAL.0))).filter(|&clip| drawn && clip > 0.0)))
     };
     let spline = |segments: &NEVec<PathSeg>, [tail, head]: [Option<f64>; 2]| {
         let lengths = segments.iter().map(|segment| segment.arclen(DEFAULT_ACCURACY)).collect::<Vec<_>>();
@@ -173,7 +175,7 @@ where
             .chain(iter::chain(cubics.first().map(|cubic| cubic.p0), cubics.iter().flat_map(|&CubicBez { p0: _, p1, p2, p3 }| [p1, p2, p3])).map(coordinates))
             .join(" ")
     };
-    let depth = |placed: &Placed<N>| iter::successors(placed.parent, |&parent| drawing.graph.node_weight(parent).and_then(|cluster| cluster.parent)).count();
+    let depth = move |placed: &Placed<N>| iter::successors(placed.parent, |&parent| drawing.graph.node_weight(parent).and_then(|cluster| cluster.parent)).count();
     let bounds = placement.transform_rect_bbox(drawing.canvas);
     let edges = drawing
         .graph
@@ -188,32 +190,28 @@ where
                 .with_position()
                 .map(|(Position { is_first, is_last }, segments)| spline(&segments, [tail.filter(|_| is_first), head.filter(|_| is_last)]))
                 .join(";");
-            Ok((reference, merged(iter::chain(Some(("pos", pos)).filter(|(_, pos)| !pos.is_empty()), label.map(|rect| ("lp", coordinates(rect.center())))), given)))
+            Ok((reference, merged(iter::chain(Some((POS, pos)).filter(|(_, pos)| !pos.is_empty()), label.map(|rect| ("lp", coordinates(rect.center())))), given)))
         })
         .collect::<Result<Vec<_>, LayoutError>>()?;
-    Ok(write!(
-        writer,
-        "{}",
-        fmt::from_fn(|formatter| {
-            writeln!(formatter, "{} {{", if directed { "digraph" } else { "graph" })?;
-            writeln!(formatter, "    graph [bb=\"{},{},{},{}\"]", bounds.x0, bounds.y0, bounds.x1, bounds.y1)?;
-            drawing.graph.node_references().sorted_by_cached_key(|&(_, placed)| depth(placed)).try_for_each(|(index, Placed { weight, frame, shape, parent: _, label: _ })| {
-                let attributes = merged(
-                    [
-                        ("pos", coordinates(frame.center())),
-                        ("width", (frame.width() * inches).to_string()),
-                        ("height", (frame.height() * inches).to_string()),
-                        ("shape", shape.to_string()),
-                        ("fixedsize", "true".to_owned()),
-                    ],
-                    node(weight),
-                );
-                writeln!(formatter, "    {} [{}]", index.index(), listed(&attributes))
-            })?;
-            edges.iter().try_for_each(|(reference, attributes)| {
-                writeln!(formatter, "    {} {} {} [{}]", reference.source().index(), if directed { "->" } else { "--" }, reference.target().index(), listed(attributes))
-            })?;
-            writeln!(formatter, "}}")
-        })
-    ))
+    Ok(fmt::from_fn(move |formatter| {
+        writeln!(formatter, "{} {{", if directed { "digraph" } else { "graph" })?;
+        writeln!(formatter, "    graph [bb=\"{},{},{},{}\"]", bounds.x0, bounds.y0, bounds.x1, bounds.y1)?;
+        drawing.graph.node_references().sorted_by_cached_key(|&(_, placed)| depth(placed)).try_for_each(|(index, Placed { weight, frame, shape, parent: _, label: _ })| {
+            let attributes = merged(
+                [
+                    (POS, coordinates(frame.center())),
+                    ("width", (frame.width() * inches).to_string()),
+                    ("height", (frame.height() * inches).to_string()),
+                    ("shape", shape.to_string()),
+                    ("fixedsize", "true".to_owned()),
+                ],
+                node(weight),
+            );
+            writeln!(formatter, "    {} [{}]", index.index(), listed(&attributes))
+        })?;
+        edges.iter().try_for_each(|(reference, attributes)| {
+            writeln!(formatter, "    {} {} {} [{}]", reference.source().index(), if directed { "->" } else { "--" }, reference.target().index(), listed(attributes))
+        })?;
+        writeln!(formatter, "}}")
+    }))
 }

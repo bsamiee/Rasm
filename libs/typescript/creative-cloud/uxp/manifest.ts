@@ -50,9 +50,10 @@ class Manifest extends Schema.Class<Manifest, { readonly brand: unique symbol }>
     }),
     featureFlags: Optional(Schema.Struct(Struct.Record(['unhandledRejection', 'uncaughtException', 'enableFillAsCustomAttribute', 'enableSWCSupport'], Flag))),
 }) {
+    static readonly Version = Version;
     static readonly json = Schema.fromJsonString(Manifest);
+    static readonly file = 'manifest.json';
     static readonly target = 'esnext';
-    static readonly loopback = (port: number) => `ws://localhost:${port}`;
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -7,6 +7,7 @@ import { PortfolioData, StoredPortfolio } from '#/model/portfolio';
 
 const PendingUpload = Schema.Struct({ id: Id, name: Schema.NonEmptyString, status: Schema.Literals(['incomplete', 'cleanup', 'removing']) });
 const Revision = Schema.TemplateLiteralParser(['"', Schema.Natural, '"']).pipe(Schema.decodeTo(Schema.Natural, SchemaTransformation.transform({ decode: ([, revision]) => revision, encode: (revision) => ['"', revision, '"'] as const })));
+const draftEtag = { 'draft-etag': Revision };
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -18,11 +19,11 @@ class Owner extends HttpApiMiddleware.Service<Owner>()('@rasm/portfolio/model/ap
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const write = { headers: { 'if-match': Revision }, success: HttpApiSchema.WithHeaders(HttpApiSchema.NoContent, { 'draft-etag': Revision }), error: [PreconditionFailed, HttpApiError.ConflictNoContent] };
+const write = { headers: { 'if-match': Revision }, success: HttpApiSchema.WithHeaders(HttpApiSchema.NoContent, draftEtag), error: [PreconditionFailed, HttpApiError.ConflictNoContent] };
 const Api = HttpApi.make('portfolio')
     .add(
         HttpApiGroup.make('content').add(
-            HttpApiEndpoint.get('draft', '/portfolio', { success: HttpApiSchema.WithHeaders(PortfolioData, { 'draft-etag': Revision }) }),
+            HttpApiEndpoint.get('draft', '/portfolio', { success: HttpApiSchema.WithHeaders(PortfolioData, draftEtag) }),
             HttpApiEndpoint.put('save', '/portfolio', { payload: StoredPortfolio, ...write }),
             HttpApiEndpoint.post('publish', '/publish', {
                 payload: StoredPortfolio.check(Schema.makeFilter((document) => Array.filterMap(document.entries, ({ title }, index) => (title.trim() === '' ? Result.succeed({ path: ['entries', index, 'title'], issue: 'Title required to publish' }) : Result.failVoid)))),

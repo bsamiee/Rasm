@@ -47,7 +47,7 @@ const launch = ({ application, listed }: Effect.Success<ReturnType<typeof routes
         resolve: ({ application: given }) =>
             Automation.use((automation) =>
                 automation.installed.pipe(
-                    Effect.flatMap(Unmatched.single('installed Adobe application', Option.some(given), (row: Installation) => [row.name])),
+                    Effect.flatMap(Unmatched.single('installed Adobe application', Option.some(given), (row) => [row.name])),
                     Effect.flatMap(({ url }) => automation.launch({ url })),
                 ),
             ),

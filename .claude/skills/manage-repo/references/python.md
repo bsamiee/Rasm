@@ -43,7 +43,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 ## [04]-[ENVIRONMENT]
 
 - `uv sync` installs `blender` editable, hatch `dev-mode-dirs` adds its import root's parent folder through `.pth` with no `PYTHONPATH` row
-- Mise `python.uv_venv_auto` puts synced `.venv` on `PATH`, versioned commands set `VIRTUAL_ENV` to `$RASM_CACHE_HOME/python/<version>`, `uv run` syncs first
+- Mise `python.uv_venv_auto` puts synced `.venv` on `PATH`, versioned commands set `VIRTUAL_ENV` to `.cache/python/<version>`, `uv run` syncs first
 - Builds reuse objects or a CMake cache an earlier build left in the cached sdist tree
 - Modules in `sys.stdlib_module_names` shadow standard libraries when earlier on `sys.path` or `mypy_path`
 

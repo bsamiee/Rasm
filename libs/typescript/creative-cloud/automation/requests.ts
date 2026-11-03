@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Context, Option, Schema, String, Struct } from 'effect';
+import { Array, Context, Effect, Option, Schema, String, Struct } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { LongestSide } from '#/applications';
 
@@ -60,6 +60,13 @@ class ObjectModel extends Schema.Class<ObjectModel, { readonly brand: unique sym
         Class: { name: Schema.String, parents: Schema.Array(Schema.String).annotate({ description: 'Superclasses, nearest first' }), fields: Schema.Array(Field), methods: Schema.Array(Method) },
         Enumeration: { name: Schema.String, members: Schema.Array(Member.mapFields(Struct.pick(['name', 'description']))) },
     });
+
+    describe<E, R>(classes: readonly string[], enumerations: readonly string[], declared: (name: string) => Effect.Effect<typeof ObjectModel.Result.Type, E, R>): Effect.Effect<typeof ObjectModel.Result.Type, E | Unmatched, R> {
+        return Option.match(this.name, {
+            onNone: () => Effect.succeed(ObjectModel.Result.cases.Index.make({ classes, enumerations })),
+            onSome: (query) => Effect.flatMap(Unmatched.single([...classes, ...enumerations], 'class or enumeration', Option.some(query), Array.of), declared),
+        });
+    }
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

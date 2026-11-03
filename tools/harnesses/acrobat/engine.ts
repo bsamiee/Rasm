@@ -123,7 +123,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         }
         throw new Error(`${what} is ${kindOf(value)}`);
     };
-    const callable = (target: Members, name: string) => shaped(target[name], isCallable, name);
+    const invoked = (target: Members, name: string, args: readonly unknown[]) => shaped(target[name], isCallable, name).apply(target, [...args]);
     const enumerated = (target: Members) => {
         const names: string[] = [];
         // biome-ignore lint/suspicious/noForIn: native Acrobat objects enumerate their prototype members through for-in alone
@@ -173,7 +173,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             return (faultOf(error).lineNumber ?? 1) - 1;
         }
     })();
-    const documents = String(callable(app, 'getPath')('user', 'documents'));
+    const documents = String(invoked(app, 'getPath', ['user', 'documents']));
     const home = documents.indexOf(request.home);
     const volume = home > 0 ? documents.slice(0, home) : '';
     const posix = (path: string) => (volume !== '' && starts(path, `${volume}/`) ? path.slice(volume.length) : path);
@@ -211,7 +211,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             return keyed(Object.keys(value), (key) => encoded(value[key], inner));
         }
         if (has(VALUED, kind)) {
-            return String(callable(value, 'toString').call(value));
+            return String(invoked(value, 'toString', []));
         }
         if (kind === 'Annot' && isCallable(value.getProps)) {
             const props = shaped(value.getProps(), isMembers, 'Annot.getProps');
@@ -285,7 +285,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                     return;
                 }
                 try {
-                    held(acrohelp);
+                    held.apply(target, [acrohelp]);
                 } catch (error) {
                     const fault = faultOf(error);
                     if (fault.name === 'HelpError') {
@@ -584,7 +584,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         };
     };
     const created = (document: Exclude<Item['precondition']['documents'][number], { readonly open: string }>) => {
-        const doc = shaped(callable(app, 'newDoc')(document.width, document.height), isDoc, 'app.newDoc');
+        const doc = shaped(invoked(app, 'newDoc', [document.width, document.height]), isDoc, 'app.newDoc');
         counted(document.pages - 1, (page) => doc.newPage(page + 1, document.width, document.height));
         if (document.rotation !== undefined) {
             doc.setPageRotations(0, doc.numPages - 1, document.rotation);
@@ -619,7 +619,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
     };
     const opened = (session: Session) => {
         const { precondition } = session.item;
-        const docs = precondition.documents.map((document) => ('open' in document ? shaped(callable(app, 'openDoc')(document.open), isDoc, 'app.openDoc') : created(document)));
+        const docs = precondition.documents.map((document) => ('open' in document ? shaped(invoked(app, 'openDoc', [document.open]), isDoc, 'app.openDoc') : created(document)));
         docs.forEach((doc) => session.docs.push(doc));
         furnished(docs, precondition);
         const made = precondition.documents.reduce<readonly string[]>((files, document, index) => {
@@ -648,11 +648,10 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         const holder: Holder = { events: [], scope, target, thrown: undefined };
         doc[key] = holder;
         const names = Object.keys(scope);
-        const setAction = callable(field, 'setAction');
-        setAction(
+        invoked(field, 'setAction', [
             event.trigger,
             `try { (function (${names.join(', ')}) {\n${code}\n}).apply(this.${key}.target, [${names.map((name) => `this.${key}.scope.${name}`).join(', ')}]); } catch (error) { this.${key}.thrown = error; }\nthis.${key}.events.push({ type: event.type, name: event.name, rc: event.rc, value: event.value, change: event.change, willCommit: event.willCommit });`,
-        );
+        ]);
         try {
             if (event.trigger === 'Calculate') {
                 doc.calculateNow();
@@ -660,7 +659,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 field.value = revived(event.value);
             }
         } finally {
-            setAction(event.trigger, '');
+            invoked(field, 'setAction', [event.trigger, '']);
             delete doc[key];
         }
         holder.events.forEach((each) => session.records.events.push(encoded(each)));
@@ -680,7 +679,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         const { records } = session;
         session.timers.forEach(([clear, timer]) => {
             try {
-                callable(app, clear)(timer);
+                invoked(app, clear, [timer]);
             } catch (error) {
                 records.leaked.push(`App.${clear}: ${thrown(error, base).message}`);
             }
@@ -785,7 +784,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         plugIns: shaped(app.plugIns, isMemberList, 'app.plugIns').map((plugIn) => ({ name: String(plugIn.name), version: Number(plugIn.version), loaded: plugIn.loaded === true, certified: plugIn.certified === true })),
     });
     const surveyed = () => {
-        const doc = shaped(callable(app, 'newDoc')(), isDoc, 'app.newDoc');
+        const doc = shaped(invoked(app, 'newDoc', []), isDoc, 'app.newDoc');
         try {
             const field = doc.addField('survey', 'text', 0, SURVEY_RECT);
             const annot = doc.addAnnot({ type: 'Text', page: 0, point: SURVEY_POINT });

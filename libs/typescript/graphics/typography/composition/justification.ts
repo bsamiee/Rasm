@@ -1,4 +1,4 @@
-import { Array, Data, Function, Match, Number, Option, Order, Record, Struct } from 'effect';
+import { Array, Function, Match, Number, Option, Order, Record, Schema, Struct } from 'effect';
 import { Feature } from 'harfbuzzjs';
 import { GeneralCategory, JoiningGroup } from 'icu';
 import { Settings } from '#/composition/settings';
@@ -9,29 +9,30 @@ import { Word } from '#/text/words';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Run = typeof ShapedText.Run.Type;
-type SpacingValues = { readonly [K in keyof typeof Settings.Type.spacing]: number };
+type Spacings = typeof Spacings.Type;
 interface ShapedRun {
     readonly run: Run;
     readonly shaped: ShapedText;
-    readonly widths: SpacingValues;
+    readonly widths: Spacings;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TATWEEL = 0x6_40;
 const JUSTIFICATION_ALTERNATES = 'jalt';
-const DEFAULT_RATIOS: SpacingValues = Record.map(Settings.make({}).spacing, Struct.get('desired'));
+const DEFAULT_RATIOS: Spacings = Record.map(Settings.make({}).spacing, Struct.get('desired'));
 const BY_RANK = Order.Struct({ rank: Order.Number, cluster: Order.flip(Order.Number) });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Justification extends Data.Class<
-    Omit<ShapedRun, 'widths'> & {
-        readonly slack: number;
-        readonly ratios: SpacingValues;
-        readonly amounts: SpacingValues & { readonly kashida: number };
-    }
-> {
+const Spacings = Schema.Struct(Struct.Record(Struct.keys(Settings.fields.spacing.schema.fields), Schema.Finite));
+class Justification extends Schema.Class<Justification, { readonly brand: unique symbol }>('Justification')({
+    run: ShapedText.Run.annotate({ description: 'Run with inserted tatweels, glyph clusters index its text' }),
+    shaped: ShapedText,
+    slack: Schema.Finite.annotate({ description: 'Width left in em, negative when overfull' }),
+    ratios: Spacings.annotate({ description: 'Applied spacing ratios' }),
+    amounts: Spacings.mapFields(Struct.assign({ kashida: Schema.Finite })).annotate({ description: 'Width each mechanism added in em' }),
+}) {
     static readonly kashidaClusters = (text: string, allowed: (cluster: number) => boolean = Function.constTrue) => {
         const best = ({ runs }: Word) => {
             const found = runs.flatMap((run) => kashidaCandidates(text, run)).filter(({ cluster }) => allowed(cluster));
@@ -66,9 +67,9 @@ class Justification extends Data.Class<
             const letters = shaped.glyphs.filter((each) => isLetter(run.text, each));
             return { run, shaped, widths: { word: Number.sumAll(shaped.glyphs.filter(({ cluster }) => isSpace(run.text, cluster)).map(Struct.get('xAdvance'))), letter: spaced(run.text, shaped.glyphs).size * spaceAdvance, glyph: Number.sumAll(letters.map(Struct.get('xAdvance'))) } };
         };
-        const addedWidths = ({ widths }: ShapedRun, ratios: SpacingValues): SpacingValues => Record.map(widths, (base, kind) => base * (ratios[kind] - DEFAULT_RATIOS[kind]));
-        const remainder = (layout: ShapedRun, ratios: SpacingValues) => width - layout.shaped.advance - Number.sumAll(Object.values(addedWidths(layout, ratios)));
-        const fitRatio = (kind: keyof SpacingValues, layout: ShapedRun, ratios: SpacingValues): SpacingValues => ({
+        const addedWidths = ({ widths }: ShapedRun, ratios: Spacings): Spacings => Record.map(widths, (base, kind) => base * (ratios[kind] - DEFAULT_RATIOS[kind]));
+        const remainder = (layout: ShapedRun, ratios: Spacings) => width - layout.shaped.advance - Number.sumAll(Object.values(addedWidths(layout, ratios)));
+        const fitRatio = (kind: keyof Spacings, layout: ShapedRun, ratios: Spacings): Spacings => ({
             ...ratios,
             [kind]: Number.clamp(ratios[kind] + Option.getOrElse(Number.divide(remainder(layout, ratios), layout.widths[kind]), () => 0), { minimum: spacing[kind].min, maximum: spacing[kind].max }),
         });
@@ -128,7 +129,7 @@ class Justification extends Data.Class<
                   ] as const);
         });
         const justified = ShapedText.make({ glyphs: positioned, missing: elongated.shaped.missing });
-        return new Justification({ run: elongated.run, shaped: justified, slack: width - justified.advance, ratios: finalRatios, amounts: { ...addedWidths(elongated, finalRatios), kashida: elongated.shaped.advance - natural.shaped.advance } });
+        return Justification.make({ run: elongated.run, shaped: justified, slack: width - justified.advance, ratios: finalRatios, amounts: { ...addedWidths(elongated, finalRatios), kashida: elongated.shaped.advance - natural.shaped.advance } });
     };
 }
 

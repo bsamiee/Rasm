@@ -1,7 +1,7 @@
 import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
 import { HostError } from '@rasm/automation/requests';
-import { Cause, Clock, Console, Duration, Effect, flow, Layer, ManagedRuntime, Option, PlatformError, Predicate, Record, Schema, Scope, ScopedRef, Sink, Stdio, Stream, UndefinedOr } from 'effect';
+import { Cause, Clock, Console, Duration, Effect, flow, Layer, ManagedRuntime, Option, Path, PlatformError, Predicate, Record, Schema, Scope, ScopedRef, Sink, Stdio, Stream, UndefinedOr } from 'effect';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 import type { Link } from '#/link';
 import { Manifest } from '#/manifest';
@@ -14,7 +14,7 @@ const Root = Schema.declare((value: unknown): value is HTMLElement => value inst
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const logCause = flow(Cause.pretty, Console.error);
-const hostLayer = Layer.merge(
+const hostLayer = Layer.mergeAll(
     Layer.effect(Clock.Clock)(
         Effect.map(Clock.Clock, (base) => {
             const monotonicTimeNanosUnsafe = (): bigint => Duration.toNanosUnsafe(performance.now());
@@ -31,15 +31,16 @@ const hostLayer = Layer.merge(
         }),
     ),
     Layer.succeed(Uxp)({ uxp, fs }),
+    Path.layer,
 );
 const plugin = <E, F>(
-    dial: (link: Pick<Parameters<typeof Link.dial>[2], 'origin' | 'extension'>) => Layer.Layer<never, E, Uxp | Plugin>,
+    dial: (link: Pick<Parameters<typeof Link.dial>[2], 'origin' | 'extension'>) => Layer.Layer<never, E, Uxp | Plugin | Path.Path>,
     entries: {
         readonly commands: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
         readonly panels: Record.ReadonlyRecord<string, (root: HTMLElement) => Effect.Effect<void, F, Scope.Scope | Uxp | Plugin>>;
     } = { commands: {}, panels: {} },
 ): void => {
-    const path = 'plugin:/manifest.json';
+    const path = `plugin:/${Manifest.file}`;
     const runtime = ManagedRuntime.make(
         Effect.gen(function* () {
             const manifest = yield* Effect.try({ try: () => fs.readFileSync(path, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: path, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json)));

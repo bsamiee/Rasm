@@ -1,6 +1,6 @@
 import { sites } from '@openai/sites-vite-plugin';
 import { node } from '@rasm/hosting/node/vite';
-import { pdfjs } from '@rasm/media/vite';
+import { pdfjs } from '@rasm/media/pdf/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 import { react, worker } from '../../../vite.shared.ts';

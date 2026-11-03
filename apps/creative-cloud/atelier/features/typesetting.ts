@@ -46,11 +46,11 @@ const inspected = Effect.fnUntraced(function* (client: Client, payload: { readon
 });
 const object = Effect.fnUntraced(function* (client: Client, target: string, fields: readonly string[], slice = FIRST) {
     const found = yield* inspected(client, { target, fields, slice });
-    return yield* found._tag === 'Object' ? Effect.succeed(found) : Unmatched.make({ subject: 'object', query: Option.some(target), candidates: [] });
+    return yield* found._tag === 'Object' ? Effect.succeed(found) : Unmatched.make({ subject: 'object', query: Option.some(target) });
 });
 const page = Effect.fnUntraced(function* (client: Client, target: string, slice = FIRST) {
     const { view } = yield* object(client, target, [TEXTS], slice);
-    return yield* Effect.fromOption(Option.filter(view, isText), () => Unmatched.make({ subject: 'text', query: Option.some(target), candidates: [] }));
+    return yield* Effect.fromOption(Option.filter(view, isText), () => Unmatched.make({ subject: 'text', query: Option.some(target) }));
 });
 const pages = (client: Client, target: string) =>
     Stream.paginate(
@@ -69,7 +69,7 @@ const text = Effect.fnUntraced(function* (client: Client, target: string) {
             () => Unmatched.make({ subject: 'text', query: Option.some(target), candidates: Array.map(collections, Struct.get('name')) }),
         );
         const members = yield* inspected(client, { target: collection.specifier, slice: FIRST });
-        const member = yield* Effect.fromOption(members._tag === 'Items' ? Array.head(members.items) : Option.none(), () => Unmatched.make({ subject: 'text', query: Option.some(target), candidates: [] }));
+        const member = yield* Effect.fromOption(members._tag === 'Items' ? Array.head(members.items) : Option.none(), () => Unmatched.make({ subject: 'text', query: Option.some(target) }));
         return yield* page(client, member.specifier);
     });
     return yield* Option.match(Option.filter(view, isText), { onNone: () => owned, onSome: Effect.succeed });
@@ -99,9 +99,9 @@ const kerner = Effect.fnUntraced(function* (client: Client, rules: typeof Kernin
     const [path, files] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const characters = group.map(Struct.get('text')).join('');
     const { source } = yield* client('font', { name: font, text: characters, file: path.join(yield* files.makeTempDirectoryScoped(), 'subset.otf') });
-    const { file, postscriptName } = yield* Effect.fromOption(source, () => Unmatched.make({ subject: 'font file', query: Option.some(font), candidates: [] }));
+    const { file, postscriptName } = yield* Effect.fromOption(source, () => Unmatched.make({ subject: 'font file', query: Option.some(font) }));
     const opened = { data: yield* files.readFile(file), postscriptName };
-    const named = yield* Face.open(opened, { variations: [], size: Option.none() });
+    const named = yield* Face.open(opened);
     const instance = yield* Schema.decodeEffect(Face.Instance)({ variations: Array.zipWith(named.axes, axes, ({ tag }, value) => `${tag}=${value}`) });
     const pair = Kerning.pair(Array.isReadonlyArrayEmpty(axes) ? named : yield* Face.open(opened, instance), rules);
     const pairs = yield* Cache.make({ capacity: characters.length, lookup: ({ before, after }: { readonly before: string; readonly after: string }) => Effect.sync(() => pair(before, after)) });
@@ -185,7 +185,7 @@ const typesetting = Effect.fnUntraced(function* ({ serving }: Routed) {
             .annotate(Tool.OpenWorld, false),
         Effect.fnUntraced(function* ({ file, face: name }) {
             const [symbols, found] = yield* Effect.all([Effect.flatMap(files.readFileString(file), Symbols.decode), automation.face({ name })]);
-            const face = yield* Face.open({ data: yield* files.readFile(yield* path.fromFileUrl(found.file)), postscriptName: Option.some(found.postscriptName) }, { variations: [], size: Option.none() });
+            const face = yield* Face.open({ data: yield* files.readFile(yield* path.fromFileUrl(found.file)), postscriptName: Option.some(found.postscriptName) });
             return {
                 sets: Record.map(
                     symbols.supported(face).sets,

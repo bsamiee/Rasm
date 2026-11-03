@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { Array, Effect, Match, Option, Predicate, Record, Result, Schema } from 'effect';
-import { HarnessError, Thrown } from '#/error';
+import { HarnessError, thrown } from '#/error';
 import type { Compare } from '#/results';
 import { bury } from '#/values';
 
@@ -35,7 +35,7 @@ const differences = (host: unknown, rebuilt: unknown, path = ''): readonly Diffe
 const observed = (pair: Pair) =>
     Result.match({
         onSuccess: (value: unknown): readonly Difference[] => ('value' in pair.host ? differences(pair.host.value, pair.settled(value)) : [{ path: '.thrown', host: pair.host.thrown, rebuilt: value }]),
-        onFailure: (thrown: string): readonly Difference[] => ('thrown' in pair.host ? differences(pair.host.thrown, thrown, '.thrown') : [{ path: '.thrown', host: pair.host.value, rebuilt: thrown }]),
+        onFailure: (message: string): readonly Difference[] => ('thrown' in pair.host ? differences(pair.host.thrown, message, '.thrown') : [{ path: '.thrown', host: pair.host.value, rebuilt: message }]),
     });
 const imported = Effect.fn('imported')(function* (module: string) {
     const loaded = yield* Effect.tryPromise({ try: (): Promise<unknown> => import(pathToFileURL(module).href), catch: HarnessError.refused(module) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Module)));
@@ -44,10 +44,7 @@ const imported = Effect.fn('imported')(function* (module: string) {
             Option.filter(Predicate.isFunction),
             Effect.fromOption(() => HarnessError.make({ reason: { _tag: 'Unavailable', because: `exports no function ${pair.fn}` }, subject: module })),
         );
-        return yield* Effect.try(() => made(...pair.args)).pipe(
-            Effect.catch(({ cause }) => Effect.flip(Effect.orDie(Schema.decodeUnknownEffect(Thrown)(cause)))),
-            Effect.result,
-        );
+        return yield* Effect.result(Effect.try({ try: () => made(...pair.args), catch: thrown }));
     });
 });
 const compared = (module: string, pairs: readonly Pair[], replies: ReadonlyMap<string, Reply>, unproven: readonly string[]): typeof Compare.Type => {

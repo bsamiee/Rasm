@@ -1,15 +1,14 @@
 import { Digits } from '@rasm/search/digits';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Effect, Option, Order, Record, Schema, SchemaGetter, Stream, Struct } from 'effect';
+import { Array, Effect, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Csv } from 'effect/encoding';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Numeral = Schema.String.check(Schema.isPattern(/^\s*[+-]?\p{Nd}+\s*$/u)).pipe(Schema.decodeTo(Schema.NumberFromString.check(Schema.isInt()), { decode: SchemaGetter.transform(Digits.fold), encode: SchemaGetter.passthrough() }));
 const Ayah = Schema.Struct({ number: Schema.Int, text: Schema.String });
 const Surah = Schema.Struct({ number: Schema.Int, name: Schema.String, ayahs: Schema.Array(Ayah) });
-const AyahRow = Schema.Struct({ surah: Numeral, number: Numeral, text: Schema.String });
-const SurahRow = Schema.Struct({ number: Numeral, name: Schema.String });
+const AyahRow = Schema.Struct({ surah: Digits.Numeral, number: Digits.Numeral, text: Schema.String });
+const SurahRow = Schema.Struct({ number: Digits.Numeral, name: Schema.String });
 const Header = Schema.String.annotate({ description: 'Header name' });
 class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Quran')({ surahs: Schema.Array(Surah).annotate({ description: 'Sorted by number' }) }) {
     static readonly Surah = Surah;
@@ -18,7 +17,7 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         const [ayahs, surahs] = yield* Effect.all([rows(AyahRow, files.ayahs, columns.ayahs), rows(SurahRow, files.surahs, columns.surahs)]);
         const ayahsBySurah = Array.groupBy(ayahs, ({ surah }) => String(surah));
         const uniqueSurahs = Array.dedupeWith(surahs, (left, right) => left.number === right.number);
-        yield* Effect.forEach(Record.keys(ayahsBySurah), (surah) => Unmatched.single(uniqueSurahs, 'surah', Option.some(surah), ({ number }) => [String(number)]));
+        yield* Effect.forEach(Record.keys(ayahsBySurah), (surah) => Unmatched.single(uniqueSurahs, 'surah', Option.some(surah), ({ number }) => [String(number)]), { discard: true });
         return Quran.make({
             surahs: Array.sortWith(
                 uniqueSurahs.map(({ number, name }) => ({ number, name, ayahs: Array.map(ayahsBySurah[String(number)] ?? [], Struct.omit(['surah'])) })),

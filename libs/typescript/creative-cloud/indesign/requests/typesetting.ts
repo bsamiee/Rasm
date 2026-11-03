@@ -30,9 +30,9 @@ const resolveTarget = Effect.fnUntraced(function* (path: string) {
     if (text(found)) {
         return found;
     }
-    return yield* owning<Story>('texts')(found) ? Effect.succeed(found.texts.item(0)) : Unmatched.make({ subject: 'text', query: Option.some(path), candidates: [] });
+    return yield* owning<Story>('texts')(found) ? Effect.succeed(found.texts.item(0)) : Unmatched.make({ subject: 'text', query: Option.some(path) });
 });
-const textRange = (target: Target) => Model.use(({ text }) => Effect.filterOrFail(Effect.succeed(target), text, () => Unmatched.make({ subject: 'text range', query: Option.some(target.toSpecifier()), candidates: [] })));
+const textRange = (target: Target) => Model.use(({ text }) => Effect.filterOrFail(Effect.succeed(target), text, () => Unmatched.make({ subject: 'text range', query: Option.some(target.toSpecifier()) })));
 
 // --- [WRITES]
 
@@ -54,7 +54,7 @@ const pointAfterBase = (text: Text) =>
             return last.index > marks.length ? Option.some(container.insertionPoints.item(last.index - marks.length)) : Option.none();
         },
         catch: HostError.refused(`base letter before ${text.toSpecifier()}`),
-    }).pipe(Effect.flatMap(Effect.fromOption(() => Unmatched.make({ subject: 'base letter', query: Option.some(text.toSpecifier()), candidates: [] }))));
+    }).pipe(Effect.flatMap(Effect.fromOption(() => Unmatched.make({ subject: 'base letter', query: Option.some(text.toSpecifier()) }))));
 const kernBy = Effect.fnUntraced(function* (text: Text, em: number) {
     const [kerningAt, point] = yield* Effect.all([manualKerning, pointAfterBase(text)]);
     const current = yield* Effect.try({ try: () => kerningAt(point), catch: HostError.refused(`kerning of ${point.toSpecifier()}`) });
@@ -76,7 +76,7 @@ const writeKerns = Effect.fnUntraced(function* (text: Text, rows: Kerns['kerns']
     const refused = HostError.refused(`insertion points of ${text.toSpecifier()}`);
     const methods = yield* Effect.try({ try: () => text.insertionPoints.everyItem().kerningMethod, catch: refused });
     const outOfRange = rows.filter(({ index }) => index >= methods.length);
-    yield* Array.isReadonlyArrayEmpty(outOfRange) ? Effect.void : Unmatched.make({ subject: `insertion point in 0 to ${methods.length - 1}`, query: Option.some(outOfRange.map(({ index }) => index).join(', ')), candidates: [] });
+    yield* Array.isReadonlyArrayEmpty(outOfRange) ? Effect.void : Unmatched.make({ subject: `insertion point in 0 to ${methods.length - 1}`, query: Option.some(outOfRange.map(({ index }) => index).join(', ')) });
     const unkerned = yield* Effect.try({ try: () => rows.filter(({ index }) => kerningAt(text.insertionPoints.item(index), methods[index]) === 0), catch: refused });
     yield* Effect.forEach(unkerned, ({ index, em }) => Change.write(text.insertionPoints.item(index), { kerningValue: HostSettings.thousandths(em) }), { discard: true });
     return unkerned.length;

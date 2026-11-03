@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Option, Path, type PlatformError, String } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, type PlatformError, Record, Result, String } from 'effect';
 import type { Call } from '#/cases';
 import { HarnessError } from '#/error';
 
@@ -11,6 +11,7 @@ interface Mapped {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const EXTENDSCRIPT = ['jsx', 'jsxbin', 'js'] as const;
 const JSXBIN = /(?<quote>["'])(?<literal>@JSXBIN@(?:\\.|(?!\k<quote>)[^\\])*)\k<quote>/su;
 const BYTE_ORDER_MARK = /^\u{FEFF}/u;
 const CONTINUATION = /\\\r?\n/gu;
@@ -18,6 +19,7 @@ const ESCAPE = /\\(?<character>.)/gu;
 const INCLUDE = /^[ \t]*(?:\/\/[ \t]*@|#)include[ \t]+["'](?<name>[^"']+)["'][ \t;]*$/u;
 const INCLUDE_PATH = /^[ \t]*(?:\/\/[ \t]*@|#)includepath[ \t]+["'](?<paths>[^"']*)["']/mu;
 const DIRECTIVE = /^[ \t]*#(?:target|targetengine|strict|script)\b/u;
+const INVOCATION = 'harness(arguments[0]);';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -55,6 +57,26 @@ const prepared = Effect.fn('prepared')(function* (script: string, lines: Option.
     return { source: { script, code: kept.map(([line]) => line).join('\n') }, map: kept.map(([, at]) => at), binary: Option.isSome(binary) };
 });
 
+const engineOf =
+    <E extends string>(engines: { readonly [K in E]: { readonly extensions: readonly string[] } }, fallback: NoInfer<E>) =>
+    (scripts: readonly string[]): Result.Result<E, HarnessError> => {
+        const held = (script: string) =>
+            Option.map(
+                Record.findFirst(engines, ({ extensions }) => extensions.some((extension) => script.endsWith(`.${extension}`))),
+                ([engine]) => engine,
+            );
+        const unavailable = (because: string) => HarnessError.make({ reason: { _tag: 'Unavailable', because }, subject: scripts.join(', ') });
+        const unknown = scripts.filter((script) => Option.isNone(held(script)));
+        return unknown.length > 0
+            ? Result.fail(unavailable(`${unknown.join(', ')} holds no extension of ${Record.collect(engines, (engine, { extensions }) => `${engine} ${extensions.join(' ')}`).join(', ')}`))
+            : Array.match(Array.dedupe(Array.getSomes(scripts.map(held))), { onEmpty: () => Result.succeed(fallback), onNonEmpty: (found) => (found.length === 1 ? Result.succeed(found[0]) : Result.fail(unavailable(`cases mix engines ${found.join(', ')}`))) });
+    };
+const assembled = Effect.fn('assembled')(function* (engine: URL) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const sources = yield* Effect.forEach([new URL('extendscript.jsxinc', import.meta.url), engine], (url) => Effect.flatMap(path.fromFileUrl(url), fs.readFileString));
+    return [...sources, INVOCATION].join('\n');
+});
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Mapped, prepared };
+export { assembled, EXTENDSCRIPT, engineOf, type Mapped, prepared };

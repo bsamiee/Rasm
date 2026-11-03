@@ -16,17 +16,13 @@ import java.util.function.Predicate;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Graph extends GhidraScript {
-    // --- [EDGES]
-
-    private static String node(Function function) {
-        return function.getEntryPoint() + " " + function.getName(true);
-    }
-
     // --- [RUN]
 
     @Override
     public void run() throws Exception {
         Path out = new Arguments.Usage(getScriptName(), "<out>").only(getScriptArgs());
+        java.util.function.Function<Function, String> node =
+                each -> each.getEntryPoint() + " " + each.getName(true);
         List<Function> functions =
                 Functions.internal(currentProgram)
                         .filter(Predicate.not(Function::isThunk))
@@ -41,9 +37,9 @@ public class Graph extends GhidraScript {
                                                 Functions.callees(caller, monitor)
                                                         .sorted(Functions.BY_ENTRY)
                                                         .map(callee ->
-                                                                node(caller)
+                                                                node.apply(caller)
                                                                         + " -> "
-                                                                        + node(callee)))
+                                                                        + node.apply(callee)))
                                         .toList()),
                         Report.Section.rows(
                                 "REFERENCES",
@@ -63,15 +59,17 @@ public class Graph extends GhidraScript {
                                                         .map(from ->
                                                                 "%s <- %s %s"
                                                                         .formatted(
-                                                                                node(function),
+                                                                                node.apply(
+                                                                                        function),
                                                                                 from,
                                                                                 Optional.ofNullable(
                                                                                                 function.getProgram()
                                                                                                         .getFunctionManager()
                                                                                                         .getFunctionContaining(
                                                                                                                 from))
-                                                                                        .map(Graph::node)
-                                                                                        .orElse("-"))))
+                                                                                        .map(node)
+                                                                                        .orElse(
+                                                                                                "-"))))
                                         .toList()));
         println(Report.write(out, currentProgram, sections, ""));
     }

@@ -8,7 +8,7 @@ import { useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
 import { Destination, pendingUploads, queue, uppy } from '#/editor/uploader';
-import { entryTitle, format } from '#/media/labels';
+import { details, entryTitle, format } from '#/media/labels';
 import { type AssetCollection, mediaTypes, PdfAsset, uploadLimit } from '#/model/asset';
 import type { Entry } from '#/model/portfolio';
 
@@ -23,14 +23,14 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
     const [selected, setSelected] = useState<string>();
     const [target, setTarget] = useAtom(Destination);
     const key = (value: Destination) => (value.kind === 'entry' ? value.id : value.kind);
-    const options = [{ target: { kind: 'library' } as const, label: 'Library' }, { target: { kind: 'hero' } as const, label: 'Hero (one file)' }, ...entries.map((entry) => ({ target: { kind: 'entry', id: entry.id } as const, label: `${entryTitle(entry)} · ${String.capitalize(entry.kind)}` }))].map((option) => ({
+    const options = [{ target: { kind: 'library' } as const, label: 'Library' }, { target: { kind: 'hero' } as const, label: 'Hero (one file)' }, ...entries.map((entry) => ({ target: { kind: 'entry', id: entry.id } as const, label: details([entryTitle(entry), String.capitalize(entry.kind)]) }))].map((option) => ({
         ...option,
         id: key(option.target),
     }));
     const documents = files.flatMap((file) => {
         const asset = file.meta.prepared === undefined ? undefined : assets[file.meta.prepared.asset.id];
         const entry = entries.find((item) => file.meta.destination.kind === 'entry' && item.id === file.meta.destination.id);
-        return file.progress.uploadComplete === true && Schema.is(PdfAsset)(asset) && entry !== undefined ? [{ id: file.id, label: `${asset.name} · ${entryTitle(entry)}`, entryId: entry.id, assetId: asset.id }] : [];
+        return file.progress.uploadComplete === true && Schema.is(PdfAsset)(asset) && entry !== undefined ? [{ id: file.id, label: details([asset.name, entryTitle(entry)]), entryId: entry.id, assetId: asset.id }] : [];
     });
     const selectedFile = files.find((file) => file.id === selected);
     return (
@@ -52,19 +52,19 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                             value={key(selectedFile.meta.destination)}
                         />
                     ) : (
-                        <p className="hint">
-                            Destination · {options.find((option) => option.id === key(selectedFile.meta.destination))?.label ?? 'Removed entry'} · {selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Locked after processing starts'}
-                        </p>
+                        <p className="hint">{details(['Destination', options.find((option) => option.id === key(selectedFile.meta.destination))?.label ?? 'Removed entry', selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Locked after processing starts'])}</p>
                     )}
                 </div>
             )}
             <div className="upload-dashboard min-w-0">
                 <p className="hint mb-3">
-                    {format.list(
-                        mediaTypes.flatMap((type) => type.split('/').slice(1)).map((subtype) => subtype.toUpperCase()),
-                        'disjunction',
-                    )}{' '}
-                    · Up to {format.bytes(uploadLimit)} per file
+                    {details([
+                        format.list(
+                            mediaTypes.flatMap((type) => type.split('/').slice(1)).map((subtype) => subtype.toUpperCase()),
+                            'disjunction',
+                        ),
+                        `Up to ${format.bytes(uploadLimit)} per file`,
+                    ])}
                 </p>
                 <div className={files.length > 0 ? 'h-88' : 'h-50'}>
                     <Dashboard disableInformer={true} doneButtonHandler={() => uploader.removeFiles(files.map(Struct.get('id')))} height="100%" proudlyDisplayPoweredByUppy={false} uppy={uploader} width="100%" />

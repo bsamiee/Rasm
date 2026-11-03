@@ -1,4 +1,4 @@
-use core::marker::PhantomData;
+use core::{iter, marker::PhantomData};
 use std::collections::BTreeSet;
 
 use petgraph::{
@@ -66,19 +66,16 @@ impl<'id, N, E> Propagation<'_, 'id, N, E> {
         let graph = self.graph;
         graph
             .neighbors_directed(node, Direction::Outgoing)
-            .filter_map(|target| {
-                let remaining = self.pending.get_mut(target.index()).and_then(Option::as_mut).map(|pending| {
+            .filter(|&target| match self.pending.get_mut(target.index()).and_then(Option::as_mut) {
+                Some(pending) => {
                     *pending = Pending { inputs: pending.inputs.strict_sub(1), received: pending.received.max(outcome) };
-                    pending.inputs
-                });
-                match remaining {
-                    Some(0) => Some(target),
-                    None if outcome == Outcome::Changed => {
-                        self.dirty.insert(target);
-                        None
-                    }
-                    Some(1..) | None => None,
+                    pending.inputs == 0
                 }
+                None if outcome == Outcome::Changed => {
+                    self.dirty.insert(target);
+                    false
+                }
+                None => false,
             })
             .collect()
     }
@@ -112,7 +109,7 @@ pub fn propagate<'graph, N, E, R>(
     run: impl for<'id> FnOnce(Propagation<'graph, 'id, N, E>, Vec<Ready<'id>>) -> R,
 ) -> Result<R, DependencyError> {
     let dirty = dirty.into_iter().collect::<BTreeSet<_>>();
-    present(evaluation, dirty.iter().chain(requested.into_iter().flatten()).copied())?;
+    present(evaluation, iter::chain(&dirty, requested.into_iter().flatten()).copied())?;
     let downstream = walk(evaluation, dirty.iter().copied(), Direction::Outgoing);
     let upstream = requested.map(|outputs| walk(evaluation, outputs.iter().copied(), Direction::Incoming));
     let member = |node: NodeIndex| downstream.is_visited(&node) && upstream.as_ref().is_none_or(|upstream| upstream.is_visited(&node));

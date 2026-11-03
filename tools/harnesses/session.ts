@@ -1,8 +1,8 @@
-import { State } from '@rasm/automation/applications';
+import { type Installation, State } from '@rasm/automation/applications';
 import type { Automation } from '@rasm/automation/automation';
-import { Array, Data, Deferred, Duration, Effect, Equal, FileSystem, Number, Option, Order, Path, Predicate, type Record, Ref, Result, Schema, Stream, String, SubscriptionRef } from 'effect';
+import { Array, Data, Deferred, Duration, Effect, Equal, Equivalence, FileSystem, Number, Option, Order, Path, Predicate, type Record, Ref, Result, Schema, Stream, String, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import type { Batch as Authored } from '#/cases';
+import type { Batch as Authored, Row as Authoring } from '#/cases';
 import { HarnessError } from '#/error';
 import { busy, crashed, described, dialogOf, type Element, type Exited, Launch, perform, pressed, type Row, read, type Spawned, sampled, settled, shown, spawned, watch } from '#/instance';
 import { type Answered, type Dialog, type Hang, Outcome } from '#/results';
@@ -20,6 +20,10 @@ type Verdict = Data.TaggedEnum<{
     Dialog: { readonly index: Option.Option<number>; readonly dialog: typeof Dialog.Type };
     Lost: { readonly error: Error };
 }>;
+interface Progress {
+    readonly title: string;
+    readonly buttons: readonly string[];
+}
 interface Installed {
     readonly identifier: string;
     readonly name: string;
@@ -95,31 +99,35 @@ interface Ran<S> extends Records {
     readonly notes: readonly Note[];
     readonly verdict: Option.Option<Verdict>;
 }
-interface Done<S, C, E, P extends Plan<C, E>> {
-    readonly survey: S;
-    readonly opened: Option.Option<Schema.Json>;
-    readonly plan: P;
+interface Finished<S> {
     readonly header: Option.Option<Header<S>>;
     readonly shared: readonly number[];
     readonly failed: Option.Option<string>;
     readonly answered: readonly (typeof Answered.Type)[];
     readonly outcomes: readonly (typeof Outcome.Type)[];
 }
+interface Done<S, C, E, P extends Plan<C, E>> extends Finished<S> {
+    readonly survey: S;
+    readonly opened: Option.Option<Schema.Json>;
+    readonly plan: P;
+}
 interface Host<S extends Any, C extends Any, E extends Any, P = unknown> {
     readonly name: string;
     readonly Engine: E;
     readonly survey: { readonly question: string; readonly Schema: S; readonly host: (survey: S['Type']) => Option.Option<Schema.Json> };
     readonly Case: C;
+    readonly Recorded: Schema.Codec<Entry, string, never, unknown>;
     readonly shown: readonly string[];
+    readonly progress: readonly Progress[];
     readonly engine: (scripts: readonly string[]) => Result.Result<E['Type'], HarnessError>;
     readonly precondition: (survey: S['Type']) => Decoding<P>;
     readonly placed: (decoded: P, folder: string, product: string) => Effect.Effect<{ readonly precondition: unknown; readonly copies: readonly string[] }, Error, FileSystem.FileSystem | Path.Path>;
     readonly refusal: (engine: E['Type'], hosted: C['Type'], binary: boolean) => Option.Option<string>;
     readonly installed: Effect.Effect<readonly Installed[], Error, Services>;
-    readonly launch: (chosen: Installed, scratch: string, authored: typeof Authored.Type) => Effect.Effect<Launched | Spawned, Error, Services>;
+    readonly windowed: (authored: typeof Authored.Type, row: Authoring) => boolean;
+    readonly launch: (chosen: Installed, scratch: string, windowed: boolean) => Effect.Effect<Launched | Spawned, Error, Services>;
     readonly opened: (live: Live) => Effect.Effect<Option.Option<Schema.Json>, Error, Services>;
     readonly send: (live: Live, batch: Batch<S['Type'], C['Type']>) => Effect.Effect<Header<S['Type']>, Error, Services>;
-    readonly records: (live: Live, file: string, reply: Option.Option<Header<S['Type']>>) => Effect.Effect<Records, Error, FileSystem.FileSystem | Path.Path>;
     readonly quit: (live: Live) => Effect.Effect<void, Error, Services>;
     readonly digest: (file: string) => Effect.Effect<Digest, Error, Services>;
     readonly compare: { readonly _tag: 'Imported' } | { readonly _tag: 'Hosted'; readonly run: (chosen: Installed, calls: readonly Rebuilt<C['Type']>[], scratch: string, limit: Duration.Duration, authored: typeof Authored.Type) => Effect.Effect<readonly (typeof Outcome.Type)[], Error, Services> };
@@ -132,6 +140,7 @@ const VERSIONS = new Intl.Collator('en', { numeric: true });
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Verdict = Data.taggedEnum<Verdict>();
+const labelled = Array.makeEquivalence(Equivalence.String);
 const newest = Order.flip(
     Order.mapInput(
         Order.make((left: string, right: string) => Number.sign(VERSIONS.compare(left, right))),
@@ -142,7 +151,13 @@ const newest = Order.flip(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [INSTALLATIONS]
-const installations = (rows: readonly Installed[], prefixes: readonly string[], subject: string) => {
+const installation = Effect.fn('installation')(function* (row: Installation, companions: readonly string[]) {
+    const path = yield* Path.Path;
+    const app = yield* path.fromFileUrl(row.url);
+    const version = yield* Effect.fromOption(row.version, () => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'Launch Services reports no version' }, subject: row.name }));
+    return { identifier: row.identifier, name: row.name, app, version, watched: [row.identifier, ...companions] } satisfies Installed;
+});
+const installations =(rows: readonly Installed[], prefixes: readonly string[], subject: string) => {
     const hosts = Array.sort(rows, newest);
     const chosen = prefixes.length === 0 ? hosts : hosts.filter(({ version }) => prefixes.some((prefix) => version.startsWith(prefix)));
     return Effect.fromOption(Array.match(chosen, { onEmpty: Option.none, onNonEmpty: Option.some }), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `installed versions ${hosts.map(({ version }) => version).join(', ')}` }, subject: `${subject} ${prefixes.join(', ')}` }));
@@ -182,8 +197,8 @@ const filesIn = Effect.fn('filesIn')(function* (folder: string) {
         isFile,
     );
 });
-const recorded = (Line: Schema.Codec<Entry, string, never, unknown>) =>
-    Effect.fn('recorded')(function* (file: string) {
+const recordsOf = (Line: Schema.Codec<Entry, string, never, unknown>) =>
+    Effect.fn('recordsOf')(function* (file: string) {
         const fs = yield* FileSystem.FileSystem;
         const rows = yield* Effect.forEach(
             Array.fromIterable(String.linesIterator(yield* fs.readFileString(file))).filter((line) => line.trim() !== ''),
@@ -209,21 +224,27 @@ const writtenIn = Effect.fnUntraced(function* <S extends Any, C extends Any, E e
 });
 
 // --- [WATCHER]
-const holding = ({ pid, state }: Row): Option.Option<string> =>
-    State.match(state, {
-        Launching: () => Option.none(),
-        Responding: ({ elements }) =>
-            Option.map(
-                Array.findFirst(elements, ({ requiresAnswer }) => requiresAnswer),
-                (element) => shown(dialogOf(element, pid)),
-            ),
-        Unresponsive: () => Option.some(`instance ${pid} ${described(state)}, left running`),
-        Failed: () => Option.none(),
-        Exited: () => Option.none(),
-    });
-const unanswered = (notes: readonly Note[]) => (element: Element) => element.requiresAnswer && notes.every(({ element: id }) => id !== element.id);
+const requiring = (progress: readonly Progress[], pid: number) => (element: Element) => {
+    const { title, text, buttons } = dialogOf(element, pid);
+    return element.requiresAnswer && !progress.some((named) => [title, ...text].includes(named.title) && labelled(named.buttons, buttons));
+};
+const holding =
+    (progress: readonly Progress[]) =>
+    ({ pid, state }: Row): Option.Option<string> =>
+        State.match(state, {
+            Launching: () => Option.none(),
+            Responding: ({ elements }) =>
+                Option.map(
+                    Array.findFirst(elements, requiring(progress, pid)),
+                    (element) => shown(dialogOf(element, pid)),
+                ),
+            Unresponsive: () => Option.some(`instance ${pid} ${described(state)}, left running`),
+            Failed: () => Option.none(),
+            Exited: () => Option.none(),
+        });
+const unanswered = (notes: readonly Note[], required: (element: Element) => boolean) => (element: Element) => required(element) && notes.every(({ element: id }) => id !== element.id);
 const controlOf = (element: Element, label: string) => Option.map(pressed(element, label), ({ id }) => ({ label, id }));
-const watcher = (live: Live) =>
+const watcher = (live: Live, progress: readonly Progress[]) =>
     Effect.fn('watcher')(function* (row: Row) {
         const ours = row.identifier === live.chosen.identifier && row.pid === live.pid;
         yield* ours ? SubscriptionRef.set(live.state, row.state) : Effect.void;
@@ -248,7 +269,7 @@ const watcher = (live: Live) =>
         });
         yield* State.match(row.state, {
             Launching: () => Effect.void,
-            Responding: ({ elements }) => Effect.flatMap(Ref.get(live.notes), (notes) => Effect.forEach(elements.filter(unanswered(notes)), answer, { discard: true })),
+            Responding: ({ elements }) => Effect.flatMap(Ref.get(live.notes), (notes) => Effect.forEach(elements.filter(unanswered(notes, requiring(progress, row.pid))), answer, { discard: true })),
             Unresponsive: () => Effect.void,
             Failed: ({ reason }) => (ours ? ended(live, Verdict.Lost({ error: HarnessError.make({ reason: { _tag: 'Unavailable', because: reason }, subject: `process ${row.pid}` }) })) : Effect.void),
             Exited: (exit) => (ours && settled(exit) ? ended(live, Verdict.Exited({ exit })) : Effect.void),
@@ -260,7 +281,7 @@ const progress = Effect.fnUntraced(function* <S extends Any, C extends Any, E ex
         Stream.make(undefined),
         Stream.map(fs.watch(records), () => undefined),
     ).pipe(
-        Stream.mapEffect(() => Effect.flatMap(host.records(live, records, Option.none()), ({ running: at }) => Ref.set(live.inFlight, at))),
+        Stream.mapEffect(() => Effect.flatMap(recordsOf(host.Recorded)(records), ({ running: at }) => Ref.set(live.inFlight, at))),
         Stream.switchMap(() => Stream.fromEffect(Effect.sleep(limit))),
         Stream.runHead,
     );
@@ -274,20 +295,21 @@ const progress = Effect.fnUntraced(function* <S extends Any, C extends Any, E ex
 });
 
 // --- [SESSION]
-const acquired = Effect.fn('acquired')(function* <S extends Any, C extends Any, E extends Any, P>(host: Host<S, C, E, P>, chosen: Installed, scratch: string, limit: Duration.Duration, authored: typeof Authored.Type) {
-    const path = yield* Path.Path;
+const acquired = Effect.fn('acquired')(function* <S extends Any, C extends Any, E extends Any, P>(host: Host<S, C, E, P>, chosen: Installed, root: string, limit: Duration.Duration, windowed: boolean) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const refused = (because: string) => HarnessError.make({ reason: { _tag: 'Unavailable', because }, subject: chosen.name });
     const running = (yield* read(chosen.watched)).filter((row) => row.identifier === chosen.identifier);
-    const dialog = (row: Row) => (State.guards.Unresponsive(row.state) ? Option.none<string>() : holding(row));
+    const dialog = (row: Row) => (State.guards.Unresponsive(row.state) ? Option.none<string>() : holding(host.progress)(row));
     yield* Array.match(Array.getSomes(running.map(dialog)), { onEmpty: () => Effect.void, onNonEmpty: (held) => refused(held.join('; ')) });
-    const spec = yield* host.launch(chosen, scratch, authored);
+    const scratch = yield* fs.makeTempDirectoryScoped({ directory: root, prefix: 'instance-' });
+    const spec = yield* host.launch(chosen, scratch, windowed);
     const { rows, ...instance } = yield* Predicate.isTagged('Spawned')(spec) ? spawned(chosen.identifier, spec) : Effect.map(Launch({ app: chosen.app, fresh: true, ...spec }), (opened) => ({ ...opened, rows: watch(chosen.watched, opened.pid) }));
     const shared = running.filter(({ pid, state }) => pid !== instance.pid && !State.guards.Exited(state)).map(({ pid }) => pid);
     yield* Option.match(dialog(instance), { onNone: () => Effect.void, onSome: refused });
     yield* settled(instance.state) ? refused(`instance ${instance.pid} ${described(instance.state)}`) : Effect.void;
     const live: Live = {
         pid: instance.pid,
-        launched: instance.launched,
+        launched: running.every(({ pid }) => pid !== instance.pid),
         chosen,
         scratch,
         verdict: yield* Deferred.make<Verdict>(),
@@ -297,7 +319,7 @@ const acquired = Effect.fn('acquired')(function* <S extends Any, C extends Any, 
         state: yield* SubscriptionRef.make<typeof State.Type>(instance.state),
     };
     yield* Effect.forkScoped(
-        Stream.runForEach(rows, watcher(live)).pipe(
+        Stream.runForEach(rows, watcher(live, host.progress)).pipe(
             Effect.andThen(refused(`instance ${instance.pid} watch ended`)),
             Effect.catch((error) => ended(live, Verdict.Lost({ error }))),
         ),
@@ -308,9 +330,16 @@ const acquired = Effect.fn('acquired')(function* <S extends Any, C extends Any, 
             Stream.runHead,
         ),
         Effect.flatMap(Deferred.await(live.verdict), (over) => refused(verdictText(limit, instance.pid)(over))),
-    ).pipe(Effect.timeoutOrElse({ duration: limit, orElse: () => Effect.flatMap(sampled(instance.pid, path.join(scratch, `${instance.pid}.sample.txt`)), (sample) => refused(`instance ${instance.pid} shows no responding state within ${Duration.format(limit)}, sample ${sample}, left running`)) }));
+    ).pipe(Effect.timeoutOrElse({ duration: limit, orElse: () => Effect.flatMap(Effect.all([sampled(instance.pid, path.join(scratch, `${instance.pid}.sample.txt`)), SubscriptionRef.get(live.state)]), ([sample, state]) => refused(`instance ${instance.pid} ${described(state)} past ${Duration.format(limit)}, sample ${sample}, left running`)) }));
     return { live, shared };
 });
+const openedIn = <S extends Any, C extends Any, E extends Any, P>(host: Host<S, C, E, P>, live: Live, limit: Duration.Duration) =>
+    host.opened(live).pipe(
+        Effect.timeoutOrElse({
+            duration: limit,
+            orElse: () => Effect.flatMap(sampled(live.pid, `${live.scratch}/${live.pid}.sample.txt`), (sample) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `instance ${live.pid} opened nothing past ${Duration.format(limit)}, sample ${sample}, left running` }, subject: live.chosen.name })),
+        }),
+    );
 const batchIn = Effect.fn('batchIn')(function* <S extends Any, C extends Any, E extends Any, P>(host: Host<S, C, E, P>, live: Live, batch: (records: string) => Batch<S['Type'], C['Type']>, folders: readonly string[], presses: readonly (readonly string[])[], limit: Duration.Duration) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const records = path.join(yield* fs.makeTempDirectoryScoped({ directory: live.scratch, prefix: 'batch-' }), 'records.jsonl');
@@ -323,7 +352,7 @@ const batchIn = Effect.fn('batchIn')(function* <S extends Any, C extends Any, E 
             Effect.flatMap(Deferred.await(live.verdict), (over) => HarnessError.make({ reason: { _tag: 'Unavailable', because: verdictText(limit, live.pid)(over) }, subject: `process ${live.pid}` })),
         ),
     );
-    const [held, notes, verdict] = yield* Effect.all([host.records(live, records, Result.getSuccess(reply)), Ref.get(live.notes), Effect.flatMap(Deferred.poll(live.verdict), Effect.transposeOption)]);
+    const [held, notes, verdict] = yield* Effect.all([recordsOf(host.Recorded)(records), Ref.get(live.notes), Effect.flatMap(Deferred.poll(live.verdict), Effect.transposeOption)]);
     return { reply, ...held, notes, verdict } satisfies Ran<S['Type']>;
 }, Effect.scoped);
 const surveyIn = Effect.fn('surveyIn')(function* <S extends Any, C extends Any, E extends Any, P>(host: Host<S, C, E, P>, live: Live, label: string, opened: Option.Option<Schema.Json>, limit: Duration.Duration) {
@@ -364,6 +393,22 @@ const quitted = Effect.fn('quitted')(function* <S extends Any, C extends Any, E 
         }),
     });
 }, Effect.scoped);
+const ranIn = Effect.fnUntraced(function* <S extends Any, C extends Any, E extends Any, P>(host: Host<S, C, E, P>, live: Live, label: string, survey: S['Type'], opened: Option.Option<Schema.Json>, rest: readonly Prepared<C['Type']>[], limit: Duration.Duration) {
+    const ran = yield* batchIn(
+        host,
+        live,
+        (records) => ({ records, label, survey: Option.some(survey), opened, cases: rest.map(({ hosted }) => hosted) }),
+        rest.map(({ folder }) => folder),
+        rest.map(({ presses }) => presses),
+        limit,
+    );
+    const outcomes = yield* finishedIn(live, rest, ran, limit);
+    const failed = yield* Option.match(ran.verdict, {
+        onSome: (over) => Effect.succeedSome(verdictText(limit, live.pid)(over)),
+        onNone: () => Option.match(Result.getFailure(ran.reply), { onSome: (error) => Effect.succeedSome(error.message), onNone: () => (live.launched ? quitted(host, live, limit) : Effect.succeedNone) }),
+    });
+    return { header: Result.getSuccess(ran.reply), failed, answered: ran.notes.filter(({ index }) => Option.isNone(index)).map(({ answered }) => answered), outcomes };
+});
 const execute = Effect.fn('execute')(function* <S extends Any, C extends Any, E extends Any, P, L extends Plan<C['Type'], E['Type']>>(
     host: Host<S, C, E, P>,
     chosen: Installed,
@@ -380,9 +425,12 @@ const execute = Effect.fn('execute')(function* <S extends Any, C extends Any, E 
         Option.zipWith(known, draft, (survey, plan): Done<S['Type'], C['Type'], E['Type'], L> => ({ survey, opened: Option.none(), plan, header: Option.none(), shared: [], failed: Option.none(), answered: [], outcomes: [] })),
         ({ plan }) => plan.sendable.length === 0,
     );
+    const windowedOf = (name: string) => authored.cases.some((row) => row.name === name && host.windowed(authored, row));
     const launched = Effect.fnUntraced(function* () {
-        const { live, shared } = yield* acquired(host, chosen, scratch, limit, authored);
-        const opened = yield* host.opened(live);
+        const names = Option.match(draft, { onNone: () => authored.cases.map(({ name }) => name), onSome: ({ sendable }) => sendable.map(({ name }) => name) });
+        const windowed = Option.exists(Array.head(names), windowedOf);
+        const { live, shared } = yield* acquired(host, chosen, scratch, limit, windowed);
+        const opened = yield* openedIn(host, live, limit);
         const confirming = (held: S['Type']) => Option.match(opened, { onNone: () => true, onSome: (state) => Option.exists(host.survey.host(held), (fact) => same(fact, state)) });
         const confirmed = Option.filter(known, confirming);
         const survey = yield* Option.match(confirmed, { onSome: Effect.succeed, onNone: () => surveyIn(host, live, label, opened, limit) });
@@ -390,22 +438,41 @@ const execute = Effect.fn('execute')(function* <S extends Any, C extends Any, E 
             Option.filter(draft, () => Option.isSome(confirmed)),
             { onSome: Effect.succeed, onNone: () => planned(survey) },
         );
-        const rest = plan.sendable;
-        const cases = rest.map(({ hosted }) => hosted);
-        const ran = yield* batchIn(
-            host,
-            live,
-            (records) => ({ records, label, survey: Option.some(survey), opened, cases }),
-            rest.map(({ folder }) => folder),
-            rest.map(({ presses }) => presses),
-            limit,
+        const first: Finished<S['Type']> = { ...(yield* ranIn(host, live, label, survey, opened, plan.sendable.filter(({ name }) => windowedOf(name) === windowed), limit)), shared };
+        const second = yield* Array.match(
+            plan.sendable.filter(({ name }) => windowedOf(name) !== windowed),
+            {
+                onEmpty: () => Effect.succeedNone,
+                onNonEmpty: (apart) =>
+                    Effect.asSome(
+                        Option.match(first.failed, {
+                            onSome: (failed) =>
+                                Effect.map(
+                                    Effect.forEach(apart, ({ name }) => Effect.orDie(Schema.decodeEffect(Outcome)({ name, completion: { _tag: 'Failed', reason: `not run, ${failed}` } }))),
+                                    (outcomes): Finished<S['Type']> => ({ header: Option.none(), shared: [], failed: Option.none(), answered: [], outcomes }),
+                                ),
+                            onNone: () =>
+                                Effect.scoped(
+                                    Effect.gen(function* () {
+                                        const other = yield* acquired(host, chosen, scratch, limit, !windowed);
+                                        return { ...(yield* ranIn(host, other.live, label, survey, yield* openedIn(host, other.live, limit), apart, limit)), shared: other.shared } satisfies Finished<S['Type']>;
+                                    }),
+                                ),
+                        }),
+                    ),
+            },
         );
-        const outcomes = yield* finishedIn(live, rest, ran, limit);
-        const failed = yield* Option.match(ran.verdict, {
-            onSome: (over) => Effect.succeedSome(verdictText(limit, live.pid)(over)),
-            onNone: () => Option.match(Result.getFailure(ran.reply), { onSome: (error) => Effect.succeedSome(error.message), onNone: () => (live.launched ? quitted(host, live, limit) : Effect.succeedNone) }),
-        });
-        return { survey, opened, plan, header: Result.getSuccess(ran.reply), shared, failed, answered: ran.notes.filter(({ index }) => Option.isNone(index)).map(({ answered }) => answered), outcomes } satisfies Done<S['Type'], C['Type'], E['Type'], L>;
+        const ran = [first, ...Option.toArray(second)];
+        return {
+            survey,
+            opened,
+            plan,
+            header: Option.firstSomeOf(ran.map(({ header }) => header)),
+            shared: Array.dedupe(ran.flatMap(({ shared: held }) => held)),
+            failed: Array.match(Array.getSomes(ran.map(({ failed }) => failed)), { onEmpty: Option.none, onNonEmpty: (held) => Option.some(held.join('; ')) }),
+            answered: ran.flatMap(({ answered }) => answered),
+            outcomes: ran.flatMap(({ outcomes }) => outcomes),
+        } satisfies Done<S['Type'], C['Type'], E['Type'], L>;
     }, Effect.scoped);
     const done = yield* Option.match(idle, { onSome: Effect.succeed, onNone: launched });
     const written = yield* writtenIn(host, done.plan.sendable);
@@ -414,4 +481,4 @@ const execute = Effect.fn('execute')(function* <S extends Any, C extends Any, E 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Any, type Batch, type Decoding, type Digest, type Done, type Entry, execute, type Header, type Host, type Installed, installations, type Launched, type Live, type Plan, type Prepared, type Rebuilt, type Records, recorded, type Services };
+export { type Any, type Batch, type Decoding, type Digest, type Done, type Entry, execute, type Header, type Host, type Installed, installation, installations, type Launched, type Live, type Plan, type Prepared, type Rebuilt, type Records, type Services };

@@ -23,8 +23,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - SwiftPM takes its scratch path from `SWIFTPM_BUILD_DIR` over `--scratch-path` and reads it from no file
 - SwiftPM writes `.build/` in the working folder when neither is set, `--help` included
 - `SWIFTPM_BUILD_DIR` holds an absolute path in `mise.toml` `[env]`, SwiftPM resolves a relative one against the working folder
-- `sourcekit-lsp` reads `swiftPM.scratchPath` and its `swift build` preparation reads `SWIFTPM_BUILD_DIR`, argus sets both to one folder
-- VS Code Swift settings expand no variable, the extension reads mise `SWIFTPM_BUILD_DIR` from the environment `code` starts with
+- `sourcekit-lsp` reads `swiftPM.scratchPath` and its `swift build` preparation reads `SWIFTPM_BUILD_DIR`, each client sets both to one folder
 - SwiftPM locks its scratch path until the command exits, last test included, each SwiftPM target takes `parallelism: false`
 - `test:integration` takes its own `SWIFTPM_BUILD_DIR` so a hung GUI case blocks no build, every other SwiftPM target shares the mise folder
 - `swift test` stdout buffers until exit off a TTY, the `events.jsonl` beside attachments streams one flushed record per event for one test product

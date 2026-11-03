@@ -12,16 +12,17 @@ Each adapter states one transformation, and a pipeline reads top to bottom as th
 |  [04]   | Join keys across a sorted pair         | `merge_join_by`                                 |
 |  [05]   | Merge many sorted sequences            | `kmerge_by`                                     |
 |  [06]   | Keep the `k` least by a key            | `k_smallest_relaxed_by_key`                     |
-|  [07]   | Take the one item a filter leaves      | `exactly_one`                                   |
+|  [07]   | Take the one item a filter leaves      | `exactly_one`, `collect_array::<N>` for `N`     |
 |  [08]   | Chain iterables passed as arguments    | `iter::chain`                                   |
 |  [09]   | Group items into `[T; N]` and back     | `array_chunks`, `as_chunks`, `Vec::into_chunks` |
-|  [10]   | Split tuples into a collection each    | `multiunzip`                                    |
+|  [10]   | Split tuples into a collection each    | `collect::<(Vec<_>, Vec<_>)>()`                 |
 |  [11]   | Collect at least one item or none      | `try_into_nonempty_iter`                        |
 |  [12]   | Join items into text                   | `format`                                        |
 |  [13]   | Build a `Vec` from each index          | `Vec::from_fn`                                  |
 |  [14]   | Join arms yielding different iterators | `Either`, `iter::once` for a single item        |
 |  [15]   | Apply one step to a fixed set          | `[left, right].map`, `try_map`                  |
 |  [16]   | Pair each item with every later one    | `array_combinations::<2>`                       |
+|  [17]   | Walk iterables in lockstep             | `izip!` yielding one flat tuple                 |
 
 Gaps in a sorted series fill in one flat expression:
 
@@ -79,7 +80,7 @@ pub fn fingerprints(blobs: &[Blob]) -> Validated<Vec<Fingerprint>, StoreError> {
 }
 ```
 
-Every blob runs to its outcome, successes keep input order, and failures join in completion order and each names its blob, a failure list read in input order collecting into a `Vec` first, then sequentially into `Validated`. Parallel inputs take `IntoParallelIterator<Item = T, Iter: IndexedParallelIterator>`, keeping order and length. Parallel steps read their item and shared immutable values alone, and a scratch buffer a step reuses comes from `map_init`, one per job. Seeded results stay independent of scheduling through one generator per job, each `rng.fork()` taken sequentially ahead of `into_par_iter`, or `set_stream(job)` over one seed. `fold_chunks` folds fixed-size runs for a result no split decides. `walk_tree_prefix` and `walk_tree_postfix` walk a tree from its root and a children closure. Grid kernels take an `ArrayView` generic over `D: Dimension`, and one `Zip::par_map_collect` serves a profile, a plane, and a volume:
+Every blob runs to its outcome, successes keep input order, and failures join in completion order and each names its blob, a failure list read in input order collecting into a `Vec` first, then sequentially into `Validated`. Parallel inputs take `IntoParallelIterator<Item = T, Iter: IndexedParallelIterator>`, keeping order and length. Pairs of independent CPU results run through `rayon::join`, each side lifted into `Validated` and joined by `map2`. Parallel steps read their item and shared immutable values alone, and a scratch buffer a step reuses comes from `map_init`, one per job. Seeded results stay independent of scheduling through one generator per job, each `rng.fork()` taken sequentially ahead of `into_par_iter`, or `set_stream(job)` over one seed. `fold_chunks` folds fixed-size runs for a result no split decides. `walk_tree_prefix` and `walk_tree_postfix` walk a tree from its root and a children closure. Grid kernels take an `ArrayView` generic over `D: Dimension`, and one `Zip::par_map_collect` serves a profile, a plane, and a volume:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,5 +1,4 @@
 import { Field, Method, ObjectModel } from '@rasm/automation/requests';
-import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cache, Effect, Option, Predicate, Record, Struct } from 'effect';
 import { undeclared } from '#/dom/dictionary';
@@ -7,12 +6,11 @@ import { Model } from '#/dom/model';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const objectModel = Effect.fn('objectModel')(function* ({ name: given }: ObjectModel) {
+const objectModel = Effect.fn('objectModel')(function* (payload: ObjectModel) {
     const model = yield* Model;
     const { classes, enumerations, enumeration, rows, lineage, members } = model;
-    const { Index, Class, Enumeration } = ObjectModel.Result.cases;
-    const declaration = Effect.fnUntraced(function* (query: string) {
-        const name = yield* Unmatched.single([...classes, ...enumerations], 'class or enumeration', Option.some(query), Array.of);
+    const { Class, Enumeration } = ObjectModel.Result.cases;
+    const declaration = Effect.fnUntraced(function* (name: string) {
         const row = yield* Effect.catchTag(Effect.asSome(Cache.get(rows, name)), 'Unmatched', () => Effect.succeedNone);
         const { fields, methods, statics } = Option.getOrElse(row, () => ({ fields: {}, methods: {}, statics: {} }));
         const type: unknown = Reflect.get(model, name);
@@ -30,7 +28,7 @@ const objectModel = Effect.fn('objectModel')(function* ({ name: given }: ObjectM
                 ),
         });
     });
-    return yield* Option.match(given, { onNone: () => Effect.succeed(Index.make({ classes, enumerations })), onSome: declaration });
+    return yield* payload.describe(classes, enumerations, declaration);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

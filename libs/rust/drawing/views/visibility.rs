@@ -77,7 +77,7 @@ pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolera
                 })
                 .collect_array::<2>()
                 .filter(|_| corners.iter().any(|&(_, side)| side > flush) && corners.iter().any(|&(_, side)| side < -flush))
-                .map(|[from, to]| [cmp::min_by(from, to, order), cmp::max_by(from, to, order)])
+                .map(|[from, to]| cmp::minmax_by(from, to, order))
         };
         let [enter, leave] = span(left_corners, right_anchor, right_normal)?;
         let [entering, leaving] = span(right_corners, left_anchor, left_normal)?;
@@ -88,7 +88,7 @@ pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolera
     let meetings = assembly
         .traverse_bvtt_single_tree_parallel::<false>()
         .into_iter()
-        .map(|(left, right)| [left.min(right), left.max(right)])
+        .map(|(left, right)| cmp::minmax(left, right))
         .chain(assembly.leaves(|node| overlapping(node, node)).map(|leaf| [leaf, leaf]))
         .filter_map(|[left, right]| Some((left, &scene.bodies.get(left as usize)?.mesh, right, &scene.bodies.get(right as usize)?.mesh)))
         .collect::<Vec<_>>()

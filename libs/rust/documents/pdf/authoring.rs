@@ -1,5 +1,5 @@
 use core::{borrow::Borrow, iter};
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 
 use fontdb::Database;
 use jiff::{SignedDuration, Zoned};
@@ -23,15 +23,11 @@ use rasm_linework::{
     Tolerance, Visibility,
     pages::{self, Destination, Link, Page},
 };
-use uom::si::{
-    f64::Length,
-    length::{inch, millimeter},
-};
 use validated::Validated;
 
 use self::{content::Drawing, standards::Standards, tagging::Leaves};
 use crate::{
-    Document, POINTS_PER_INCH, PdfError, Resolution, Subject,
+    Document, PdfError, Resolution, Subject,
     layers::{self, Group},
     measurement,
     navigation::{self, Navigation},
@@ -44,7 +40,7 @@ pub struct Options {
     pub metadata: Metadata,
     pub created: Zoned,
     pub standards: Standards = Standards { .. },
-    pub navigation: Option<Navigation> = None,
+    pub navigation: Navigation = Navigation { .. },
     pub attachments: Vec<EmbeddedFile> = Vec::new(),
     pub fonts: Arc<Database>,
     pub resolution: Option<Resolution> = None,
@@ -59,12 +55,12 @@ where I: IntoNonEmptyIterator<Item: Borrow<Page>> {
     let sheets = held.iter().map(Borrow::<Page>::borrow).collect::<Vec<_>>();
     let settings = standards::settings(&options.standards)?;
     let layered = settings.configuration.version() >= PdfVersion::Pdf15;
-    let labels = options.navigation.as_ref().map_or(&[][..], |stated| stated.labels.as_slice());
-    let (count, scale) = (sheets.len(), points_per_millimeter());
+    let labels = &options.navigation.labels;
+    let (count, scale) = (sheets.len(), crate::points_per_millimeter());
     let annotation = |link: &Link| {
         let area = link.area.abs().scale_from_origin(scale);
         let quad = geom::Rect::from_ltrb(area.x0.cast::<f32>(), area.y0.cast::<f32>(), area.x1.cast::<f32>(), area.y1.cast::<f32>())
-            .ok_or_else(|| pdf_oxide::Error::InvalidOperation(format!("link area {} by {} holds no bounds", area.width(), area.height())))?;
+            .ok_or(PdfError::Area(link.area))?;
         let (target, alt) = match &link.destination {
             Destination::Uri(uri) => (Target::Action(LinkAction::new(uri.to_string()).into()), uri.to_string()),
             Destination::Page { index, area: anchor } => {
@@ -176,23 +172,17 @@ fn closed(document: krilla::Document, sheets: &[&Page], groups: &[Vec<Group>], o
         layers::bind(&mut structure, groups, standards::forbids(&options.standards))?;
     }
     measurement::write(&mut structure, sheets.iter().copied())?;
-    navigation::write(&mut structure, &options.navigation.as_ref().map_or_default(Cow::Borrowed))?;
+    navigation::write(&mut structure, &options.navigation)?;
     let identifiers = structure.page_iter().collect::<Vec<_>>();
     iter::zip(identifiers, sheets).try_for_each(|(identifier, sheet)| crate::write_fields(&mut structure, identifier, &sheet.fields, &options.created))?;
     standards::close(&mut structure, &options.standards)?;
-    let mut bytes = Vec::new();
-    structure.save_to(&mut bytes).map_err(lopdf::Error::from)?;
-    Document::new(bytes, None)
+    crate::saved(structure)
 }
 
 fn dimensioned(paper: Size) -> Result<(PageSettings, geom::Size), PdfError> {
-    let scale = points_per_millimeter();
-    let (width, height) = (paper.width * scale, paper.height * scale);
-    let size = content::extent(width.cast::<f32>(), height.cast::<f32>())?;
+    let size = crate::extent(paper * crate::points_per_millimeter())?;
     Ok((PageSettings::new(size).with_trim_box(geom::Rect::from_xywh(0.0, 0.0, size.width(), size.height())), size))
 }
-
-fn points_per_millimeter() -> f64 { Length::new::<millimeter>(1.0).get::<inch>() * POINTS_PER_INCH }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

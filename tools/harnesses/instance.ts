@@ -80,7 +80,7 @@ const Launch = Effect.fn('Launch')(function* (spec: Launch) {
         Option.filter(Array.last(states), ({ state }) => !State.guards.Launching(state)),
         {
             onNone: () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `launch ended at ${states.map(({ pid, state }) => `${pid} ${state._tag}`).join(', ') || 'no state'}` }, subject: spec.app }),
-            onSome: (row) => Effect.succeed({ ...row, launched: states.some(({ state }) => State.guards.Launching(state)) }),
+            onSome: Effect.succeed,
         },
     );
 }, Effect.scoped);
@@ -100,7 +100,7 @@ const spawned = Effect.fn('spawned')(function* (identifier: string, spec: Spawne
         }),
     );
     const alive: typeof State.Type = { _tag: 'Responding', elements: [], windows: [] };
-    return { identifier, pid: handle.pid, state: alive, launched: true, rows: Stream.fromEffect(Effect.map(exited, (state): Row => ({ identifier, pid: handle.pid, state }))) };
+    return { identifier, pid: handle.pid, state: alive, rows: Stream.fromEffect(Effect.map(exited, (state): Row => ({ identifier, pid: handle.pid, state }))) };
 });
 const read = (names: Array.NonEmptyReadonlyArray<string>) => Effect.scoped(Effect.flatMap(rows(['read', ...names]), Stream.runCollect));
 const watch = (names: Array.NonEmptyReadonlyArray<string>, pid: number) => Stream.filter(Stream.unwrap(rows(['watch', ...names])), (row) => row.identifier !== names[0] || row.pid === pid);

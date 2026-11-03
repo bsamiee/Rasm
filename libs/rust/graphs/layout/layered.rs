@@ -126,8 +126,8 @@ where
         layered.set_edge_with_label(title.as_str(), member, EdgeLabel { weight: 1.0, ..EdgeLabel::default() });
     }
     let edge_label = |Label { extent, labelpos, labeloffset }: Label| {
-        let (Size { width, height }, defaults) = (extent.into_inner(), EdgeLabel::default());
-        EdgeLabel { width, height, labelpos: labelpos.unwrap_or(defaults.labelpos), labeloffset: labeloffset.map_or(defaults.labeloffset, Distance::into_inner), ..defaults }
+        let (Size { width, height }, edge_defaults) = (extent.into_inner(), EdgeLabel::default());
+        EdgeLabel { width, height, labelpos: labelpos.unwrap_or(edge_defaults.labelpos), labeloffset: labeloffset.map_or(edge_defaults.labeloffset, Distance::into_inner), ..edge_defaults }
     };
     for &(index, source, target, Edge { label, minlen, weight, interpolation: _ }) in &ranked {
         layered.set_edge_named(id(non_cluster(source)), id(non_cluster(target)), Some(id(index)), Some(EdgeLabel { minlen, weight: f64::from(weight), ..label.map_or_default(edge_label) }));
@@ -153,15 +153,15 @@ where
         .iter()
         .filter_map(|&(index, source, target, Edge { label, minlen: _, weight: _, interpolation })| {
             let (tail, head) = (non_cluster(source), non_cluster(target));
-            let edge_label = layered.edge(&id(tail), &id(head), Some(id(index).as_str()))?;
+            let laid = layered.edge(&id(tail), &id(head), Some(id(index).as_str()))?;
             let (((source_frame, source_shape), (target_frame, target_shape)), ((tail_frame, _), (head_frame, _))) = shaped(source).zip(shaped(target)).zip(shaped(tail).zip(shaped(head)))?;
-            let bends = edge_label.points.iter().map(|&dugong::Point { x, y }| Point::new(x, y)).dropping(1).dropping_back(1);
+            let bends = laid.points.iter().map(|&dugong::Point { x, y }| Point::new(x, y)).dropping(1).dropping_back(1);
             let points = iter::once(tail_frame.center()).chain(bends).chain(iter::once(head_frame.center())).collect::<Vec<_>>();
             Some((
                 index,
                 (
                     path(interpolation, &clipped(&points, &outline(source_shape, source_frame), &outline(target_shape, target_frame))),
-                    label.zip(edge_label.x.zip(edge_label.y)).map(|(Label { extent, labelpos: _, labeloffset: _ }, center)| Rect::from_center_size(center, extent.into_inner())),
+                    label.zip(laid.x.zip(laid.y)).map(|(Label { extent, labelpos: _, labeloffset: _ }, center)| Rect::from_center_size(center, extent.into_inner())),
                 ),
             ))
         })

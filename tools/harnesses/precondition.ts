@@ -1,6 +1,6 @@
-import { Match, Option, Record, Schema, SchemaGetter } from 'effect';
+import { Effect, FileSystem, Match, Option, Path, type PlatformError, Predicate, Record, Schema, SchemaGetter } from 'effect';
 import { Enumerated } from '#/results';
-import { JsonObject } from '#/values';
+import { JsonObject, Tagged } from '#/values';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -39,7 +39,7 @@ const placing = <P extends Schema.Top, S extends Schema.Top & Schema.Decoder<unk
 const tags = (value: Schema.Json): readonly string[] =>
     Match.value(value).pipe(
         Match.when(Schema.is(Schema.Array(Schema.Json)), (items) => items.flatMap(tags)),
-        Match.when(Schema.is(Schema.Struct({ $: Schema.String })), ({ $ }) => [$]),
+        Match.when(Schema.is(Tagged), ({ $ }) => [$]),
         Match.when(Schema.is(JsonObject), (held) => Object.values(held).flatMap(tags)),
         Match.orElse(() => []),
     );
@@ -57,9 +57,16 @@ const member = (enumeration: string, names: readonly string[]) =>
     Schema.Literals(names)
         .pipe(Schema.decodeTo(Enumerated, { decode: SchemaGetter.transform((name) => ({ $: `enum:${enumeration}.${name}` as const })), encode: SchemaGetter.forbiddenEncoding }))
         .annotate({ description: `${enumeration} member the host declares` });
+const opens = (document: unknown): document is { readonly open: string } => Predicate.hasProperty(document, 'open') && Predicate.isString(document.open);
+const copied = Effect.fn('copied')(function* <P extends { readonly documents: readonly unknown[] }>(decoded: P, folder: string, product: string) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const copy = (open: string) => path.join(folder, path.basename(open));
+    const documents = yield* Effect.forEach(decoded.documents, (document): Effect.Effect<unknown, PlatformError.PlatformError> => (opens(document) ? Effect.as(fs.copyFile(path.join(product, document.open), copy(document.open)), { ...document, open: copy(document.open) }) : Effect.succeed(document)));
+    return { precondition: { ...decoded, documents }, copies: decoded.documents.filter(opens).map(({ open }) => path.join(product, open)) };
+});
 const placings = <P extends Schema.Top, D extends Schema.Top & Schema.Decoder<unknown>, O extends Schema.Top & Schema.Decoder<unknown>, A extends Schema.Top & Schema.Decoder<unknown>>(Placed: P, sources: Sources<D, O, A>, made: Placings<P, D, O, A>) =>
     Schema.Union([placing(Placed, sources.document, made.document), placing(Placed, sources.open, made.open), placing(Placed, sources.application, made.application)]);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, enumerators, many, member, merged, placing, placings, tags };
+export { Application, copied, enumerators, many, member, merged, placing, placings, tags };

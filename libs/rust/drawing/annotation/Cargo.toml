@@ -4,7 +4,7 @@
 name                 = "rasm-annotation"
 version.workspace    = true
 edition.workspace    = true
-description          = "Annotation every Rasm drawing set composes on rasm-linework: text set from caller fonts into glyph runs and outlines, length and angle notation over uom quantities, dimensions, leaders, marks, SVG symbols with text slots, legends and tables, each with its text mask"
+description          = "Annotation every Rasm drawing set composes on rasm-linework: rich text set from caller fonts into glyph runs and outlines, length, angle, area and slope notation over uom quantities and exact decimals, dimensions and feature control frames, leaders, marks, SVG symbols with text slots, legends and tables, each with its masks"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["drawing", "annotation", "dimension", "typesetting", "cad"]
@@ -31,6 +31,7 @@ enum-map                   = { workspace = true }
 itertools                  = { workspace = true }
 nutype                     = { workspace = true }
 uom                        = { workspace = true }
+rust_decimal               = { workspace = true }
 color                      = { workspace = true }
 colorgrad                  = { workspace = true }
 fontdb                     = { workspace = true }

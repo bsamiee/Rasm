@@ -8,8 +8,7 @@ use pdf_oxide::{
 };
 use reqwest::{Url, blocking::Client, header::CONTENT_TYPE};
 
-use super::{entry, resolved};
-use crate::{Document, PdfError};
+use crate::{Document, PdfError, entry, resolved};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -145,11 +144,10 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
         let identifier = tagged(SEQUENCE, &tagged(OBJECT_IDENTIFIER, algorithm.oid()));
         let request = tagged(SEQUENCE, &[tagged(INTEGER, &[1]), tagged(SEQUENCE, &[identifier, tagged(OCTET_STRING, &imprint)].concat()), tagged(BOOLEAN, &[0xFF])].concat());
         let response = authority.client.post(authority.url.clone()).header(CONTENT_TYPE, "application/timestamp-query").body(request).send()?.error_for_status()?.bytes()?;
-        let malformed = || PdfError::from(pdf_oxide::Error::InvalidPdf(String::from("timestamp response holds no status and token")));
         let stamp = match element(&response).and_then(|(_, body, _)| element(body)).and_then(|(_, information, rest)| element(information).map(|(_, status, _)| (status, rest))) {
-            Some(([0 | 1], rest)) => element(rest).map(|(whole, _, _)| whole).ok_or_else(malformed),
-            Some(([status], _)) => Err(PdfError::Timestamp(*status)),
-            Some(_) | None => Err(malformed()),
+            Some(([0 | 1], rest)) => element(rest).map(|(whole, _, _)| whole).ok_or(PdfError::Timestamp(None)),
+            Some(([status], _)) => Err(PdfError::Timestamp(Some(*status))),
+            Some(_) | None => Err(PdfError::Timestamp(None)),
         }?;
         (Timestamp::from_der(stamp)?.message_imprint_ref() == imprint).ok_or(PdfError::Imprint).map(|()| stamp.to_vec())
     }

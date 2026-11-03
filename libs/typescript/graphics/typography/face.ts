@@ -53,7 +53,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         variations: TagSettings(Variation, 'HarfBuzz tag=value over selected instance, clamped to axis range, absent axes ignored'),
         size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
     });
-    static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: typeof Source.Type, { variations, size }: typeof Face.Instance.Type) {
+    static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: typeof Source.Type, { variations, size }: typeof Face.Instance.Type = Face.Instance.make({})) {
         const container = yield* Effect.try({ try: () => create(Buffer.from(data.buffer, data.byteOffset, data.byteLength)), catch: (cause) => TypographyError.make({ subject: `${data.byteLength} font bytes`, cause }) });
         const unsupported = ({ type }: { readonly type: string }) => Effect.fail(new Cause.IllegalArgumentError(`${type} unsupported`));
         const fonts = yield* Match.value(container).pipe(
@@ -69,6 +69,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             const axisInfos = Object.values(handle.getAxisInfos());
             const postscriptName = names.named('postscriptName');
             return {
+                index,
                 parsed,
                 tables: decoded,
                 handle,
@@ -79,7 +80,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             };
         });
         const rows = faces.flatMap((face) => [face.base, ...face.instances].map((row) => ({ face, ...row })));
-        const namedRow = Option.flatMap(selection, (wanted) => Array.findFirst(rows, ({ keys }) => Array.contains(keys, wanted)));
+        const namedRow = Option.flatMap(selection, (wanted) => Array.findFirst(rows, ({ keys }) => Array.containsWith(Unmatched.named)(keys, wanted)));
         const generated = Effect.fnUntraced(function* (wanted: string) {
             const { prefix, variations: decoded } = yield* Schema.decodeUnknownEffect(Names.Generated)(wanted);
             const face = yield* Effect.fromOption(Array.findFirst(faces, (each) => Option.contains(each.names.prefix, prefix) && Array.isReadonlyArrayEmpty(Array.difference(Record.keys(decoded), Record.keys(each.base.variations)))));
@@ -88,7 +89,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         const { face: chosen, variations: selectedVariations } = yield* Option.match(selection, {
             onNone: () =>
                 Effect.map(
-                    Unmatched.single(faces, 'face in collection', Option.none(), ({ base }) => base.keys),
+                    Unmatched.single(faces, 'face in collection', Option.none(), ({ base, index }) => [Option.getOrElse(base.names.postscriptName, () => `face ${index}`)]),
                     (face) => ({ face, variations: face.base.variations }),
                 ),
             onSome: (wanted) => Effect.mapError(Option.match(namedRow, { onNone: () => generated(wanted), onSome: Effect.succeed }), () => Unmatched.make({ subject: 'face or instance', query: selection, candidates: Array.getSomes(rows.map(flow(Struct.get('names'), Struct.get('postscriptName')))) })),

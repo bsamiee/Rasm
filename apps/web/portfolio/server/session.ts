@@ -29,6 +29,7 @@ const authorize = (email: string) =>
         (current) => current === 'owner',
         () => HttpApiError.Forbidden.make(),
     );
+const sessionScoped = HttpServerResponse.setHeader('Cache-Control', 'private, no-store');
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -47,11 +48,11 @@ const owner = (email: string) =>
                         Effect.andThen(authorize(email)),
                         Effect.provideService(SqlClient.SqlClient, sql),
                         Effect.andThen(effect),
-                        Effect.map(HttpServerResponse.setHeader('Cache-Control', 'private, no-store')),
+                        Effect.map(sessionScoped),
                     ),
         ),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { authorize, owner, session };
+export { authorize, owner, session, sessionScoped };

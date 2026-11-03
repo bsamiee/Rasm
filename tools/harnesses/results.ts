@@ -1,5 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Expression } from '#/cases';
+import { HarnessError } from '#/error';
 import { JsonObject } from '#/values';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -80,6 +81,10 @@ const hostCase = <S extends Schema.Struct.Fields>(shared: S) =>
         Probe: { ...shared, evaluate: Expression },
     });
 const reply = <H extends Schema.Top>(header: H) => Schema.fromJsonString(Schema.Union([header, Schema.Struct({ failed: Schema.String.annotate({ description: 'Batch failure before or around the cases' }) })])).annotate({ description: 'Engine answer to one batch, case outcomes sitting in the records file' });
+const replied =
+    (subject: string) =>
+    <H extends object>(answer: H | { readonly failed: string }): Effect.Effect<H, HarnessError> =>
+        'failed' in answer ? Effect.fail(HarnessError.make({ reason: { _tag: 'Unavailable', because: String(answer.failed) }, subject })) : Effect.succeed(answer);
 const record = <O extends Schema.Top>(held: O) => Schema.fromJsonString(Schema.TaggedUnion({ Started: { index: Schema.Int }, Finished: { outcome: held } })).annotate({ description: 'Records line the engine appends before each case and after it' });
 const Outcome = Schema.StructWithRest(outcome({}), [Schema.Record(Schema.String, Schema.Unknown)]).annotate({ description: 'Outcome of any host, host-only fields kept as they were recorded' });
 const results = <E extends Schema.Top, H extends Schema.Struct.Fields, O extends Schema.Top>(engine: E, header: H, held: O) =>
@@ -101,4 +106,4 @@ const results = <E extends Schema.Top, H extends Schema.Struct.Fields, O extends
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answer, Answered, Common, Compare, Completion, Crash, Dialog, Enumerated, Hang, hostCase, Outcome, outcome, Pid, record, recorded, reply, results, Source };
+export { Answer, Answered, Common, Compare, Completion, Crash, Dialog, Enumerated, Hang, hostCase, Outcome, outcome, Pid, record, recorded, replied, reply, results, Source };

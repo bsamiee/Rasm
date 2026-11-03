@@ -1,10 +1,11 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { compare as comparePep440, valid } from '@renovatebot/pep440';
-import { Array, Cause, Effect, Exit, FileSystem, flow, Option, Order, Path, Record, Schema, String, Tuple } from 'effect';
+import { Array, Cause, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, String, Tuple } from 'effect';
 import { parse as parseToml } from 'smol-toml';
 import { compare, compareMain, getPrerelease, isValid } from 'verkit';
 import { parse as parseYaml } from 'yaml';
+import { accumulate } from '#/eng/typescript/accumulate';
 import { stdout } from '#/eng/typescript/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -82,10 +83,8 @@ const downgrades = Effect.fn('downgrades')(function* (file: string, lock: (typeo
 Effect.gen(function* () {
     const path = yield* Path.Path;
     const tracked = Array.groupBy((yield* stdout('git', ['ls-files', '--cached', '-z', '--', ...Object.keys(LOCKS).map((name) => `:(glob)**/${name}`)])).split('\0').filter(String.isNonEmpty), (file) => path.basename(file));
-    const exits = yield* Effect.forEach(
+    return yield* accumulate(
         Object.entries(LOCKS).flatMap(([name, lock]) => (tracked[name] ?? []).map((file) => Tuple.make(file, lock))),
-        ([file, lock]) => Effect.exit(downgrades(file, lock)),
-        { concurrency: 'unbounded' },
+        ([file, lock]) => downgrades(file, lock),
     );
-    return yield* Exit.asVoidAll(exits);
 }).pipe(Effect.provide(layer), runMain);

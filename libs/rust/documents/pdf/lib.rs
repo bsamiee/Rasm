@@ -269,6 +269,12 @@ fn saved(mut structure: lopdf::Document) -> Result<Document, PdfError> {
     Document::new(bytes, None)
 }
 
+fn extent(size: Size) -> Result<krilla::geom::Size, PdfError> { krilla::geom::Size::from_wh(size.width.cast::<f32>(), size.height.cast::<f32>()).ok_or(PdfError::Area(size.to_rect())) }
+
+fn embedded(document: &Document) -> Result<krilla::pdf::PdfDocument, PdfError> {
+    krilla::pdf::Pdf::new(Arc::new(document.data().clone())).ok().map(|source| krilla::pdf::PdfDocument::new(Arc::new(source))).ok_or(PdfError::Load(LoadPdfError::Invalid))
+}
+
 fn page(document: &Document, index: usize) -> Result<&Page<'_>, PdfError> {
     let pages = document.pages();
     pages.get(index).ok_or(PdfError::Page { index, count: pages.len() })

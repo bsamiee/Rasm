@@ -7,7 +7,7 @@ use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
     visit::{EdgeRef as _, NodeIndexable as _},
 };
-use rustworkx_core::dag_algo::lexicographical_topological_sort;
+use rustworkx_core::dag_algo::{TopologicalSortError, lexicographical_topological_sort};
 
 use crate::{Evaluation, at, compact, dense, entries, pass};
 
@@ -16,7 +16,11 @@ use crate::{Evaluation, at, compact, dense, entries, pass};
 #[must_use]
 pub fn topological<N, E, K>(evaluation: &Evaluation<N, E>, mut key: impl FnMut(NodeIndex) -> K, direction: Direction) -> Vec<NodeIndex>
 where K: Ord {
-    lexicographical_topological_sort(evaluation.inner(), |node| Ok::<K, !>(key(node)), direction == Direction::Incoming, None).unwrap_or_default()
+    match lexicographical_topological_sort(evaluation.inner(), |node| Ok::<K, !>(key(node)), direction == Direction::Incoming, None) {
+        Ok(order) => order,
+        Err(TopologicalSortError::KeyError(never)) => never,
+        Err(TopologicalSortError::CycleOrBadInitialState) => Vec::new(),
+    }
 }
 
 #[must_use]

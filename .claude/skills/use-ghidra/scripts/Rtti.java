@@ -173,7 +173,9 @@ public class Rtti extends GhidraScript {
         Memory memory = currentProgram.getMemory();
         List<Report.Result<TypeInfo>> parsed =
                 CollectionUtils.asStream(
-                                currentProgram.getSymbolTable().getSymbolIterator("*__cxxabiv1*", true))
+                                currentProgram
+                                        .getSymbolTable()
+                                        .getSymbolIterator("*__cxxabiv1*", true))
                         .flatMap(symbol ->
                                 Kind.of(symbol).stream()
                                         .flatMap(kind ->
@@ -214,7 +216,9 @@ public class Rtti extends GhidraScript {
                                                                 .getPrimarySymbol(address))
                                                 .map(Symbol::getName)
                                                 .map(name ->
-                                                        TYPEINFO_SYMBOL.matcher(name).replaceFirst("")))
+                                                        TYPEINFO_SYMBOL
+                                                                .matcher(name)
+                                                                .replaceFirst("")))
                                 .orElse(address.toString());
         List<Map.Entry<TypeInfo, Address>> headers =
                 types.stream()
@@ -251,11 +255,15 @@ public class Rtti extends GhidraScript {
                                         new Slot(index, target, "function", function.getName(true)))
                                 : block == null
                                         ? Optional.empty()
-                                        : block.getName().startsWith(MemoryBlock.EXTERNAL_BLOCK_NAME)
-                                                ? Optional.of(new Slot(index, target, "import", symbol))
+                                        : block.getName()
+                                                        .startsWith(MemoryBlock.EXTERNAL_BLOCK_NAME)
+                                                ? Optional.of(
+                                                        new Slot(index, target, "import", symbol))
                                                 : block.isExecute()
                                                         ? Optional.of(
-                                                                new Slot(index, target, "code", symbol))
+                                                                new Slot(
+                                                                        index, target, "code",
+                                                                        symbol))
                                                         : Optional.empty();
                     } catch (IOException exception) {
                         return Optional.empty();
@@ -285,7 +293,9 @@ public class Rtti extends GhidraScript {
                                                                                 * image.pointer())))
                                                 .takeWhile(each -> block.contains(each.getValue()))
                                                 .takeWhile(each -> !ends.test(each.getValue()))
-                                                .map(each -> slotAt.apply(each.getValue(), each.getKey()))
+                                                .map(each ->
+                                                        slotAt.apply(
+                                                                each.getValue(), each.getKey()))
                                                 .takeWhile(Optional::isPresent)
                                                 .map(Optional::get)
                                                 .toList();

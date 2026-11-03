@@ -107,7 +107,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/dom/model', {
             Array.head(open),
             Option.filter(() => open.length === 1),
             Option.orElse(() => shown),
-            Effect.fromOption(() => Unmatched.make({ subject: 'document', query: Option.none(), candidates: Array.map(open, (each) => each.toSpecifier()) })),
+            Effect.fromOption(() => Unmatched.make({ subject: 'document', candidates: Array.map(open, (each) => each.toSpecifier()) })),
         );
     });
     static readonly file = (owner: InDesignDOMObject<unknown>, field: string) =>

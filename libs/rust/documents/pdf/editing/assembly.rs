@@ -5,14 +5,13 @@ use std::{
 };
 
 use color::{OpaqueColor, Srgb};
-use hayro_syntax::LoadPdfError;
 use krilla::{
     SerializeSettings,
     blend::BlendMode,
     configure::{ConfigurationBuilder, PdfVersion},
     geom::Size,
     page::PageSettings,
-    pdf::{self, PdfDocument},
+    pdf::PdfDocument,
 };
 use lopdf::{
     Dictionary, Object, ObjectId,
@@ -22,8 +21,8 @@ use lopdf::{
 use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
 use validated::Validated;
 
-use super::{entry, resolved};
 use crate::{
+    entry, resolved,
     Document, PdfError, Subject,
     layers::{self, Group},
     navigation::{self, Navigation},
@@ -328,9 +327,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
     }
     let indices = parts.iter().map(|(_, chosen)| chosen.iter().map(|&(index, _)| index).collect::<Vec<_>>()).collect::<Vec<_>>();
     navigation::write(&mut assembly.structure, &navigation::assembled(iter::zip(parts, &indices).map(|((source, _), sheets)| (&source.navigation, sheets.as_slice()))))?;
-    let mut bytes = Vec::new();
-    assembly.structure.save_to(&mut bytes).map_err(lopdf::Error::from)?;
-    let written = Document::new(bytes, None)?;
+    let written = crate::saved(assembly.structure)?;
     if registered.is_empty() {
         return Ok(written);
     }
@@ -413,24 +410,13 @@ fn directory(assembly: &Assembly, catalog: &Dictionary) -> Result<Directory, lop
         .transpose()?
         .into_iter()
         .flat_map(Dictionary::iter)
-        .map(|(kind, root)| resolved(structure, root).and_then(Object::as_dict).and_then(|root| leaves(structure, root, NAMES, &name, &[])).map(|found| (kind.clone(), found.into_iter().collect::<BTreeMap<_, _>>())))
+        .map(|(kind, root)| resolved(structure, root).and_then(Object::as_dict).and_then(|root| crate::leaves(structure, root, NAMES, &name, &[])).map(|found| (kind.clone(), found.into_iter().collect::<BTreeMap<_, _>>())))
         .try_collect::<BTreeMap<_, _>>()?;
     let dests = trees.entry(DESTS.as_bytes().to_vec()).or_default();
     for (key, value) in entry(structure, catalog, DESTS)?.map(Object::as_dict).transpose()?.into_iter().flat_map(Dictionary::iter) {
         dests.entry(key.clone()).or_insert_with(|| value.clone());
     }
     Ok(trees)
-}
-
-fn leaves<K, F>(structure: &lopdf::Document, node: &Dictionary, list: &str, key: &F, ancestors: &[ObjectId]) -> Result<Vec<(K, Object)>, lopdf::Error>
-where F: Fn(&Object) -> Result<K, lopdf::Error> {
-    let own = entry(structure, node, list)?.map(Object::as_array).transpose()?.into_iter().flat_map(|pairs| pairs.as_chunks::<2>().0).map(|[name, value]| key(name).map(|name| vec![(name, value.clone())]));
-    let kids = entry(structure, node, KIDS)?.map(Object::as_array).transpose()?.into_iter().flatten().map(|kid| {
-        let id = kid.as_reference()?;
-        (!ancestors.contains(&id)).ok_or(lopdf::Error::ReferenceCycle(id))?;
-        leaves(structure, structure.get_dictionary(id)?, list, key, &[ancestors, &[id]].concat())
-    });
-    own.chain(kids).try_collect::<Vec<_>>().map(|found| found.into_iter().flatten().collect())
 }
 
 fn explicit(assembly: &Assembly, value: &Object) -> Result<Option<Vec<Object>>, lopdf::Error> {
@@ -577,7 +563,7 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
     let numbers = entry(&assembly.structure, &tree, "ParentTree")?
         .map(Object::as_dict)
         .transpose()?
-        .map(|numbers| leaves(&assembly.structure, numbers, "Nums", &Object::as_i64, &[]))
+        .map(|numbers| crate::leaves(&assembly.structure, numbers, "Nums", &Object::as_i64, &[]))
         .transpose()?
         .unwrap_or_default()
         .into_iter()
@@ -689,7 +675,7 @@ pub fn overlay(earlier: &Document, later: &Document, pairs: impl IntoIterator<It
             crate::page(document, index)
                 .and_then(|sheet| {
                     let (width, height) = sheet.render_dimensions();
-                    Size::from_wh(width, height).ok_or(PdfError::Load(LoadPdfError::Invalid))
+                    crate::extent(kurbo::Size::new(f64::from(width), f64::from(height)))
                 })
                 .map_err(|error| (Subject::Page(index), error)),
         )
@@ -799,9 +785,7 @@ where I: IntoIterator<Item = usize> {
             Painted::Form(form) => structure.get_object_mut(form)?.as_stream_mut()?.set_plain_content(content),
         }
     }
-    let mut bytes = Vec::new();
-    structure.save_to(&mut bytes).map_err(lopdf::Error::from)?;
-    pdf::Pdf::new(bytes).ok().ok_or(PdfError::Load(LoadPdfError::Invalid)).map(|source| PdfDocument::new(Arc::new(source)))
+    crate::saved(structure).and_then(|document| crate::embedded(&document))
 }
 
 fn nested(structure: &lopdf::Document, resources: &Dictionary, found: BTreeSet<ObjectId>) -> Result<BTreeSet<ObjectId>, lopdf::Error> {

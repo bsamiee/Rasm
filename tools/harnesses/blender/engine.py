@@ -590,6 +590,17 @@ def interfaces() -> Iterator[Interface]:
         pending.extend(held.__subclasses__())
 
 
+def drawn(owner: Interface, /) -> tuple[object, ...]:
+    """Returns the draw functions a class resolves through its own and inherited namespaces, none where no namespace declares `draw` (`Header`)."""
+    match [vars(base)["draw"] for base in owner.__mro__ if "draw" in vars(base)]:
+        case [Extended() as draw, *_]:
+            return tuple(draw._draw_funcs)
+        case [draw, *_]:
+            return (draw,)
+        case _:
+            return ()
+
+
 def keymaps() -> bpy.types.KeyMaps:
     """Returns the add-on keyconfig's keymaps, which every window manager holds."""
     held: bpy.types.KeyConfig = manager().keyconfigs.addon  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -621,19 +632,25 @@ def leftover(timers: Timers, held: Held, expected: frozenset[str], /) -> list[st
                     left.append(f"keymaps.{key[0]}.{item.idname}")
                     keymap.keymap_items.remove(item)
     for owner, before in held.draws.items():
-        if isinstance(draw := owner.draw, Extended):
-            for appended in [entry for entry in draw._draw_funcs if entry not in before]:
-                owner.remove(appended)
-                left.append(f"draws.{owner.__name__}.{named(appended)}")
+        match vars(owner):
+            case {"draw": Extended() as draw}:
+                for appended in [entry for entry in draw._draw_funcs if entry not in before]:
+                    owner.remove(appended)
+                    left.append(f"draws.{owner.__name__}.{named(appended)}")
+            case _:
+                pass
     if tuple(sys.path) != held.path:
         left.extend(f"sys.path.{entry}" for entry in sys.path if entry not in held.path)
         sys.path[:] = held.path
     installed = (Path(bpy.utils.resource_path("LOCAL")), Path(bpy.utils.resource_path("USER")))
     for name in sorted(sys.modules.keys() - held.modules):
-        if (origin := sys.modules[name].__file__) is not None and not any(Path(origin).is_relative_to(root) for root in installed):
-            left.append(f"modules.{name}")
-            if not origin.endswith(tuple(EXTENSION_SUFFIXES)):
-                del sys.modules[name]
+        match sys.modules[name]:
+            case ModuleType(__file__=str(origin)) if not any(Path(origin).is_relative_to(root) for root in installed):
+                left.append(f"modules.{name}")
+                if not origin.endswith(tuple(EXTENSION_SUFFIXES)):
+                    del sys.modules[name]
+            case _:
+                pass
     left.extend(f"preferences.{path}" for path in restored(held.preferences) if path not in expected)
     return left
 
@@ -1004,7 +1021,7 @@ def stepped(instance: Instance, index: int, case: Case, stream: IO[str], /) -> S
         handlers={name: tuple(callbacks) for name in dir(bpy.app.handlers) if isinstance(callbacks := getattr(bpy.app.handlers, name), list)},
         classes=frozenset(dir(bpy.types)),
         keymaps={(keymap.name, keymap.space_type, keymap.region_type): frozenset(item.id for item in keymap.keymap_items) for keymap in keymaps()},
-        draws={owner: tuple(draw._draw_funcs) if isinstance(draw := owner.draw, Extended) else (draw,) for owner in interfaces()},
+        draws={owner: drawn(owner) for owner in interfaces()},
         path=tuple(sys.path),
         modules=frozenset(sys.modules),
         preferences=settings(),
@@ -1095,10 +1112,11 @@ def main() -> None:
             if (source := update.id) is not None and (origin := source.original) is not None
         )
 
+    if bpy.app.background:
+        gpu.init()
     replaced(scratch / HOST, host())
     steps = batches(Instance(scratch=scratch, log=Path(sys.argv[sys.argv.index("--log-file") + 1]), repository=repository, owner=owned(), updates=updates), noted)
     if bpy.app.background:
-        gpu.init()
         for pause in steps:
             time.sleep(pause)
     else:

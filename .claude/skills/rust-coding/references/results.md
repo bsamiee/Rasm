@@ -24,7 +24,7 @@ pub fn units<'fleet>(fleet: &'fleet Fleet, schedule: &Schedule) -> Validated<Vec
 }
 ```
 
-Each unlisted unit reports its own `Refused`, an empty schedule passes, and consumers read the found units with no second lookup. Items yielding `Validated` collect the same way into one `NEVec` of every failure. Checks returning nothing collect into `Validated<(), E>` through `bool::ok_or`. Refusals an iterator yields collect into `Validated` in place of `partition_map` and an `NEVec::try_from_vec` test of the refused side, `try_from_vec` wrapping a failure list a package returns built.
+Each unlisted unit reports its own `Refused`, an empty schedule passes, and consumers read the found units with no second lookup. Items yielding `Validated` collect the same way into one `NEVec` of every failure. Checks returning nothing collect into `Validated<(), E>` through `bool::ok_or`. Refusals an iterator yields collect into `Validated` in place of `partition_map` and an `NEVec::try_from_vec` test of the refused side, `try_from_vec` wrapping a failure list a package returns built. Subjects one check refuses reach its variant through `try_into_nonempty_iter().map(|subjects| <Variant> { subjects: subjects.collect() }).map_or(Ok(()), Err)`. Functions returning `Result<T, NEVec<E>>` lift into a join through `map_or_else(Validated::Fail, Validated::Good)`, `Validated::from` wrapping a single `E`. Crate functions every caller joins return `Validated`. Dependent heads feeding independent later steps bind then join in one expression, `head.map_or_else(Validated::fail, |head| rest.map(step).collect::<Validated<Vec<_>, _>>().map(|tail| NEVec::from((head, tail))))`.
 
 ## [03]-[BINDING]
 

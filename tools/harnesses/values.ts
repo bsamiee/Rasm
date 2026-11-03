@@ -72,4 +72,4 @@ const bury = (value: unknown, named: (held: object) => Option.Option<string> = O
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { bury, JsonObject, type Reference, revive };
+export { bury, JsonObject, type Reference, revive, Tagged };

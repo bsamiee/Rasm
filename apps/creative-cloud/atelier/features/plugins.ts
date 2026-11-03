@@ -108,7 +108,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, scripting }: Effect.Succ
     const scripted = Effect.fnUntraced(function* (code: string, { installation, pid }: { readonly installation: Installation; readonly pid: number }) {
         const { source, relined } = yield* lowered(code, Extension.target, false);
         const terms = yield* automation.terms({ url: installation.url });
-        const { name } = yield* Effect.fromOption(Array.findFirst(['DjxM', 'dosc'], declaring(terms.command)), () => Unmatched.make({ subject: 'script command', query: Option.none(), candidates: Array.map(terms.command, Struct.get('name')) }));
+        const { name } = yield* Effect.fromOption(Array.findFirst(['DjxM', 'dosc'], declaring(terms.command)), () => Unmatched.make({ subject: 'script command', candidates: Array.map(terms.command, Struct.get('name')) }));
         const definition = yield* automation.definition({ url: installation.url, kind: 'command', name });
         const { reply } = yield* automation.execute({
             pid,

@@ -3,13 +3,9 @@
     "private": true,
     "description": "Atelier Photoshop",
     "type": "module",
-    "imports": {
-        "#/package.json": "./package.json"
-    },
     "dependencies": {
         "@rasm/photoshop": "workspace:*",
-        "@rasm/uxp": "workspace:*",
-        "effect": "catalog:"
+        "@rasm/uxp": "workspace:*"
     },
     "devDependencies": {
         "@adobe-uxp-types/photoshop": "catalog:",

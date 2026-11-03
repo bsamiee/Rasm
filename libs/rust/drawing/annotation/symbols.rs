@@ -24,7 +24,7 @@ use usvg::{
 use validated::Validated;
 
 use crate::{
-    AnnotationError, Feature, Graphics, Lettering, Lookup, Subject, colored, directed, filled, located, oriented, stroked,
+    AnnotationError, Feature, Graphics, Lettering, Lookup, Subject, colored, directed, filled, located, oriented,
     text::{self, Label, Typesetter, labelled},
     units, validated, within,
 };
@@ -35,7 +35,7 @@ use crate::{
 pub enum Base {
     Center,
     Origin,
-    Element(Arc<str>),
+    Id(Arc<str>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -50,9 +50,9 @@ struct Slot {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition {
-    elements: Vec<Element>,
-    slots: BTreeMap<Arc<str>, Slot>,
-    extent: Rect,
+    pub(crate) elements: Vec<Element>,
+    pub(crate) slots: BTreeMap<Arc<str>, Slot>,
+    pub(crate) extent: Rect,
 }
 
 impl Definition {
@@ -69,7 +69,7 @@ impl Definition {
         let origin = match base {
             Base::Center => canvas.center(),
             Base::Origin => Point::ORIGIN,
-            Base::Element(id) => tree
+            Base::Id(id) => tree
                 .node_by_id(id)
                 .map(|node| {
                     let bounds = node.abs_bounding_box();

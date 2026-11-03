@@ -8,6 +8,7 @@ use pdf_oxide::{
 };
 use validated::Validated;
 
+use super::edited;
 use crate::{Document, PdfError, Subject};
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -75,12 +76,4 @@ where K: AsRef<str> {
     }
 }
 
-pub fn form_fields(document: &Document) -> Result<Vec<FormFieldWrapper>, PdfError> {
-    DocumentEditor::from_bytes(document.data().as_ref().to_vec()).and_then(|mut editor| editor.get_form_fields()).map_err(PdfError::from)
-}
-
-fn edited<T>(document: &Document, edit: impl FnOnce(&mut DocumentEditor) -> pdf_oxide::Result<T>) -> Result<(Document, T), PdfError> {
-    let mut editor = DocumentEditor::from_bytes(document.data().as_ref().to_vec())?;
-    let outcome = edit(&mut editor)?;
-    Ok((Document::new(editor.save_to_bytes()?, None)?, outcome))
-}
+pub fn form_fields(document: &Document) -> Result<Vec<FormFieldWrapper>, PdfError> { crate::editor(document).and_then(|mut editor| editor.get_form_fields().map_err(PdfError::from)) }

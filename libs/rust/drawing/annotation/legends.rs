@@ -1,21 +1,21 @@
 use core::{f64::consts::FRAC_PI_2, iter, num::NonZero};
 use std::sync::Arc;
 
-use color::{OpaqueColor, Srgb};
+use color::{AlphaColor, Srgb};
 use colorgrad::Gradient;
-use itertools::Itertools as _;
-use kurbo::{Affine, BezPath, Line, Point, Rect, Shape as _, Size, Vec2};
+use kurbo::{Affine, Line, Point, Rect, Shape as _, Size, Vec2};
 use linesweeper::FillRule;
-use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
-use rasm_linework::{Anchor, Baseline, Color, Element, Linetype, Opacity, OpacityError, Pattern, Pen, Placement, Region, Target, transform};
+use nonempty_collections::NEVec;
+use rasm_linework::{Anchor, Baseline, Color, Element, Linetype, Opacity, Pattern, Pen, Placement, Region, Target};
 use validated::Validated;
 
 use crate::{
-    AnnotationError, Graphics, Style,
-    notation::{self, Decimal},
+    AnnotationError, Geometry, Graphics, bounds, colored, edges, filled, graduated, indexed,
+    notation::{self, Decimal, Sign},
     stroked,
-    symbols::{self, Definition, Feature, Instance},
+    symbols::{self, Definition, Instance},
     text::{Label, Typesetter, labelled},
+    transformed, validated,
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -30,150 +30,139 @@ pub enum Swatch {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Entry {
-    pub swatch: Swatch,
+    pub swatches: NEVec<Swatch>,
+    pub outline: Option<Pen> = None,
     pub label: Label,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Key {
+    pub entries: NEVec<Entry>,
+    pub swatch: Size,
+    pub columns: NonZero<u16>,
+}
+
 #[derive(Clone, derive_more::Debug)]
-pub enum Legend {
-    Key {
-        at: Point,
-        entries: NEVec<Entry>,
-        swatch: Size,
-        columns: NonZero<u16>,
-    },
-    Ramp {
-        at: Point,
-        #[debug(skip)]
-        gradient: Arc<dyn Gradient + Send + Sync>,
-        bands: NonZero<u16>,
-        ticks: Vec<f64>,
-        decimal: Decimal,
-        extent: Size,
-    },
+pub struct Ramp {
+    #[debug(skip)]
+    pub gradient: Arc<dyn Gradient + Send + Sync>,
+    pub bands: NonZero<u16>,
+    pub ticks: Vec<f64>,
+    pub decimal: Decimal,
+    pub extent: Size,
+}
+
+#[derive(Debug, Clone)]
+pub enum Layout {
+    Key(Key),
+    Ramp(Ramp),
+}
+
+#[derive(Debug, Clone)]
+pub struct Legend {
+    pub at: Point,
+    pub layout: Layout,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub(crate) fn draw(typesetter: &mut Typesetter, style: &Style, placement: Placement, legend: &Legend) -> Result<Graphics, NEVec<AnnotationError>> {
+pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement: Placement, legend: &Legend) -> Result<Graphics, NEVec<AnnotationError>> {
+    let origin = *placement * legend.at;
+    match &legend.layout {
+        Layout::Key(key) => keyed(typesetter, style, placement, origin, key),
+        Layout::Ramp(ramp) => ramped(typesetter, style, origin, ramp),
+    }
+}
+
+fn keyed(typesetter: &mut Typesetter, style: &crate::Style, placement: Placement, origin: Point, key: &Key) -> Result<Graphics, NEVec<AnnotationError>> {
+    let Key { entries, swatch, columns } = key;
     let gap = style.gap.into_inner();
-    let tolerance = style.tolerance.into_inner();
-    let across = Vec2::new(1.0, 0.0);
-    let filled = |shape: BezPath| Validated::from(Region::new(&shape, FillRule::NonZero, style.tolerance).map_err(AnnotationError::from));
-    let (elements, clearances) = match legend {
-        Legend::Key { at, entries, swatch, columns } => {
-            (swatch.is_finite() && swatch.width > 0.0 && swatch.height >= 0.0).ok_or_else(|| nev![AnnotationError::Degenerate])?;
-            let origin = *placement * *at;
-            let paper = Placement::try_new(Affine::IDENTITY).map_err(|error| nev![AnnotationError::from(error)])?;
-            let lettering = entries.iter().map(|entry| labelled(typesetter, style, &entry.label, Point::ORIGIN, across, Anchor::Start, Baseline::Middle)).collect::<Vec<_>>();
-            let sizes = lettering.iter().map(|set| set.as_ref().map_or(Size::ZERO, |(_, mask)| mask.bounding_box().size())).collect::<Vec<_>>();
-            let depth = entries.len().get().div_ceil(NonZero::<usize>::from(*columns).get());
-            let lefts = sizes
-                .chunks(depth)
-                .scan(origin.x, |left, column| {
-                    let start = *left;
-                    *left += swatch.width + gap + column.iter().map(|size| size.width).fold(0.0, f64::max);
-                    Some(start)
-                })
-                .flat_map(|left| iter::repeat_n(left, depth));
-            let middles = sizes.chunks(depth).flat_map(|column| {
-                column.iter().scan(origin.y, move |top, size| {
-                    let height = swatch.height.max(gap.mul_add(-2.0, size.height));
-                    let middle = height.mul_add(0.5, *top);
-                    *top += height + gap;
-                    Some(middle)
-                })
-            });
-            let (drawn, outlines): (Vec<Vec<Element>>, Vec<BezPath>) = iter::zip(iter::zip(entries, lettering), iter::zip(lefts, middles))
-                .map(|((Entry { swatch: sample, label: _ }, set), (left, middle))| {
-                    let rect = Rect::from_center_size((swatch.width.mul_add(0.5, left), middle), *swatch);
-                    let clearance = rect.inflate(gap, gap).to_path(tolerance);
-                    let boxed = || Validated::from(stroked(rect.to_path(tolerance), &style.pen, None));
-                    let shown = match sample {
-                        Swatch::Line { pen, linetype } =>
-                            Validated::from(stroked(Line::new((rect.x0, middle), (rect.x1, middle)).to_path(tolerance), pen, linetype.clone())).map(|stroke| (vec![stroke], clearance)),
-                        Swatch::Fill { color, opacity } =>
-                            filled(rect.to_path(tolerance)).map2(boxed(), |region, outline| (vec![Element::Fill { region, color: color.clone(), opacity: *opacity }, outline], clearance)),
-                        Swatch::Hatch { pattern, pen } => filled(rect.to_path(tolerance)).map2(boxed(), |region, outline| {
-                            let frame = match pattern.target {
-                                Target::Model => placement,
-                                Target::Drafting => paper,
-                            };
-                            (vec![Element::Hatch { region, pattern: pattern.clone(), placement: frame, pen: pen.clone() }, outline], clearance)
-                        }),
-                        Swatch::Symbol(definition) => symbols::draw(typesetter, style, paper, &Instance { definition: Arc::clone(definition), at: rect.center(), .. })
-                            .map_or_else(Validated::Fail, |Graphics { elements, mask }| Validated::Good((elements, iter::chain(clearance, mask.path_elements(tolerance)).collect()))),
-                    };
-                    let placed = set.and_then(|(glyphs, mask)| {
-                        let shift = Affine::translate((left + swatch.width + gap, middle));
-                        Placement::try_new(shift)
-                            .map_err(|error| nev![error])
-                            .and_then(|moved| transform(glyphs, moved))
-                            .map(|moved| (moved, shift * mask.path_elements(tolerance).collect::<BezPath>()))
-                            .map_err(|errors| errors.into_nonempty_iter().map(AnnotationError::from).collect::<NEVec<_>>())
-                    });
-                    shown.map2(placed.map_or_else(Validated::Fail, Validated::Good), |(swatched, swatch_outline), (lettered, label_outline)| {
-                        (iter::chain(swatched, lettered).collect::<Vec<_>>(), iter::chain(swatch_outline, label_outline).collect::<BezPath>())
-                    })
-                })
-                .collect::<Validated<Vec<_>, _>>()
-                .ok()?
-                .into_iter()
-                .unzip();
-            (drawn.into_iter().flatten().collect::<Vec<_>>(), outlines.into_iter().flatten().collect::<BezPath>())
+    (swatch.is_finite() && swatch.width > 0.0 && swatch.height >= 0.0).ok_or(AnnotationError::Geometry(Geometry::Extent))?;
+    let lettered = entries.iter().map(|entry| labelled(typesetter, style, &entry.label, Point::ORIGIN, Vec2::new(1.0, 0.0), Anchor::Start, Baseline::Middle)).collect::<Vec<_>>();
+    let sizes = lettered.iter().map(|set| set.as_ref().map_or(Size::ZERO, |graphics| bounds(graphics).size())).collect::<Vec<_>>();
+    let depth = entries.len().get().div_ceil(NonZero::<usize>::from(*columns).get());
+    let lefts = edges(sizes.chunks(depth).map(|column| swatch.width + gap + column.iter().map(|size| size.width).fold(0.0, f64::max))).flat_map(|left| iter::repeat_n(left + origin.x, depth));
+    let middles = sizes.chunks(depth).flat_map(|column| {
+        let heights = column.iter().map(|size| swatch.height.max(gap.mul_add(-2.0, size.height))).collect::<Vec<_>>();
+        let tops = edges(heights.iter().map(|height| height + gap)).collect::<Vec<_>>();
+        iter::zip(tops, heights).map(|(top, height)| height.mul_add(0.5, origin.y + top))
+    });
+    let rects = iter::zip(lefts, middles).map(|(left, middle)| Rect::from_center_size((swatch.width.mul_add(0.5, left), middle), *swatch)).collect::<Vec<_>>();
+    indexed(iter::zip(entries.iter(), lettered).zip(rects).map(|((entry, set), rect)| entered(typesetter, style, placement, entry, set, rect))).map(Graphics::from_iter)
+}
+
+fn entered(typesetter: &mut Typesetter, style: &crate::Style, placement: Placement, entry: &Entry, set: Result<Graphics, NEVec<AnnotationError>>, rect: Rect) -> Result<Graphics, NEVec<AnnotationError>> {
+    let Entry { swatches, outline, label: _ } = entry;
+    let accuracy = style.tolerance.into_inner();
+    let gap = style.gap.into_inner();
+    let clearance = Region::new(&rect.inflate(gap, gap).to_path(accuracy), FillRule::NonZero, style.tolerance).map_err(AnnotationError::from);
+    let samples = swatches.iter().map(|sample| validated(swatched(typesetter, style, placement, sample, rect))).collect::<Validated<Vec<_>, _>>();
+    let boxed = outline.as_ref().map(|pen| stroked(rect.to_path(accuracy), pen, None)).transpose();
+    let text = set.and_then(|graphics| transformed(graphics, Affine::translate((rect.x1 + gap, rect.center().y))));
+    Validated::from(clearance)
+        .map4(samples, Validated::from(boxed), validated(text), |clearance, layers, boundary, moved| {
+            iter::once(Graphics { elements: Vec::new(), masks: vec![clearance] }).chain(layers).chain(iter::once(Graphics { elements: boundary.into_iter().collect(), masks: Vec::new() })).chain(iter::once(moved)).collect()
+        })
+        .ok()
+}
+
+pub(crate) fn swatched(typesetter: &mut Typesetter, style: &crate::Style, placement: Placement, sample: &Swatch, rect: Rect) -> Result<Graphics, NEVec<AnnotationError>> {
+    let accuracy = style.tolerance.into_inner();
+    let single = |element: Element| Graphics { elements: vec![element], masks: Vec::new() };
+    match sample {
+        Swatch::Line { pen, linetype } => {
+            let middle = rect.center().y;
+            stroked(Line::new((rect.x0, middle), (rect.x1, middle)).to_path(accuracy), pen, linetype.clone()).map(single).map_err(NEVec::from)
         }
-        Legend::Ramp { at, gradient, bands, ticks, decimal, extent } => {
-            let origin = *placement * *at;
-            let (start, end) = gradient.domain();
-            let (low, high) = iter::chain([f64::from(start), f64::from(end)], ticks.iter().copied()).minmax_by(f64::total_cmp).into_option().ok_or_else(|| nev![AnnotationError::Degenerate])?;
-            let span = high - low;
-            (span.is_finite() && span > 0.0 && extent.is_finite() && extent.width > 0.0 && extent.height > 0.0).ok_or_else(|| nev![AnnotationError::Degenerate])?;
-            let (frame, length, thickness, anchor, baseline) = if extent.width >= extent.height {
-                (Affine::translate(origin.to_vec2()), extent.width, extent.height, Anchor::Middle, Baseline::Top)
-            } else {
-                (Affine::rotate(-FRAC_PI_2).then_translate(Vec2::new(origin.x, origin.y + extent.height)), extent.height, extent.width, Anchor::Start, Baseline::Middle)
-            };
-            let along = |value: f64| length * (value - low) / span;
-            let count = bands.get();
-            let edges = (0..=count)
-                .map(|band| length * f64::from(band) / f64::from(count))
-                .chain(ticks.iter().map(|&value| along(value)))
-                .sorted_by(f64::total_cmp)
-                .dedup_by(|kept, next| next - kept <= tolerance)
-                .collect::<Vec<_>>();
-            let fills = edges
-                .array_windows()
-                .map(|&[near, far]| {
-                    let colorgrad::Color { r, g, b, a: alpha } = gradient.at(span.mul_add(near.midpoint(far) / length, low).cast::<f32>()).clamp();
-                    filled(frame * Rect::new(near, 0.0, far, thickness).to_path(tolerance)).map2(
-                        Validated::from(
-                            Opacity::try_new(f64::from(alpha))
-                                .map_err(|(OpacityError::FiniteViolated | OpacityError::GreaterOrEqualViolated | OpacityError::LessOrEqualViolated)| AnnotationError::Unsupported(Feature::Opacity)),
-                        ),
-                        |region, opacity| Element::Fill { region, color: Color::Srgb(OpaqueColor::<Srgb>::new([r, g, b])), opacity },
-                    )
+        Swatch::Fill { color, opacity } => filled(&rect.to_path(accuracy), FillRule::NonZero, color.clone(), *opacity, style.tolerance).map(single).map_err(NEVec::from),
+        Swatch::Hatch { pattern, pen } => Region::new(&rect.to_path(accuracy), FillRule::NonZero, style.tolerance)
+            .map(|region| {
+                single(Element::Hatch {
+                    region,
+                    pattern: pattern.clone(),
+                    placement: match pattern.target {
+                        Target::Model => placement,
+                        Target::Drafting => Placement::default(),
+                    },
+                    pen: pen.clone(),
                 })
-                .collect::<Validated<Vec<_>, _>>();
-            let positions = ticks.iter().map(|&value| (value, along(value))).collect::<Vec<_>>();
-            let outline = Rect::new(0.0, 0.0, length, thickness)
-                .path_elements(tolerance)
-                .chain(positions.iter().flat_map(|&(_, position)| Line::new((position, thickness), (position, thickness + gap)).path_elements(tolerance)))
-                .collect::<BezPath>();
-            let labels = positions
-                .iter()
-                .map(|&(value, position)| {
-                    labelled(typesetter, style, &Label { content: notation::decimal(decimal, value).into(), .. }, frame * Point::new(position, gap.mul_add(2.0, thickness)), across, anchor, baseline)
-                        .map_or_else(Validated::Fail, Validated::Good)
-                })
-                .collect::<Validated<Vec<_>, _>>();
-            let bar = frame * Rect::new(0.0, 0.0, length, thickness + gap).to_path(tolerance);
-            fills
-                .map3(Validated::from(stroked(frame * outline, &style.pen, None)), labels, |colored, stroke, lettering| {
-                    let (glyphs, masks): (Vec<_>, Vec<_>) = lettering.into_iter().unzip();
-                    (iter::chain(colored, [stroke]).chain(glyphs.into_iter().flatten()).collect(), iter::chain(bar, masks.iter().flat_map(|mask| mask.path_elements(tolerance))).collect())
-                })
-                .ok()?
+            })
+            .map_err(|error| AnnotationError::from(error).into()),
+        Swatch::Symbol(definition) => {
+            let extent = definition.extent;
+            let scale = (rect.width() / extent.width()).min(rect.height() / extent.height());
+            symbols::draw(typesetter, style, Placement::default(), &Instance { definition: Arc::clone(definition), at: rect.center() - extent.center().to_vec2() * scale, scale, .. })
         }
+    }
+}
+
+fn ramped(typesetter: &mut Typesetter, style: &crate::Style, origin: Point, ramp: &Ramp) -> Result<Graphics, NEVec<AnnotationError>> {
+    let Ramp { gradient, bands, ticks, decimal, extent } = ramp;
+    let accuracy = style.tolerance.into_inner();
+    let (start, end) = gradient.domain();
+    let [low, high] = [start, end].map(f64::from);
+    let span = high - low;
+    (span.is_finite() && span > 0.0).ok_or(AnnotationError::Geometry(Geometry::Domain))?;
+    (extent.is_finite() && extent.width > 0.0 && extent.height > 0.0).ok_or(AnnotationError::Geometry(Geometry::Extent))?;
+    let (basis, length, thickness, anchor, baseline) = if extent.width >= extent.height {
+        (Affine::translate(origin.to_vec2()), extent.width, extent.height, Anchor::Middle, Baseline::Top)
+    } else {
+        (Affine::rotate(-FRAC_PI_2).then_translate(Vec2::new(origin.x, origin.y + extent.height)), extent.height, extent.width, Anchor::Start, Baseline::Middle)
     };
-    Region::new(&clearances, FillRule::NonZero, style.tolerance).map(|mask| Graphics { elements, mask }).map_err(|error| nev![AnnotationError::from(error)])
+    let count = bands.get();
+    let positions = (0..=count).map(|band| length * f64::from(band) / f64::from(count)).collect::<Vec<_>>();
+    let fills = positions
+        .array_windows()
+        .map(|&[near, far]| {
+            let colorgrad::Color { r, g, b, a } = gradient.at(span.mul_add(near.midpoint(far) / length, low).cast::<f32>()).clamp();
+            colored(AlphaColor::<Srgb>::new([r, g, b, a])).and_then(|(color, opacity)| filled(&(basis * Rect::new(near, 0.0, far, thickness).to_path(accuracy)), FillRule::NonZero, color, opacity, style.tolerance))
+        })
+        .collect::<Validated<Vec<_>, _>>();
+    let along = |value: f64| length * (value - low) / span;
+    fills
+        .map2(
+            validated(graduated(typesetter, style, basis, Size::new(length, thickness), ticks.iter().map(|&value| (along(value), Some(notation::decimal(decimal, value, Sign::Negative)))), (Vec2::new(1.0, 0.0), anchor, baseline))),
+            |bands, scale| [Graphics { elements: bands, masks: Vec::new() }, scale].into_iter().collect(),
+        )
+        .ok()
 }

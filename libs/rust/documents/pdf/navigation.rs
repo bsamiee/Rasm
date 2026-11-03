@@ -22,8 +22,8 @@ static UNCOVERED: LazyLock<PageLabelRange> = LazyLock::new(PageLabelRange::defau
 
 #[derive(Debug, Clone, Default)]
 pub struct Navigation {
-    pub outline: Vec<OutlineItem>,
-    pub labels: Vec<PageLabelRange>,
+    pub outline: Vec<OutlineItem> = Vec::new(),
+    pub labels: Vec<PageLabelRange> = Vec::new(),
 }
 
 struct Entry {
@@ -146,19 +146,6 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
         })?;
         Ok((count, ids.first().zip(ids.last()).map(|(&first, &last)| [first, last])))
     }
-    fn named<'tree>(structure: &'tree lopdf::Document, node: &'tree Dictionary, ancestors: &[ObjectId]) -> Result<Vec<(&'tree [u8], &'tree Object)>, lopdf::Error> {
-        let listed = |key: &str| node.has(key.as_bytes()).then(|| node.get_deref(key.as_bytes(), structure).and_then(Object::as_array)).transpose();
-        iter::chain(
-            listed(NAMES)?.into_iter().flat_map(|names| names.as_chunks::<2>().0).map(|[name, value]| name.as_str().map(|name| vec![(name, value)])),
-            listed("Kids")?.into_iter().flatten().map(|kid| {
-                let id = kid.as_reference()?;
-                (!ancestors.contains(&id)).ok_or(lopdf::Error::ReferenceCycle(id))?;
-                named(structure, structure.get_dictionary(id)?, &[ancestors, &[id]].concat())
-            }),
-        )
-        .try_collect::<Vec<_>>()
-        .map(|found| found.concat())
-    }
     let place = |dictionary: &mut Dictionary, key: &str, value: Option<Object>| match value {
         Some(value) => dictionary.set(key, value),
         None => drop(dictionary.remove(key.as_bytes())),
@@ -169,7 +156,7 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
         .iter()
         .map(|range| match (range.start_page, range.start_value) {
             (index, _) if index >= pages.len() => Err((Subject::Page(index), PdfError::Page { index, count: pages.len() })),
-            (index, 0) => Err((Subject::Page(index), pdf_oxide::Error::InvalidOperation("page label range numbers from zero".to_owned()).into())),
+            (index, 0) => Err((Subject::Page(index), PdfError::Numbering(index))),
             _ => Ok(()),
         })
         .collect::<Validated<(), _>>()
@@ -177,37 +164,21 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
         .map_err(PdfError::Refused)?;
     let labeled = iter::zip(0_usize.., &pages).filter_map(|(page, &id)| label(&navigation.labels, page).filter(|name| !name.is_empty()).map(|name| (name.into_bytes(), id))).into_group_map().into_iter().collect::<BTreeMap<Vec<u8>, Vec<ObjectId>>>();
     let catalog = structure.catalog()?;
-    let mut directory = catalog.has(NAMES.as_bytes()).then(|| structure.get_dict_in_dict(catalog, NAMES.as_bytes()).cloned()).transpose()?.unwrap_or_default();
+    let mut directory = crate::nested(structure, catalog, &[NAMES.as_bytes()])?.cloned().unwrap_or_default();
     let held = pages.iter().copied().collect::<BTreeSet<_>>();
     let opens = |value: &Object| {
-        structure
-            .dereference(value)
-            .and_then(|(_, target)| target.as_dict().map_or(Ok(target), |action| action.get_deref(b"D", structure)))
-            .and_then(Object::as_array)
-            .is_ok_and(|target| matches!(target.first(), Some(Object::Reference(page)) if held.contains(page)))
+        crate::resolved(structure, value)
+            .and_then(|target| target.as_dict().map_or(Ok(Some(target)), |action| crate::entry(structure, action, b"D")))
+            .is_ok_and(|target| matches!(target, Some(Object::Array(explicit)) if matches!(explicit.first(), Some(Object::Reference(page)) if held.contains(page))))
     };
-    let legacy = catalog
-        .has(DESTS.as_bytes())
-        .then(|| structure.get_dict_in_dict(catalog, DESTS.as_bytes()))
-        .transpose()?
-        .into_iter()
-        .flat_map(Dictionary::iter)
-        .filter(|&(_, value)| opens(value))
-        .map(|(name, value)| (name.clone(), value.clone()))
-        .collect::<Dictionary>();
+    let legacy = crate::nested(structure, catalog, &[DESTS.as_bytes()])?.into_iter().flat_map(Dictionary::iter).filter(|&(_, value)| opens(value)).map(|(name, value)| (name.clone(), value.clone())).collect::<Dictionary>();
+    let named = crate::nested(structure, &directory, &[DESTS.as_bytes()])?.map(|tree| crate::leaves(structure, tree, NAMES, &|name: &Object| name.as_str().map(<[u8]>::to_vec), &[])).transpose()?;
     let destinations = iter::chain(
         labeled.iter().filter_map(|(name, owners)| match owners.as_slice() {
             [page] => Some((name.clone(), destination(*page))),
             _ => None,
         }),
-        directory
-            .has(DESTS.as_bytes())
-            .then(|| directory.get_deref(DESTS.as_bytes(), structure).and_then(Object::as_dict).and_then(|tree| named(structure, tree, &[])))
-            .transpose()?
-            .into_iter()
-            .flatten()
-            .filter(|&(_, value)| opens(value))
-            .map(|(name, value)| (name.to_vec(), value.clone())),
+        named.into_iter().flatten().filter(|(_, value)| opens(value)),
     )
     .collect::<BTreeMap<_, _>>();
     let target = |item: &OutlineItem, dest: &Destination| match dest {

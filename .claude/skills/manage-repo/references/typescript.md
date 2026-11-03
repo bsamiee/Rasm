@@ -22,7 +22,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 ## [02]-[COMPILER]
 
 - `tsc` is the TypeScript 7 native build `@effect/tsgo` patches with Effect diagnostics, the repository holds no `tsgo` binary
-- `nx run <project>:typecheck:tsc` checks one project incrementally into `$RASM_CACHE_HOME/tsc/<project>` and hashes its `extends` chain and ignored `typeRoots` declarations
+- `nx run <project>:typecheck:tsc` checks one project incrementally into `.cache/tsc/<project>` and hashes its `extends` chain and ignored `typeRoots` declarations
 - Project `tsconfig.json` extends `tsconfig.base.json`, or host platform library `tsconfig.json` stating host `lib` and `types`
 - Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
 - Root `tsconfig.json` checks project `*.config.ts` and `.storybook/main.ts` files, base `exclude` keeps `${configDir}/*.config.ts` out of projects
@@ -62,7 +62,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `cloudflare.config.ts` declares an app's Worker with `entrypoint` at its product module, or a library suite's test Worker with bindings alone
 - Cloudflare plugin hooks (`config`, `configResolved`, `configureServer`) take app type, output, and requests in every Vite server
 - `worker(<directory>, <plugins>, <hosting>)` drops `<hosting>` and Cloudflare plugin when Storybook or Vitest CLIs set `STORYBOOK` or `VITEST`
-- Cloudflare plugin keeps state in `$RASM_CACHE_HOME/cloudflare/<project path>` and Build Output in `.cloudflare/output`, mode `test` keeps bindings in memory
+- Cloudflare plugin keeps state in `.cache/cloudflare/<project path>` and Build Output in `.cloudflare/output`, mode `test` keeps bindings in memory
 - Target `types` writes `Cloudflare.Env` and runtime types for the compatibility date to ignored `.cloudflare/types`, `typecheck:tsc` depends on it
 - Project `tsconfig.json` `types` names `./.cloudflare/types` in place of `@cloudflare/workers-types`
 

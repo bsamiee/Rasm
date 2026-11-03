@@ -1,4 +1,5 @@
 use core::iter;
+use std::sync::Arc;
 
 use hayro_syntax::object::dict::keys::{
     DEST_OUTPUT_PROFILE, DISPLAY_DOC_TITLE, INFO, METADATA, N, OUTPUT_CONDITION, OUTPUT_CONDITION_IDENTIFIER, OUTPUT_INTENT, OUTPUT_INTENTS, S, TYPE, VIEWER_PREFERENCES,
@@ -13,11 +14,10 @@ use moxcms::{ColorProfile, ProfileText};
 use pdf_oxide::compliance::{PdfUaLevel, PdfXLevel};
 use xot::{NameId, Node, Xot};
 
-use crate::{OutputIntent, PdfError};
+use crate::{GTS_PDFX_VERSION, OutputIntent, PART, PDFUAID_NAMESPACE, PDFXID_NAMESPACE, PdfError};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PDFX_VERSION: &str = "GTS_PDFXVersion";
 const TRAPPED: &str = "Trapped";
 const UNTRAPPED: &str = "False";
 
@@ -119,7 +119,7 @@ pub(crate) fn close(structure: &mut lopdf::Document, standards: &Standards) -> R
                 created
             };
             let information = structure.get_dictionary_mut(entry)?;
-            information.set(PDFX_VERSION, text_string(press.level.gts_pdfx_version()));
+            information.set(GTS_PDFX_VERSION, text_string(press.level.gts_pdfx_version()));
             information.set(TRAPPED, UNTRAPPED);
         }
     }
@@ -138,8 +138,6 @@ fn older_archival(standards: &Standards) -> bool { standards.archival.is_some_an
 fn metadata(structure: &mut lopdf::Document, standards: &Standards) -> Result<(), PdfError> {
     const RDF_NAMESPACE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
     const PDF_NAMESPACE: &str = "http://ns.adobe.com/pdf/1.3/";
-    const PDFX_NAMESPACE: &str = "http://www.npes.org/pdfx/ns/id/";
-    const PDFUA_NAMESPACE: &str = "http://www.aiim.org/pdfua/ns/id/";
     const EXTENSION_NAMESPACE: &str = "http://www.aiim.org/pdfa/ns/extension/";
     const PDFUA_PREFIX: &str = "pdfuaid";
     const PDFUA_REVISION: &str = "2024";
@@ -162,7 +160,7 @@ fn metadata(structure: &mut lopdf::Document, standards: &Standards) -> Result<()
     let element = |xot: &Xot, root: Node, name: NameId| {
         xot.descendants(root)
             .find(|&node| xot.element(node).is_some_and(|held| held.name() == name))
-            .ok_or_else(|| xot::Error::InvalidOperation(format!("metadata holds no {}", xot.name_ns_str(name).0)))
+            .ok_or_else(|| PdfError::Metadata(Arc::from(xot.name_ns_str(name).0)))
     };
     let stream = structure.catalog()?.get(METADATA)?.as_reference()?;
     let packet = structure.get_object(stream)?.as_stream()?.get_plain_content()?;
@@ -171,9 +169,9 @@ fn metadata(structure: &mut lopdf::Document, standards: &Standards) -> Result<()
     let rdf = xot.add_namespace(RDF_NAMESPACE);
     let description_name = xot.add_name_ns("Description", rdf);
     let description = element(&xot, document, description_name)?;
-    let press = standards.press.iter().flat_map(|held| [("pdfxid", PDFX_NAMESPACE, PDFX_VERSION, held.level.xmp_version()), ("pdf", PDF_NAMESPACE, TRAPPED, UNTRAPPED)]);
+    let press = standards.press.iter().flat_map(|held| [("pdfxid", PDFXID_NAMESPACE, GTS_PDFX_VERSION, held.level.xmp_version()), ("pdf", PDF_NAMESPACE, TRAPPED, UNTRAPPED)]);
     let universal =
-        (standards.accessibility == Some(PdfUaLevel::Ua2)).then_some([(PDFUA_PREFIX, PDFUA_NAMESPACE, "part", PdfUaLevel::Ua2.xmp_part()), (PDFUA_PREFIX, PDFUA_NAMESPACE, "rev", PDFUA_REVISION)]);
+        (standards.accessibility == Some(PdfUaLevel::Ua2)).then_some([(PDFUA_PREFIX, PDFUAID_NAMESPACE, PART, PdfUaLevel::Ua2.xmp_part()), (PDFUA_PREFIX, PDFUAID_NAMESPACE, "rev", PDFUA_REVISION)]);
     iter::chain(press, universal.into_iter().flatten()).try_for_each(|(prefix, namespace, name, value)| {
         let (uri, declared) = (xot.add_namespace(namespace), xot.add_prefix(prefix));
         xot.set_namespace(description, declared, uri);

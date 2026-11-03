@@ -15,18 +15,10 @@ import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const spacings = Struct.keys(Settings.fields.spacing.schema.fields);
 const specimen = Schema.Struct({
     face: Face,
     shaped: ShapedText.annotate({ description: 'Em positions, not application composition or document coordinates' }),
-    justified: Schema.OptionFromOptionalKey(
-        Schema.Struct({
-            text: Schema.String.annotate({ description: 'Shaped text with inserted tatweels, glyph clusters index it' }),
-            slack: Schema.Finite.annotate({ description: 'Width left in em, negative when overfull' }),
-            ratios: Schema.Struct(Struct.Record(spacings, Schema.Finite)).annotate({ description: 'Applied spacing ratios' }),
-            amounts: Schema.Struct(Struct.Record([...spacings, 'kashida'], Schema.Finite)).annotate({ description: 'Width each mechanism added in em' }),
-        }).annotate({ description: 'Absent without width' }),
-    ),
+    justified: Schema.OptionFromOptionalKey(Justification.mapFields(Struct.omit(['shaped'])).annotate({ description: 'Absent without width' })),
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -37,7 +29,7 @@ const composed = Effect.fnUntraced(function* (source: typeof Source.Type, instan
     return {
         face,
         shaped: Option.match(justified, { onNone: () => ShapedText.of(face, run, settings), onSome: Struct.get('shaped') }).offsetMarks(settings.marks),
-        justified: Option.map(justified, ({ run: { text }, slack, ratios, amounts }) => ({ text, slack, ratios, amounts })),
+        justified: Option.map(justified, Struct.omit(['shaped'])),
     };
 });
 
@@ -56,7 +48,7 @@ const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType
                 text: ShapedText.Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
                 name: Schema.String.annotate({ description: `${SchemaAST.resolveDescription(AvailableFace.Name.ast)}, or application font name or specifier` }),
                 width: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Line width in em to justify text to, natural width when absent' })),
-                settings: Settings.mapFields(Struct.map(Schema.optionalKey)).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+                settings: Settings.Partial.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
             }),
         ),
         success: Schema.Union([Schema.Struct({ ...AvailableFace.fields, specimen }), Schema.Struct({ ...successSchema.fields.view.fields, specimen: Schema.OptionFromOptionalKey(specimen) })]),

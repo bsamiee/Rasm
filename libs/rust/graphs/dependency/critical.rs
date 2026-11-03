@@ -10,7 +10,7 @@ use petgraph::{
     visit::{EdgeRef as _, IntoEdgeReferences as _},
 };
 
-use crate::{DependencyError, Evaluation, at, pass};
+use crate::{DependencyError, Evaluation, Refusal, at, pass};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -69,12 +69,20 @@ where
     T: Measure + Copy + Ord + Sub<Output = T> + Neg<Output = T>,
 {
     if let Some(nodes) = NEBTreeSet::try_from_set(evaluation.node_indices().filter(|&node| duration(&evaluation[node]) < T::default()).collect()) {
-        return Err(DependencyError::Duration { nodes });
+        return Err(DependencyError::Refused { reason: Refusal::Duration, nodes });
     }
+    let bound = |(near, date): (Event, T), length: T| match near {
+        Event::Start => date.add(length),
+        Event::Finish => date,
+    };
     let dated = |direction: Direction, origin: (Event, T)| {
-        let (extreme, limit): (fn(T, T) -> T, fn(Constraint<T>) -> Option<T>) = match direction {
-            Direction::Outgoing => (Ord::max, |Constraint { earliest, latest: _ }| earliest),
-            Direction::Incoming => (Ord::min, |Constraint { earliest: _, latest }| latest),
+        let extreme: fn(T, T) -> T = match direction {
+            Direction::Outgoing => Ord::max,
+            Direction::Incoming => Ord::min,
+        };
+        let limit = |Constraint { earliest, latest }: Constraint<T>| match direction {
+            Direction::Outgoing => earliest,
+            Direction::Incoming => latest,
         };
         pass(evaluation, direction, |node, dates| {
             let (length, bounds) = (duration(&evaluation[node]), constraint(&evaluation[node]));
@@ -124,12 +132,4 @@ where
         })
         .collect();
     Ok(Schedule { activities, relationships, makespan: completion.sub(start) })
-}
-
-fn bound<T>((near, date): (Event, T), length: T) -> T
-where T: Measure + Copy {
-    match near {
-        Event::Start => date.add(length),
-        Event::Finish => date,
-    }
 }

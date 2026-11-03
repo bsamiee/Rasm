@@ -3,19 +3,21 @@ import { pathToFileURL } from 'node:url';
 import { Automation } from '@rasm/automation/automation';
 import { parse } from 'acorn';
 import { findNodeAt } from 'acorn-walk';
-import { Array, Effect, FileSystem, Option, Path, type PlatformError, Record, Result, Schema, Stream, String } from 'effect';
+import { Array, Effect, FileSystem, Option, Result, Schema, Stream, String } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { HarnessError, Thrown } from '#/error';
+import { HarnessError, thrown } from '#/error';
 import { ENGINES, Encoded, Engine, HostCase, type Placed, Recorded, Reply, Survey } from '#/indesign/contract';
 import { precondition } from '#/indesign/precondition';
+import { copied } from '#/precondition';
+import { replied } from '#/results';
 import uxpscript from '#/indesign/uxpscript/script.config';
-import { type Batch, type Host as Harness, type Installed, type Live, recorded } from '#/session';
+import { type Batch, type Host as Harness, installation, type Live } from '#/session';
+import { assembled, engineOf } from '#/source';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REPORTER = 'com.adobe.crashreporter';
 const REVEALING = /\.\s*(?<member>revealInSystem|revealInBridge)\s*\(/u;
-const SHARED = new URL('../extendscript.jsxinc', import.meta.url);
 const ENGINE = new URL('extendscript.jsxinc', import.meta.url);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -32,39 +34,21 @@ const bundle = Effect.map(
     (folder) => pathToFileURL(`${folder}/main.${ENGINES.uxpscript.extensions[0]}`),
 );
 const installed = Effect.gen(function* () {
-    const [automation, path] = yield* Effect.all([Automation, Path.Path]);
+    const automation = yield* Automation;
     const [rows, opening] = yield* Effect.all([automation.installed, Effect.flatMap(bundle, (toOpen) => automation.applications({ toOpen }))]);
     return yield* Effect.forEach(
         rows.filter((row) => opening.some((url) => url.href === row.url.href)),
-        (row) =>
-            Effect.map(
-                Effect.all([path.fromFileUrl(row.url), Effect.fromOption(row.version, () => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'Launch Services reports no version' }, subject: row.name }))]),
-                ([app, version]): Installed => ({ identifier: row.identifier, name: row.name, app, version, watched: [row.identifier, REPORTER] }),
-            ),
+        (row) => installation(row, [REPORTER]),
     );
 });
 
 // --- [SOURCE]
-const engine = (scripts: readonly string[]): Result.Result<typeof Engine.Type, HarnessError> => {
-    const engines = Array.dedupe(
-        scripts.map((script) =>
-            Option.map(
-                Record.findFirst(ENGINES, ({ extensions }) => extensions.some((extension) => script.endsWith(`.${extension}`))),
-                ([held]) => held,
-            ),
-        ),
-    );
-    const unknown = scripts.filter((script) => !Object.values(ENGINES).some(({ extensions }) => extensions.some((extension) => script.endsWith(`.${extension}`))));
-    const unavailable = (because: string) => HarnessError.make({ reason: { _tag: 'Unavailable', because }, subject: scripts.join(', ') });
-    return unknown.length > 0
-        ? Result.fail(unavailable(`${unknown.join(', ')} holds no extension of ${Record.collect(ENGINES, (held, { extensions }) => `${held} ${extensions.join(' ')}`).join(', ')}`))
-        : Array.match(Array.getSomes(engines), { onEmpty: () => Result.succeed<typeof Engine.Type>('extendscript'), onNonEmpty: (held) => (held.length === 1 ? Result.succeed(held[0]) : Result.fail(unavailable(`cases mix engines ${held.join(', ')}`))) });
-};
+const engine = engineOf(ENGINES, 'extendscript');
 const continued = (code: string): Option.Option<string> =>
     Result.match(
         Result.try(() => parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true, allowAwaitOutsideFunction: true })),
         {
-            onFailure: (error) => Option.map(Schema.decodeUnknownOption(Thrown)(error), (text) => `source does not parse: ${text}`),
+            onFailure: (error) => Option.some(`source does not parse: ${thrown(error)}`),
             onSuccess: (tree) => Option.map(Option.fromNullishOr(findNodeAt(tree, undefined, undefined, (_, node) => Schema.is(Continuing)(node))), ({ node }) => `UXPScript source ${code.slice(node.start, node.end)} continues after the answer`),
         },
     );
@@ -76,17 +60,6 @@ const refusal = (held: typeof Engine.Type, hosted: typeof HostCase.Type, binary:
         ? Option.firstSomeOf([...expressions.map((expression) => continued(`(${expression});`)), ...statements.map(continued)])
         : Option.firstSomeOf([...expressions, ...statements].map((text) => Option.map(Option.fromNullishOr(REVEALING.exec(text)?.groups?.member), (member) => `ExtendScript ${member} activates Finder or Bridge`)));
 };
-
-// --- [CASES]
-const placed = Effect.fn('placed')(function* (decoded: typeof Placed.Type, folder: string, product: string) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const documents = yield* Effect.forEach(
-        decoded.documents,
-        (document): Effect.Effect<(typeof Placed.Type.documents)[number], PlatformError.PlatformError> =>
-            'open' in document ? Effect.as(fs.copyFile(path.join(product, document.open), path.join(folder, path.basename(document.open))), { open: path.join(folder, path.basename(document.open)) }) : Effect.succeed(document),
-    );
-    return { precondition: { ...decoded, documents }, copies: Array.filterMap(decoded.documents, (document) => ('open' in document ? Result.succeed(path.join(product, document.open)) : Result.failVoid)) };
-});
 
 // --- [DIGESTS]
 const unzipped = Effect.fn('unzipped')(function* (args: readonly string[]) {
@@ -108,15 +81,13 @@ const digest = Effect.fn('digest')(function* (file: string) {
 
 // --- [TRANSPORT]
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
-    const [automation, fs, path] = yield* Effect.all([Automation, FileSystem.FileSystem, Path.Path]);
+    const automation = yield* Automation;
     const scripts = Array.getSomes(batch.cases.map((row) => Option.map(Option.fromUndefinedOr(row._tag === 'Probe' ? undefined : row.source), ({ script }) => script)));
     const held = Option.isNone(batch.survey) ? 'uxpscript' : yield* Effect.fromResult(engine(scripts));
     const encoded = yield* Schema.encodeEffect(Encoded)({ records: batch.records, label: batch.label, enumerations: Option.match(batch.survey, { onNone: () => ({}), onSome: ({ enumerations }) => enumerations }), survey: Option.isNone(batch.survey), cases: batch.cases });
-    const sources = yield* Effect.forEach([SHARED, ENGINE], (url) => Effect.flatMap(path.fromFileUrl(url), fs.readFileString));
-    const direct = held === 'extendscript' ? sources.join('\n') : { _tag: 'file' as const, url: (yield* bundle).href };
+    const direct = held === 'extendscript' ? yield* assembled(ENGINE) : { _tag: 'file' as const, url: (yield* bundle).href };
     const { reply } = yield* automation.execute({ pid: live.pid, command: 'do script', arguments: { direct, language: ENGINES[held].language, 'with arguments': [encoded] }, artifacts: [] });
-    const answer = yield* Schema.decodeUnknownEffect(Reply)(reply);
-    return yield* 'failed' in answer ? HarnessError.make({ reason: { _tag: 'Unavailable', because: answer.failed }, subject: `${held} batch` }) : Effect.succeed(answer);
+    return yield* replied(`${held} batch`)(yield* Schema.decodeUnknownEffect(Reply)(reply));
 });
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -125,16 +96,18 @@ const Host = {
     Engine,
     survey: { question: 'Enumerations, working space profiles, languages, locale, and feature set the installation declares', Schema: Survey, host: (survey) => Option.some(survey.host) },
     Case: HostCase,
+    Recorded,
     shown: ['alerts', 'activations', 'console'],
+    progress: [],
     engine,
     precondition,
-    placed,
+    placed: copied,
     refusal,
     installed,
+    windowed: () => true,
     launch: () => Effect.succeed({ fresh: false }),
     opened: () => Effect.succeedNone,
     send,
-    records: (_, file) => recorded(Recorded)(file),
     quit: (live) => Effect.flatMap(Automation, (automation) => Effect.asVoid(automation.execute({ pid: live.pid, command: 'quit', arguments: { saving: { _tag: 'enumerator', name: 'no' } }, artifacts: [] }))),
     digest,
     compare: { _tag: 'Imported' },

@@ -7,7 +7,7 @@ import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import { CheckboxGroup } from 'react-aria-components';
 import { draft, updateEntry } from '#/editor/state';
-import { format, sheetLabel } from '#/media/labels';
+import { details, format, sheetLabel } from '#/media/labels';
 import { MediaFigure } from '#/media/media-figure';
 import type { AssetCollection } from '#/model/asset';
 import { Composition, placementsFor } from '#/model/placement';
@@ -34,7 +34,7 @@ const ReuseFile = ({ assets, entryId, sourceId, onSource, onAdd }: { readonly as
                 {Option.match(source, { onNone: () => 'Select file', onSome: Struct.get('name') })}
             </MenuButton>
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="hint">{[format.quantity(chosen.length, { other: 'selected' }), ...(pages.length > 0 ? [format.quantity(pages.length, { one: 'sheet', other: 'sheets' })] : [])].join(' · ')}</p>
+                <p className="hint">{details([format.quantity(chosen.length, { other: 'selected' }), pages.length > 0 ? format.quantity(pages.length, { one: 'sheet', other: 'sheets' }) : undefined])}</p>
                 <button className="button button-outline" disabled={chosen.length === 0} onClick={add} type="button">
                     Add {format.quantity(chosen.length, { one: 'composition', other: 'compositions' })}
                 </button>

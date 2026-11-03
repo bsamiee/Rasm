@@ -9,7 +9,7 @@ import { AnnotationEditorType, AnnotationMode, type PDFDocumentProxy } from 'pdf
 import { LinkTarget, ScrollMode, SpreadMode } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import { useState } from 'react';
 import { Button, Input, SearchField, ToggleButton, Toolbar } from 'react-aria-components';
-import { format, sheetLabel } from '#/media/labels';
+import { details, format, sheetLabel } from '#/media/labels';
 import { MediaFailure, MediaLoading } from '#/media/status';
 import { ZoomControls } from '#/media/zoom-controls';
 import { mediaUrl, sheets } from '#/model/asset';
@@ -59,7 +59,7 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                             <select aria-label="Sheet" className="min-h-11 max-w-48 min-w-0 bg-transparent px-1 font-mono text-xs tabular-nums" onChange={(event) => PdfViewer.assign(state, { currentPageNumber: Number(event.currentTarget.value) })} value={page.number}>
                                 {pages.map(({ label, number }) => (
                                     <option key={number} value={number}>
-                                        {[`${format.numeral(number)} / ${format.numeral(pages.length)}`, label].filter(Boolean).join(' · ')}
+                                        {details([`${format.numeral(number)} / ${format.numeral(pages.length)}`, label])}
                                     </option>
                                 ))}
                             </select>

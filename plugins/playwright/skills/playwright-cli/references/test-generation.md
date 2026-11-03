@@ -100,6 +100,6 @@ Plans a test came from change with the steps and outcomes a correction changed.
 ## [05]-[EVIDENCE]
 
 Server runs disable config reporters, an ordinary run `playwright test -c tests/typescript/e2e-<app>` writes the retained report:
-- Suite runs write outputs under `.artifacts/playwright-test/e2e-<app>` and HTML reports under `.artifacts/playwright-report/e2e-<app>`, server runs write outputs under `.artifacts/playwright-test/typescript`
+- Suite runs write `results` and an HTML `report` under `.artifacts/typescript/playwright/e2e-<app>`, server runs write `results` under `.artifacts/typescript/playwright/typescript`
 - Failed tests keep `trace.zip` with DOM, aria, and screen snapshots, read through playwright-trace
 - `test_list` releases the paused test before an ordinary run of its suite clears the `outputDir` the paused test writes

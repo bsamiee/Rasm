@@ -1,3 +1,4 @@
+import { Digits } from '@rasm/search/digits';
 import { Effect, Schema, Struct } from 'effect';
 import { Tag } from '#/tags';
 
@@ -10,7 +11,6 @@ const Range = (value: number, description: string) => {
     return range.pipe(Schema.withConstructorDefault(Effect.sync(() => range.make({}))));
 };
 const Direction = Schema.Literals(['rtl', 'ltr']).annotate({ description: 'Paragraph direction, script direction when unset' });
-const NumberingSystem = Schema.String.check(Schema.isPattern(/^[a-z\d]{3,8}$/u)).annotate({ description: 'Intl numbering system id (arab, arabext, latn), source digits when unset' });
 const Kashida = Schema.Struct({
     insertion: Schema.Literals(['none', 'tatweel', 'stretched'])
         .annotate({ description: 'Elongation by tatweel characters or stretched glyphs' })
@@ -33,7 +33,7 @@ const Spacing = Schema.Struct({
 class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>('Settings')(
     {
         direction: Schema.OptionFromOptionalKey(Direction).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-        numberingSystem: Schema.OptionFromOptionalKey(NumberingSystem).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        numberingSystem: Schema.OptionFromOptionalKey(Digits.System.annotate({ description: 'Decimal numbering system id, source digits when unset' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         kashida: Kashida.pipe(Schema.withConstructorDefault(Effect.sync(() => Kashida.make({})))),
         marks: Marks.pipe(Schema.withConstructorDefault(Effect.sync(() => Marks.make({})))),
         features: Schema.Record(Tag, Schema.Int.check(Schema.isGreaterThan(0)))
@@ -43,7 +43,7 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
     },
     { description: 'Typesetting of one paragraph or run' },
 ) {
-    static readonly Partial = Settings.mapFields((fields) => Struct.map(Schema.optionalKey)({ ...fields, direction: Schema.OptionFromNullOr(Direction), numberingSystem: Schema.OptionFromNullOr(NumberingSystem) })).annotate({
+    static readonly Partial = Settings.mapFields((fields) => Struct.map(Schema.optionalKey)({ ...fields, direction: Schema.OptionFromNullOr(Direction), numberingSystem: Schema.OptionFromNullOr(Digits.System) })).annotate({
         description: 'Absent keys stay unchanged, null unsets direction or numbering system',
     });
 }

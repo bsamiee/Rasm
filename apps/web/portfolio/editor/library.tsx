@@ -8,7 +8,7 @@ import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog';
 import { deleteRequest, draft, hero } from '#/editor/state';
-import { entryTitle, format } from '#/media/labels';
+import { details, entryTitle, format } from '#/media/labels';
 import { MediaFigure } from '#/media/media-figure';
 import { type Asset, type AssetCollection, PdfAsset, VideoAsset } from '#/model/asset';
 import { placementsFor } from '#/model/placement';
@@ -35,7 +35,7 @@ const Library = ({
     const setDraft = useAtomSet(draft);
     const remove = useAtomSet(deleteRequest);
     const selected = Option.flatMap(sourceId, (id) => Record.get(assets, id));
-    const summary = (asset: typeof Asset.Type) => [format.bytes(asset.size), ...(Schema.is(PdfAsset)(asset) ? [format.quantity(asset.pages.length, { one: 'sheet', other: 'sheets' })] : [])];
+    const summary = (asset: typeof Asset.Type) => [format.bytes(asset.size), Schema.is(PdfAsset)(asset) ? format.quantity(asset.pages.length, { one: 'sheet', other: 'sheets' }) : undefined];
     return (
         <section className="border-line min-w-0 border-t pt-5">
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -67,7 +67,7 @@ const Library = ({
                                 )}
                             </div>
                             <span className="mt-3 block text-sm wrap-anywhere">{asset.name}</span>
-                            <span className="meta-line">{summary(asset).join(' · ')}</span>
+                            <span className="meta-line">{details(summary(asset))}</span>
                         </GridListItem>
                     )}
                 </GridList>
@@ -103,7 +103,7 @@ const Library = ({
                                         Use as hero
                                     </button>
                                 </div>
-                                <p className="hint">{[...summary(asset), ...(uses.length > 0 ? [`Used in ${format.list(uses)}`] : [])].join(' · ')}</p>
+                                <p className="hint">{details([...summary(asset), uses.length > 0 ? `Used in ${format.list(uses)}` : undefined])}</p>
                                 <details className="hint">
                                     <summary className="min-h-11 cursor-pointer content-center">Deletion</summary>
                                     {uses.length > 0 && <p>Remove its placements and publish before deleting</p>}

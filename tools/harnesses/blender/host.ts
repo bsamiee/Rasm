@@ -3,7 +3,7 @@ import { Array, Deferred, type Duration, Effect, FileSystem, identity, Match, Op
 import { ChildProcess } from 'effect/process';
 import { Encoded, Engine, HostCase, type Placed, Recorded, Reply, SURVEY, Survey, Written } from '#/blender/contract';
 import { precondition } from '#/blender/precondition';
-import type { Batch as Authored } from '#/cases';
+import type { Batch as Authored, Row } from '#/cases';
 import { HarnessError } from '#/error';
 import type { Spawned } from '#/instance';
 import { merged } from '#/precondition';
@@ -20,6 +20,7 @@ type Rerun = Extract<Hosting['compare'], { readonly _tag: 'Hosted' }>['run'];
 const VERSION = /^Blender (?<release>\S+) ?(?<cycle>.*)$[\s\S]*?build hash: (?<hash>\w+)/mu;
 const ENGINE = new URL('engine.py', import.meta.url);
 const HOST = 'host.json';
+const STDERR = 'stderr.txt';
 const REBUILT = 'rebuilt';
 const EXTENSION = '.py';
 
@@ -58,11 +59,10 @@ const engine = (scripts: readonly string[]): Result.Result<typeof Engine.Type, H
 };
 
 // --- [CASES]
-const windowed = ({ precondition: shared, cases }: typeof Authored.Type) =>
-    cases.some((row) => {
-        const held = merged(shared ?? {}, row.precondition ?? {});
-        return 'window' in held || 'area' in held || (row.confirms ?? []).length > 0 || (row.files ?? []).length > 0;
-    });
+const windowed = ({ precondition: shared }: typeof Authored.Type, row: Row) => {
+    const held = merged(shared ?? {}, row.precondition ?? {});
+    return 'window' in held || 'area' in held || (row.confirms ?? []).length > 0 || (row.files ?? []).length > 0;
+};
 const placed = Effect.fn('placed')(function* (decoded: typeof Placed.Type, folder: string, product: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     return yield* Match.value(decoded.document).pipe(
@@ -91,21 +91,23 @@ const appeared = (folder: string, file: string) =>
             Stream.runHead,
         ),
     );
-const launch = Effect.fn('launch')(function* (chosen: Installed, scratch: string, authored: typeof Authored.Type) {
+const launch = Effect.fn('launch')(function* (chosen: Installed, scratch: string, shown: boolean) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const profile = path.join(scratch, 'profile');
     yield* fs.makeDirectory(profile, { recursive: true });
     const { executable } = yield* bundle(chosen.app);
     const args = ['--log-file', path.join(scratch, 'blender.log'), '--log', 'operator', '--log-level', 'debug', '--python-exit-code', '1', '--python', yield* path.fromFileUrl(ENGINE), '--', scratch];
     const environment = { BLENDER_USER_RESOURCES: profile };
-    return windowed(authored) ? ({ arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment } satisfies Launched) : ({ _tag: 'Spawned', command: executable, arguments: ['--background', ...args], environment } satisfies Spawned);
+    return shown ? ({ arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment } satisfies Launched) : ({ _tag: 'Spawned', command: executable, arguments: ['--background', ...args], environment } satisfies Spawned);
 });
 const opened = Effect.fn('opened')(function* (live: Live) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const file = path.join(live.scratch, HOST);
     yield* Effect.raceFirst(
         appeared(live.scratch, file),
-        Effect.flatMap(Deferred.await(live.verdict), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `instance ${live.pid} ended before the engine wrote ${HOST}` }, subject: `${live.chosen.name} ${live.chosen.version}` })),
+        Effect.flatMap(Deferred.await(live.verdict), () =>
+            Effect.flatMap(fs.readFileString(path.join(live.scratch, STDERR)), (printed) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `instance ${live.pid} ended before the engine wrote ${HOST}: ${printed.trim()}` }, subject: `${live.chosen.name} ${live.chosen.version}` })),
+        ),
     );
     return Option.some(yield* Schema.decodeEffect(Written)(yield* fs.readFileString(file)));
 });
@@ -144,11 +146,13 @@ const Host = {
     survey: { question: SURVEY, Schema: Survey, host: (survey) => Option.some(survey.host) },
     Case: HostCase,
     shown: ['modal', 'warnings'],
+    progress: [],
     engine,
     precondition,
     placed,
     refusal: () => Option.none(),
     installed,
+    windowed,
     launch,
     opened,
     send,

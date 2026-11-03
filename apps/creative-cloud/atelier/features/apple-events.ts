@@ -1,5 +1,4 @@
 import { Execute, Kind, Terms } from '@rasm/automation/apple-events';
-import type { Installation } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
 import { Attachment } from '@rasm/mcp/content';
 import { registerResourceTemplate } from '@rasm/mcp/resource';
@@ -17,11 +16,7 @@ const Dictionary = Schema.Struct({ application: McpSchema.param('application', S
 
 const dictionaries = Effect.fnUntraced(function* ({ scriptable }: Effect.Success<ReturnType<typeof routes>>) {
     const automation = yield* Automation;
-    const described = (given: string) =>
-        Effect.flatMap(
-            scriptable.holding,
-            Unmatched.single('scriptable Adobe application', Option.some(given), (row: Installation) => [row.name]),
-        );
+    const described = (given: string) => scriptable.holding.pipe(Effect.flatMap(Unmatched.single('scriptable Adobe application', Option.some(given), (row) => [row.name])));
     const completion = { application: () => Effect.map(scriptable.holding, Array.map(Struct.get('name'))) };
     yield* registerResourceTemplate`dictionary/${Dictionary.fields.application}`({
         name: 'dictionary',

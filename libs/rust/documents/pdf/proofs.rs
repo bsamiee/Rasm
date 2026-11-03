@@ -1,22 +1,22 @@
-use core::{alloc, fmt, num::NonZero};
+use core::{alloc, num::NonZero};
 
 use color::{AlphaColor, Srgb, palette};
+use derive_where::derive_where;
 use hayro::{
     RenderCache, RenderSettings,
-    hayro_interpret::{InterpreterSettings, TransformExt as _},
+    hayro_interpret::InterpreterSettings,
     render_into,
     vello_cpu::{Pixmap, RasterizerSettings, RenderContext, Resources, TargetInit, peniko::ImageAlphaType},
 };
 use hayro_svg::SvgRenderSettings;
-use hayro_syntax::object::dict::keys::USER_UNIT;
 use image::{FlatSamples, GenericImage as _, ImageError, Pixel, RgbImage, Rgba, RgbaImage, buffer::ConvertBuffer as _, flat::SampleLayout};
 use image_compare::{Algorithm, Similarity};
 use kurbo::Affine;
 use moxcms::{ColorProfile, Layout, RenderingIntent, TransformOptions};
-use uom::si::linear_number_density::per_inch;
+use uom::si::linear_number_density::per_millimeter;
 use validated::Validated;
 
-use crate::{Document, OutputIntent, POINTS_PER_INCH, PdfError, Resolution, Subject, page};
+use crate::{Document, OutputIntent, PdfError, Resolution, Subject, page};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -27,27 +27,24 @@ pub enum Appearance {
 }
 
 #[derive(Clone)]
+#[derive_where(Debug)]
 pub struct Raster {
     pub resolution: Resolution,
     pub appearance: Option<Appearance> = None,
     pub tile: NonZero<u16> = NonZero::<u16>::saturating_add(NonZero::<u16>::MIN, 4095),
+    #[derive_where(skip(Debug))]
     pub interpreter_settings: Option<InterpreterSettings> = None,
+    #[derive_where(skip(Debug))]
     pub render_settings: Option<RenderSettings> = None,
-}
-
-impl fmt::Debug for Raster {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.debug_struct("Raster").field("resolution", &self.resolution).field("appearance", &self.appearance).field("tile", &self.tile).finish_non_exhaustive()
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<RgbaImage, PdfError> {
     let page = page(document, index)?;
-    let unit = page.raw().get::<f64>(USER_UNIT).filter(|unit| unit.is_normal() && unit.is_sign_positive()).unwrap_or(1.0);
-    let scale = raster.resolution.get::<per_inch>() * unit / POINTS_PER_INCH;
-    let [width, height] = <[f32; 2]>::from(page.render_dimensions()).map(|side| (f64::from(side) * scale).ceil().to_int_saturating::<u64>());
+    let (frame, size) = crate::frame(page);
+    let density = raster.resolution.get::<per_millimeter>();
+    let [width, height] = [size.width, size.height].map(|side| (side * density).ceil().to_int_saturating::<u64>());
     let (columns, rows) = u32::try_from(width)
         .ok()
         .zip(u32::try_from(height).ok())
@@ -69,7 +66,7 @@ pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<Rgba
     let cache = RenderCache::new();
     let interpreter_settings = raster.interpreter_settings.clone().unwrap_or_default();
     let render_settings = raster.render_settings.unwrap_or_default();
-    let placement = Affine::scale(scale) * page.initial_transform(true).to_kurbo();
+    let placement = Affine::scale(density) * frame;
     let mut context = RenderContext::new(tile, tile);
     let mut resources = Resources::new();
     let mut image = RgbaImage::new(columns, rows);

@@ -310,7 +310,19 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 Domain::Calendar { civil } => (built(&format!("jiff::civil::{civil}"), None), None),
                 Domain::Quantity { quantity, unit, float } => {
                     let declared = format!("uom::si::{}::{quantity}", float.name_str());
-                    let measure = format!("uom::si::{}::{}{unit}", <&str>::from(quantity), if quantity == Quantity::LinearNumberDensity { "per_" } else { "" });
+                    let per = match quantity {
+                        Quantity::LinearNumberDensity => "per_",
+                        Quantity::Length
+                        | Quantity::Mass
+                        | Quantity::Angle
+                        | Quantity::Pressure
+                        | Quantity::Power
+                        | Quantity::Energy
+                        | Quantity::Frequency
+                        | Quantity::Ratio
+                        | Quantity::ThermodynamicTemperature => "",
+                    };
+                    let measure = format!("uom::si::{}::{per}{unit}", <&str>::from(quantity));
                     if constant {
                         (
                             format!("declare `{ident}` as `{declared}` through a `{quantity} {{ dimension: PhantomData, units: PhantomData, value }}` literal holding its value in base units"),

@@ -9,7 +9,7 @@ import { Button, type Key } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog';
 import { draft, portfolio, updateEntry } from '#/editor/state';
 import { Destination, pendingUploads } from '#/editor/uploader';
-import { entryTitle, format } from '#/media/labels';
+import { details, entryTitle, format } from '#/media/labels';
 import { Entry } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -71,7 +71,7 @@ const EntryFields = ({ entry, titleId }: { readonly entry: typeof Entry.Type; re
                 </div>
                 {entry.cover && (
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
-                        <span className="eyebrow min-w-0 wrap-anywhere">Cover · {entry.cover.asset.name}</span>
+                        <span className="eyebrow min-w-0 wrap-anywhere">{details(['Cover', entry.cover.asset.name])}</span>
                         <button className="button button-ghost" onClick={() => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.omit(['cover']))))} type="button">
                             Clear cover
                         </button>

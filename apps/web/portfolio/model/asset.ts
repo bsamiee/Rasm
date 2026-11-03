@@ -3,7 +3,8 @@ import { Array, Context, Schema } from 'effect';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const uploadLimit = 100_000_000;
-const mediaPath = '/api/media/:id/:width?';
+const mediaRoute = '/api/media';
+const mediaPath = `${mediaRoute}/:id/:width?`;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -35,7 +36,7 @@ class Assets extends Context.Service<Assets, typeof AssetCollection.Type>()('@ra
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sheets = ({ pages }: PdfAsset) => Array.map(pages, (page, index) => ({ ...page, number: index + 1 }));
-const mediaUrl = (asset: typeof Asset.Type, width?: number) => `/api/media/${asset.id}${width === undefined ? '' : `/${width}`}`;
+const mediaUrl = (asset: typeof Asset.Type, width?: number) => [mediaRoute, asset.id, ...Array.fromNullishOr(width)].join('/');
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

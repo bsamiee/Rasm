@@ -17,7 +17,7 @@ const render = Effect.fn('render')(function* ({ target: written, longestSide, op
     const found = yield* Effect.filterOrFail(
         Specifier.resolve(target),
         (value): value is Page | Spread | PageItem => (model.page(value) && model.spread(value.parent)) || model.spread(value) || model.item(value),
-        () => Unmatched.make({ subject: 'document page, spread, or page item', query: Option.some(target.path), candidates: [] }),
+        () => Unmatched.make({ subject: 'document page, spread, or page item', query: Option.some(target.path) }),
     );
     const { source, placed, range } = Match.value(found).pipe(
         Match.when(model.page, (each) => ({ source: each.parent.parent, placed: [each], range: { pageString: `+${each.documentOffset + 1}`, exportingSpread: false } })),

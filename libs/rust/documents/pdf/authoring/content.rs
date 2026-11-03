@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use hayro_syntax::LoadPdfError;
 use krilla::{
     Data,
     color::{
@@ -15,7 +14,7 @@ use krilla::{
     image::Image,
     num::NormalizedF32,
     paint::{Fill, FillRule, LineCap, LineJoin, Paint, Stroke, StrokeDash},
-    pdf::{self, PdfDocument},
+    pdf::PdfDocument,
     surface::Surface,
     text::{Font, GlyphId, KrillaGlyph, Tag},
 };
@@ -169,10 +168,6 @@ pub(crate) fn draw(surface: &mut Surface<'_>, elements: &[Element], sheet: Rect,
     drawn
 }
 
-pub(crate) fn extent(width: f32, height: f32) -> Result<geom::Size, PdfError> {
-    geom::Size::from_wh(width, height).ok_or_else(|| pdf_oxide::Error::InvalidOperation(format!("extent of {width} by {height} points holds no area")).into())
-}
-
 fn transform(affine: Affine) -> Transform {
     let [xx, xy, yx, yy, tx, ty] = affine.as_coeffs().map(f64::cast::<f32>);
     Transform::from_row(xx, xy, yx, yy, tx, ty)
@@ -187,7 +182,7 @@ fn glyphs(surface: &mut Surface<'_>, run: &GlyphRun, color: &Color, opacity: Opa
         Entry::Vacant(vacant) => vacant
             .insert(
                 Font::new_variable(Data::from(run.font.data.clone().into_raw_parts().0), run.font.index, &variations)
-                    .ok_or_else(|| pdf_oxide::Error::Font(format!("font data of {} holds no face {}", run.family, run.font.index)))?,
+                    .ok_or_else(|| PdfError::Font { family: Arc::clone(&run.family), index: run.font.index })?,
             )
             .clone(),
     };
@@ -221,7 +216,7 @@ fn placed(surface: &mut Surface<'_>, content: &Content, placement: Placement, op
         surface.pop();
     }
     let address = |bytes: &Arc<[u8]>| Arc::as_ptr(bytes).cast::<u8>().addr();
-    let unit = extent(1.0, 1.0).map_err(|error| nev![error])?;
+    let unit = crate::extent(Size::new(1.0, 1.0)).map_err(|error| nev![error])?;
     match content {
         Content::Svg(bytes) => {
             let fonts = &drawing.options.fonts;
@@ -263,9 +258,7 @@ fn placed(surface: &mut Surface<'_>, content: &Content, placement: Placement, op
                 Entry::Occupied(held) => held.into_mut(),
                 Entry::Vacant(vacant) => {
                     let document = Document::new(bytes.to_vec(), None).map_err(|error| nev![error])?;
-                    let shared = pdf::Pdf::new(Arc::new(document.data().clone())).ok().ok_or_else(|| nev![PdfError::Load(LoadPdfError::Invalid)])?;
-                    let count = shared.pages().len();
-                    vacant.insert((PdfDocument::new(Arc::new(shared)), count))
+                    vacant.insert((crate::embedded(&document).map_err(|error| nev![error])?, document.pages().len()))
                 }
             };
             (*page < *count).ok_or_else(|| nev![PdfError::Page { index: *page, count: *count }])?;

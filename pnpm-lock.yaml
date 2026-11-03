@@ -2075,9 +2075,6 @@ importers:
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/uxp
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.1
     devDependencies:
       '@adobe-uxp-types/photoshop':
         specifier: 'catalog:'
@@ -2619,6 +2616,9 @@ importers:
 
   tests/typescript/support:
     dependencies:
+      '@axe-core/playwright':
+        specifier: 'catalog:'
+        version: 4.14.1-e9cf392.0.sha-e9cf392(playwright-core@1.65.0-alpha-2026-11-01)
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.65.0-alpha-2026-11-01

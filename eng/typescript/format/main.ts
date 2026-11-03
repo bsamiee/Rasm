@@ -1,7 +1,8 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { type ExecutorContext, runExecutor, type Target } from '@nx/devkit';
-import { Array, Cause, Effect, Exit, FileSystem, flow, Option, Path, Schema, Stream, String } from 'effect';
+import { Array, Cause, Effect, FileSystem, flow, Option, Path, Schema, Stream, String } from 'effect';
 import { quote } from 'shell-quote';
+import { accumulate } from '#/eng/typescript/accumulate';
 import { stdout } from '#/eng/typescript/process';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -36,7 +37,7 @@ const format = flow(
                             { onEmpty: () => Effect.void, onNonEmpty: (owned) => run({ project: options.project, target, configuration: 'files' }, { args: quote(owned) }) },
                         ),
                 });
-            return yield* Effect.forEach(Object.values(Array.groupBy(writers, ({ extensions }) => Option.match(extensions, { onNone: () => '', onSome: Array.join(',') }))), (group) => Effect.exit(Effect.forEach(group, write, { discard: true })), { concurrency: 'unbounded' }).pipe(Effect.flatMap(Exit.asVoidAll));
+            return yield* accumulate(Object.values(Array.groupBy(writers, ({ extensions }) => Option.match(extensions, { onNone: () => '', onSome: Array.join(',') }))), (group) => Effect.forEach(group, write, { discard: true }));
         },
         Effect.as({ success: true }),
         Effect.tapCause(Effect.logError),

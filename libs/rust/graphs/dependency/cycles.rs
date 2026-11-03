@@ -3,13 +3,14 @@ use core::{cmp::Reverse, iter};
 use itertools::Itertools as _;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use petgraph::{
+    acyclic::AcyclicEdgeError,
     algo::{astar, condensation, kosaraju_scc},
     stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
     visit::{EdgeRef as _, IntoEdgeReferences as _, NodeFiltered, NodeIndexable as _},
 };
 use rustworkx_core::connectivity::johnson_simple_cycles;
 
-use crate::{DependencyError, Edges, Evaluation, acyclic, at, compact, dense, link, unweighted};
+use crate::{DependencyError, Edges, Evaluation, acyclic, at, compact, dense, unweighted};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -49,7 +50,7 @@ where K: Ord {
     let cut = graph
         .edge_references()
         .sorted_by_cached_key(|edge| Reverse(cost(edge.weight())))
-        .filter_map(|edge| link(&mut kept, (edge.source(), edge.target(), ())).err().map(|endpoints| (edge.id(), endpoints)))
+        .filter_map(|edge| kept.try_add_edge(edge.source(), edge.target(), ()).err().map(|(AcyclicEdgeError::Cycle(_) | AcyclicEdgeError::SelfLoop | AcyclicEdgeError::InvalidEdge)| (edge.id(), (edge.source(), edge.target()))))
         .collect::<Vec<_>>();
     let mut torn = cut
         .into_iter()

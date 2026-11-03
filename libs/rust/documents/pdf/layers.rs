@@ -1,4 +1,3 @@
-use core::str::Utf8Error;
 use std::{
     borrow::Borrow,
     collections::{BTreeMap, HashMap, HashSet},
@@ -10,11 +9,9 @@ use lopdf::{
     content::{Content, Operation},
     decode_text_string, dictionary, text_string,
 };
-use pdf_oxide::compliance::PdfALevel;
 use rasm_linework::Visibility;
-use xot::Xot;
 
-use crate::{Document, PdfError};
+use crate::{Document, PdfError, Standard, conformance, entry};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -32,9 +29,6 @@ const PRINT_STATE: &str = "PrintState";
 const VIEW_STATE: &str = "ViewState";
 const ON: &str = "ON";
 const OFF: &str = "OFF";
-const PART: &str = "part";
-const ARCHIVAL_NAMESPACE: &str = "http://www.aiim.org/pdfa/ns/id/";
-const ACCESSIBILITY_NAMESPACE: &str = "http://www.aiim.org/pdfua/ns/id/";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -64,13 +58,11 @@ where I: IntoIterator<Item: Borrow<Group>> {
     }
     let named = wanted.iter().map(|&group| (&*group.name, group)).collect::<HashMap<_, _>>();
     let ocgs = held.into_iter().map(|(id, present)| (id, named.get(&*present.name).map_or(present, |&group| group.clone()))).collect::<Vec<_>>();
-    let forbids = forbidding(&structure)?;
+    let forbids = conformance::declared(&structure)?.iter().any(|claim| matches!(claim, Ok(Standard::Archival(_) | Standard::Accessibility(_))));
     permitted(ocgs.iter().map(|(_, group)| group), forbids)?;
     ocgs.iter().try_for_each(|(id, group)| stamp(&mut structure, *id, group))?;
     configure(&mut structure, &ocgs, forbids)?;
-    let mut bytes = Vec::new();
-    structure.save_to(&mut bytes).map_err(lopdf::Error::from)?;
-    Document::new(bytes, None)
+    crate::saved(structure)
 }
 
 pub(crate) fn bind(structure: &mut lopdf::Document, pages: &[Vec<Group>], forbids: bool) -> Result<(), PdfError> {
@@ -109,32 +101,14 @@ fn permitted<'group>(groups: impl IntoIterator<Item = &'group Group>, forbids: b
     groups.into_iter().find(|group| forbids && group.print != group.view).map_or(Ok(()), |group| Err(PdfError::Usage(Arc::clone(&group.name))))
 }
 
-fn forbidding(structure: &lopdf::Document) -> Result<bool, PdfError> {
-    let Some(metadata) = lookup(structure, structure.catalog()?, &[], "Metadata")? else {
-        return Ok(false);
-    };
-    let packet = metadata.as_stream()?.get_plain_content()?;
-    let mut xot = Xot::new();
-    let root = xot.parse(str::from_utf8(&packet).map_err(|Utf8Error { .. }| lopdf::Error::CharacterEncoding)?).map_err(xot::Error::from)?;
-    let declared = |namespace: &str, property: &str| {
-        xot.namespace(namespace).and_then(|uri| xot.name_ns(property, uri)).and_then(|name| {
-            xot.descendants(root)
-                .find_map(|node| xot.get_attribute(node, name).or_else(|| xot.element(node).filter(|element| element.name() == name).and_then(|_| xot.text_content_str(node))))
-                .map(str::trim)
-        })
-    };
-    Ok(declared(ACCESSIBILITY_NAMESPACE, PART).is_some()
-        || declared(ARCHIVAL_NAMESPACE, PART).zip(declared(ARCHIVAL_NAMESPACE, "conformance")).and_then(|(part, conformance)| PdfALevel::from_xmp(part, conformance)).is_some())
-}
-
 fn entries(structure: &lopdf::Document) -> Result<Vec<(ObjectId, Group)>, lopdf::Error> {
-    let Some(properties) = lookup(structure, structure.catalog()?, &[], PROPERTIES)?.map(Object::as_dict).transpose()? else {
+    let Some(properties) = entry(structure, structure.catalog()?, PROPERTIES)?.map(Object::as_dict).transpose()? else {
         return Ok(Vec::new());
     };
     let absent = Dictionary::new();
-    let configuration = lookup(structure, properties, &[], CONFIGURATION)?.map(Object::as_dict).transpose()?.unwrap_or(&absent);
+    let configuration = entry(structure, properties, CONFIGURATION)?.map(Object::as_dict).transpose()?.unwrap_or(&absent);
     let references = |list: &Object| list.as_array().and_then(|items| items.iter().map(Object::as_reference).try_collect::<HashSet<_>>());
-    let listed = |parent: &Dictionary, key: &str| lookup(structure, parent, &[], key)?.map_or_else(|| Ok(HashSet::new()), references);
+    let listed = |parent: &Dictionary, key: &str| entry(structure, parent, key)?.map_or_else(|| Ok(HashSet::new()), references);
     let applications = applications(structure, configuration)?;
     let applied = |event: &str| {
         applications
@@ -148,12 +122,12 @@ fn entries(structure: &lopdf::Document) -> Result<Vec<(ObjectId, Group)>, lopdf:
             .map(|lists| lists.into_iter().flatten().collect::<HashSet<_>>())
     };
     let (on, off, viewed, printed) = (listed(configuration, ON)?, listed(configuration, OFF)?, applied(VIEW)?, applied(PRINT)?);
-    let based_off = lookup(structure, configuration, &[], "BaseState")?.map(Object::as_name).transpose()? == Some(OFF.as_bytes());
+    let based_off = entry(structure, configuration, "BaseState")?.map(Object::as_name).transpose()? == Some(OFF.as_bytes());
     let visibility = |shown: bool| if shown { Visibility::Visible } else { Visibility::Hidden };
     let stated = |ocg: &Dictionary, applying: bool, category: &str, key: &str| -> Result<Option<Visibility>, lopdf::Error> {
-        Ok(if applying { lookup(structure, ocg, &[USAGE, category], key)?.map(Object::as_name).transpose()?.map(|state| visibility(state != OFF.as_bytes())) } else { None })
+        Ok(if applying { crate::nested(structure, ocg, &[USAGE.as_bytes(), category.as_bytes()])?.map(|usage| entry(structure, usage, key)).transpose()?.flatten().map(Object::as_name).transpose()?.map(|state| visibility(state != OFF.as_bytes())) } else { None })
     };
-    lookup(structure, properties, &[], GROUPS)?
+    entry(structure, properties, GROUPS)?
         .map_or(Ok(&[][..]), |list| list.as_array().map(Vec::as_slice))?
         .iter()
         .map(|reference| {
@@ -229,18 +203,8 @@ fn configure(structure: &mut lopdf::Document, ocgs: &[(ObjectId, Group)], forbid
 }
 
 fn applications<'structure>(structure: &'structure lopdf::Document, configuration: &'structure Dictionary) -> Result<Vec<&'structure Dictionary>, lopdf::Error> {
-    lookup(structure, configuration, &[], APPLICATIONS)?
-        .map_or(Ok(Vec::new()), |list| list.as_array()?.iter().map(|entry| structure.dereference(entry).and_then(|(_, application)| application.as_dict())).try_collect::<Vec<_>>())
+    entry(structure, configuration, APPLICATIONS)?
+        .map_or(Ok(Vec::new()), |list| list.as_array()?.iter().map(|listed| crate::resolved(structure, listed).and_then(Object::as_dict)).try_collect::<Vec<_>>())
 }
 
-fn lookup<'structure>(structure: &'structure lopdf::Document, parent: &'structure Dictionary, path: &[&str], key: &str) -> Result<Option<&'structure Object>, lopdf::Error> {
-    path.iter()
-        .try_fold(Some(parent), |found, step| found.filter(|dictionary| dictionary.has(step.as_bytes())).map(|dictionary| structure.get_dict_in_dict(dictionary, step.as_bytes())).transpose())?
-        .filter(|dictionary| dictionary.has(key.as_bytes()))
-        .map(|dictionary| dictionary.get_deref(key.as_bytes(), structure))
-        .transpose()
-}
-
-fn subdictionary(structure: &lopdf::Document, parent: &Dictionary, key: &str) -> Result<Dictionary, lopdf::Error> {
-    lookup(structure, parent, &[], key)?.map_or(Ok(Dictionary::new()), |found| found.as_dict().cloned())
-}
+fn subdictionary(structure: &lopdf::Document, parent: &Dictionary, key: &str) -> Result<Dictionary, lopdf::Error> { crate::nested(structure, parent, &[key.as_bytes()]).map(|found| found.cloned().unwrap_or_default()) }

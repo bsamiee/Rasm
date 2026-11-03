@@ -1,26 +1,26 @@
+import { Manifest as Uxp } from '@rasm/uxp/manifest';
 import { Schema } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Version = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,2}$/u)).annotate({ description: 'major[.minor[.patch]]' });
-
 class Manifest extends Schema.Class<Manifest, { readonly brand: unique symbol }>('Manifest')({
     id: Schema.String,
     name: Schema.String,
-    version: Version,
-    host: Schema.Struct({ app: Schema.Literals(['ILST', 'AEFT', 'PHXS', 'IDSN', 'PPRO', 'AUDT', 'FLPR', 'DRWV', 'KBRG', 'AME']), minVersion: Version }),
+    version: Uxp.Version,
+    host: Schema.Struct({ app: Schema.Literals(['ILST', 'AEFT', 'PHXS', 'IDSN', 'PPRO', 'AUDT', 'FLPR', 'DRWV', 'KBRG', 'AME']), minVersion: Uxp.Version }),
 }) {
     static readonly target = 'es3';
+    static readonly chromium = 'chrome99';
 
     xml({ main, script }: { readonly main: string; readonly script: string }): string {
         const runtime = '12.0';
-        const extension = `<Extension Id="${this.id}.panel"`;
+        const extension = `<Extension Id="${this.id}.link"`;
         return [
             '<?xml version="1.0" encoding="UTF-8"?>',
             `<ExtensionManifest Version="${runtime}" ExtensionBundleId="${this.id}" ExtensionBundleVersion="${this.version}" ExtensionBundleName="${this.name}">`,
             `    <ExtensionList>${extension} Version="${this.version}"/></ExtensionList>`,
             '    <ExecutionEnvironment>',
-            `        <HostList><Host Name="${this.host.app}" Version="[${this.host.minVersion},99.9]"/></HostList>`,
+            `        <HostList><Host Name="${this.host.app}" Version="${this.host.minVersion}"/></HostList>`,
             '        <LocaleList><Locale Code="All"/></LocaleList>',
             `        <RequiredRuntimeList><RequiredRuntime Name="CSXS" Version="${runtime}"/></RequiredRuntimeList>`,
             '    </ExecutionEnvironment>',

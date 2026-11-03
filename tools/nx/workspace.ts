@@ -8,7 +8,7 @@ import { XMLParser } from 'fast-xml-parser';
 import { parse as parseToml } from 'smol-toml';
 import { parseSync } from 'vite';
 import { parse as parseYaml } from 'yaml';
-import { stdout } from '#/eng/typescript/process';
+import { run } from '#/eng/typescript/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -150,7 +150,7 @@ const cached = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, 
     const text = yield* Option.fromUndefinedOr(cache.get(key)).pipe(
         Option.filter((entry) => entry.hash === hash),
         Option.map(Struct.get('output')),
-        Option.match({ onSome: Effect.succeed, onNone: () => stdout(command, args, { cwd: root }) }),
+        Option.match({ onSome: Effect.succeed, onNone: () => run(command, args, { cwd: root }) }),
     );
     return yield* Effect.tap(Schema.decodeEffect(schema)(text), () => Effect.sync(() => cache.set(key, { hash, output: text })));
 });
@@ -584,7 +584,7 @@ const imports = (root: string, { projectFileMap }: FileMap) =>
         Object.values(projectFileMap).flatMap((files) => files.map(({ file }) => file).filter((file) => file.endsWith('.py'))),
         {
             onEmpty: () => Effect.succeed([]),
-            onNonEmpty: (files) => Effect.map(Effect.flatMap(stdout('ruff', ['analyze', 'graph', ...files], { cwd: root }), Schema.decodeEffect(ImportGraph)), (graph) => Object.entries(graph).flatMap(([file, targets]) => targets.map((target) => [file, target] as const))),
+            onNonEmpty: (files) => Effect.map(Effect.flatMap(run('ruff', ['analyze', 'graph', ...files], { cwd: root }), Schema.decodeEffect(ImportGraph)), (graph) => Object.entries(graph).flatMap(([file, targets]) => targets.map((target) => [file, target] as const))),
         },
     );
 const edges = Effect.fnUntraced(function* ({ fileMap, filesToProcess, workspaceRoot }: CreateDependenciesContext) {

@@ -23,6 +23,14 @@ pub enum Inputs {
     Replace,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
+pub enum Refusal {
+    #[display("nodes outside the graph")]
+    Missing,
+    #[display("activities with negative duration")]
+    Duration,
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,10 +45,8 @@ pub struct Connected<E> {
 pub enum DependencyError {
     #[error("dependency cycles {}", paths.iter().map(|path| indices(iter::chain(path, path.first()), " -> ")).format("; "))]
     Cycle { paths: NEVec<Vec<NodeIndex>> },
-    #[error("nodes outside the graph: {}", indices(nodes, ", "))]
-    Missing { nodes: NEBTreeSet<NodeIndex> },
-    #[error("activities with negative duration: {}", indices(nodes, ", "))]
-    Duration { nodes: NEBTreeSet<NodeIndex> },
+    #[error("{reason}: {}", indices(nodes, ", "))]
+    Refused { reason: Refusal, nodes: NEBTreeSet<NodeIndex> },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -48,10 +54,7 @@ pub enum DependencyError {
 pub fn evaluation<N, E>(graph: StableDiGraph<N, E>) -> Result<Evaluation<N, E>, DependencyError> { cycles::cycle(&graph).map_or_else(|| Ok(acyclic(graph)), Err) }
 
 pub fn connect<N, E>(evaluation: &mut Evaluation<N, E>, edges: impl IntoIterator<Item = (NodeIndex, NodeIndex, E)>, inputs: Inputs) -> Result<Connected<E>, DependencyError>
-where
-    N: 'static,
-    E: 'static,
-{
+where E: 'static {
     let edges = edges.into_iter().collect::<Vec<_>>();
     present(evaluation, edges.iter().flat_map(|&(source, target, _)| [source, target]))?;
     let graph: &StableDiGraph<N, E> = evaluation;
@@ -60,8 +63,22 @@ where
         Inputs::Extend => BTreeSet::new(),
         Inputs::Replace => targets.iter().flat_map(|&target| graph.edges_directed(target, Direction::Incoming).map(|edge| edge.id())).collect(),
     };
+    let attach = |evaluation: &mut Evaluation<N, E>, edges: Vec<(NodeIndex, NodeIndex, E)>| {
+        let (added, refused): (Vec<_>, Vec<_>) = edges.into_iter().partition_map(|(source, target, weight)| match evaluation.try_add_edge(source, target, weight) {
+            Ok(edge) => Either::Left(edge),
+            Err(AcyclicEdgeError::Cycle(_) | AcyclicEdgeError::SelfLoop | AcyclicEdgeError::InvalidEdge) => Either::Right((source, target)),
+        });
+        match NEVec::try_from_vec(refused) {
+            None => Ok(added),
+            Some(refused) => {
+                let cycle = cycles::refused(evaluation, refused);
+                disconnect(evaluation, added);
+                Err(cycle)
+            }
+        }
+    };
     if targets.len() > 1 && !incoming.is_empty() {
-        attach(&mut acyclic(unweighted(graph, |edge| !incoming.contains(&edge))), edges.iter().map(|&(source, target, _)| (source, target, ())))?;
+        connect(&mut acyclic(unweighted(graph, |edge| !incoming.contains(&edge))), edges.iter().map(|&(source, target, _)| (source, target, ())).collect::<Vec<_>>(), Inputs::Extend)?;
         let replaced = disconnect(evaluation, incoming);
         attach(evaluation, edges).map(|added| Connected { added, replaced })
     } else {
@@ -88,28 +105,8 @@ pub fn remove<N, E>(evaluation: &mut Evaluation<N, E>, node: NodeIndex) -> Optio
 
 fn acyclic<N, E>(graph: StableDiGraph<N, E>) -> Evaluation<N, E> { Acyclic::try_from(graph).unwrap_or_default() }
 
-fn attach<N, E>(evaluation: &mut Evaluation<N, E>, edges: impl IntoIterator<Item = (NodeIndex, NodeIndex, E)>) -> Result<Vec<EdgeIndex>, DependencyError>
-where
-    N: 'static,
-    E: 'static,
-{
-    let (added, refused): (Vec<_>, Vec<_>) = edges.into_iter().map(|edge| link(evaluation, edge)).partition_result();
-    match NEVec::try_from_vec(refused) {
-        None => Ok(added),
-        Some(refused) => {
-            let cycle = cycles::refused(evaluation, refused);
-            disconnect(evaluation, added);
-            Err(cycle)
-        }
-    }
-}
-
-fn link<N, E>(evaluation: &mut Evaluation<N, E>, (source, target, weight): (NodeIndex, NodeIndex, E)) -> Result<EdgeIndex, (NodeIndex, NodeIndex)> {
-    evaluation.try_add_edge(source, target, weight).map_err(|(AcyclicEdgeError::Cycle(_) | AcyclicEdgeError::SelfLoop | AcyclicEdgeError::InvalidEdge)| (source, target))
-}
-
 fn present<N, E>(graph: &StableDiGraph<N, E>, nodes: impl IntoIterator<Item = NodeIndex>) -> Result<(), DependencyError> {
-    NEBTreeSet::try_from_set(nodes.into_iter().filter(|&node| !graph.contains_node(node)).collect()).map_or(Ok(()), |nodes| Err(DependencyError::Missing { nodes }))
+    NEBTreeSet::try_from_set(nodes.into_iter().filter(|&node| !graph.contains_node(node)).collect()).map_or(Ok(()), |nodes| Err(DependencyError::Refused { reason: Refusal::Missing, nodes }))
 }
 
 fn pass<N, E, V>(evaluation: &Evaluation<N, E>, direction: Direction, mut step: impl FnMut(NodeIndex, &[Option<V>]) -> V) -> Vec<Option<V>> {

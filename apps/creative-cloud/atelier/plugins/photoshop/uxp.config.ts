@@ -1,15 +1,5 @@
-import { Option } from 'effect';
-import npm from '#/package.json' with { type: 'json' };
 import { uxp } from '../../../../../vite.shared.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default uxp(import.meta.dirname, {
-    npm,
-    daemon: 'atelier',
-    manifest: {
-        host: { app: 'PS', minVersion: '27.0.0', data: Option.some({ loadEvent: 'startup' }) },
-        entrypoints: [],
-        requiredPermissions: { localFileSystem: Option.some('fullAccess'), allowCodeGenerationFromStrings: Option.some(true) },
-    },
-});
+export default uxp(import.meta.dirname, { host: { app: 'PS', minVersion: '27.0.0' }, entrypoints: [] });

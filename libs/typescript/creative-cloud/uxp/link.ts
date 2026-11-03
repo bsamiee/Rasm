@@ -47,6 +47,7 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
             ]),
             Layer.provide(Socket.layerWebSocketConstructorGlobal),
         );
+    static readonly origin = (port: number) => `ws://localhost:${port}`;
     static readonly serves = (application: URL) => (peer: Link) => peer.application.href === application.href;
     static readonly listen = Effect.fn('Link.listen')(function* <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, { middleware }: { readonly middleware: Layer.Layer<Rpc.MiddlewareClient<Rpcs>, never, RpcClient.Protocol> }) {
         class Linked extends Data.Class<{ readonly peer: Link; readonly client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError> }> {}

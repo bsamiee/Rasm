@@ -39,6 +39,7 @@ pub enum Arrowhead {
 pub enum Lookup {
     Family,
     Slot,
+    Element,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]

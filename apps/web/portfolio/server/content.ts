@@ -6,11 +6,11 @@ import { readDocument, writeDocument } from '#/server/store/documents';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const content = HttpApiBuilder.group(Api, 'content', (handlers) => {
-    const withEtag = Effect.map((revision: number) => HttpApiSchema.withHeaders({ body: undefined, headers: { 'draft-etag': revision } }));
+    const etagged = <A>(body: A) => (revision: number) => HttpApiSchema.withHeaders({ body, headers: { 'draft-etag': revision } });
     return handlers.handleAll({
-        draft: () => readDocument('draft').pipe(Effect.map(({ data, revision }) => HttpApiSchema.withHeaders({ body: data, headers: { 'draft-etag': revision } }))),
-        save: ({ payload, headers }) => withEtag(writeDocument(payload, false, headers['if-match'])),
-        publish: ({ payload, headers }) => withEtag(writeDocument(payload, true, headers['if-match'])),
+        draft: () => Effect.map(readDocument('draft'), ({ data, revision }) => etagged(data)(revision)),
+        save: ({ payload, headers }) => Effect.map(writeDocument(payload, false, headers['if-match']), etagged(undefined)),
+        publish: ({ payload, headers }) => Effect.map(writeDocument(payload, true, headers['if-match']), etagged(undefined)),
     });
 });
 

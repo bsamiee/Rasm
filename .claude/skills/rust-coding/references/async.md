@@ -50,21 +50,25 @@ pub async fn supervised(
     let stop = CancellationToken::new();
     let _stopped = stop.drop_guard_ref();
     let mut serving = pin!(future::maybe_done(serving(stop.child_token())));
-    let skipped = tokio::select! {
-        _ = signals.next() => 0,
-        () = serving.as_mut() => 1,
+    let trigger = tokio::select! {
+        _ = signals.next() => Trigger::Signal,
+        () = serving.as_mut() => Trigger::Serving,
     };
-    let finished = tokio::select! {
+    let mut draining = pin!(future::maybe_done(drain().inspect(|_| stop.cancel())));
+    let abandonment = tokio::select! {
         biased;
-        (drained, ()) = future::join(drain().inspect(|_| stop.cancel()), serving.as_mut()) => drained,
-        _ = signals.skip(skipped).into_future() => Err(ServiceError::Abandoned { reason: Abandonment::Signal }),
-        Some(()) = OptionFuture::from(grace.map(time::sleep)) => Err(ServiceError::Abandoned { reason: Abandonment::Deadline }),
+        ((), ()) = future::join(draining.as_mut(), serving.as_mut()) => None,
+        _ = signals.skip(match trigger { Trigger::Signal => 0, Trigger::Serving => 1 }).into_future() => Some(Abandonment::Signal),
+        Some(reason) = OptionFuture::from(grace.map(|grace| time::sleep(grace).map(move |()| Abandonment::Deadline(grace)))) => Some(reason),
     };
-    serving.as_mut().take_output().into_iter().chain([finished]).collect::<Validated<(), _>>().ok()
+    let (drained, served) = (draining.as_mut().take_output(), serving.as_mut().take_output());
+    let pending = [drained.is_none().then_some(Stage::Drain), served.is_none().then_some(Stage::Serving)].into_iter().flatten().try_into_nonempty_iter().map(|stages| stages.collect::<NEVec<_>>());
+    let abandoned = abandonment.zip(pending).map(|(reason, pending)| ServiceError::Abandoned { reason, pending });
+    iter::chain(drained, served).chain(abandoned.map(Err)).collect::<Validated<(), _>>().ok()
 }
 ```
 
-`move |stop| serve(listener, handler, stop)` fills `serving`, and `maybe_done` holds its output across both races until `take_output` reads it once. `skipped` makes the second signal abandon the drain whether a signal or serving's own end began it. `biased;` puts the join first, and a drain finished at the instant of a signal or deadline wins. `OptionFuture` resolves a `None` grace at once, and the failed `Some(())` pattern disables its branch. Serving stays in the join, its accept loop advancing only while polled. Failures serving returned before an abandonment join the outcome. More workers join beside the drain (`join3`), each error mapped where its future is built. Outputs more than one future reads are `.shared()`. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
+`move |stop| serve(listener, handler, stop)` fills `serving`, and `maybe_done` holds each output across both races until `take_output` reads it once. `trigger` holds the `Trigger` that began the drain and sets the skip count making a second signal abandon it either way. `biased;` puts the join first, and a drain finished at the instant of a signal or deadline wins. `OptionFuture` resolves a `None` grace at once and disables its branch. Deadline futures yield their own `Abandonment` with no second read of `grace`. `Abandoned` names each `Stage` that `take_output` finds unfinished, and an abandonment with none pending drops. Serving stays in the join, its accept loop advancing only while polled. Failures serving returned before an abandonment join the outcome. More workers join beside the drain (`join3`), each error mapped where its future is built. Outputs more than one future reads are `.shared()`. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
 
 ## [03]-[STREAMS]
 

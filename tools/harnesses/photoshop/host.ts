@@ -8,6 +8,7 @@ import { HarnessError } from '#/error';
 import { Document, Encoded, Engine, HostCase, type Placed, type Quit, Recorded, Reply, SURVEY, Survey } from '#/photoshop/contract';
 import { precondition } from '#/photoshop/precondition';
 import { type Batch, type Host as Harness, type Installed, type Live, recorded } from '#/session';
+import { assembled } from '#/source';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -15,7 +16,6 @@ const JAVASCRIPT = { command: 'miscDjxM', argument: 'JArg' } as const;
 const EXTENSIONS: readonly string[] = ['jsx', 'jsxbin', 'js'];
 const WRITABLE = /^[A-Z0-9]+$/u;
 const SPACED = /\s+/u;
-const SHARED = new URL('../extendscript.jsxinc', import.meta.url);
 const ENGINE = new URL('extendscript.jsxinc', import.meta.url);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -88,8 +88,7 @@ const digest = Effect.fn('digest')(function* (file: string) {
 const executed = Effect.fn('executed')(function* (live: Live, argument: string) {
     const [automation, fs, path] = yield* Effect.all([Automation, FileSystem.FileSystem, Path.Path]);
     const file = path.join(live.scratch, 'harness.jsx');
-    const sources = yield* Effect.forEach([SHARED, ENGINE], (url) => Effect.flatMap(path.fromFileUrl(url), fs.readFileString));
-    yield* fs.writeFileString(file, sources.join('\n'));
+    yield* fs.writeFileString(file, yield* assembled(ENGINE));
     const direct = `$.evalFile(new File(${jsesc(file, { quotes: 'double', wrap: true })}))`;
     const { reply } = yield* automation.execute({ pid: live.pid, command: JAVASCRIPT.command, arguments: { direct, [JAVASCRIPT.argument]: [argument] }, artifacts: [] });
     return reply;
@@ -107,11 +106,13 @@ const Host = {
     survey: { question: SURVEY, Schema: Survey, host: (survey) => Option.some(survey.host) },
     Case: HostCase,
     shown: ['alerts', 'activations', 'errors'],
+    progress: [],
     engine,
     precondition,
     placed,
     refusal: () => Option.none(),
     installed,
+    windowed: () => true,
     launch: () => Effect.succeed({}),
     opened: () => Effect.succeedNone,
     send,

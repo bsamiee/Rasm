@@ -1,10 +1,4 @@
-import { Schema, SchemaGetter } from 'effect';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Thrown = Schema.instanceOf(Error)
-    .pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform((error) => `${error.name}: ${error.message}`), encode: SchemaGetter.forbiddenEncoding }))
-    .annotate({ description: 'Text a thrown error records, its name and message' });
+import { Predicate, Schema } from 'effect';
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -24,6 +18,10 @@ class HarnessError extends Schema.TaggedError<HarnessError, { readonly brand: un
     }
 }
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const thrown = (error: unknown): string => `${Predicate.hasProperty(error, 'name') ? String(error.name) : 'Error'}: ${Predicate.hasProperty(error, 'message') ? String(error.message) : String(error)}`;
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { HarnessError, Thrown };
+export { HarnessError, thrown };

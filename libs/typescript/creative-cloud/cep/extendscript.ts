@@ -1,4 +1,5 @@
 import type { Requests } from '@rasm/automation/requests';
+import type { Unmatched } from '@rasm/search/unmatched';
 import type { Rpc, RpcGroup } from 'effect/rpc';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -48,7 +49,7 @@ const assign = <T extends object>(target: T, values: Fields): T => {
     }
     return target;
 };
-const unmatched = (subject: string, query: string | undefined, candidates: readonly string[]) => ({ _tag: 'Unmatched', subject, query, candidates });
+const unmatched = (subject: string, query: string, candidates: readonly string[]): typeof Unmatched.Encoded => ({ _tag: 'Unmatched', subject, query, candidates });
 const illegal = (message: string) => ({ _tag: 'IllegalArgument', message });
 const read = (value: unknown, key: string): unknown => attempt(() => (isRecord(value) ? value[key] : undefined));
 const reflected = (value: unknown): Reflection | undefined => {

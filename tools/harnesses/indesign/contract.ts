@@ -1,12 +1,13 @@
 import { Schema, Struct } from 'effect';
 import { answers, Expression, Name, Reads } from '#/cases';
 import { Common, Enumerated, hostCase, outcome, record, recorded, reply } from '#/results';
+import { EXTENDSCRIPT } from '#/source';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ENGINES = {
-    extendscript: { extensions: ['jsx', 'jsxbin', 'js'], language: 'javascript' },
+    extendscript: { extensions: EXTENDSCRIPT, language: 'javascript' },
     uxpscript: { extensions: ['idjs'], language: 'uxpscript' },
 } as const;
 

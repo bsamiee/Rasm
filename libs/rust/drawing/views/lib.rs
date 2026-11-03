@@ -1,4 +1,4 @@
-#![feature(default_field_values)]
+#![feature(cmp_minmax, default_field_values)]
 
 use core::iter;
 

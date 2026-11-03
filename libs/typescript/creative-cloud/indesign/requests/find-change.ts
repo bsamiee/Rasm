@@ -61,7 +61,7 @@ class FindChange extends Schema.Class<FindChange, { readonly brand: unique symbo
             Array.ensure(located),
             flow(
                 Option.liftPredicate(model.owning<InDesignDOMObject<unknown> & Pick<Document, typeof find | typeof change>>(change)),
-                Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: Option.map(scope, Struct.get('path')), candidates: [] })),
+                Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: Option.map(scope, Struct.get('path')) })),
             ),
         );
         yield* Effect.forEach(

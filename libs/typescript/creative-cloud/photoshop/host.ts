@@ -3,8 +3,7 @@ import type { File } from 'adobe:uxp';
 import { ExecuteScript, HostError, ObjectModel, Reference, Requests } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/runtime';
-import { Array, Cause, Effect, Exit, flow, Layer, Option, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
-import { Url } from 'effect/http';
+import { Array, Cause, Effect, Exit, flow, Layer, Option, Path, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { RpcMiddleware } from 'effect/rpc';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -159,21 +158,15 @@ const host = (photoshop: Photoshop) => {
                 }),
             (copy) => Effect.sync(() => copy.closeWithoutSaving()),
         );
-    const model = (name: Option.Option<string>) => {
-        const enumerations = Record.keys(constants);
-        return Effect.flatMap(Effect.transposeOption(Option.map(name, (query) => Unmatched.single([...Record.keys(classes), ...enumerations], 'class or enumeration', Option.some(query), Array.of))), (found) =>
+    const model = (payload: ObjectModel) =>
+        payload.describe(Record.keys(classes), Record.keys(constants), (match) =>
             Schema.decodeEffect(ObjectModel.Result)(
-                Option.match(found, {
-                    onNone: () => ({ _tag: 'Index', classes: Record.keys(classes), enumerations }) as const,
-                    onSome: (match) =>
-                        Option.match(Record.get(classes, match), {
-                            onNone: () => ({ _tag: 'Enumeration', name: match, members: Record.collect(Option.getOrElse(Schema.decodeUnknownOption(Members)(Reflect.get(constants, match)), Record.empty), (member, value) => ({ name: member, description: String(value) })) }) as const,
-                            onSome: (type) => declaration(match, type),
-                        }),
+                Option.match(Record.get(classes, match), {
+                    onNone: () => ({ _tag: 'Enumeration', name: match, members: Record.collect(Option.getOrElse(Schema.decodeUnknownOption(Members)(Reflect.get(constants, match)), Record.empty), (member, value) => ({ name: member, description: String(value) })) }) as const,
+                    onSome: (type) => declaration(match, type),
                 }),
             ),
         );
-    };
     const server = Layer.merge(
         Contract.toLayer({
             execute_script: (payload) => modal(payload.label)(({ hostControl }) => executed(payload, Option.as(Array.head(app.documents), hostControl))),
@@ -183,7 +176,7 @@ const host = (photoshop: Photoshop) => {
                 ),
             render: ({ target: specifier, longestSide, options, file, label }) =>
                 Effect.all([Effect.flatMap(resolved(specifier), (found) => target(found, specifier)), entry(file, true)]).pipe(Effect.flatMap(([found, written]) => modal(label)(() => rendered(found, longestSide, options, written, HostError.refused(label))))),
-            object_model: ({ name }) => model(name),
+            object_model: model,
         }),
         Layer.succeed(DisplayDialogs)((effect) =>
             Effect.andThen(
@@ -204,7 +197,7 @@ const host = (photoshop: Photoshop) => {
     );
     const application = Effect.tryPromise(() => action.batchPlay([{ _obj: 'get', _target: [{ _property: 'executablePath' }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }], {})).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Executable)),
-        Effect.flatMap(([{ executablePath }]) => Effect.fromResult(Url.fromString(encodeURI(`file://${executablePath._path}`)))),
+        Effect.flatMap(([{ executablePath }]) => Effect.flatMap(Path.Path, (path) => path.toFileUrl(executablePath._path))),
     );
     return { server, application };
 };

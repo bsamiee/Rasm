@@ -839,4 +839,3 @@ var harness = (function () {
         }
     };
 })();
-harness(arguments[0]);

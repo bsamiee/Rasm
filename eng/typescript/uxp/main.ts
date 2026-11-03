@@ -32,7 +32,7 @@ const Listing = Schema.String.pipe(
 
 const install = Effect.fn('install')(function* (built: string, agent: string) {
     const [fs, path, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME')]);
-    const [manifest, listing] = yield* Effect.all([fs.readFileString(path.join(built, 'manifest.json')).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json))), stdout(agent, ['--list', 'all']).pipe(Effect.flatMap(Schema.decodeEffect(Listing)))], { concurrency: 'unbounded' });
+    const [manifest, listing] = yield* Effect.all([fs.readFileString(path.join(built, Manifest.file)).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json))), stdout(agent, ['--list', 'all']).pipe(Effect.flatMap(Schema.decodeEffect(Listing)))], { concurrency: 'unbounded' });
     const installed = listing.some(({ extensions }) => extensions.some(([, name]) => name === manifest.name));
     yield* installed ? stdout(agent, ['--remove', manifest.name]) : Effect.void;
     const { text } = yield* output(agent, ['--install', `${built}.ccx`]);

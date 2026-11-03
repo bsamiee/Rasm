@@ -3,9 +3,6 @@
     "private": true,
     "description": "Atelier Illustrator",
     "type": "module",
-    "imports": {
-        "#/package.json": "./package.json"
-    },
     "dependencies": {
         "@rasm/cep": "workspace:*",
         "@rasm/illustrator": "workspace:*"

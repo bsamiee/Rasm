@@ -175,7 +175,7 @@ where S: DeserializeOwned {
 pub fn origin(layers: &[Arc<Layer>], path: &Path) -> Option<Origin> {
     layers
         .iter()
-        .map(|layer| {
+        .filter_map(|layer| {
             let (table, _) = DeTable::parse_recoverable(&layer.text);
             let root = Spanned::new(table.span(), DeValue::Table(table.into_inner()));
             let spans = path.iter().scan(&root, |value, segment| {
@@ -186,14 +186,14 @@ pub fn origin(layers: &[Arc<Layer>], path: &Path) -> Option<Origin> {
                 }?;
                 Some(value.span())
             });
-            (layer, spans.enumerate().last())
+            spans.enumerate().last().map(|deepest| (layer, deepest))
         })
-        .max_by_key(|(_, deepest)| deepest.as_ref().map(|(depth, _)| *depth))
-        .map(|(layer, deepest)| Origin { layer: Arc::clone(layer), span: deepest.map(|(_, span)| span) })
+        .max_by_key(|(_, (depth, _))| *depth)
+        .map(|(layer, (_, span))| Origin { layer: Arc::clone(layer), span: Some(span) })
 }
 ```
 
-`layered::<Settings>(&layers)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error, a `Layer` holds one file's `path` and `text`, and an `Origin` holds an `Arc<Layer>` and `span: Option<Range<usize>>`. `parse_recoverable` reports every syntax error of every layer, and `set_input(None)` drops each error's input copy, its excerpt rendering from the layer through `annotate_snippets::Renderer::plain` under `Level::ERROR.no_name()`, and a `None` span renders the file path alone through `annotate_snippets::Origin::path`. Later layers replace values and merge tables key by key in place, an overridden key keeping its position under `preserve_order`. Tables move into the merge, and `origin` re-parses the layers once a decode or later validation fails at a `serde_path_to_error::Path`, returning the layer holding its deepest prefix (the later one on a tie), and a key no layer sets points at the table missing it. `Syntax` holds an `Origin`, and `Settings` an `Option<Origin>` that an empty stack leaves `None`.
+`layered::<Settings>(&layers)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error, a `Layer` holds one file's `path` and `text`, and an `Origin` holds an `Arc<Layer>` and `span: Option<Range<usize>>`. `parse_recoverable` reports every syntax error of every layer, and `set_input(None)` drops each error's input copy, its excerpt rendering from the layer through `annotate_snippets::Renderer::plain` under `Level::ERROR.no_name()`, and a `None` span renders the file path alone through `annotate_snippets::Origin::path`. Later layers replace values and merge tables key by key in place, an overridden key keeping its position under `preserve_order`. Tables move into the merge, and `origin` re-parses the layers once a decode or later validation fails at a `serde_path_to_error::Path`, returning the layer holding its deepest prefix (the later one on a tie), and a nested key no layer sets points at the table missing it. `Syntax` holds an `Origin`, and `Settings` an `Option<Origin>` that is `None` for a path no layer holds a prefix of (a missing top-level key, an empty stack).
 
 ## [06]-[ENTRY_POINT]
 
@@ -214,10 +214,10 @@ fn main() -> ExitCode {
 - JSON lines write to `(move || OptionalWriter::from(appender.clone())).or_else(stderr)`, a daily file under a log directory or the passed writer
 - Failures before the subscriber starts are crate error variants (`Appender { directory, source }`), printed through `clap::Error::raw(<kind>, ..).with_cmd(&command)`
 - `.print().map_or_else(sysexits::ExitCode::from, |()| error.into()).into()` exits with the variant's status or the print failure's
-- Startup failures report through `dispatcher::with_default(&early, ..)`, a scoped `WARN` dispatch ahead of the global subscriber
+- Startup failures report through `subscriber::with_default(<subscriber>, ..)`, a scoped `WARN` subscriber ahead of the global one with no `Dispatch` built
 - `DropGuard::new(Runtime::new()?, Runtime::shutdown_background)` holds the runtime `block_on` reads, every path returning without waiting for blocked tasks
 - `panic::set_hook` force-flushes each provider, then calls the previous hook, `panic::take_hook()` held as an `Arc<dyn Fn(&PanicHookInfo) + Send + Sync>` the guard restores
-- Hooks record `info.payload_as_str()` and `info.location()`, a `%info` field renders both as text and layer `code.*` fields name the hook
+- Hooks record `info.payload_as_str()` as `EXCEPTION_MESSAGE` and `info.location()` as `CODE_FILE_PATH` and `CODE_LINE_NUMBER` fields
 - `DropGuard` over the providers and previous hook shuts them down and restores it on unwind, and `DropGuard::dismiss` returns both once the work commits
 - `panic = "abort"` runs no unwind release, and a hook held for process lifetime chains through `panic::update_hook` to drop the `WorkerGuard` an `Arc<nonpoison::Mutex<Option<WorkerGuard>>>` holds
 - `clap_mangen::generate_to` writes man pages into a directory `create_dir_all` made
@@ -227,7 +227,6 @@ One release serves suspend, the panic hook, and exit:
 
 ```rust
 pub fn released(modes: &[Mode]) -> Result<(), NEVec<io::Error>> {
-    let cooked = terminal::disable_raw_mode();
     let mut out = io::stdout();
     let restored = try {
         #[cfg(unix)]
@@ -238,7 +237,7 @@ pub fn released(modes: &[Mode]) -> Result<(), NEVec<io::Error>> {
         })?;
         execute!(out, DisableBracketedPaste, Show, LeaveAlternateScreen)?
     };
-    Validated::from(cooked).map2(Validated::from(restored), |(), ()| ()).ok()
+    Validated::from(restored).map2(Validated::from(terminal::disable_raw_mode()), |(), ()| ()).ok()
 }
 
 #[cfg(unix)]
@@ -254,7 +253,7 @@ pub fn suspended(terminal: &mut DefaultTerminal, modes: &[Mode]) -> Result<(), N
 }
 ```
 
-Raw mode refusals leave the screen restores running, where `ratatui::try_restore` stops at its first `?` with the alternate screen still up. `entered` mirrors `released`.
+Escapes leave the alternate screen before raw mode ends. Writers gated on raw mode resume stderr once it ends, and lines written while the alternate screen is up vanish with it. Raw mode refusals leave screen restores applied, where `ratatui::try_restore` stops at its first `?` with the alternate screen still up. `entered` mirrors `released`.
 
 Stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`. Encoder failures classify where they enter, an I/O cause converting into the one variant over `io::Error` (serde_json `classify() == Category::Io` through `io::Error::from`, csv `into_kind()` yielding `ErrorKind::Io`), and the exit match holds one arm per variant, a `BrokenPipe` from a closed reader ending output as success. Streamed encoders keep a refused item out of their state and output:
 

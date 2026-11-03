@@ -1,7 +1,6 @@
 import { error, HostError, Requests } from '@rasm/automation/requests';
 import { Typesetting } from '@rasm/automation/typesetting';
-import { Effect, Layer, Schema, Scope } from 'effect';
-import { Url } from 'effect/http';
+import { Effect, Layer, Path, Schema, Scope } from 'effect';
 import { Rpc, RpcMiddleware } from 'effect/rpc';
 import { open } from '#/documents/document';
 import { Model } from '#/dom/model';
@@ -64,7 +63,7 @@ const host = (indesign: typeof import('adobe:indesign')) => {
         local,
         application: Effect.tryPromise(() => indesign.app.fullName).pipe(
             Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ nativePath: Schema.String }))),
-            Effect.flatMap(({ nativePath }) => Effect.fromResult(Url.fromString(encodeURI(`file://${nativePath}`)))),
+            Effect.flatMap(({ nativePath }) => Effect.flatMap(Path.Path, (path) => path.toFileUrl(nativePath))),
         ),
     };
 };

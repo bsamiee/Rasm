@@ -50,7 +50,7 @@ public class Serve extends GhidraScript {
 
     private String answer(List<String> tokens) {
         long start = System.nanoTime();
-        Function<String, Report.Result<Program>> program =
+        Function<String, Report.Result<Program>> resolved =
                 name -> {
                     String path = name.startsWith("/") ? name : "/" + name;
                     return Optional.ofNullable(programs.get(path))
@@ -63,12 +63,17 @@ public class Serve extends GhidraScript {
                                 }
                                 try {
                                     Program opened =
-                                            (Program) file.getDomainObject(this, true, false, monitor);
+                                            (Program)
+                                                    file.getDomainObject(
+                                                            this, true, false, monitor);
                                     programs.put(path, opened);
                                     return new Report.Success<>(opened);
-                                } catch (VersionException | IOException | CancelledException exception) {
+                                } catch (VersionException
+                                        | IOException
+                                        | CancelledException exception) {
                                     return new Report.Failure<>(
-                                            "Program `%s` did not open, %s".formatted(path, exception));
+                                            "Program `%s` did not open, %s"
+                                                    .formatted(path, exception));
                                 }
                             });
                 };
@@ -76,7 +81,7 @@ public class Serve extends GhidraScript {
                 tokens.size() < 3
                         ? new Report.Failure<>(
                                 "Request matches no form <reply> <program> <script> <argument>...")
-                        : switch (program.apply(tokens.get(1))) {
+                        : switch (resolved.apply(tokens.get(1))) {
                             case Report.Success<Program>(Program program) ->
                                     execute(tokens, program);
                             case Report.Failure<Program>(String cause) ->

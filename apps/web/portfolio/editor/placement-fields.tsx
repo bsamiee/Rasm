@@ -3,7 +3,7 @@ import { Choice } from '@rasm/ui/form/choice';
 import { Field, SliderField } from '@rasm/ui/form/field';
 import { Match, Record, Schema, Struct } from 'effect';
 import type { ReactNode } from 'react';
-import { descriptionLabel, sheetLabel } from '#/media/labels';
+import { descriptionLabel, details, sheetLabel } from '#/media/labels';
 import { type AssetCollection, ImageAsset, sheets } from '#/model/asset';
 import { type Placement, percentBounds } from '#/model/placement';
 
@@ -60,7 +60,7 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                                 .filter(Schema.is(ImageAsset))
                                 .map((asset) => ({ id: asset.id, label: asset.name, asset }))}
                         >
-                            {film.poster === undefined ? 'Choose poster image' : `Poster · ${film.poster.name}`}
+                            {film.poster === undefined ? 'Choose poster image' : details(['Poster', film.poster.name])}
                         </MenuButton>
                         {film.poster && (
                             <button className="button button-ghost self-start" onClick={() => onChange(Struct.omit(film, ['poster']))} type="button">

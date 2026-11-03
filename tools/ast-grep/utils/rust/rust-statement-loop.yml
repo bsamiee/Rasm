@@ -5,12 +5,14 @@ utils:
     state-write:
         any:
             - kind: call_expression
-              has:
-                field: function
-                kind: field_expression
-                all:
-                    - has: {field: value, kind: identifier, pattern: $STATE}
-                    - has: {field: field, matches: rust-growing-method}
+              all:
+                - has:
+                    field: function
+                    kind: field_expression
+                    all:
+                        - has: {field: value, kind: identifier, pattern: $STATE}
+                        - has: {field: field, matches: rust-growing-method}
+                - not: {all: [{has: {field: function, has: {field: field, regex: '^(push|push_mut|push_back|push_back_mut|push_front|push_front_mut|push_str|extend|extend_from_slice|append)$'}}}, {has: {field: arguments, has: {nthChild: 2}}}]}
             - kind: 'compound_assignment_expr, assignment_expression'
               has: {field: left, kind: identifier, pattern: $STATE}
     write-statement:

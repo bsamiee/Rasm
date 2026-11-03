@@ -2,18 +2,16 @@ import process from 'node:process';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { cacheDir, getOutputsForTargetAndConfiguration, readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
-import { Array, Cause, Config, Console, Effect, Exit, Fiber, FileSystem, flow, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schedule, Schema, String, Struct, Tuple } from 'effect';
+import { Array, Cause, Config, Console, Effect, Fiber, FileSystem, flow, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schedule, Schema, String, Struct, Tuple } from 'effect';
 import { parse as parsePlist } from 'plist';
 import { parse as parseYaml } from 'yaml';
+import { accumulate } from '#/eng/typescript/accumulate';
 import { stdout } from '#/eng/typescript/process';
+import manifest from '#/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<pgid>\d+)\s+(?<uid>-?\d+)\s+(?<state>\S+)\s+(?:\?\??|(?<terminal>\S+))\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const accumulate = <A, E, R>(items: Iterable<A>, f: (item: A) => Effect.Effect<unknown, E, R>): Effect.Effect<void, E, R> => Effect.forEach(items, flow(f, Effect.exit), { concurrency: 'unbounded' }).pipe(Effect.flatMap(Exit.asVoidAll));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -50,9 +48,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
                 Effect.all(
                     [
                         stdout('pulumi', ['plugin', 'ls', '--json']).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.String, version: Schema.String })))))),
-                        fs.readFileString(path.join(root, 'package.json')).pipe(
-                            Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Struct({ devDependencies: Schema.Record(Schema.String, Schema.String) })))),
-                            Effect.flatMap(({ devDependencies }) => Effect.forEach(Object.keys(devDependencies), (name) => Effect.map(fs.readFileString(path.join(root, 'node_modules', name, 'package.json')), provider), { concurrency: 'unbounded' })),
+                        Effect.forEach(Object.keys(manifest.devDependencies), (name) => Effect.map(fs.readFileString(path.join(root, 'node_modules', name, 'package.json')), provider), { concurrency: 'unbounded' }).pipe(
                             Effect.map(
                                 flow(
                                     Array.getSomes,

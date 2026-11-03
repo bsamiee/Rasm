@@ -3,7 +3,7 @@ import { readCachedProjectGraph } from '@nx/devkit';
 import { findMatchingProjects, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { ActionsRepositoryPermissions, IssueLabel, type IssueLabelArgs, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { Effect, Path, Record } from 'effect';
-import { stdout } from '#/eng/typescript/process';
+import { run } from '#/eng/typescript/process';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -11,7 +11,7 @@ const stack = { projectName: 'rasm-infra', stackName: 'rasm' };
 
 const program = Effect.fnUntraced(
     function* () {
-        const [path, url, graph, nx] = yield* Effect.all([Path.Path, stdout('git', ['remote', 'get-url', 'origin'], { cwd: import.meta.dirname }), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)]);
+        const [path, url, graph, nx] = yield* Effect.all([Path.Path, run('git', ['remote', 'get-url', 'origin'], { cwd: import.meta.dirname }), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)]);
         const pattern = yield* Effect.fromNullishOr(nx.release?.releaseTag?.pattern);
         const feeds = findMatchingProjects(['tag:output:appcast', 'tag:output:extension'], graph.nodes);
         const name = path.basename(url.trim(), '.git');

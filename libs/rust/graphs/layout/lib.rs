@@ -195,11 +195,7 @@ fn linked(parents: &DiGraphMap<NodeIndex, ()>, source: NodeIndex, target: NodeIn
     }
 }
 
-fn titled(
-    nodes: &BTreeMap<NodeIndex, Node>,
-    parents: &DiGraphMap<NodeIndex, ()>,
-    titles: &BTreeMap<NodeIndex, Extent>,
-) -> impl Iterator<Item = ((NodeIndex, Extent), (NodeIndex, Extent))> {
+fn titled(nodes: &BTreeMap<NodeIndex, Node>, parents: &DiGraphMap<NodeIndex, ()>, titles: &BTreeMap<NodeIndex, Extent>) -> impl Iterator<Item = ((NodeIndex, Extent), (NodeIndex, Extent))> {
     nodes
         .iter()
         .filter_map(move |(&member, &Node { extent, parent: _, shape: _ })| if is_cluster(parents, member) { titles.get(&member).map(|&title| (member, title)) } else { Some((member, extent)) })

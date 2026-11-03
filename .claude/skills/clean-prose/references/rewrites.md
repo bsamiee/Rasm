@@ -218,8 +218,8 @@ Identifier and file renames update every reference:
 
 ## [10]-[PARAPHRASED_CODE]
 
-- BEFORE: `` `<script>` reads `<project file>`, downloads the pinned archive, checks its hash, and extracts it under `<cache>` `` (README line)
-- AFTER: `` `<script>` places pinned archive under `<cache>` `` (steps stay in script)
+- BEFORE: `` `<script>` reads `<project file>`, downloads the pinned archive, checks its hash, and extracts it under `.cache/` `` (README line)
+- AFTER: `` `<script>` places pinned archive under `.cache/` `` (steps stay in script)
 - WRONG: `` `<script>` downloads and extracts the pinned archives `` (steps shortened, purpose still unstated)
 
 ## [11]-[TABLES]
@@ -243,11 +243,11 @@ Identifier and file renames update every reference:
 
 ```python
 # BEFORE
-# Test support routes the <tool> database to <cache>/<tool>; this catches
+# Test support routes the <tool> database to .cache/<tool>; this catches
 # runs that were started without that configuration in place.
 
 # AFTER
-# Catches runs started without <cache>/<tool> database path
+# Catches runs started without .cache/<tool> database path
 ```
 
 ```csharp

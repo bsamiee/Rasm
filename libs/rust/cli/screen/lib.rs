@@ -161,7 +161,10 @@ where
                     }
                     hook(info);
                 });
-                let entering = session::entered::<P>().and_then(|()| Terminal::new(CrosstermBackend::new(io::stdout())));
+                let entering = try bikeshed io::Result<Terminal<CrosstermBackend<io::Stdout>>> {
+                    session::entered::<P>()?;
+                    Terminal::new(CrosstermBackend::new(io::stdout()))?
+                };
                 let (effects, requested) = mpsc::unbounded();
                 let delivered = |item: Result<P::Item, P::Error>| item.map(Input::Item).map_err(Either::Right);
                 let mut inputs = pin!(
@@ -175,9 +178,9 @@ where
                     .take_until(signals.next())
                     .ready_chunks(BATCH)
                 );
-                let failures = entering.map_or_else(
-                    |source| vec![P::Error::from(session::failed(Operation::Enter)(source))],
-                    |terminal| {
+                let failures = match entering {
+                    Err(source) => vec![P::Error::from(session::failed(Operation::Enter)(source))],
+                    Ok(terminal) => {
                         let Session { terminal: _, program: _, pane: _, level: stepped, logs: _, filter, effects: _, held: _, failures } = executor::block_on_stream(inputs.as_mut())
                             .try_fold(
                                 Session {
@@ -198,8 +201,8 @@ where
                             session::reloaded(&filter, level);
                         }
                         failures
-                    },
-                );
+                    }
+                };
                 let status = if inputs.get_ref().is_stopped() { ExitCode::TempFail } else { ExitCode::Ok };
                 NEVec::try_from_vec(iter::chain(failures, session::left::<P>(&held).map(P::Error::from)).collect()).map_or(Ok(status), Err)
             })

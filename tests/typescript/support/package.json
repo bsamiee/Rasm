@@ -3,15 +3,13 @@
     "private": true,
     "description": "Shared settings for isolated, accessible browser tests",
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
-        "./playwright": "./playwright/index.ts",
+        "./playwright": "./playwright.ts",
         "./preset": "./preset.ts",
         "./preview": "./preview.ts"
     },
     "dependencies": {
+        "@axe-core/playwright": "catalog:",
         "@playwright/test": "catalog:",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/addon-docs": "catalog:",

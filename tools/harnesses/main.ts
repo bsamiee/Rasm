@@ -70,6 +70,7 @@ const Shape = Schema.Struct({
     placed: Callable,
     refusal: Callable,
     installed: Schema.declare(Effect.isEffect),
+    windowed: Callable,
     launch: Callable,
     opened: Callable,
     send: Callable,

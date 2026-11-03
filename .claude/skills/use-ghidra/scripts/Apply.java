@@ -123,8 +123,7 @@ public class Apply extends GhidraScript {
                         .filter(each ->
                                 each.name()
                                         .equalsIgnoreCase(
-                                                cell.apply(6)
-                                                        .orElse(Kind.FUNCTION.name())))
+                                                cell.apply(6).orElse(Kind.FUNCTION.name())))
                         .findFirst();
         List<Local> locals =
                 cell.apply(5).stream()
@@ -344,16 +343,21 @@ public class Apply extends GhidraScript {
                                             try {
                                                 List<String> lines = Files.readAllLines(path);
                                                 return IntStream.range(0, lines.size())
-                                                        .filter(index -> !lines.get(index).isBlank())
+                                                        .filter(index ->
+                                                                !lines.get(index).isBlank())
                                                         .filter(index ->
                                                                 !lines.get(index).startsWith("#"))
                                                         .mapToObj(index ->
-                                                                row(path, index + 1, lines.get(index)));
+                                                                row(
+                                                                        path,
+                                                                        index + 1,
+                                                                        lines.get(index)));
                                             } catch (IOException exception) {
                                                 return Stream.of(
                                                         new Report.Failure<>(
                                                                 "Rows file `%s` is unreadable, %s"
-                                                                        .formatted(file, exception)));
+                                                                        .formatted(
+                                                                                file, exception)));
                                             }
                                         }),
                                 usage.require(!files.isEmpty(), "rows file")));
@@ -366,7 +370,8 @@ public class Apply extends GhidraScript {
         List<Outcome> typed =
                 functions.stream()
                         .flatMap(row ->
-                                row.prototype()
+                                row
+                                        .prototype()
                                         .map(prototype -> {
                                             Function function = getFunctionAt(row.address());
                                             try {
@@ -392,7 +397,8 @@ public class Apply extends GhidraScript {
                                                                 definition
                                                                         .hasUnknownCallingConventionName(),
                                                                 false,
-                                                                DataTypeConflictHandler.DEFAULT_HANDLER,
+                                                                DataTypeConflictHandler
+                                                                        .DEFAULT_HANDLER,
                                                                 FunctionRenameOption.NO_CHANGE);
                                                 return new Outcome(
                                                         Step.TYPED,
@@ -415,7 +421,8 @@ public class Apply extends GhidraScript {
                                                                                         .getMessage()
                                                                                         .lines()
                                                                                         .findFirst()
-                                                                                        .orElse(""))));
+                                                                                        .orElse(
+                                                                                                ""))));
                                             }
                                         })
                                         .stream())

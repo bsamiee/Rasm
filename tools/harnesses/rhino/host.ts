@@ -19,6 +19,8 @@ const HARNESS = 'RASM_HARNESS';
 const SESSION = 'session.json';
 const REQUEST = 'request';
 const ENTRY = { type: 'Cases', method: 'Run' } as const;
+const PROGRESS = [{ title: 'Please Wait...', buttons: ['Cancel'] }] as const;
+const AWAKE = ['-NSAppSleepDisabled', 'YES'] as const;
 const LINE = /\r?\n/u;
 const PROJECT = fileURLToPath(new URL('Rasm.Harnesses.Rhino.csproj', import.meta.url));
 const LOADER = [
@@ -30,7 +32,7 @@ const LOADER = [
     'using System.Runtime.Loader;',
     'using System.Text.Json;',
     'using Rhino;',
-    'using Rhino.ApplicationSettings;',
+    'using Rhino.UI;',
     '',
     `var scratch = Environment.GetEnvironmentVariable(${JSON.stringify(HARNESS)}) ?? throw new InvalidOperationException(${JSON.stringify(`${HARNESS} names no folder`)});`,
     'var pid = Environment.ProcessId;',
@@ -224,7 +226,7 @@ const launch = Effect.fn('launch')(function* (_: Installed, scratch: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const loader = path.join(scratch, 'loader.cs');
     yield* fs.writeFileString(loader, LOADER);
-    return { arguments: ['-nosplash', `-runscript=_-ScriptEditor _Run "${loader}"`], environment: { [HARNESS]: scratch } };
+    return { arguments: ['-nosplash', `-runscript=_-ScriptEditor _Run "${loader}"`, ...AWAKE], environment: { [HARNESS]: scratch } };
 });
 const sessionOf = (live: Live) => Effect.flatMap(appeared(live.scratch, `${live.pid}.${SESSION}`), Schema.decodeEffect(Session));
 const opened = (live: Live) =>
@@ -270,11 +272,13 @@ const hosting = (module: Option.Option<string>) => ({
     survey: { question: 'Language and environment the running instance reports', Schema: Survey, host: Option.some },
     Case: HostCase,
     shown: ['console', 'diagnostics'],
+    progress: PROGRESS,
     engine: () => Result.succeed(Engine.literal),
     precondition,
     placed,
     refusal,
     installed,
+    windowed: () => true,
     launch,
     opened,
     send: send(module),

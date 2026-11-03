@@ -5,6 +5,7 @@ import { ConfirmDialog } from '#/editor/confirm-dialog';
 import { RequestAlert } from '#/editor/request-alert';
 import { discardRequest, pendingRequest } from '#/editor/state';
 import { queue } from '#/editor/uploader';
+import { details } from '#/media/labels';
 import type { PendingUpload } from '#/model/api';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -58,7 +59,7 @@ const UploadRecovery = () => {
                                 {value.map((upload) => (
                                     <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3" key={upload.id}>
                                         <span className="min-w-0 flex-1 text-sm wrap-anywhere">{upload.name}</span>
-                                        <ConfirmDialog description={`${upload.name} · ${actions[upload.status].description}`} disabled={discarded.waiting || queuedUploads.has(upload.id)} label={actions[upload.status].label} onConfirm={() => discard(upload)} />
+                                        <ConfirmDialog description={details([upload.name, actions[upload.status].description])} disabled={discarded.waiting || queuedUploads.has(upload.id)} label={actions[upload.status].label} onConfirm={() => discard(upload)} />
                                         {queuedUploads.has(upload.id) && <p className="hint w-full">Retry or remove file in upload queue first</p>}
                                     </li>
                                 ))}

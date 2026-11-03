@@ -5,10 +5,11 @@ import { findNodeAt } from 'acorn-walk';
 import { Array, Effect, FileSystem, Number, Option, Path, type PlatformError, Record, Result, Schema, Stream, Struct } from 'effect';
 import { ChildProcess } from 'effect/process';
 import jsesc from 'jsesc';
-import { HarnessError } from '#/error';
+import { HarnessError, thrown } from '#/error';
 import { Engine, HostCase, Install, PASTEBOARD, type Placed, Recorded, Reply, Sent, Survey } from '#/illustrator/contract';
 import { precondition } from '#/illustrator/precondition';
 import { type Batch, type Host as Harness, type Installed, type Launched, type Live, recorded } from '#/session';
+import { assembled } from '#/source';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -33,7 +34,6 @@ const VOLATILE = {
         /%%CreationDate:[^\r\n]*/gu,
     ],
 } as const;
-const SHARED = new URL('../extendscript.jsxinc', import.meta.url);
 const ENGINE = new URL('extendscript.jsxinc', import.meta.url);
 const BOARD = new URL('pasteboard.jxa', import.meta.url);
 
@@ -42,7 +42,6 @@ const BOARD = new URL('pasteboard.jxa', import.meta.url);
 const RunConfig = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Struct({ features: JsonObject })));
 const Members = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Finite));
 const Settings = Schema.Struct({ folder: Schema.String, locale: Schema.String });
-const Thrown = Schema.Struct({ message: Schema.String });
 const Named = Schema.Union([Schema.Struct({ type: Schema.Literal('Identifier'), name: Schema.String }), Schema.Struct({ type: Schema.Literal('Literal'), value: Schema.Unknown })]);
 const Reached = Schema.Struct({ type: Schema.Literal('MemberExpression'), object: Schema.Struct({ type: Schema.Literal('ThisExpression') }), property: Schema.Unknown });
 const pasting = Schema.is(Schema.Literals(PASTEBOARD));
@@ -129,13 +128,7 @@ const escaped = (code: string) =>
     Result.match(
         Result.try(() => parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true, allowHashBang: true })),
         {
-            onFailure: (error) =>
-                Option.some(
-                    `source does not parse: ${Option.getOrElse(
-                        Option.map(Schema.decodeUnknownOption(Thrown)(error), ({ message }) => message),
-                        () => 'syntax error',
-                    )}`,
-                ),
+            onFailure: (error) => Option.some(`source does not parse: ${thrown(error)}`),
             onSuccess: (tree) => Option.map(Option.fromNullishOr(findNodeAt(tree, undefined, undefined, escaping)), ({ node }) => `${code.slice(node.start, node.end)} reaches the host around the case shadows`),
         },
     );
@@ -171,10 +164,9 @@ const pasteboard = Effect.fn('pasteboard')(function* (mode: 'save' | 'restore', 
     return yield* code === 0 ? Effect.void : HarnessError.make({ reason: { _tag: 'Unavailable', because: `pasteboard ${mode} exited with code ${code}` }, subject: file });
 });
 const called = Effect.fn('called')(function* (live: Live, sent: typeof Sent.Type) {
-    const [automation, fs, path] = yield* Effect.all([Automation, FileSystem.FileSystem, Path.Path]);
-    const sources = yield* Effect.forEach([SHARED, ENGINE], (url) => Effect.flatMap(path.fromFileUrl(url), fs.readFileString));
+    const automation = yield* Automation;
     const encoded = jsesc(yield* Schema.encodeEffect(Sent)(sent), { json: true });
-    const { reply } = yield* automation.execute({ pid: live.pid, command: 'do javascript', arguments: { direct: sources.join('\n'), 'with arguments': [encoded] }, artifacts: [] });
+    const { reply } = yield* automation.execute({ pid: live.pid, command: 'do javascript', arguments: { direct: yield* assembled(ENGINE), 'with arguments': [encoded] }, artifacts: [] });
     const answer = yield* Schema.decodeUnknownEffect(Reply)(reply);
     return yield* 'failed' in answer ? HarnessError.make({ reason: { _tag: 'Unavailable', because: answer.failed }, subject: `${sent._tag} batch` }) : Effect.succeed(answer);
 });
@@ -213,11 +205,13 @@ const Host = {
     survey: { question: 'Enumerations, startup presets, readonly application members, methods, open options, build, locale, feature flags, and outside plug-ins the installation holds', Schema: Survey, host: (survey) => Option.some(survey.host) },
     Case: HostCase,
     shown: ['alerts', 'activations', 'console', 'logs'],
+    progress: [],
     engine,
     precondition,
     placed,
     refusal,
     installed,
+    windowed: () => true,
     launch,
     opened,
     send,

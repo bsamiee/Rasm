@@ -1,43 +1,45 @@
-import { Record, Schema } from 'effect';
+import { Array, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const reasons = {
+const refusals = {
     unbounded: 'Schema.Number without isFinite stores differently per engine',
-    reserved: 'node SQLite refuses rowid alias name',
+    mixed: 'union mixes encoded kinds one column type cannot store',
+    reserved: 'names a SQLite rowid alias',
     projected: 'PostgreSQL refuses virtual column in key or reference',
     tenant: 'tenant scope needs PostgreSQL row security',
     search: 'FTS5 search needs one Schema.Int key column as rowid',
+    casefold: 'SQLite NOCASE folds ASCII alone, declare isAscii',
+    opclass: 'index method has no operator class for column kind',
     generated: 'rebuild drops undeclared generated column',
+    retained: 'rebuild drops undeclared column constraints',
     invalid: 'default or predicate value fails its column schema',
+    dangling: 'references table absent from catalog',
+    mismatched: 'reference columns differ from parent key in count or kind',
+    duplicate: 'names another declared table',
+    collision: 'derives one index name twice',
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Finding = Schema.TaggedUnion({
-    Unsupported: { table: Schema.String, reason: Schema.Literals(Record.keys(reasons)), columns: Schema.NonEmptyArray(Schema.String) },
-    Required: { table: Schema.String, columns: Schema.NonEmptyArray(Schema.String) },
-    Retype: { table: Schema.String, columns: Schema.NonEmptyArray(Schema.String) },
-    RetainedReference: { table: Schema.String, columns: Schema.NonEmptyArray(Schema.String), target: Schema.String },
+const Reason = Schema.TaggedUnion({ Unsupported: { refusal: Schema.Literals(Record.keys(refusals)) }, Required: {}, Retype: {}, RetainedReference: { target: Schema.String } });
+const Finding = Schema.Struct({ table: Schema.String, columns: Schema.Array(Schema.String), reason: Reason });
+const described = Reason.match({
+    Unsupported: ({ refusal }) => refusals[refusal],
+    Required: () => 'required, add default for existing rows',
+    Retype: () => 'stored definition differs, declare retype',
+    RetainedReference: ({ target }) => `references dropped table ${target}`,
 });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand: unique symbol }>()('ReconcileError', { findings: Schema.NonEmptyArray(Finding) }) {
+    static readonly Finding = Finding;
     override get message() {
-        return this.findings
-            .map(
-                Finding.match({
-                    Unsupported: ({ table, reason, columns }) => `${table} (${columns.join(', ')}) ${reasons[reason]}`,
-                    Required: ({ table, columns }) => `${table} (${columns.join(', ')}) required, add default for existing rows`,
-                    Retype: ({ table, columns }) => `${table} (${columns.join(', ')}) stored definition differs, declare retype`,
-                    RetainedReference: ({ table, columns, target }) => `${table} (${columns.join(', ')}) references dropped table ${target}`,
-                }),
-            )
-            .join('\n');
+        return this.findings.map(({ table, columns, reason }) => `${table}${Array.match(columns, { onEmpty: () => '', onNonEmpty: (named) => ` (${named.join(', ')})` })} ${described(reason)}`).join('\n');
     }
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Finding, ReconcileError };
+export { ReconcileError };

@@ -297,13 +297,15 @@ pub enum LedgerError {
 - Absent message fields render as what absence means (a package default)
 - Messages branching on a field or listing a variant's `NEVec` (a subject and `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, a list of plain values through `Itertools::format`
 - Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` in place of `custom` text
-- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, one zero-sized (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`, and one holding a value (`TryFromIntError` its kind) is the `source` field of a variant naming the caller's subject
+- Refusals the crate decides are variants naming their subject, in place of a dependency's text variant (`Other(format!(..))`) under `#[from]`
+- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, `map_err(<Variant>)` alone beside a sibling variant holding that source with an operation, a zero-sized one (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`, and one holding a value (`TryFromIntError` its kind) is the `source` field of a variant naming the caller's subject
 - Boundaries `map_err` a foreign error into its source's one variant, an operation field naming the operation and the caller's subject it omits (the path, the key, never a value the callee built) beside the source, an error omitting none reaching its variant through `From` and `?`, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
 - Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none records as a `tracing` event beside a variant naming the operation, and every sibling call of that operation passes the same mapping, a bare `?` on one dropping the subject the others carry
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
 - Functions generic over a consumer error only to call `E::from` return the crate error, and each caller converts through `?` or `map(E::from)`, one function holding a step two callers share (a release a panic hook logs and an exit returns)
 - Callers convert an `NEVec` of crate errors through `into_nonempty_iter().map(E::from).collect()`
+- Variants over an `NEVec` filled at more than one site take one `impl From<NEVec<..>> for <Error>`, sites binding through `.ok()?`
 - Discards match each error variant they drop (`Err(EmailError::LenCharMaxViolated)`) or record the failure as an event
 - `Err(_)`, `Err(<Type> { .. })`, and `if let` on `Ok` or `Validated::Good` drop every failure unnamed, `Err(Vec { .. })` staying for a returned value that is no error
 - Errors of one fieldless variant (a nutype `<Name>Error`) reach `None` through `ok()`, clippy `manual_ok_err` rejecting a `match` naming it
@@ -346,6 +348,7 @@ Traits state a capability a consumer needs. Associated types state an output the
 - Bounds repeated across signatures or crates are one trait alias over the traits each body reads or its totality needs, members restated across traits (an error type, a default `serve`) one supertrait each extends, a crate-private trait with one implementor is that type's inherent `impl`
 - Foreign trait implementations write required methods and each default their type or a forwarded inner type answers differently, other defaults stand
 - Operations over a foreign type or every type meeting a bound are generic functions, a trait exists only for a capability with many implementations
+- Wrappers exposing an inner type through an accessor (tokio `Command::as_std_mut`) take one function over that type, in place of a trait for both
 - Traits a generic function reads to choose a fallible foreign call state only what differs per implementation (an evaluator type, a tape, an input seed, an output widening), the generic function making the call and mapping its error once, and their impls for foreign types sit beside the trait in its section
 - Text one site renders is a `fmt::from_fn` closure in place of a struct holding only a `Display` impl
 - Parameters take the target type, callers convert with `.into()` at the call site
@@ -393,7 +396,7 @@ Pure functions hold the domain, async functions hold I/O, and the binary's `main
 - Futures a blocking thread drives through `executor::block_on` race the cancellation signal as awaited futures do
 - Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, and `DropGuard::dismiss` returns the value once the work commits, a release whose failure the outcome reads running on the dismissed value, the scope ending before a later phase reads the release (a boxed stream dropping its spans' progress bars before a summary draws), and a release another path already runs on each exit it covers (a panic hook releasing under unwind) takes no guard beside it
 - Independent releases each run and join their failures through `Validated`, a `?` between them skips every later release
-- Blocking releases run concurrently under `thread::scope` through `Builder::spawn_scoped`, a refused spawn joining `Validated` as one more failure
+- Blocking releases run concurrently under `thread::scope` through `Builder::spawn_scoped`, every handle collected before any `join` (a lazy `map` runs them in turn), a refused spawn adding one `Validated` failure
 - Operations at a boundary open a span with `#[instrument]`, and events record typed fields
 
 Dependency structure and concurrency bound select the combinator:

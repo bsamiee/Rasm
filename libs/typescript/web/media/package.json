@@ -11,8 +11,8 @@
         "./inspection": "./inspection.ts",
         "./pdf/document": "./pdf/document.ts",
         "./pdf/viewer": "./pdf/viewer.tsx",
-        "./uploads": "./uploads.ts",
-        "./vite": "./pdf/vite.ts"
+        "./pdf/vite": "./pdf/vite.ts",
+        "./uploads": "./uploads.ts"
     },
     "dependencies": {
         "@uppy/core": "catalog:",

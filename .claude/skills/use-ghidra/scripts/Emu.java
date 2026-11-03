@@ -15,7 +15,6 @@ import ghidra.pcode.exec.PcodeUseropLibrary;
 import ghidra.pcode.exec.SleighProgramCompiler;
 import ghidra.pcode.utils.Utils;
 import ghidra.program.model.address.Address;
-import ghidra.program.model.address.AddressRange;
 import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.address.AddressSetView;
 import ghidra.program.model.address.AddressSpace;
@@ -467,8 +466,7 @@ public class Emu extends GhidraScript {
                                                                         bigEndian),
                                                         (first, _) -> first,
                                                         LinkedHashMap::new)));
-        Report.Result<Map<Address, byte[]>> memory =
-                entries(run.memory(), this::address, bytes);
+        Report.Result<Map<Address, byte[]>> memory = entries(run.memory(), this::address, bytes);
         Report.Result<Map<Address, Integer>> reads =
                 entries(
                         run.reads(),
@@ -558,22 +556,29 @@ public class Emu extends GhidraScript {
                                                         return Optional.ofNullable(
                                                                         new Gson()
                                                                                 .fromJson(
-                                                                                        Files.readString(
-                                                                                                Path.of(file)),
+                                                                                        Files
+                                                                                                .readString(
+                                                                                                        Path
+                                                                                                                .of(
+                                                                                                                        file)),
                                                                                         Plan.class))
-                                                                .filter(parsed -> parsed.steps() > 0)
+                                                                .filter(parsed ->
+                                                                        parsed.steps() > 0)
                                                                 .<Report.Result<Plan>>map(
                                                                         Report.Success::new)
                                                                 .orElseGet(() ->
                                                                         new Report.Failure<>(
                                                                                 "Plan `%s` sets no positive steps"
-                                                                                        .formatted(file)));
-                                                    } catch (IOException | JsonParseException exception) {
+                                                                                        .formatted(
+                                                                                                file)));
+                                                    } catch (IOException
+                                                            | JsonParseException exception) {
                                                         return new Report.Failure<>(
                                                                 "Plan `%s` is unreadable, %s"
                                                                         .formatted(
                                                                                 file,
-                                                                                exception.getMessage()));
+                                                                                exception
+                                                                                        .getMessage()));
                                                     }
                                                 })))
                         .getFirst();
@@ -607,6 +612,27 @@ public class Emu extends GhidraScript {
         List<String> executed = new ArrayList<>();
         List<String> uninitialized = new ArrayList<>();
         List<String> userops = new ArrayList<>();
+        @FunctionalInterface
+        interface Execution {
+            Outcome of(PcodeThread<byte[]> thread, Recorder recorder, long budget);
+        }
+        Execution execution =
+                (thread, recorder, budget) -> {
+                    long steps = 0;
+                    try {
+                        for (;
+                                steps < budget && !thread.getCounter().equals(layout.sentinel());
+                                steps++) {
+                            recorder.step = steps;
+                            thread.stepInstruction();
+                        }
+                    } catch (PcodeExecutionException exception) {
+                        return new Faulted(steps, thread.getCounter(), exception.getMessage());
+                    }
+                    return thread.getCounter().equals(layout.sentinel())
+                            ? new Returned(steps, thread.getCounter())
+                            : new Exhausted(steps, thread.getCounter());
+                };
         for (Prepared prepared : runs) {
             monitor.checkCancelled();
             machine =
@@ -629,22 +655,7 @@ public class Emu extends GhidraScript {
                                     .getDisassemblyContext(prepared.entry()))
                     .ifPresentOrElse(thread::overrideContext, thread::overrideContextWithDefault);
             machine.recorder().begin();
-            long steps = 0;
-            Outcome outcome;
-            try {
-                for (;
-                        steps < prepared.steps() && !thread.getCounter().equals(layout.sentinel());
-                        steps++) {
-                    machine.recorder().step = steps;
-                    thread.stepInstruction();
-                }
-                outcome =
-                        thread.getCounter().equals(layout.sentinel())
-                                ? new Returned(steps, thread.getCounter())
-                                : new Exhausted(steps, thread.getCounter());
-            } catch (PcodeExecutionException exception) {
-                outcome = new Faulted(steps, thread.getCounter(), exception.getMessage());
-            }
+            Outcome outcome = execution.of(thread, machine.recorder(), prepared.steps());
             outcomes.add(
                     "%s %s%s"
                             .formatted(

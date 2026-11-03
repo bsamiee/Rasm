@@ -38,8 +38,7 @@ jobs:
                 path: |
                     .artifacts/dotnet/binlog
                     .artifacts/typescript/vitest
-                    .artifacts/playwright-report
-                    .artifacts/playwright-test
+                    .artifacts/typescript/playwright
                 include-hidden-files: true
                 retention-days: 14
 
