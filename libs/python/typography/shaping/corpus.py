@@ -59,7 +59,7 @@ class Corpus(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
 
     @property
     def word_runs(self) -> tuple[str, ...]:
-        """Each word of the marked, annotated, and word lines once, a word of marks alone shaped between its neighbours."""
+        """Each word of the marked, annotated, and word lines once, a word of marks alone shaped between its neighbors."""
         return tuple(
             dict.fromkeys(
                 " ".join(words[max(index - 1, 0) : index + 2]) if all(category(character) == "Mn" for character in word) else word
@@ -74,7 +74,7 @@ class Corpus(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
 
         Args:
             code: Code point of the letter.
-            marks: Mark sequence typed after the letter, empty for the bare forms.
+            marks: Mark sequence typed after the letter, empty for unmarked forms.
 
         Returns:
             The four forms in isolated, initial, medial, final order.
@@ -85,7 +85,7 @@ class Corpus(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
         """Every ordered pair of corpus letters with each mark sequence on each letter, between two copies of `around`.
 
         Args:
-            around: Letter the pair sits between, empty for the bare pair.
+            around: Letter the pair sits between, empty for an unwrapped pair.
             marks: Mark sequences typed after each letter of the pair, `("",)` for unmarked pairs.
 
         Returns:

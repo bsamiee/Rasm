@@ -49,7 +49,7 @@ def test_corpus_refuses_missing_file_unknown_key_and_negative_code(tmp_path: Pat
         case Result(error=(Fault(reason=refused),)) if refused is reason:
             pass
         case outcome:
-            pytest.fail(f"{outcome}")
+            pytest.fail(str(outcome))
 
 
 def test_lines_join_every_kind_once(sample: Corpus) -> None:
@@ -70,7 +70,7 @@ def test_forms_hold_each_joining_side_open_through_joiner(sample: Corpus) -> Non
 
 
 def test_pairs_cross_letters_bare_and_between_two_behs(sample: Corpus) -> None:
-    """Every ordered letter pair, bare, wrapped, and with each mark on each letter."""
+    """Every ordered letter pair, unwrapped, wrapped, and with each mark on each letter."""
     assert (sample.pairs(), sample.pairs("ب")) == (("بب",), ("بببب",))
     assert sample.pairs("", ("", "َ")) == ("بب", "ببَ", "بَب", "بَبَ")
 

@@ -32,7 +32,7 @@ def test_encoded_writes_fontspector_keys_and_decodes_back(binary: Binary, sample
             assert "language" not in bare
             assert "defaults" not in configuration
         case written:
-            pytest.fail(f"{written}")
+            pytest.fail(str(written))
     assert decoded(raw) == Ok(approved)
 
 
@@ -42,4 +42,4 @@ def test_decoded_refuses_a_test_without_expectation() -> None:
         case Result(error=(Fault(reason=Reason.INVALID),)):
             pass
         case refused:
-            pytest.fail(f"{refused}")
+            pytest.fail(str(refused))

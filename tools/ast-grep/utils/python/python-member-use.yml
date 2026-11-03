@@ -15,17 +15,17 @@ utils:
             - kind: identifier, attribute
               pattern: $MODULE
               all:
-                - not: {matches: python-shadowed-name}
-                - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {regex: '^$'}}}}
                 - any:
                     - inside:
                         kind: module, function_definition
                         stopBy: end
-                        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: module-import}
+                        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: import_statement, matches: module-import}
                     - inside:
                         kind: class_definition
                         stopBy: {kind: 'function_definition, lambda'}
-                        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: module-import}
+                        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: import_statement, matches: module-import}
+                - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {regex: '^$'}}}}
+                - not: {matches: python-shadowed-name}
             - kind: call
               all:
                 - has: {field: function, matches: loader}
@@ -52,11 +52,11 @@ utils:
                 - inside:
                     kind: module, function_definition
                     stopBy: end
-                    has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: root-import}
+                    has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: import_statement, matches: root-import}
                 - inside:
                     kind: class_definition
                     stopBy: {kind: 'function_definition, lambda'}
-                    has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: root-import}
+                    has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: import_statement, matches: root-import}
             - not: {matches: {python-conflicting-import: {module: {pattern: $ROOT}, name: {regex: '^$'}}}}
             - not: {matches: python-shadowed-name}
     rooted:

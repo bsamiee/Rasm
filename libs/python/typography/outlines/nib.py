@@ -13,7 +13,7 @@ lazy from typography.outlines.paths import Segment, segments, trace, traced, tra
 
 
 def _unfolded(segment: Segment, nib: tuple[float, float], /) -> tuple[Segment, ...]:
-    """Splits a quadratic where its tangent runs parallel to the nib, the root of the tangent's linear cross product with it, so no swept piece folds."""
+    """Splits a quadratic where its tangent runs parallel to the nib, at the root of their linear cross product, leaving no swept piece folded."""
     match segment:
         case ((x0, y0), (x1, y1), (x2, y2)) if (bend := (x2 - 2 * x1 + x0) * nib[1] - (y2 - 2 * y1 + y0) * nib[0]) and 0.0 < (at := ((y1 - y0) * nib[0] - (x1 - x0) * nib[1]) / bend) < 1.0:
             return tuple(tuple(piece) for piece in splitQuadraticAtT(*segment, at))
@@ -22,7 +22,7 @@ def _unfolded(segment: Segment, nib: tuple[float, float], /) -> tuple[Segment, .
 
 
 def _ribbons(outline: Outline, start: tuple[float, float], end: tuple[float, float], /, *, closed: bool) -> tuple[Outline, ...]:
-    """Areas a straight nib from `start` to `end` sweeps along each segment, the segment moved to `end` and back reversed at `start`, one outline each so each fixes its own winding."""
+    """Areas a straight nib from `start` to `end` sweeps along each segment, the segment moved to `end` and back reversed at `start`, one outline per piece to fix its own winding."""
     return tuple(
         (
             tuple(

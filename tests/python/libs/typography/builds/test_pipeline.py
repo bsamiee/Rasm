@@ -3,7 +3,7 @@
 from io import BytesIO
 from pathlib import Path
 
-from expression import Result
+from expression import Result, Some
 from fontTools.ttLib import TTFont
 import msgspec
 import ufoLib2
@@ -44,7 +44,7 @@ def test_written_ufo_reads_back(source: Source, tmp_path: Path) -> None:
 
 
 def test_compiled_tables_and_records(source: Source) -> None:
-    """Binary carries prep, gasp, STAT, meta, and OS/2 v4 with typo metrics and WWS, and compiles to equal bytes twice."""
+    """Binary holds prep, gasp, STAT, meta, and OS/2 v4 with typo metrics and WWS, and compiles to equal bytes twice."""
     data = _ok(compiled(source))
     font = TTFont(BytesIO(data))
     os2, gasp, head, meta = (vars(font[tag]) for tag in ("OS/2", "gasp", "head", "meta"))
@@ -59,7 +59,7 @@ def test_current_follows_inputs_and_bytes(declared: Declared, texts: Corpus) -> 
     done, face = _recorded(declared, texts), declared.set.faces[0]
     kept, moved = current(declared, face, texts), current(declared, msgspec.structs.replace(face, values=Values(counter=0.05)), texts)
     done.path.write_bytes(b"changed")
-    assert (kept.is_some() and kept.value == done, moved.is_none(), current(declared, face, texts).is_none()) == (True, True, True)
+    assert (kept, moved.is_none(), current(declared, face, texts).is_none()) == (Some(done), True, True)
 
 
 def test_checked_records_findings(declared: Declared, source: Source, texts: Corpus) -> None:

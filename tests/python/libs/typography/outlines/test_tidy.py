@@ -1,4 +1,4 @@
-"""Spike, sliver and near-point repair, needle cuts under a join band and coordinate snapping."""
+"""Spike, sliver, and near-point cleanup, needle cuts under a join band, and coordinate snapping."""
 
 from tests.python.support import assert_close
 from typography.faces.glyphs import Outline, Point

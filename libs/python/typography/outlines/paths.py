@@ -67,7 +67,7 @@ class Box(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def middle(self) -> tuple[float, float]:
-        """Centre point."""
+        """Center point."""
         return ((self.xmin + self.xmax) / 2, (self.ymin + self.ymax) / 2)
 
     @property
@@ -130,7 +130,7 @@ def trace(pen: AbstractPen, outline: Outline, /, *, closed: bool = True) -> None
 
 
 def draw(pen: AbstractPen, /, *outlines: Outline) -> None:
-    """Draws each outline into a segment pen with its winding fixed, outer contours counter-clockwise, so overlapping outlines add."""
+    """Draws each outline into a segment pen with winding fixed to counter-clockwise outer contours, overlapping outlines adding."""
     for outline in outlines:
         path = pathops.Path()
         trace(path.getPen(), outline)
@@ -204,7 +204,7 @@ def area(outline: Outline, /) -> float:
 
 
 def bounds(outline: Outline, /) -> Box | None:
-    """Returns the curve extent of an outline, or None for the empty outline."""
+    """Returns the curve extent of an outline, `None` for an empty outline."""
     pen = BoundsPen(None)
     trace(pen, outline)
     return Box.of(pen.bounds) if pen.bounds else None
@@ -220,7 +220,7 @@ def iou(a: Outline, b: Outline, /) -> float:
 
 
 def transformed(outline: Outline, matrix: Matrix, /) -> Outline:
-    """Maps every point through an affine matrix `(xx, xy, yx, yy, dx, dy)`, a `fontTools.misc.transform.Transform` included, contours reversed under a reflection so winding holds."""
+    """Maps every point through an affine matrix `(xx, xy, yx, yy, dx, dy)`, a `fontTools.misc.transform.Transform` included, contours reversed under a reflection to keep their winding."""
     recording = RecordingPointPen()
     xx, xy, yx, yy, _, _ = matrix
     _fed(TransformPointPen(ReverseContourPointPen(recording) if xx * yy - xy * yx < 0 else recording, matrix), outline, closed=True)
@@ -228,7 +228,7 @@ def transformed(outline: Outline, matrix: Matrix, /) -> Outline:
 
 
 def offset(outline: Outline, distance: float, /) -> Outline:
-    """Grows the outline's ink by `distance` units, or shrinks it for a negative distance, at mitred corners with miter limit 4."""
+    """Grows the outline's ink by `distance` units, or shrinks it for a negative distance, at mitered corners with miter limit 4."""
     if not distance:
         return union(outline)
     body, rim = pathops.Path(), pathops.Path()

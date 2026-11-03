@@ -9,10 +9,17 @@ lazy from fontTools.misc.transform import Transform
 
 from typography.faces.names import Form
 lazy from typography.faces.faults import Fault, Outcome, paired, Reason
-lazy from typography.faces.glyphs import Anchor, Component, Glyph, Letter, Outline, Source
+lazy from typography.faces.glyphs import Anchor, Component, Glyph, Letter, Outline, role, Source
 lazy from typography.faces.names import GlyphName
 lazy from typography.outlines.paths import area, bounds, Box, Matrix, pieces, strip, transformed, union
 lazy from typography.shaping.runs import Binary, drawn, encoded, outline, shaped
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Rule(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.lower):
+    """Repair of one defect class, holding every value and code point it reads."""
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # --- [GLYPHS]
@@ -21,6 +28,11 @@ lazy from typography.shaping.runs import Binary, drawn, encoded, outline, shaped
 def key(code: int, form: Form = Form.ISOL, /) -> str:
     """Returns the glyph key of a code point in a form."""
     return GlyphName(codes=(code,), form=form).text
+
+
+def made(name: GlyphName, advance: float, /, *, contours: Outline = (), components: tuple[Component, ...] = ()) -> Glyph:
+    """Returns a glyph of a name in the role its name states."""
+    return Glyph(name=name, role=role(name), advance=advance, contours=contours, components=components)
 
 
 def inked(source: Source, code: int, /) -> Outcome[tuple[Glyph, Box]]:
@@ -34,7 +46,7 @@ def inked(source: Source, code: int, /) -> Outcome[tuple[Glyph, Box]]:
 
 
 def mapped(glyph: Glyph, matrix: Matrix, /) -> Glyph:
-    """Maps a glyph's contours, anchors, and advance through an affine matrix, and its component offsets through the matrix's linear part, since each component glyph takes the same map."""
+    """Maps a glyph's contours, anchors, and advance through an affine matrix, and its component offsets through the matrix's linear part, the component glyphs taking the full map themselves."""
     xx, xy, yx, yy, dx, dy = matrix
     return msgspec.structs.replace(
         glyph,
@@ -59,7 +71,7 @@ def placement(source: Source, original: Binary, stem: int, /) -> Outcome[Transfo
 
 
 def text_ink(original: Binary, text: str, /) -> Outline:
-    """Returns the ink of text shaped on a binary, glyphs the font lacks left out so no `.notdef` box counts as ink."""
+    """Returns the ink of text shaped on a binary, `.notdef` glyphs left out."""
     run = shaped(original, text)
     return union(*(contours for placed, contours in zip(run.placed, drawn(original, run), strict=True) if placed.glyph != original.order[0]))
 
@@ -80,7 +92,7 @@ def band(source: Source, /) -> tuple[float, float] | None:
 
 
 def centred(contours: Outline, advance: float, /) -> Outline:
-    """Returns contours moved so their ink sits midway across an advance."""
+    """Returns contours moved to center their ink across an advance."""
     match bounds(contours):
         case Box(xmin=xmin, width=width):
             return transformed(contours, (1.0, 0.0, 0.0, 1.0, (advance - width) / 2 - xmin, 0.0))
@@ -89,7 +101,7 @@ def centred(contours: Outline, advance: float, /) -> Outline:
 
 
 def dotted(glyph: Glyph, nuqta: float, /) -> tuple[Outline, tuple[Outline, ...]]:
-    """Splits a letter into its body and its dots, a dot any piece of up to two and a half nuqtas, letters a canonical decomposition names holding none."""
+    """Splits a letter into its body and its dots, a dot any piece of up to two and a half nuqtas, a letter with a decomposition holding none."""
     held = sorted(pieces(glyph.contours), key=area, reverse=True)
     match held:
         case [body, *rest] if nuqta and not any(unicodedata.decomposition(chr(code)) for code in glyph.name.codes):
@@ -111,4 +123,4 @@ def middle(values: tuple[float, ...], /, default: float = 0.0) -> float:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["band", "centred", "dotted", "inked", "key", "mapped", "middle", "nuqta", "placement", "text_ink"]
+__all__ = ["Rule", "band", "centred", "dotted", "inked", "key", "made", "mapped", "middle", "nuqta", "placement", "text_ink"]

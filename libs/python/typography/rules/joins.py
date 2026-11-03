@@ -1,10 +1,10 @@
-"""Joins: one join band with its foot on the baseline, every joining edge carrying the band into its neighbour, and the kashida as that band."""
+"""Joins: one join band with its foot on the baseline, every joining edge extending the band into its neighbor, and the kashida drawn as the band."""
 
 import msgspec
 lazy from expression import Error, Ok
 
 from typography.faces.declaration import Em
-from typography.rules.scripts import Rule
+from typography.rules.measures import Rule
 lazy from typography.faces.faults import Fault, Outcome, Reason
 lazy from typography.faces.glyphs import Glyph, Letter, Ligature, Source
 lazy from typography.outlines.paths import Box, strip, union
@@ -14,7 +14,7 @@ lazy from typography.rules.measures import band, mapped
 
 
 class Joins(Rule, frozen=True, kw_only=True):
-    """One join band with its foot on the baseline, each joining edge reaching the overlap into its neighbour, and the joining glyph drawn as the band at its length."""
+    """One join band with its foot on the baseline, each joining edge reaching the overlap into its neighbor, and the joining glyph drawn as the band at its length."""
 
     overlap: Em
     kashida: int | None
@@ -25,7 +25,7 @@ class Joins(Rule, frozen=True, kw_only=True):
 
 
 def _bridged(glyph: Glyph, thickness: float, overlap: float, /) -> Glyph:
-    """Carries the band across each joining edge that holds ink, from one band inside the edge to the overlap past it."""
+    """Extends the band across each inked joining edge, from one band thickness inside the edge to the overlap past it."""
     form = glyph.name.form
     edges = (
         (form.right and strip(glyph.contours, glyph.advance - thickness, glyph.advance), Box(xmin=glyph.advance - thickness, ymin=0.0, xmax=glyph.advance + overlap, ymax=thickness)),
@@ -36,7 +36,7 @@ def _bridged(glyph: Glyph, thickness: float, overlap: float, /) -> Glyph:
 
 
 def joined(source: Source, rule: Joins, /) -> Outcome[Source]:
-    """Sets the join band's foot on the baseline, bridges every joining edge into its neighbour, and draws the joining glyph as the band.
+    """Sets the join band's foot on the baseline, bridges every joining edge into its neighbor, and draws the joining glyph as the band.
 
     Returns:
         Ok(joined source), `ABSENT` for a face without medial forms to read the band from.

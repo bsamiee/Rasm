@@ -120,7 +120,7 @@ def encoded(binary: Binary, /) -> frozendict[int, str]:
 
 @cache
 def marks(binary: Binary, /) -> frozenset[str]:
-    """Glyph keys the font's GDEF glyph classes mark."""
+    """Glyph keys the font's GDEF classes as marks."""
     face = _font(binary).face
     return frozenset(name for glyph, name in enumerate(binary.order) if face.get_layout_glyph_class(glyph) == OTLayoutGlyphClass.MARK)
 
@@ -179,7 +179,7 @@ def outline(binary: Binary, glyph: str, /) -> Outline:
 
 
 def drawn(binary: Binary, run: Shaped, /) -> tuple[Outline, ...]:
-    """Moves each glyph outline of a run to its placed position, in visual order, for callers to union, bound or measure."""
+    """Moves each glyph outline of a run to its placed position, in visual order."""
     return tuple(transformed(outline(binary, placed.glyph), Offset(placed.x, placed.y)) for placed in run.placed)
 
 

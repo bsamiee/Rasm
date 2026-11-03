@@ -118,7 +118,7 @@ def _anchors(font: TTFont, named: dict[str, GlyphName], /) -> dict[str, dict[str
 
 
 def _source(font: TTFont, face: Faces, /) -> Source:
-    """Builds the source of an opened binary: text faces named and placed from cmap and layout, ornament faces kept under their original names."""
+    """Builds the source of an opened binary: text faces named and anchored from cmap and layout, ornament faces kept under their original names."""
     cmap, advances, order = font.getBestCmap() or {}, font["hmtx"].metrics, font.getGlyphOrder()
     subtables = _subtables(font, "GSUB") if isinstance(face, Face) else ()
     orders = {tag: min(index for held, index, _ in subtables if held == tag) for tag, _, _ in subtables}

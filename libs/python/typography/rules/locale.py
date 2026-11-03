@@ -9,12 +9,13 @@ lazy from fontTools.unicodedata import Blocks
 lazy from youseedee import ucd_data
 
 from typography.faces.coverage import Coverage
-from typography.rules.scripts import Derived, Rule, Script
-lazy from typography.faces.glyphs import Component, Glyph, Joining, Mark, Outline, role, Source
+from typography.faces.declaration import Derived, Script
+from typography.rules.measures import Rule
+lazy from typography.faces.glyphs import Component, Glyph, Joining, Mark, Outline, Source
 lazy from typography.faces.layout import Ligatures, Lookups, Single
 lazy from typography.faces.names import Form, GlyphName
 lazy from typography.outlines.paths import area, bounds, Box, pieces, transformed
-lazy from typography.rules.measures import dotted, key, nuqta
+lazy from typography.rules.measures import dotted, key, made, nuqta
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -30,19 +31,10 @@ class Locale(Rule, frozen=True, kw_only=True):
 # --- [GLYPHS]
 
 
-def _new(name: GlyphName, advance: float, /, *, contours: Outline = (), components: tuple[Component, ...] = ()) -> Glyph:
-    return Glyph(name=name, role=role(name), advance=advance, contours=contours, components=components)
-
-
 def _forms(code: int, /) -> tuple[Form, ...]:
-    """Forms a letter's joining type takes."""
-    match Joining.of(code):
-        case Joining.DUAL:
-            return tuple(Form)
-        case Joining.RIGHT:
-            return (Form.ISOL, Form.FINA)
-        case _:
-            return (Form.ISOL,)
+    """Forms a letter's joining type takes, each side a form joins one the type joins on."""
+    kind = Joining.of(code)
+    return tuple(form for form in Form if (not form.right or kind in {Joining.DUAL, Joining.RIGHT}) and (not form.left or kind in {Joining.DUAL, Joining.LEFT}))
 
 
 def _resolved(source: Source, code: int, form: Form, /) -> tuple[str, ...]:
@@ -57,11 +49,11 @@ def _resolved(source: Source, code: int, form: Form, /) -> tuple[str, ...]:
 
 
 def _composed(source: Source, code: int, form: Form, /) -> tuple[Glyph, ...]:
-    """A code point in a form as its one resolved glyph or a base and mark, the mark seated later at the base's anchor."""
+    """A code point in a form as its one resolved glyph or a base and mark, the mark attached later at the base's anchor."""
     name = GlyphName(codes=(code,), form=form)
     match tuple(source.named[part] for part in _resolved(source, code, form)) if name.text not in source.named else ():
         case (Glyph() as base,) | (Glyph() as base, Glyph(role=Mark())):
-            return (_new(name, base.advance, components=tuple(Component(name=part) for part in _resolved(source, code, form))),)
+            return (made(name, base.advance, components=tuple(Component(name=part) for part in _resolved(source, code, form))),)
         case _:
             return ()
 
@@ -70,7 +62,7 @@ def _bodies(source: Source, codes: frozenset[int], area_: float, /) -> tuple[Gly
     """Forms of letters the face lacks, each the dotless body of the same form of a letter in its joining group."""
     groups = {code: group for code in source.encoded if (group := ucd_data(code).get("Joining_Group", "No_Joining_Group")) != "No_Joining_Group"}
     return tuple(
-        _new(GlyphName(codes=(code,), form=form), model.advance, contours=dotted(model, area_)[0])
+        made(GlyphName(codes=(code,), form=form), model.advance, contours=dotted(model, area_)[0])
         for code in sorted(codes)
         if not unicodedata.decomposition(chr(code))
         for form in _forms(code)
@@ -97,7 +89,7 @@ def _derived(source: Source, rule: Derived, /) -> Glyph | None:
         case (Glyph(contours=contours), Box()) if rule.around and reference and rule.height is not None and (dot := bounds(piece := _lowest(contours))):
             radius, step = rule.height * reference.height / 2, 1.25 * dot.width
             turns = (2 * math.pi * index / rule.around for index in range(rule.around))
-            return _new(
+            return made(
                 name,
                 2 * (radius + step),
                 contours=tuple(*transformed(piece, Offset(radius + step + radius * math.cos(turn) - dot.middle[0], reference.middle[1] + radius * math.sin(turn) - dot.middle[1])) for turn in turns),
@@ -109,7 +101,7 @@ def _derived(source: Source, rule: Derived, /) -> Glyph | None:
             step = 1.25 * extent.width if (extent := bounds(ring)) else 0.0
             foot, (x, y) = {"own": factor * box.ymin, "base": 0.0, "middle": reference.middle[1] if reference else 0.0}[rule.foot], (extent := bounds(scaled) or box).middle
             drawn = transformed(scaled, Transform().translate(0, foot - extent.ymin).translate(x, y).rotate(math.pi).translate(-x, -y)) if rule.turned else scaled
-            return _new(
+            return made(
                 name,
                 advance * factor + rule.repeats * step,
                 contours=(*transformed(drawn, Offset(rule.repeats * step, 0)), *(*transformed(ring, Offset(index * step, 0)) for index in range(rule.repeats))),
@@ -150,12 +142,16 @@ def localized(source: Source, rule: Locale, /) -> Source:
     derived = tuple(glyph for drawn in script.derived if (glyph := _derived(source, drawn)) and not (drawn.kept and (held := source.named.get(glyph.name.text)) and held.contours))
     drawn = source.replaced(*derived)
     kept = (code for start, end, block in zip(Blocks.RANGES, (*Blocks.RANGES[1:], 0x110000), Blocks.VALUES, strict=True) if block in coverage.blocks for code in range(start, end))
-    wanted = tuple(code for code in sorted({*coverage.required, *kept} - drawn.encoded.keys()) if (code in script.spaces or unicodedata.category(chr(code)) not in {"Cn", "Zs"}) and coverage.exclusion(code).is_none())
+    wanted = tuple(
+        code
+        for code in sorted({*coverage.required, *kept} - drawn.encoded.keys())
+        if (code in script.spaces or unicodedata.category(chr(code)) not in {"Cn", "Zs"}) and coverage.exclusion(code).is_none()
+    )
     bases = {int(parts[0], 16) for code in wanted if (parts := unicodedata.decomposition(chr(code)).split()) and not parts[0].startswith("<")}
     based = drawn.replaced(*_bodies(drawn, frozenset({*drawn.encoded, *bases}), area(nuqta(drawn, script.dotted))))
     composed = tuple(glyph for code in wanted for form in _forms(code) for glyph in _composed(based, code, form))
     blanks = frozenset(glyph.name.codes for glyph in composed)
-    controls = tuple(_new(GlyphName(codes=(code,)), 0.0) for code in wanted if (code,) not in blanks and unicodedata.category(chr(code)) == "Cf" and unicodedata.bidirectional(chr(code)) != "AN")
+    controls = tuple(made(GlyphName(codes=(code,)), 0.0) for code in wanted if (code,) not in blanks and unicodedata.category(chr(code)) == "Cf" and unicodedata.bidirectional(chr(code)) != "AN")
     added = (*(glyph for glyph in based.glyphs if glyph.name.text not in source.named), *composed, *controls)
     return msgspec.structs.replace(based.replaced(*composed, *controls), lookups=_relaid(source, added, script))
 

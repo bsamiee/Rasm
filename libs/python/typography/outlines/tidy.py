@@ -1,4 +1,4 @@
-"""Outline repair: near points merged, shallow joins smoothed, slivers dropped, needle spurs cut and near coordinates snapped."""
+"""Outline cleanup: near points merged, shallow joins smoothed, slivers dropped, needle spurs cut, and near coordinates snapped."""
 
 lazy from collections.abc import Iterable
 lazy from functools import reduce
@@ -72,7 +72,7 @@ def _levels(values: Iterable[float], tolerance: float, /) -> frozendict[float, f
 
 
 def snapped(outline: Outline, tolerance: float, /) -> Outline:
-    """Moves coordinates within `tolerance` units of each other onto one shared value per axis, so near-straight edges and aligned edges meet one line."""
+    """Moves coordinates within `tolerance` units of each other onto one shared value per axis, putting near-straight and aligned edges on one line."""
     points = tuple(*contour for contour in outline)
     xs, ys = _levels((point.x for point in points), tolerance), _levels((point.y for point in points), tolerance)
     return tuple(tuple(Point(x=xs[point.x], y=ys[point.y], on=point.on) for point in contour) for contour in outline)

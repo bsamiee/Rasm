@@ -13,9 +13,11 @@ rule:
     pattern: $BASE
     inside:
         stopBy: end
-        follows:
-            stopBy: end
-            any:
-                - matches: declaration
-                - kind: decorated_definition
-                  has: {matches: declaration}
+        all:
+            - inside: {kind: 'module, block'}
+            - follows:
+                stopBy: end
+                kind: 'class_definition, decorated_definition'
+                any:
+                    - matches: declaration
+                    - has: {kind: class_definition, matches: declaration}

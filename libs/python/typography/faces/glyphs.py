@@ -50,7 +50,7 @@ class Side(StrEnum):
 
     @classmethod
     def of(cls, code: int, /) -> Side:
-        """Returns the side a mark's canonical combining class states: below, or the Arabic kasra and kasratan classes."""
+        """Returns the side a mark's canonical combining class states, below for class 220 and the kasra and kasratan classes."""
         return cls.BELOW if unicodedata.combining(chr(code)) in {220, *map(unicodedata.combining, "ٍِ")} else cls.ABOVE
 
 
@@ -163,7 +163,7 @@ class Glyph(msgspec.Struct, frozen=True, kw_only=True):
                 return "base"
 
     def anchor(self, name: str, /) -> Option[Anchor]:
-        """Returns the anchor of a name."""
+        """Returns the anchor with a name."""
         return Option.of_optional(next((anchor for anchor in self.anchors if anchor.name == name), None))
 
 
@@ -171,7 +171,7 @@ class Glyph(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Info(msgspec.Struct, frozen=True, kw_only=True):
-    """Face record fields carried from the original."""
+    """Record fields read from the original."""
 
     created: Annotated[datetime, msgspec.Meta(tz=True)]
     version: tuple[int, int]

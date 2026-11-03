@@ -9,6 +9,7 @@ utils:
             - kind: attribute
               has: {field: object, matches: root}
     binding:
+        kind: &binding 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition'
         matches: {python-binding: {name: {pattern: $ROOT}}}
 rule:
     all:
@@ -22,10 +23,12 @@ rule:
                 stopBy: end
                 has:
                     stopBy: {kind: "function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression"}
+                    kind: *binding
                     matches: binding
             - inside:
                 kind: class_definition
                 stopBy: {kind: "function_definition, lambda"}
                 has:
                     stopBy: {kind: "function_definition, class_definition, lambda"}
+                    kind: *binding
                     matches: binding

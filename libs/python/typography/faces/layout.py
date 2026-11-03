@@ -1,4 +1,4 @@
-"""Lookup records every layout rule returns and one feature emitter consumes."""
+"""Lookup records layout rules return and the feature emitter writes."""
 
 from typing import Annotated
 
@@ -96,7 +96,7 @@ class Positions(_Lookup, frozen=True, kw_only=True):
 
 
 class Pairs(_Lookup, frozen=True, kw_only=True):
-    """GPOS pair adjustment, written as kerning groups under the `kern` feature."""
+    """GPOS pair adjustment, `kern` pairs written as kerning groups."""
 
     values: frozendict[tuple[str, str], Adjustment]
 

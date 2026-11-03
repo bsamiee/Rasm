@@ -63,7 +63,7 @@ utils:
             all:
                 - has: {field: left, pattern: $READ}
                 - has: {field: right, matches: plain, pattern: $TARGET}
-    scope-body:
+    scope-body: &scope-body
         any:
             - kind: lambda
             - kind: block
@@ -74,12 +74,14 @@ rule:
         - all:
             - pattern: $READ
             - inside:
-                stopBy: {matches: scope-body}
-                follows: {stopBy: end, any: [{matches: write-on-difference, not: {has: {kind: 'elif_clause, else_clause'}}}, {matches: written-on-difference}]}
+                stopBy: *scope-body
+                all:
+                    - inside: {kind: 'block, module'}
+                    - follows: {stopBy: end, any: [{matches: write-on-difference, not: {has: {kind: 'elif_clause, else_clause'}}}, {matches: written-on-difference}]}
         - all:
             - pattern: $READ
             - inside:
-                stopBy: {matches: scope-body}
+                stopBy: *scope-body
                 all:
                     - inside: {kind: block, inside: {field: consequence, matches: write-on-difference}}
                     - follows: {stopBy: end, matches: receiving-write}
@@ -88,9 +90,11 @@ rule:
               pattern: $READ
             - not: {inside: {kind: 'assignment, augmented_assignment', field: left}}
             - inside:
-                stopBy: {matches: scope-body}
-                follows:
-                    stopBy: {kind: expression_statement, has: {kind: assignment, has: {field: left, pattern: $READ}}}
-                    matches: assigned
+                stopBy: *scope-body
+                all:
+                    - inside: {kind: 'block, module'}
+                    - follows:
+                        stopBy: {kind: expression_statement, has: {kind: assignment, has: {field: left, pattern: $READ}}}
+                        matches: assigned
 message: '`$READ` reads back state a preceding write stored'
 note: 'Use written `<value>` in place of a second read'

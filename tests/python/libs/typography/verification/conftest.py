@@ -55,7 +55,7 @@ def built(
         two: Boxes of ۲.
         ligature: Whether the lam-alef ligature holds ink.
         dot: Box of the beh dot.
-        damma: Height the damma rides over its anchor.
+        damma: Height of the damma over its anchor.
         kern: Kern value between joined behs.
         win: Win ascent.
 
@@ -126,7 +126,7 @@ def path(tmp_path_factory: pytest.TempPathFactory, binary: Binary) -> Path:
 @pytest.fixture(scope="session")
 def source(path: Path) -> Source:
     """Source imported from the unperturbed test font."""
-    return imported(path, Face(style="Regular", original=path.name, family="Verification")).ok
+    return imported(path, Face(style="Regular", original=path.name, family="Verification")).default_with(lambda faults: pytest.fail(str(faults)))
 
 
 @pytest.fixture(scope="session")

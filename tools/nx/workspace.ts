@@ -21,6 +21,7 @@ const XCODE_PROJECT = 'project.xcproj';
 const PYPROJECT = 'pyproject.toml';
 const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
 const TESTS = 'tests';
+const APPS = 'apps';
 const CONTAINERS = /^(?:testcontainers|@testcontainers\/.+)$/u;
 const DOTNET = '{workspaceRoot}/.artifacts/dotnet';
 const VERSIONS = new Intl.Collator('en', { numeric: true });
@@ -57,14 +58,16 @@ const Root = Toml.pipe(
 const Member = Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
-            project: Schema.Struct({ scripts: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }),
+            project: Schema.Struct({ name: Schema.String, scripts: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }),
             tool: Schema.Struct({
                 hatch: Schema.Struct({ build: Schema.Struct({ devModeDirs: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ devModeDirs: 'dev-mode-dirs' })) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({ build: { 'dev-mode-dirs': [] } }))),
+                deptry: Schema.OptionFromOptionalKey(Schema.Record(Schema.String, Schema.Unknown)),
             }),
         }),
     ),
 );
 const Manifest = Toml.pipe(Schema.decodeTo(Schema.Struct({ id: Schema.String })));
+const PylockExport = Toml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.Struct({ directory: Schema.OptionFromOptionalKey(Schema.Struct({ path: Schema.String })) })) })));
 const Metadata = Schema.fromJsonString(
     Schema.Struct({
         packages: Schema.Array(
@@ -153,6 +156,7 @@ const readPyproject = Effect.fnUntraced(function* (root: string) {
     return {
         moduleRoots: members.flatMap(({ member, tool: { hatch } }) => hatch.build.devModeDirs.map((folder) => path.join(member, folder))),
         commands: members.filter(({ project }) => !Record.isEmptyRecord(project.scripts)).map(Struct.get('member')),
+        deptry: members.filter(({ tool: { deptry } }) => Option.isSome(deptry)),
         requirements: tool.uv.requirements,
         dataFile: tool.coverage.run.dataFile,
         ...tool.pytest,
@@ -175,10 +179,11 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot: root, nxJson
     });
     return {
         root,
+        exported: (project: string) => cached(PylockExport, ['uv.lock', `**/${PYPROJECT}`], ['uv', 'export', '--frozen', '--format', 'pylock.toml', '--no-hashes', '--no-emit-project', '--project', project]),
         ...(yield* Effect.all({
             pyproject: Effect.cached(readPyproject(root)),
             mise: Effect.cached(Mise.read(root)),
-            hosts: Effect.cached(fs.readDirectory(path.join(root, 'apps'))),
+            hosts: Effect.cached(fs.readDirectory(path.join(root, APPS))),
             release: Effect.cached(Schema.decodeUnknownEffect(NxReleaseConfiguration)(nxJsonConfiguration.release)),
             python: Effect.cached(cached(PythonRuntime, [Mise.file], ['mise', 'tool', 'python', '--json'])),
             crates: Effect.cached(Effect.map(cached(Metadata, [`**/${CARGO_MANIFEST}`, '**/*.rs'], ['cargo', 'metadata', '--format-version', '1', '--no-deps']), ({ packages }) => packages.map((crate) => ({ ...crate, manifest: path.relative(root, crate.manifest) })))),
@@ -196,6 +201,7 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot: root, nxJson
 });
 
 // --- [PROJECTS]
+const folderInput = (folder: string) => `{workspaceRoot}/${folder}/**/*`;
 const tagPrefix = Effect.fnUntraced(function* ({ release }: Workspace, tags: readonly string[], name: string) {
     const { releaseTag, groups } = yield* release;
     const [group] = yield* Effect.fromOption(
@@ -213,9 +219,9 @@ const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyprojec
     );
     const coverage = `${dataFile}.{projectName}`;
     const pytest = folders.some((host) => dir.split(path.sep).includes(host)) ? { options: { args: suites }, outputs: [] } : { options: { args: [...suites, '--cov'], env: { COVERAGE_FILE: coverage } }, outputs: [`{workspaceRoot}/${coverage}`] };
-    return Array.match(suites, { onEmpty: () => ({}), onNonEmpty: () => ({ check: {}, test: { command: 'pytest', inputs: suites.map((suite) => `{workspaceRoot}/${suite}/**/*`), ...pytest } }) });
+    return Array.match(suites, { onEmpty: () => ({}), onNonEmpty: () => ({ check: {}, test: { command: 'pytest', inputs: suites.map(folderInput), ...pytest } }) });
 });
-const suiteInput = (...suites: readonly string[]) => ({ namedInputs: { default: ['{projectRoot}/**/*', ...suites.map((suite) => `{workspaceRoot}/${suite}/**/*`)] } });
+const suiteInput = (...suites: readonly string[]) => ({ namedInputs: { default: ['{projectRoot}/**/*', ...suites.map(folderInput)] } });
 const suiteInputs = Effect.fnUntraced(function* (language: string, dir: string, root: string) {
     const path = yield* Path.Path;
     const suite = suitePath(path, path.join(TESTS, language), dir);
@@ -298,13 +304,13 @@ const markers = {
         };
     }),
     'blender_manifest.toml': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [{ moduleRoots }, { id }, targets] = yield* Effect.all([workspace.pyproject, decodeFile(Manifest, workspace.root, workspace.file), pythonTargets(dir, workspace)], { concurrency: 'unbounded' });
+        const [{ packages }, { id }, targets] = yield* Effect.all([workspace.exported(dir), decodeFile(Manifest, workspace.root, workspace.file), pythonTargets(dir, workspace)], { concurrency: 'unbounded' });
         const tags = ['language:python', 'output:extension'];
         return {
             name: id,
             tags,
             targets: {
-                pack: { inputs: moduleRoots.map((moduleRoot) => `{workspaceRoot}/${moduleRoot}/**/*`), options: { env: { MinVerTagPrefix: yield* tagPrefix(workspace, tags, id) } } },
+                pack: { inputs: Array.getSomes(packages.map(Struct.get('directory'))).map(Struct.get('path')).map(folderInput), options: { env: { MinVerTagPrefix: yield* tagPrefix(workspace, tags, id) } } },
                 install: {},
                 publish: {},
                 ...targets,
@@ -392,8 +398,13 @@ const infer = Effect.fnUntraced(
 );
 
 // --- [ROOT]
+const deptryCheck = (path: Path.Path, hosts: readonly string[], { member, project, tool }: typeof Member.Type & { readonly member: string }) => {
+    const roots = [member, ...Array.intersection(member.split(path.sep), hosts).map((host) => path.join(APPS, host))];
+    const firstParty = tool.hatch.build.devModeDirs.flatMap((folder) => ['--known-first-party', path.relative(path.join(member, folder), member)]);
+    return [`lint:deptry:${project.name}`, { command: ['deptry --config', path.join(member, PYPROJECT), ...firstParty, ...roots].join(' '), inputs: ['python', ...roots.map(folderInput)] }] as const;
+};
 const pythonVersions = Effect.fnUntraced(function* ({ root, hosts, pyproject, python }: Workspace) {
-    const [path, folders, { pythonFiles, testPaths, moduleRoots, requirements }] = yield* Effect.all([Path.Path, hosts, pyproject]);
+    const [path, folders, { pythonFiles, testPaths, moduleRoots, requirements, deptry }] = yield* Effect.all([Path.Path, hosts, pyproject]);
     const claimed = moduleRoots.flatMap((moduleRoot) => testPaths.map((testPath) => suitePath(path, testPath, moduleRoot)));
     const unclaimed = yield* glob(
         root,
@@ -438,7 +449,13 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, hosts, pyproject, py
                 Record.filter(requirements, ({ minimum }) => !reaches(version)(minimum[1])),
                 (group) => `--no-group ${group}`,
             );
-            return { version, environment, scoped: members.map(({ scope }) => `"${scope}"`).join(' '), synced: [`export VIRTUAL_ENV=${environment} && uv sync --active --python ${version}`, ...excludedGroups, '&&'].join(' ') };
+            return {
+                version,
+                environment,
+                scoped: members.map(({ scope }) => `"${scope}"`).join(' '),
+                inputs: members.map(Struct.get('scope')).map(folderInput),
+                synced: [`export VIRTUAL_ENV=${environment} && uv sync --active --locked --python ${version}`, ...excludedGroups, '&&'].join(' '),
+            };
         },
     );
     const excluded = scopes.map(({ scope }) => `--exclude '^${RegExp.escape(`${scope}/`)}'`).join(' ');
@@ -450,27 +467,37 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, hosts, pyproject, py
         Array.match(off.filter(runs(version)), { onEmpty: () => Result.failVoid, onNonEmpty: (running) => Result.succeed(command(ids(running))) }),
     );
     const lock = `python -c "import fcntl, subprocess, sys; lock = open(sys.argv[1], 'w'); fcntl.flock(lock, fcntl.LOCK_EX); sys.exit(subprocess.call(sys.argv[2:]))" .cache/ast-grep/rewrite.lock`;
-    const split = (target: string, children: Readonly<Record<string, string>>) => {
+    const split = (target: string, children: Readonly<Record<string, TargetConfiguration>>) => {
         const [lead, ...rest] = Object.keys(children).map((child) => `${target}:${child}`);
         return {
             [target]: { dependsOn: [{ target: lead, params: 'forward' }, ...rest] },
-            ...Record.mapEntries(children, (command, child) => [`${target}:${child}`, { command }]),
+            ...Record.mapKeys(children, (child) => `${target}:${child}`),
         };
     };
-    const versioned = (target: string, command: string, perVersion: (group: (typeof groups)[number]) => string) => split(target, { root: command, ...Object.fromEntries(groups.map((group) => [group.version, `${group.synced} ${perVersion(group)}`])) });
+    const commands = (children: Readonly<Record<string, string>>) => Record.map(children, (command) => ({ command }));
+    const versioned = (target: string, command: string, perVersion: (group: (typeof groups)[number]) => string, configuration: TargetConfiguration = {}, after?: string) =>
+        split(
+            target,
+            Record.map(
+                { root: { ...configuration, command, inputs: ['pythonFiles'] }, ...Object.fromEntries(groups.map((group) => [group.version, { ...configuration, command: `${group.synced} ${perVersion(group)}`, inputs: group.inputs }])) },
+                (child: TargetConfiguration, name) => (after === undefined ? child : { ...child, dependsOn: [`${after}:${name}`] }),
+            ),
+        );
+    const deptryRuns = deptry.map((member) => deptryCheck(path, folders, member));
     return {
         projects: {
             '.': {
                 root: '.',
                 targets: {
-                    ...split('lint:ast-grep', { tree, ...hosted }),
+                    ...split('lint:ast-grep', commands({ tree, ...hosted })),
                     ...split(
                         'rewrite',
-                        Record.map({ tree: walk(offs), ...hosted }, (command) => `${lock} ${command} --update-all`),
+                        commands(Record.map({ tree: walk(offs), ...hosted }, (command) => `${lock} ${command} --update-all`)),
                     ),
-                    ...versioned('typecheck:ty', `ty check ${scopes.map(({ scope }) => `--exclude "${scope}"`).join(' ')}`, ({ version, scoped }) => `ty check --python-version ${version} ${scoped}`),
+                    ...versioned('typecheck:ty', `ty check ${scopes.map(({ scope }) => `--exclude "${scope}"`).join(' ')}`, ({ version, scoped }) => `ty check --python-version ${version} ${scoped}`, { options: { env: { TY_UV: '1', UV_LOCKED: '1' } } }),
                     ...versioned('typecheck:mypy', `mypy ${excluded}`, ({ version, environment, scoped }) => `mypy --python-version ${version} --python-executable ${environment}/bin/python ${scoped}`),
-                    ...versioned('lint:refurb', `python -m tools.refurb --quiet -- ${excluded}`, ({ version, environment, scoped }) => `python -m tools.refurb --quiet --python-version ${version} ${scoped} -- --python-executable ${environment}/bin/python`),
+                    ...versioned('lint:refurb', `python -m tools.refurb --quiet -- ${excluded}`, ({ version, environment, scoped }) => `python -m tools.refurb --quiet --python-version ${version} ${scoped} -- --python-executable ${environment}/bin/python`, {}, 'typecheck:mypy'),
+                    ...Array.match(deptryRuns, { onEmpty: () => ({}), onNonEmpty: (checks) => ({ 'lint:deptry': { dependsOn: [{ target: 'lint:deptry:*', params: 'forward' as const }] }, ...Object.fromEntries(checks) }) }),
                     ...(unclaimed.length > 0 ? { test: { command: 'pytest', options: { args: [...testPaths, ...claimed.map((testDir) => `--ignore=${testDir}`)] }, inputs: ['python', 'pythonFiles'] } } : {}),
                 },
             },
@@ -504,7 +531,7 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
             '.': {
                 root: '.',
                 targets: {
-                    'typecheck:swift': { inputs: ['swift', ...targets.map(({ path }) => `{workspaceRoot}/${path}/**/*`)] },
+                    'typecheck:swift': { inputs: ['swift', ...targets.map(Struct.get('path')).map(folderInput)] },
                 },
             },
         },

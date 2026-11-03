@@ -22,9 +22,10 @@ lazy from refurb.visitor import RefurbVisitor
 
 
 def checked(settings: Settings) -> Sequence[Error | str]:
-    """Type-checks each source module from its text with cached imports and runs checks over its typed tree."""
+    """Type-checks each source module from its text in this process with cached imports and runs checks over its typed tree."""
     sources, options = process_options([*settings.files, *settings.mypy_args])
     options.preserve_asts = True
+    options.num_workers = 0
     options.python_version = settings.get_python_version()
     read = [BuildSource(source.path, source.module, Path(source.path).read_text(encoding="utf-8"), source.base_dir) for source in sources if source.path is not None]
     match catch(build, exception=CompileError)(read, options=options):

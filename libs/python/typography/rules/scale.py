@@ -1,10 +1,10 @@
-"""Apparent size: the glyphs of the script scaled to the stem height within the marked span cap, every glyph moved onto the new units per em."""
+"""Apparent size: script glyphs scaled to the stem height within the marked span cap, every glyph moved onto the new units per em."""
 
 import msgspec
 lazy from fontTools.unicodedata import script_extension
 
-from typography.faces.declaration import Em
-from typography.rules.scripts import Rule, Script
+from typography.faces.declaration import Em, Script
+from typography.rules.measures import Rule
 lazy from typography.faces.faults import Outcome
 lazy from typography.faces.glyphs import Source
 lazy from typography.outlines.paths import bounds
@@ -16,7 +16,7 @@ lazy from typography.shaping.runs import Binary
 
 
 class Scale(Rule, frozen=True, kw_only=True):
-    """Apparent size: the script's glyphs held to the stem height, the factor capped so the marked corpus spans at most the cap, every glyph onto the new units per em."""
+    """Apparent size: script glyphs held to the stem height with the factor capped at a marked corpus span of `cap`, every glyph moved onto `upm`."""
 
     script: Script
     height: Em | None
@@ -28,7 +28,7 @@ class Scale(Rule, frozen=True, kw_only=True):
 
 
 def scaled(source: Source, rule: Scale, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
-    """Scales the script's glyphs to the stem target, capped so the marked corpus spans at most the cap, and every glyph onto a new units per em.
+    """Scales script glyphs to the stem height, the marked corpus spanning at most the cap, and moves every glyph onto the new units per em.
 
     Returns:
         Ok(scaled source), `ABSENT` for a face without an inked stem.
@@ -42,7 +42,7 @@ def scaled(source: Source, rule: Scale, /, *, original: Binary, corpus: Corpus) 
 
 
 def _onto(source: Source, factor: float, rule: Scale, /) -> Source:
-    """Moves every glyph onto the new units per em, the script's glyphs also by the factor."""
+    """Moves every glyph onto the new units per em and scales script glyphs by the factor."""
     metrics, unit = source.metrics, rule.upm / source.upm
     return msgspec.structs.replace(
         source,

@@ -17,7 +17,7 @@ class Excluded(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Coverage(msgspec.Struct, frozen=True, kw_only=True):
-    """Required code points, exclusions by reason, and the Unicode blocks whose other code points a face keeps unrequired, defaults the Persian and Arabic text set."""
+    """Required code points, exclusions by reason, and Unicode blocks with other code points a face keeps unrequired, defaulting to the Persian and Arabic text set."""
 
     required: frozenset[int] = frozenset({
         *range(0x0609, 0x061C + 1),
@@ -37,10 +37,10 @@ class Coverage(msgspec.Struct, frozen=True, kw_only=True):
             codes=frozenset({0x0604, 0x0657, 0x0658, 0x0674, 0x0679, 0x0688, 0x0691, 0x06AA, 0x06BA, 0x06BE, 0x06C1, 0x06C2, 0x06C3, 0x06D2, 0x06D3, 0x06D4}),
             reason="South Asian letter or sign outside Persian and Arabic",
         ),
-        Excluded(codes=frozenset(range(0x0600, 0x0603 + 1)), reason="Subtending sign the originals draw at one width over its digits"),
+        Excluded(codes=frozenset(range(0x0600, 0x0603 + 1)), reason="Subtending sign drawn at one width over any digit count"),
         Excluded(codes=frozenset({0x00AD}), reason="Soft hyphen, hosts hide it and draw their own hyphen at a break"),
         Excluded(codes=frozenset({0x0274}), reason="Latin small capital N the originals hang a hamza sign on"),
-        Excluded(codes=frozenset({0x037E}), reason="Greek question mark, canonically U+003B, which normalized text never holds"),
+        Excluded(codes=frozenset({0x037E}), reason="Greek question mark, canonically U+003B and absent from normalized text"),
         Excluded(codes=frozenset({0x0000, 0x000D}), reason="Control character no host draws"),
         Excluded(codes=frozenset(range(0xE000, 0xF8FF + 1)), reason="Private Use art, re-encoded in ornament sets alone"),
     )

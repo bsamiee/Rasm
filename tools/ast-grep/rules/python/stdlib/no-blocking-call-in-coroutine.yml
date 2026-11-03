@@ -3,7 +3,7 @@ id: no-blocking-call-in-coroutine
 language: python
 severity: error
 utils:
-    evaluation-boundary:
+    evaluation-boundary: &evaluation-boundary
         kind: 'function_definition, lambda, class_definition, parameters, type, generator_expression'
     blocking-callee:
         any:
@@ -17,18 +17,18 @@ utils:
         inside:
             kind: for_in_clause
             field: right
-            stopBy: {matches: evaluation-boundary}
+            stopBy: *evaluation-boundary
             not: {follows: {kind: for_in_clause, stopBy: end}}
             inside: {kind: generator_expression}
     coroutine:
         any:
-            - inside: {kind: function_definition, regex: '^async\s', stopBy: {matches: evaluation-boundary}}
+            - inside: {kind: function_definition, regex: '^async\s', stopBy: *evaluation-boundary}
             - matches: generator-input
-              inside: {kind: generator_expression, matches: coroutine, stopBy: {matches: evaluation-boundary}}
+              inside: {kind: generator_expression, matches: coroutine, stopBy: *evaluation-boundary}
             - not: {matches: generator-input}
               inside:
                 kind: generator_expression
-                stopBy: {matches: evaluation-boundary}
+                stopBy: *evaluation-boundary
                 any:
                     - has: {kind: for_in_clause, regex: '^async\s'}
                     - has:
@@ -38,11 +38,11 @@ utils:
             - inside:
                 kind: default_parameter, typed_default_parameter
                 field: value
-                stopBy: {matches: evaluation-boundary}
+                stopBy: *evaluation-boundary
                 inside: {kind: 'parameters, lambda_parameters', inside: {kind: 'function_definition, lambda', matches: coroutine}}
             - inside:
                 kind: argument_list
-                stopBy: {matches: evaluation-boundary}
+                stopBy: *evaluation-boundary
                 inside: {kind: class_definition, field: superclasses, matches: coroutine}
     awaited:
         inside: {kind: await, stopBy: {not: {kind: parenthesized_expression}}}
@@ -81,8 +81,10 @@ utils:
 rule:
     kind: call
     all:
-        - matches: coroutine
+        - inside: {kind: module, stopBy: end, regex: '\banyio\b'}
+        - inside: {kind: module, stopBy: end, regex: '\b(_?socket|tempfile)\b'}
         - has: {field: function, pattern: $CALLEE, matches: blocking-callee}
+        - matches: coroutine
         - has: {field: arguments, pattern: $ARGS}
         - not: {has: {field: function, has: {kind: comment, stopBy: end}}}
         - any:

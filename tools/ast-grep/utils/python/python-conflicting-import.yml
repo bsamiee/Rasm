@@ -14,6 +14,7 @@ rule:
             stopBy: end
             has:
                 stopBy: {kind: "function_definition, class_definition, lambda"}
+                kind: dotted_name, aliased_import, import_from_statement
                 any:
                     - kind: dotted_name
                       pattern: $BOUND

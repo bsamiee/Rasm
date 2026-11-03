@@ -6,20 +6,20 @@ lazy import unicodedata
 import msgspec
 lazy from fontTools.misc.transform import Transform
 
-from typography.faces.declaration import Em, Ratio
-from typography.rules.scripts import Rule, Script
-lazy from typography.faces.glyphs import Digit, Glyph, role, Source
+from typography.faces.declaration import Em, Ratio, Script
+from typography.rules.measures import Rule
+lazy from typography.faces.glyphs import Digit, Source
 lazy from typography.faces.layout import Single
 lazy from typography.faces.names import GlyphName
 lazy from typography.outlines.measure import restroked, stroke
 lazy from typography.outlines.paths import bounds, transformed
-lazy from typography.rules.measures import centred, key, middle
+lazy from typography.rules.measures import centred, key, made, middle
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Digits(Rule, frozen=True, kw_only=True):
-    """Digits of the script's lead and second digit scripts sharing drawings for the shared decimal values, on one pen, the zero held to a share of the stem height, and the default advance kind."""
+    """Digits of the script's lead and second digit scripts sharing drawings for the shared decimal values, on one pen, the zero width held to a share of the stem height, and the default advance kind."""
 
     script: Script
     zero: Ratio | None
@@ -58,7 +58,7 @@ def figured(source: Source, rule: Digits, /) -> Source:
     widths = {code: {"tabular": boxes[broadest].width + 2 * (even if even >= 0 else middle(sides)), "proportional": box.width + 2 * margin} for code, box in boxes.items()}
     variant, other = ("pnum", "proportional") if rule.advance == "tabular" else ("tnum", "tabular")
     glyphs = tuple(
-        Glyph(name=name, role=role(GlyphName(codes=(code,))), advance=widths[code][kind], contours=centred(penned[code], widths[code][kind]))
+        made(name, widths[code][kind], contours=centred(penned[code], widths[code][kind]))
         for code in boxes
         for name, kind in ((GlyphName(codes=(code,)), rule.advance), (GlyphName(codes=(code,), variant=variant), other))
     )

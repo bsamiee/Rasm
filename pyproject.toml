@@ -512,6 +512,10 @@ ignore                    = [
     "start-process-with-partial-path",                                                                                                                                                                                   # Commands name tools mise places on `PATH`
     "os-path-abspath",                                                                                                                                                                                                   # `os.path.abspath` drops `..` without following symlinks, a combination no `pathlib` member has
     "function-uses-loop-variable",                                                                                                                                                                                       # Reports closures `Result` and `Option` combinators call before the loop advances
+    "logging-string-format",                                                                                                                                                                                             # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "logging-percent-format",                                                                                                                                                                                            # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "logging-string-concat",                                                                                                                                                                                             # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "logging-f-string",                                                                                                                                                                                                  # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
     "reimplemented-operator",                                                                                                                                                                                            # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
     "lambda-assignment",                                                                                                                                                                                                 # Pushes a `def` statement for a callback each `match` arm binds
     "compare-with-tuple",                                                                                                                                                                                                # PLR1714 reports the form as a set membership PLR6201 accepts
@@ -686,8 +690,8 @@ analysis = { replace-imports-with-any = ["uharfbuzz"] }                         
 files                   = [".", ".claude"]
 mypy_path               = ["libs/python"]
 cache_dir               = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
+num_workers             = 8                                                                                                                                                                                                                                                                                                                                                                                     # mypy's `auto` cap, the schema tombi reads refuses `auto`
 strict                  = true
-pretty                  = true
 warn_unreachable        = true
 explicit_package_bases  = true
 exclude_gitignore       = true

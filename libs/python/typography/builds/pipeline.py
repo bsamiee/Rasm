@@ -1,4 +1,4 @@
-"""Face builds: sources reconciled from originals, binaries compiled through ufo2ft, the inputs hash that skips an unchanged face, checks, and publication."""
+"""Face builds: sources reconciled from originals, ufo2ft binaries, inputs hashes that skip unchanged faces, checks, and publication."""
 
 from datetime import timedelta
 from enum import auto, StrEnum
@@ -45,7 +45,7 @@ lazy from typography.verification.requirements import approved, requirements, ve
 
 
 class Action(StrEnum):
-    """Stage a run applies to each selected face: import into a UFO source, compile a changed face, verify, approve shaping, build and verify, or copy out."""
+    """Stage applied to each selected face: write its UFO source, compile it when changed, verify its build, approve its shaping, build and verify, or publish."""
 
     SOURCE = auto()
     BUILD = auto()
@@ -59,7 +59,7 @@ class Action(StrEnum):
 
 
 class Built(msgspec.Struct, frozen=True, kw_only=True):
-    """Built binary of a face with its bytes hash, the hash of every input it compiled from, and the findings its last check recorded."""
+    """Built face binary with its bytes hash, its inputs hash, and the findings of its last check."""
 
     face: Faces
     path: Path
@@ -69,7 +69,7 @@ class Built(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Report(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
-    """Answer of one face: its binary hash, whether a current build was kept, the time taken, and its findings count with the first three."""
+    """Result of one action on one face: binary hash, whether a current build was kept, duration, and findings count with the first three."""
 
     face: str
     duration: timedelta
@@ -80,7 +80,7 @@ class Report(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
 
     @classmethod
     def of(cls, face: str, started: int, done: Built | None = None, /, *, current: bool = False) -> Report:
-        """Returns the answer of a face from a monotonic start in nanoseconds and its build, none for a source."""
+        """Returns a face's report from a monotonic start in nanoseconds and its build, `None` for a source action."""
         findings = done.findings if done else ()
         return cls(
             face=face, duration=timedelta(milliseconds=(time.monotonic_ns() - started) // 1_000_000), hash=done.hash if done else "", current=current, findings=len(findings), first=findings[:3]
@@ -121,13 +121,13 @@ def _hashed(data: bytes, /) -> str:
 
 
 def sourced(declared: Declared, face: Faces, texts: Corpus, /) -> Outcome[Source]:
-    """Imports a face's original and executes its plan over it, the original read once as the binary rules measure."""
+    """Imports a face's original and executes its plan, rules measuring the original as a `Binary`."""
     path = declared.original(face)
     return paired(imported(path, face), Binary.read(path)).bind(lambda pair: executed(pair[0], planned(face), original=pair[1], corpus=texts))
 
 
 def _inputs(declared: Declared, face: Faces, texts: Corpus, /) -> Outcome[str]:
-    """Hashes every original the face's sourcing reads, the face and its plan, the corpus, and the text of the modules its plan's rules dispatch to with the compile's own."""
+    """Hashes the face's original, the face, its plan, the corpus, and the source text of the pipeline, plan, emission, and rule modules."""
     plan = planned(face)
     modules = sorted({__name__, planned.__module__, emitted.__module__, *(type(rule).__module__ for rule in plan.rules)})
     encoded = (
@@ -149,7 +149,7 @@ def _scripts(source: Source, /) -> list[str]:
 
 
 def _font(source: Source, metrics: Metrics, /) -> ufoLib2.Font:
-    """Returns the UFO of a source: glyphs in order, records, vertical metrics, family flags, gasp, the dropout program, and emitted features, a field an ornament face lacks left to ufo2ft's fallback."""
+    """Returns a source's UFO: glyphs in order, records, vertical metrics, family flags, gasp, the dropout program, and emitted features, fields an ornament face lacks left to ufo2ft fallbacks."""
     face, info, emission, languages = source.face, source.info, emitted(source), _scripts(source)
     categories = {glyph.name.text: glyph.category for glyph in source.glyphs}
     font = ufoLib2.Font(
@@ -208,7 +208,7 @@ def written(source: Source, path: Path, /) -> Outcome[Path]:
 
 
 def _binary(source: Source, metrics: Metrics, /) -> bytes:
-    """Compiles a source through the four ufo2ft writers in append mode, adds the STAT ufo2ft leaves to a static font from its weight class and italic angle, and dates `modified` as `created`."""
+    """Compiles a source through four ufo2ft feature writers with the mark writer in append mode, adds the STAT table ufo2ft omits for a static font from its weight class and italic angle, and sets `modified` to `created`."""
     writers = [CursFeatureWriter, KernFeatureWriter, MarkFeatureWriter(mode="append"), GdefFeatureWriter]
     font = compileTTF(_font(source, metrics), featureWriters=writers, removeOverlaps=True, overlapsBackend="pathops", reverseDirection=True, useProductionNames=False)
     named = " ".join(word for word in source.face.style.split() if word != "Italic") or "Regular"
@@ -253,7 +253,7 @@ def built(declared: Declared, face: Faces, texts: Corpus, /) -> Outcome[tuple[Bu
 
 
 def current(declared: Declared, face: Faces, texts: Corpus, /) -> Option[Built]:
-    """Returns the recorded build of a face while its inputs hash equals the inputs now and its binary holds the recorded bytes, the relation `Reproducible` holds a check to."""
+    """Returns a face's recorded build while its inputs hash matches the current inputs and its binary matches the recorded hash, the relation `Reproducible` checks."""
     return (
         _read(declared.binary(face).with_suffix(".json"))
         .to_option()
@@ -263,7 +263,7 @@ def current(declared: Declared, face: Faces, texts: Corpus, /) -> Option[Built]:
 
 
 def checked(declared: Declared, found: Built, source: Source, texts: Corpus, /) -> Outcome[Built]:
-    """Verifies a build's file against its face's requirements and writes the findings as its check report and into its record, `UNREADABLE` for an unreadable binary, `UNWRITABLE` for a report."""
+    """Verifies a build against its face's requirements and writes the findings to its check report and build record, `UNREADABLE` for an unreadable binary and `UNWRITABLE` for an unwritable output."""
     face = found.face
     measured = partial(verified, source=source, corpus=texts, path=found.path, approved=declared.approved(face))
     return (
@@ -274,7 +274,7 @@ def checked(declared: Declared, found: Built, source: Source, texts: Corpus, /) 
 
 
 def published(found: Built, destination: Path, /) -> Outcome[tuple[Path, Path]]:
-    """Copies a build's TrueType and a WOFF2 compressed from it into a destination folder, the copy's hash compared with the build's, deleting nothing."""
+    """Copies a build's TrueType and a WOFF2 of it into a destination folder without deleting anything there, `FAILED` where the copy's hash differs from the build's."""
     ttf, woff2 = destination / found.path.name, (destination / found.path.name).with_suffix(".woff2")
     return (
         catch(exception=OSError)(shutil.copyfile)(found.path, ttf)
@@ -325,12 +325,12 @@ def performed(action: Action, declaration: Path, /, *, name: str = "", destinati
     Args:
         action: Stage to run.
         declaration: Set declaration TOML.
-        name: Set, family, ornament set, or face stem, empty for the whole set.
+        name: Set, family, ornament set, typographic family, or face stem, empty for the whole set.
         destination: Folder a publication copies into.
 
     Returns:
         One report per face in declaration order, or every face's faults: `UNREADABLE` and `INVALID` for the declaration or corpus, `ABSENT` for an unknown name, a
-        missing current build, or a publication without destination, `FAILED` for a refused compile, `UNWRITABLE` for an output.
+        missing current build, a publication without destination, or a face a rule cannot measure, `FAILED` for a failed compile or a copy with another hash, `UNWRITABLE` for an output.
     """
     return declared(declaration).bind(
         lambda found: paired(

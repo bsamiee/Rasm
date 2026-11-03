@@ -30,7 +30,7 @@ from typography.shaping.runs import Binary
 def _through(source: Source, plan: Plan, kind: type, /, *, original: Binary, corpus: Corpus) -> Source:
     """Applies a plan's rules up to and including the first of a kind."""
     rules = plan.rules[: next(index for index, rule in enumerate(plan.rules) if isinstance(rule, kind)) + 1]
-    return reduce(lambda held, rule: applied(held, rule, original=original, corpus=corpus).ok, rules, source)
+    return reduce(lambda held, rule: applied(held, rule, original=original, corpus=corpus).default_with(lambda faults: pytest.fail(str(faults))), rules, source)
 
 
 def _done(source: Source, plan: Plan, /, *, original: Binary, corpus: Corpus) -> Source:
@@ -42,7 +42,7 @@ def _done(source: Source, plan: Plan, /, *, original: Binary, corpus: Corpus) ->
 
 
 def test_planned_orders_rules_and_resolves_values(face: Face) -> None:
-    """Text plans follow the repair order, each value the face's override or its genre's default."""
+    """Text plans follow `Rules` order, each value the face's override or its genre's default."""
     plan = planned(face)
     joins = next(rule for rule in plan.rules if isinstance(rule, Joins))
     scale = next(rule for rule in plan.rules if isinstance(rule, Scale))
@@ -52,7 +52,7 @@ def test_planned_orders_rules_and_resolves_values(face: Face) -> None:
 
 
 def test_plan_refuses_anchors_before_scale(face: Face) -> None:
-    """Anchors set before the scale move with it, so the plan refuses that order."""
+    """Plan refuses anchors before scale, the scale moving anchors set before it."""
     rules = planned(face).rules
     anchors, scale = (next(rule for rule in rules if isinstance(rule, kind)) for kind in (Anchors, Scale))
     with pytest.raises(ValueError, match="out of order"):
@@ -60,7 +60,7 @@ def test_plan_refuses_anchors_before_scale(face: Face) -> None:
 
 
 def test_locale_composes_from_own_glyphs(source: Source, face: Face, original: Binary, sample: Corpus) -> None:
-    """Presentation forms alias their nominal glyph, a base and mark compose, a missing base takes a joining-group sibling's dotless body, controls blank at zero advance, and the dotted circle rings twelve nuqtas."""
+    """Presentation forms alias their nominal glyph, a base and mark compose, a missing letter takes the dotless body of a letter in its joining group, controls blank at zero advance, and the dotted circle rings twelve nuqtas."""
     done = _through(source, planned(face), Locale, original=original, corpus=sample)
     assert [part.name for part in done.named["uniFE8F"].components] == ["uni0628"]
     assert [part.name for part in done.named["uniFE70"].components] == ["space", "uni064B"]
@@ -71,7 +71,7 @@ def test_locale_composes_from_own_glyphs(source: Source, face: Face, original: B
 
 
 def test_executed_runs_every_rule(source: Source, face: Face, original: Binary, sample: Corpus) -> None:
-    """The fold reaches the target units per em with zero mark advances, seated marks and composites, recipe marks the face lacked, and every layout feature."""
+    """Fold reaches the target units per em with zero mark advances, anchored marks and composites, recipe marks the face lacked, and every layout feature."""
     done = _done(source, planned(face), original=original, corpus=sample)
     tanwin = next(lookup for lookup in done.lookups if isinstance(lookup, Contextual) and lookup.feature == "ccmp")
     assert done.upm == 2048
@@ -130,12 +130,12 @@ def test_quranic_marks_skip_drawn(face: Face) -> None:
 
 
 def test_ornaments_reencoded(ornament: tuple[Path, OrnamentFace]) -> None:
-    """Template text and blank slots leave, copies of one drawing fold, art keeps its Private Use code point or takes the next free one, tiles keep their bearings, typo stays the face's own, and win reaches the art and the typo."""
+    """Template text and blank slots removed, copies of one drawing merged, art keeps its Private Use code point or takes the next free one, tiles keep their bearings, typo stays the face's own, and win reaches the art and the typo."""
     path, face = ornament
     blank = Corpus(prose=frozendict(), marked=(), annotated=(), deep=(), words=(), digits=(), punctuation=(), joins=(), seam=(), zwnj=(), ligatures=(), letters=(), vowel_stacks=(), stacks=())
-    original = Binary.read(path).ok
+    original = Binary.read(path).default_with(lambda faults: pytest.fail(str(faults)))
     plan = planned(face)
-    source = imported(path, face).ok
+    source = imported(path, face).default_with(lambda faults: pytest.fail(str(faults)))
     done = _done(source, plan, original=original, corpus=blank)
     art: tuple[Glyph, ...] = done.by_role(Ornament)
     rule = next(rule for rule in plan.rules if isinstance(rule, Ornaments))

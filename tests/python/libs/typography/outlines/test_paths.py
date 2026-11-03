@@ -59,7 +59,7 @@ def test_iou_of_half_overlap() -> None:
 
 
 def test_transformed_moves_scales_shears_and_keeps_winding_under_reflection() -> None:
-    """Square moved, scaled, sheared about its middle line and mirrored, the mirror still adding to the original."""
+    """Square moved, scaled, sheared about its middle line and mirrored, the mirror adding to the original."""
     assert bounds(transformed(SQUARE, Transform().translate(10.0, -5.0))) == Box(xmin=10.0, ymin=-5.0, xmax=110.0, ymax=95.0)
     assert bounds(transformed(SQUARE, Transform().scale(2.0))) == Box(xmin=0.0, ymin=0.0, xmax=200.0, ymax=200.0)
     assert_close(bounds(transformed(SQUARE, Transform().translate(0, 50.0).skew(math.radians(45.0)).translate(0, -50.0))), Box(xmin=-50.0, ymin=0.0, xmax=150.0, ymax=100.0), abs_tol=1e-9)
@@ -71,7 +71,7 @@ def test_offset_grows_and_shrinks_with_mitred_corners() -> None:
     assert_close(area(offset(SQUARE, 10.0)), 14400.0, rel_tol=1e-4)
     assert_close(area(offset(SQUARE, -10.0)), 6400.0, rel_tol=1e-4)
     assert bounds(offset(SQUARE, 10.0)) == Box(xmin=-10.0, ymin=-10.0, xmax=110.0, ymax=110.0)
-    assert offset(SQUARE, -60.0) == ()
+    assert not offset(SQUARE, -60.0)
     assert [len(piece) for piece in pieces(combined(SQUARE, offset(SQUARE, -10.0), Operation.DIFFERENCE))] == [2]
 
 
@@ -107,4 +107,4 @@ def test_strip_keeps_ink_between_two_coordinates() -> None:
     """Ring cut to a vertical band through its hole and a horizontal band over it, the empty outline cut to nothing."""
     assert_close(area(strip(RING, 40.0, 60.0)), 800.0)
     assert bounds(strip(RING, 90.0, 200.0, "y")) == Box(xmin=0.0, ymin=90.0, xmax=100.0, ymax=100.0)
-    assert strip((), 0.0, 1.0) == ()
+    assert not strip((), 0.0, 1.0)

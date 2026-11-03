@@ -99,7 +99,7 @@ def test_missing_declaration_is_unreadable(tmp_path: Path) -> None:
 
 
 def test_genres_state_class_defaults() -> None:
-    """Kufi and dot matrix keep their drawn size and narrower mark band, Diwani its close word ratio, text Naskh carries the mark floor and cuts spurs."""
+    """Kufi and dot matrix keep their drawn size and narrower mark band, Diwani its close word ratio, text Naskh holds the mark floor and cuts spurs."""
     assert (DotMatrix().alif, DotMatrix().mark, Diwani().word_ratio, TextNaskh().mark_floor, Kufi().mark_floor, TextNaskh().spurs, Kufi().spurs) == (None, (0.30, 0.42), 1.88, 0.05, None, True, False)
 
 

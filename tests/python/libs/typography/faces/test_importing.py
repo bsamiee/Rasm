@@ -28,7 +28,7 @@ def _source(path: Path, face: Face | OrnamentFace = FACE, /) -> Source:
 
 
 def test_names_follow_cmap_forms_and_ligatures(arabic: Path) -> None:
-    """Glyphs named from nominal code points, GSUB forms, presentation decomposition, and the lam-alef ligature; unreached and Private Use glyphs leave."""
+    """Glyphs named from nominal code points, GSUB forms, presentation decomposition, and the lam-alef ligature, unreached and Private Use glyphs removed."""
     source = _source(arabic)
     assert [glyph.name.text for glyph in source.glyphs[:13]] == [
         ".notdef",
@@ -72,9 +72,9 @@ def test_anchors_from_mark_attachment(arabic: Path) -> None:
 
 
 def test_lookups_keep_original_substitutions(arabic: Path) -> None:
-    """GSUB singles and ligatures carried under their feature tags in lookup order, glyphs renamed."""
+    """GSUB singles and ligatures kept under their feature tags in lookup order, glyphs renamed."""
     assert _source(arabic).lookups == (
-        Single(feature="init", order=0, mapping=frozendict({"uni0628": "uni0628.init", "uni0644": "uni0644.init"})),
+        Single(feature="init", mapping=frozendict({"uni0628": "uni0628.init", "uni0644": "uni0644.init"})),
         Single(feature="medi", order=1, mapping=frozendict({"uni0628": "uni0628.medi"})),
         Single(feature="fina", order=2, mapping=frozendict({"uni0628": "uni0628.fina", "uni0627": "uni0627.fina"})),
         Ligatures(feature="rlig", order=3, rules=((("uni0644.init", "uni0627.fina"), "uni0644_uni0627"),)),
@@ -88,7 +88,7 @@ def test_secondary_code_points_become_component_aliases(arabic: Path) -> None:
 
 
 def test_records_and_outlines_read(arabic: Path) -> None:
-    """Units per em, records, metrics, and quadratic contours with off-curve controls carried from the binary."""
+    """Units per em, records, metrics, and quadratic contours with off-curve controls read from the binary."""
     source = _source(arabic)
     beh = source.glyph("uni0628").map(lambda glyph: glyph.contours[0]).default_value(())
     assert (source.upm, source.info.vendor, source.info.designer, source.metrics.win_ascent if source.metrics else 0, [point.on for point in beh]) == (
@@ -132,6 +132,6 @@ def test_source_replaces_and_removes_glyphs(arabic: Path) -> None:
 
 
 def test_genre_coverage_drops_excluded_codes(arabic: Path) -> None:
-    """Code points a declared genre coverage excludes leave the cmap, their glyphs kept where another code reaches them."""
+    """Code points a declared genre coverage excludes removed from the cmap, their glyphs kept where another code reaches them."""
     face = Face(style="Regular", original="Arabic-Regular.ttf", family="Test", genre=Kufi(coverage=Coverage(excluded=(Excluded(codes=frozenset({0x0644}), reason="Test"),))))
     assert (0x0644 in (narrowed := _source(arabic, face)).encoded, "uni0644" in narrowed.named, 0x0644 in _source(arabic).encoded) == (False, False, True)

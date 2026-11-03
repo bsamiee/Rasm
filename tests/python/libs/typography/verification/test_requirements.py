@@ -57,7 +57,7 @@ def _verified(binary: Binary, checked: tuple[Requirements, ...], source: Source,
 
 
 def test_verified_accumulates_every_requirement(tmp_path: Path, binary: Binary, source: Source, sample: Corpus, path: Path) -> None:
-    """A missing approval and a duplicated digit reported together, the other requirements held, every finding encoding as JSON."""
+    """Missing approval and duplicated digit reported together, other requirements held, every finding encoding as JSON."""
     duplicated = built(two=((100, 0, 160, 500),))
     findings = verified(duplicated, (Sanitized(), Expectations(), Distinct(), Reproducible(hash="0")), source=source, original=binary, corpus=sample, path=path, approved=tmp_path / "absent.json")
     assert [(finding.requirement, finding.subject) for finding in findings] == [("expectations", str(tmp_path / "absent.json")), ("distinct", "uni06F1 uni06F2"), ("reproducible", "sha256")]
@@ -66,9 +66,9 @@ def test_verified_accumulates_every_requirement(tmp_path: Path, binary: Binary, 
 
 def test_verified_passes_the_test_font_on_its_own_approval(tmp_path: Path, binary: Binary, source: Source, sample: Corpus, path: Path) -> None:
     """Every text requirement holds once its expectations are approved from the same build, the approval holding one test per line and language."""
-    approval = approved(binary, sample, tmp_path / "Verification-Regular.json").ok
+    approval = approved(binary, sample, tmp_path / "Verification-Regular.json").default_with(lambda faults: pytest.fail(str(faults)))
     held = tuple(requirement for requirement in requirements(source.face) if not isinstance(requirement, Profile | Coverage))
-    assert _verified(binary, held, source, sample, path, approval) == ()
+    assert not _verified(binary, held, source, sample, path, approval)
     assert decoded(approval.read_bytes()).map(lambda written: len(written.tests)) == decoded(approval.read_bytes()).map(lambda _: len(sample.lines) * len(sample.languages))
 
 
@@ -78,12 +78,12 @@ def test_verified_passes_the_test_font_on_its_own_approval(tmp_path: Path, binar
 def test_sanitized_accepts_the_test_font_and_refuses_a_cut_one(tmp_path: Path, binary: Binary, source: Source, sample: Corpus, path: Path) -> None:
     """Built font accepted, its first kilobyte alone refused with the OTS report."""
     (cut := tmp_path / "Cut-Regular.ttf").write_bytes(path.read_bytes()[:1024])
-    assert _verified(binary, (Sanitized(),), source, sample, path, path) == ()
+    assert not _verified(binary, (Sanitized(),), source, sample, path, path)
     match _verified(binary, (Sanitized(),), source, sample, cut, path):
         case (Finding(subject="Cut-Regular.ttf", measured=str(report), bound="accepted"),) if report:
             pass
         case found:
-            pytest.fail(f"{found}")
+            pytest.fail(str(found))
 
 
 def test_profile_reports_failing_results_alone(binary: Binary, source: Source, sample: Corpus, path: Path) -> None:
@@ -93,7 +93,7 @@ def test_profile_reports_failing_results_alone(binary: Binary, source: Source, s
 
 def test_expectations_pass_approved_shaping_and_report_each_changed_input(tmp_path: Path, binary: Binary, source: Source, sample: Corpus, path: Path) -> None:
     """Expectations approved from the test font pass it, and a build with a sunk fatha changes the marked inputs."""
-    approval = approved(binary, sample, tmp_path / "approved" / "Verification-Regular.json").ok
-    assert _verified(binary, (Expectations(),), source, sample, path, approval) == ()
+    approval = approved(binary, sample, tmp_path / "approved" / "Verification-Regular.json").default_with(lambda faults: pytest.fail(str(faults)))
+    assert not _verified(binary, (Expectations(),), source, sample, path, approval)
     (changed := tmp_path / "Verification-Regular.ttf").write_bytes(built(fatha=40).data)
     assert {finding.subject for finding in _verified(binary, (Expectations(),), source, sample, changed, approval)} == {"بَب", "بَبُب", "بَ بُ"}

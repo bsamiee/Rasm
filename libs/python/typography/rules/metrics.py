@@ -4,9 +4,10 @@ lazy from functools import partial, reduce
 lazy import math
 
 import msgspec
+lazy from fontTools.misc.roundTools import otRound
 
 from typography.faces.declaration import Band, Em
-from typography.rules.scripts import Rule
+from typography.rules.measures import Rule
 lazy from typography.faces.glyphs import Glyph, Joining, Letter, Ligature, Mark, Metrics as Vertical, Side, Source
 lazy from typography.faces.names import Form
 lazy from typography.outlines.measure import counter
@@ -18,7 +19,7 @@ lazy from typography.shaping.corpus import Corpus
 
 
 class Metrics(Rule, frozen=True, kw_only=True):
-    """Typo and hhea at the ink the plain, marked, annotated, and deep corpus reaches set on the face inside a pitch band, or the face's own pair without one, and win over every mapped glyph and a stack of `stacks` marks over each seat."""
+    """Typo and hhea at the ink the plain, marked, annotated, and deep corpus reaches set on the face inside a pitch band, or the face's own pair without one, and win over every mapped glyph and a stack of `stacks` marks over each base anchor."""
 
     pitch: Band | None
     stack: Em
@@ -26,9 +27,8 @@ class Metrics(Rule, frozen=True, kw_only=True):
 
 
 class Records(Rule, frozen=True, kw_only=True):
-    """Lowest readable size one pixel across the median counter of the letters, or of every glyph, the x and cap heights of the two height letters, and the italic angle and caret shift of a slant about the stem's middle."""
+    """Lowest readable size one pixel across the median counter of the letters, or of every glyph, the x and cap heights at the ink tops of `x` and `H` as OS/2 defines them, and the italic angle and caret shift of a slant about the stem's middle."""
 
-    heights: tuple[int, int]
     lowest: int | None = None
     letters: tuple[int, ...] = ()
     stem: int | None = None
@@ -40,7 +40,7 @@ class Records(Rule, frozen=True, kw_only=True):
 
 
 def _set(source: Source, line: str, /) -> tuple[Glyph, ...]:
-    """Glyphs a line sets on the face: each letter in the form its neighbours' joining types give, each code point the face lacks left out."""
+    """Glyphs a line sets on the face: each letter in the form its neighbors' joining types give, each code point the face lacks left out."""
     codes = tuple(map(ord, line))
     kinds = tuple(map(Joining.of, codes))
     letters = tuple(index for index, kind in enumerate(kinds) if kind is not Joining.TRANSPARENT)
@@ -55,7 +55,7 @@ def _set(source: Source, line: str, /) -> tuple[Glyph, ...]:
 
 
 def _stacked(boxes: frozendict[str, Box], state: tuple[float, float, frozendict[Side, tuple[Glyph, float]]], glyph: Glyph, /) -> tuple[float, float, frozendict[Side, tuple[Glyph, float]]]:
-    """Extends the reach by a glyph: a mark raised from its attaching anchor onto the seat of the glyph it stacks on, every other glyph where it stands."""
+    """Extends the reach by a glyph: a mark raised from its attaching anchor onto the anchor of the glyph it stacks on, every other glyph where it stands."""
     high, low, seats = state
     match glyph.role:
         case Mark(side=side) if side in seats:
@@ -87,15 +87,16 @@ def _typo(plain: tuple[float, float], marked: tuple[float, float], pitch: tuple[
 
 
 def _win(source: Source, stack: float, stacks: int, /) -> tuple[int, int]:
-    """Win ascent and descent over every mapped glyph's ink and a stack of the tallest marks on every base seat, each mark rising by its own seat over its foot."""
+    """Win ascent and descent over every mapped glyph's ink and a stack of the tallest marks on every base anchor, each mark rising by its own anchor over its foot, capped at twice the tallest and deepest glyph."""
     boxes = {glyph.name.text: box for glyph in source.glyphs if glyph.name.codes and (box := bounds(glyph.contours))}
     feet = {side: tuple((glyph, foot) for glyph in source.by_role(Mark) if glyph.role == Mark(side=side) for foot in glyph.anchors if foot.name.startswith("_")) for side in Side}
     rises = {side: max((abs(seat.y - foot.y) for glyph, foot in held for seat in glyph.anchor(foot.name[1:]).to_list()), default=stack) for side, held in feet.items()}
     reaches = {side: max((abs((box.ymax if side is Side.ABOVE else box.ymin) - foot.y) for glyph, foot in held if (box := bounds(glyph.contours))), default=0.0) for side, held in feet.items()}
     stacked = {side: (stacks - 1) * rises[side] + reaches[side] for side in Side}
     seats = tuple(anchor for glyph in source.glyphs if isinstance(glyph.role, Letter | Ligature) for anchor in glyph.anchors)
-    top = max((*(box.ymax for box in boxes.values()), *(anchor.y + stacked[Side.ABOVE] for anchor in seats if anchor.name.startswith(Side.ABOVE.anchor))), default=0.0)
-    foot = min((*(box.ymin for box in boxes.values()), *(anchor.y - stacked[Side.BELOW] for anchor in seats if anchor.name.startswith(Side.BELOW.anchor))), default=0.0)
+    tallest, deepest = otRound(max((box.ymax for box in boxes.values()), default=0.0)), otRound(min((box.ymin for box in boxes.values()), default=0.0))
+    top = min(max((tallest, *(anchor.y + stacked[Side.ABOVE] for anchor in seats if anchor.name.startswith(Side.ABOVE.anchor)))), 2 * tallest)
+    foot = max(min((deepest, *(anchor.y - stacked[Side.BELOW] for anchor in seats if anchor.name.startswith(Side.BELOW.anchor)))), 2 * deepest)
     return (math.ceil(top), math.ceil(-foot))
 
 
@@ -115,10 +116,10 @@ def measured(source: Source, rule: Metrics, /, *, corpus: Corpus) -> Source:
 
 
 def recorded(source: Source, rule: Records, /) -> Source:
-    """Sets the lowest readable size one pixel across the median counter of the letters, or of every glyph, the x and cap heights at the ink tops of the two height letters, and the slant's italic angle and caret shift."""
+    """Sets the lowest readable size one pixel across the median counter of the letters, or of every glyph, the x and cap heights at the ink tops of `x` and `H`, and the slant's italic angle and caret shift."""
     names = frozenset(key(code, form) for code in rule.letters for form in Form)
     counters = tuple(width for glyph in source.glyphs if (not rule.letters or glyph.name.text in names) and (width := counter(glyph.contours)) > 0)
-    x_height, cap_height = (round(box.ymax) if (glyph := source.named.get(key(code))) and (box := bounds(glyph.contours)) else 0 for code in rule.heights)
+    x_height, cap_height = (round(box.ymax) if (glyph := source.named.get(key(code))) and (box := bounds(glyph.contours)) else 0 for code in map(ord, "xH"))
     held = source.metrics or Vertical(ascender=0, descender=0, win_ascent=0, win_descent=0)
     about = box.middle[1] if rule.stem is not None and (glyph := source.named.get(key(rule.stem))) and (box := bounds(glyph.contours)) else 0.0
     return msgspec.structs.replace(

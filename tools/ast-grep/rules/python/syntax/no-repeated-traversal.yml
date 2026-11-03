@@ -3,7 +3,7 @@ id: no-repeated-traversal
 language: python
 severity: error
 utils:
-    scope:
+    scope: &scope
         kind: 'function_definition, class_definition, lambda, module'
     source-name:
         kind: identifier
@@ -18,7 +18,7 @@ utils:
             any: [{matches: source-name}, {has: {stopBy: end, matches: source-name}}]
     region:
         any:
-            - matches: scope
+            - *scope
             - kind: for_statement
               matches: source-binding
             - kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
@@ -77,10 +77,10 @@ utils:
     after-earlier-pair:
         follows:
             stopBy: end
-            not: {matches: scope}
+            not: *scope
             any:
                 - matches: earlier-pair
-                - has: {stopBy: {matches: scope}, matches: earlier-pair}
+                - has: {stopBy: *scope, kind: 'for_in_clause, for_statement', matches: earlier-pair}
 rule:
     kind: 'for_in_clause, for_statement'
     all:

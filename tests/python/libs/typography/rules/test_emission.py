@@ -20,7 +20,7 @@ def test_every_lookup_kind_parses(source: Source) -> None:
     """Each lookup record becomes a lookup its feature references, the language system registered, and the text parses."""
     lookups = (
         Single(feature="locl", languages=("arab/FAR ",), order=-1, mapping=frozendict({"uni0628": "uni0631"})),
-        Single(feature="init", order=0, mapping=frozendict({"uni0628": "uni0628.init"})),
+        Single(feature="init", mapping=frozendict({"uni0628": "uni0628.init"})),
         Ligatures(feature="rlig", order=1, rules=((("uni0644.init", "uni0627.fina"), "uni0644_uni0627"),)),
         Contextual(feature="calt", order=2, rules=(Context(input=(("uni0628.init",),), lookahead=(("uni0631.fina",),), replacement=("uni0628",)),)),
         Positions(feature="kern", order=3, values=frozendict({"uni0631": Adjustment(advance=20)})),

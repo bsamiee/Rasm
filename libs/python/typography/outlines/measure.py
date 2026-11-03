@@ -15,7 +15,7 @@ lazy from typography.outlines.paths import area, Axis, Box, combined, draw, offs
 
 
 class Moments(msgspec.Struct, frozen=True, kw_only=True):
-    """Ink centre of mass and principal axis direction in degrees within (-90, 90]."""
+    """Ink center of mass and principal axis direction in degrees within (-90, 90]."""
 
     centre: tuple[float, float]
     angle: float
@@ -40,7 +40,7 @@ def stroke(outline: Outline, /) -> float:
 
 
 def _reach(outline: Outline, pen: float, /) -> float:
-    """Offset at which the mean stroke `2A/P` reaches a pen, the root of Steiner's `2(A + P d + pi d^2) = pen (P + 2 pi d)` nearest zero, exact for discs and stroked segments, 0 for the empty outline."""
+    """Offset where mean stroke `2A/P` reaches a pen width, the root of Steiner's `2(A + P d + pi d^2) = pen (P + 2 pi d)` nearest zero, exact for discs and stroked segments, 0 for an empty outline."""
     held, edge = area(outline), perimeter(outline)
     linear, constant = 2 * edge - 2 * math.pi * pen, 2 * held - pen * edge
     return (-linear + math.sqrt(max(linear * linear - 8 * math.pi * constant, 0.0))) / (4 * math.pi) if edge else 0.0
@@ -57,7 +57,7 @@ def counter(outline: Outline, /) -> float:
 
 
 def moments(outline: Outline, /) -> Moments:
-    """Returns the centre of mass and principal axis of the outline's ink from its first and second moments."""
+    """Returns the center of mass and principal axis of the outline's ink from its first and second moments."""
     pen = StatisticsPen()
     draw(pen, outline)
     return Moments(centre=(float(pen.meanX), float(pen.meanY)), angle=math.degrees(0.5 * math.atan2(2 * pen.covariance, pen.varianceX - pen.varianceY)))
@@ -67,7 +67,7 @@ def moments(outline: Outline, /) -> Moments:
 
 
 def _flattened(outline: Outline, /) -> tuple[tuple[tuple[float, float], ...], tuple[tuple[tuple[float, float], tuple[float, float]], ...]]:
-    """Vertices and edges of the union flattened within a quarter unit, each quadratic cut into the square root of its second difference."""
+    """Vertices and edges of the union flattened within a quarter unit, each quadratic cut into as many steps as the square root of its second difference length."""
     runs = tuple(
         tuple(segmentPointAtT(segment, step / steps) for step in range(steps + 1))
         for segment in segments(outline)
@@ -77,7 +77,7 @@ def _flattened(outline: Outline, /) -> tuple[tuple[tuple[float, float], ...], tu
 
 
 def _apart(axis: Axis | None, point: tuple[float, float], start: tuple[float, float], end: tuple[float, float], /) -> float:
-    """Distance from a point to a segment, nearest in any direction, or vertical under an axis where the segment spans the point's abscissa, else infinite, an `x` axis swapped onto `y` before."""
+    """Distance from a point to a segment, nearest in any direction, or vertical under an axis where the segment spans the point's abscissa, else infinite, callers swapping an `x` axis onto `y` first."""
     (px, py), (sx, sy), (dx, dy) = point, start, (end[0] - start[0], end[1] - start[1])
     match axis:
         case None:

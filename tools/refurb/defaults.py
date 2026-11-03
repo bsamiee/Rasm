@@ -97,33 +97,38 @@ def check(node: MypyFile, errors: list[Error]) -> None:
             case _:
                 return ()
 
-    class Defined(TraverserVisitor):
+    class Walk(TraverserVisitor):
         def __init__(self) -> None:
             super().__init__()
             self.functions: set[FuncDef] = set()
+            self.calls: list[tuple[CallExpr, SymbolNode | None]] = []
 
         @override
         def visit_func_def(self, o: FuncDef) -> None:
             self.functions.add(o)
             super().visit_func_def(o)
 
-    class Calls(TraverserVisitor):
         @override
         def visit_call_expr(self, o: CallExpr) -> None:
-            match declared(o.callee):
-                case (FuncDef() as function) | Decorator(func=FuncDef() as function) if function in defined.functions:
-                    owner, defaults = function.name, {argument.variable.name: argument.initializer for argument in function.arguments if argument.initializer is not None}
-                case TypeInfo() as info if info.has_base(_STRUCT):
-                    owner, defaults = info.name, {name: value for base in reversed(info.mro) if base.fullname != _STRUCT for statement in base.defn.defs.body for name, value in assigned(statement)}
-                case _:
-                    owner, defaults = "", {}
-            errors.extend(
-                ErrorRestatedDefaultError.from_node(value, f"`{name}={stringify(value)}` restates the default `{owner}` declares, omit `{name}`")
-                for name, value in zip(o.arg_names, o.args)
-                if name is not None and (default := defaults.get(name)) is not None and literal(default) and is_equivalent(value, default)
-            )
+            if any(o.arg_names):
+                self.calls.append((o, declared(o.callee)))
             super().visit_call_expr(o)
 
-    defined = Defined()
-    defined.accept(node)
-    Calls().accept(node)
+    def defaults(symbol: SymbolNode | None, functions: set[FuncDef]) -> tuple[str, dict[str, Expression]]:
+        match symbol:
+            case (FuncDef() as function) | Decorator(func=FuncDef() as function) if function in functions:
+                return function.name, {argument.variable.name: argument.initializer for argument in function.arguments if argument.initializer is not None}
+            case TypeInfo() as info if info.has_base(_STRUCT):
+                return info.name, {name: value for base in reversed(info.mro) if base.fullname != _STRUCT for statement in base.defn.defs.body for name, value in assigned(statement)}
+            case _:
+                return "", {}
+
+    walk = Walk()
+    walk.accept(node)
+    errors.extend(
+        ErrorRestatedDefaultError.from_node(value, f"`{name}={stringify(value)}` restates the default `{owner}` declares, omit `{name}`")
+        for call, symbol in walk.calls
+        for owner, held in (defaults(symbol, walk.functions),)
+        for name, value in zip(call.arg_names, call.args)
+        if name is not None and (default := held.get(name)) is not None and literal(default) and is_equivalent(value, default)
+    )

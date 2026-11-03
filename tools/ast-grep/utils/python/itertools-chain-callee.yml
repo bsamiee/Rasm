@@ -2,4 +2,6 @@
 id: itertools-chain-callee
 language: python
 rule:
-    matches: {python-unparenthesized: {value: {matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^chain$'}}}}}}
+    all:
+        - inside: {kind: module, stopBy: end, regex: '\bitertools\b'}
+        - matches: {python-unparenthesized: {value: {matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^chain$'}}}}}}

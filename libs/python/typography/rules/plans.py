@@ -1,4 +1,4 @@
-"""The ordered plan of a face, its rules resolved from the face's values, its genre, and its script, and the fold that applies it to a source."""
+"""Ordered face plans with rules resolved from face values, genre, and script, and the fold applying a plan to a source."""
 
 from typing import get_args
 lazy from functools import reduce
@@ -15,16 +15,15 @@ from typography.rules.fits import Outlines
 from typography.rules.joins import Joins
 from typography.rules.locale import Locale
 from typography.rules.marks import Marks, QuranicMarks, WordSigns
+from typography.rules.measures import Rule
 from typography.rules.metrics import Metrics, Records
 from typography.rules.ornaments import Ornaments
 from typography.rules.scale import Scale
-from typography.rules.scripts import Rule
 from typography.rules.spacing import Spacing
 lazy from typography.faces.declaration import Face, Faces, OrnamentFace, Sheared
 lazy from typography.faces.faults import Faults, Outcome
 lazy from typography.faces.glyphs import Source
 lazy from typography.rules import anchors, digits, fits, joins, locale, marks, metrics, ornaments, scale, spacing
-lazy from typography.rules.scripts import ARABIC
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.runs import Binary
 
@@ -32,7 +31,7 @@ lazy from typography.shaping.runs import Binary
 
 
 class Hinting(Rule, frozen=True, kw_only=True):
-    """TrueType hinting the build runs."""
+    """TrueType hinting through ttfautohint at compile."""
 
 
 type Rules = Ornaments | Locale | Digits | Outlines | Marks | QuranicMarks | Joins | Scale | Anchors | Spacing | WordSigns | Metrics | Records | Hinting
@@ -46,7 +45,7 @@ class Plan(msgspec.Struct, frozen=True, kw_only=True):
     rules: tuple[Rules, ...]
 
     def __post_init__(self) -> None:
-        """Refuses rules out of the `Rules` union order or repeated, so anchors follow marks and scale, and spacing follows anchors.
+        """Refuses rules repeated or out of `Rules` union order, the order placing anchors after marks and scale and spacing after anchors.
 
         Raises:
             ValueError: If a rule precedes or repeats one the order places before it.
@@ -61,10 +60,9 @@ class Plan(msgspec.Struct, frozen=True, kw_only=True):
 
 def planned(face: Faces, /) -> Plan:
     """Returns a face's plan, each value the face's override or its genre's, each code point its script's, its slant from its shear."""
-    script = ARABIC
     match face:
         case Face(genre=genre, values=values, treatments=treatments):
-            stack = values.stack_gap or genre.stack_gap
+            script, stack = genre.script, values.stack_gap or genre.stack_gap
             return Plan(
                 genre=genre,
                 treatments=treatments,
@@ -80,18 +78,12 @@ def planned(face: Faces, /) -> Plan:
                     Spacing(script=script, ratio=values.word_ratio or genre.word_ratio, band=genre.word_band),
                     WordSigns(script=script, stack=stack),
                     Metrics(pitch=genre.pitch, stack=stack),
-                    Records(
-                        lowest=values.lowest_ppem,
-                        letters=script.counters,
-                        heights=script.heights,
-                        stem=script.stem,
-                        slant=next((treatment.angle for treatment in treatments if isinstance(treatment, Sheared)), 0.0),
-                    ),
+                    Records(lowest=values.lowest_ppem, letters=script.counters, stem=script.stem, slant=next((treatment.angle for treatment in treatments if isinstance(treatment, Sheared)), 0.0)),
                     *((Hinting(),) if genre.hinting else ()),
                 ),
             )
         case OrnamentFace(first=first):
-            return Plan(genre=None, treatments=(), rules=(Ornaments(first=first, script=script), Outlines(sliver=0.001, snap=0.006), Metrics(pitch=None, stack=0.0), Records(heights=script.heights)))
+            return Plan(genre=None, treatments=(), rules=(Ornaments(first=first), Outlines(sliver=0.001, snap=0.006), Metrics(pitch=None, stack=0.0), Records()))
 
 
 def applied(source: Source, rule: Rules, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:

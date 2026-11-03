@@ -15,22 +15,22 @@ type Outcome[T] = Result[T, Faults]
 
 
 class Reason(StrEnum):
-    """Refusal kinds, each value the report template of its fault."""
+    """Fault kinds, each value its message template."""
 
     OUTSIDE = "{subject} accepts {member}, not {cause}"
-    INVALID = "{subject} is invalid. {cause}"
+    INVALID = "{subject} is invalid: {cause}"
     ABSENT = "{subject} holds no {member}"
-    UNREADABLE = "{subject} is unreadable. {cause}"
-    UNWRITABLE = "{subject} is unwritable. {cause}"
-    FAILED = "{subject} failed. {cause}"
-    UNMET = "{subject} misses {member}. {cause}"
+    UNREADABLE = "{subject} is unreadable: {cause}"
+    UNWRITABLE = "{subject} is unwritable: {cause}"
+    FAILED = "{subject} failed: {cause}"
+    UNMET = "{subject} misses {member}: {cause}"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Fault(msgspec.Struct, frozen=True, kw_only=True):
-    """Refused or unmet operation, its report text formatted from its reason."""
+    """Refused or failed operation with a message formatted from its reason."""
 
     reason: StrEnum
     subject: str
@@ -39,12 +39,12 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def message(self) -> str:
-        """Report text of the fault."""
+        """Message the reason template formats."""
         return self.reason.format(subject=self.subject, member=self.member, cause=self.cause)
 
     @classmethod
     def of(cls, reason: StrEnum, subject: str, cause: object = "", /, *, member: str = "") -> Faults:
-        """Returns a one-fault tuple over subject, the refused value or caught error as cause."""
+        """Returns a one-fault tuple, the refused value or caught error as cause."""
         return (cls(reason=reason, subject=subject, member=member, cause=cause),)
 
 

@@ -85,7 +85,7 @@ values   = { nuqta_floor = 0.045, tail = 1.6 }
 name     = "Nazok"
 original = "Nazok"
 genre    = { kind = "textnaskh" }
-notes    = "Holds no Sorani letter, so it registers no KUR language system"
+notes    = "Holds no Sorani letter and registers no KUR language system"
 
 [[families.faces]]
 style    = "Regular"
@@ -156,7 +156,7 @@ values   = { mark = 0.56, punctuation = 0.8 }
 name     = "Barjasteh"
 original = "Barjasteh"
 genre    = { kind = "textnaskh" }
-notes    = "Shadow vector read from the alif's ring and shadow bounds; display-only"
+notes    = "Display face with its shadow vector read from alef ring and shadow bounds"
 
 [[families.faces]]
 style      = "Regular"
@@ -168,7 +168,7 @@ values     = { mark = 0.4 }
 name     = "Mayel"
 original = "Mayel"
 genre    = { kind = "textnaskh" }
-notes    = "Slanted with no upright: its Arabic leans at the shear angle, its Latin and shared signs stand upright"
+notes    = "Italic with no upright, Arabic leaning at the shear angle and Latin and shared signs upright"
 
 [[families.faces]]
 style      = "Italic"
@@ -237,7 +237,7 @@ values   = { mark = 0.5 }
 name     = "Zolf"
 original = "Zolf"
 genre    = { kind = "blacknaskh" }
-notes    = "High-contrast swash Naskh, display-only for its hairlines and closed loops"
+notes    = "High-contrast swash Naskh, hairlines and closed loops limiting it to display sizes"
 
 [[families.faces]]
 style    = "Regular"
@@ -323,7 +323,7 @@ values     = { alif = 0.7, mark = 0.5, punctuation = 0.8, nuqta_floor = 0.0417 }
 name     = "Pareh"
 original = "Pareh"
 genre    = { kind = "kufi" }
-notes    = "Segmented display faces; a host's synthesized bold fuses every segment gap"
+notes    = "Segmented display faces, synthesized bold fusing every segment gap"
 
 [[families.faces]]
 style      = "Regular"
@@ -365,7 +365,7 @@ values     = { alif = 0.7, mark = 0.42, nuqta_floor = 0.05, punctuation = 1.0 }
 name     = "Khesht"
 original = "Khesht"
 genre    = { kind = "kufi" }
-notes    = "Narrow is a design variant at the Regular's advances, never a width"
+notes    = "Narrow is a design variant at Regular advances, never a width"
 
 [[families.faces]]
 style    = "ExtraBold"
@@ -468,7 +468,7 @@ values   = { mark = 0.55, nuqta_floor = 0.045 }
 name     = "Kashi"
 original = "Kashi"
 genre    = { kind = "kufi" }
-notes    = "Narrow is a design variant at the Regular's advances, never a width"
+notes    = "Narrow is a design variant at Regular advances, never a width"
 
 [[families.faces]]
 style    = "Regular"

@@ -37,7 +37,7 @@ def test_binary_refuses_bytes_outside_a_font_and_a_missing_file(tmp_path: Path, 
         case Result(error=(Fault(reason=Reason.UNREADABLE),)):
             pass
         case refused:
-            pytest.fail(f"{refused}")
+            pytest.fail(str(refused))
 
 
 def test_word_takes_joining_forms_in_visual_order(binary: Binary) -> None:

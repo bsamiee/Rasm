@@ -39,7 +39,7 @@ def test_counter_reads_stadium_hole_width() -> None:
 
 
 def test_moments_read_centre_and_axis() -> None:
-    """Bar turned 30 degrees about its centre, the centre kept and the principal axis at 30 degrees."""
+    """Bar turned 30 degrees about its center, the center kept and the principal axis at 30 degrees."""
     turned = moments(transformed(BAR, Transform().translate(50.0, 10.0).rotate(math.radians(30.0)).translate(-50.0, -10.0)))
     assert_close(turned.centre, (50.0, 10.0), abs_tol=1e-6)
     assert_close(turned.angle, 30.0, rel_tol=1e-6)

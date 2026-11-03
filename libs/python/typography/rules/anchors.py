@@ -1,4 +1,4 @@
-"""Anchors from ink: mark seats at the original's clearance in a vowel and a wide class, ligature arms and carets, composites seated, `calt` dot groups moved clear of a joined neighbour, and lifts of marks clear of the neighbour ahead of `mkmk`."""
+"""Anchors from ink: mark anchors at the original's clearance in a vowel and a wide class, ligature component anchors and carets, composite marks attached, `calt` dot groups moved clear of a joined neighbor, and `mark` lifts of marks clear of neighbors."""
 
 lazy from itertools import groupby, pairwise
 lazy import math
@@ -6,8 +6,8 @@ lazy import math
 import msgspec
 lazy from fontTools.misc.transform import Offset
 
-from typography.faces.declaration import Em, Ratio
-from typography.rules.scripts import Rule, Script
+from typography.faces.declaration import Em, Ratio, Script
+from typography.rules.measures import Rule
 lazy from typography.faces.faults import Outcome
 lazy from typography.faces.glyphs import Anchor, Component, Glyph, Letter, Ligature, Mark, Outline, Side, Source
 lazy from typography.faces.layout import Adjustment, Context, Contextual, Lift, Lifts
@@ -22,7 +22,7 @@ lazy from typography.shaping.runs import Binary, drawn, marks, shaped
 
 
 class Anchors(Rule, frozen=True, kw_only=True):
-    """Anchors from ink at the original's vowel clearance over a column `wide` vowels across for the vowel class and the widest mark across for the wide class past it, spaces seated as the stem and the joining glyph, dot groups held `dots` off a joined neighbour, and lifts clear of the neighbour up to `lifts` (non-joining, joined)."""
+    """Anchors from ink at the original's vowel clearance, the vowel class over a column `wide` vowels across and wider marks over the widest, spaces anchored like the stem and joining glyph, dots held `dots` off a joined neighbor, and lifts up to `lifts` (non-joining, joined)."""
 
     script: Script
     stack: Em
@@ -73,7 +73,7 @@ def _seats(glyph: Glyph, x: float, above: float, below: float, widths: tuple[flo
 
 
 def _based(glyph: Glyph, above: float, below: float, widths: tuple[float, float], stem: Box, /) -> Glyph:
-    """Seats a base's marks over its own ink, a ligature's over each component arm read at 0.8 of the stem height with a caret between arms, or at equal shares of its advance."""
+    """Anchors a base's marks over its own ink, a ligature's over each component arm read above 0.8 of the stem height with a caret between arms, or at equal shares of its advance where arms and components differ in count."""
     match bounds(glyph.contours), glyph.role:
         case None, _:
             return glyph
@@ -97,7 +97,7 @@ def _based(glyph: Glyph, above: float, below: float, widths: tuple[float, float]
 
 
 def _marked(glyph: Glyph, stack: float, wide: float, /) -> Glyph:
-    """Seats a mark on its ink foot or head, in the wide class past the wide width, and the marks stacked on it the stack gap past it in both classes."""
+    """Anchors a mark at its ink foot, in the wide class past the wide width, and marks stacked on it the stack gap past its head in both classes."""
     match bounds(glyph.contours), glyph.role:
         case Box(middle=(x, _), ymin=ymin, ymax=ymax, width=width), Mark(side=side):
             name, (foot, head) = side.anchor, (ymin, ymax + stack) if side is Side.ABOVE else (ymax, ymin - stack)
@@ -107,7 +107,7 @@ def _marked(glyph: Glyph, stack: float, wide: float, /) -> Glyph:
 
 
 def _seated(source: Source, glyph: Glyph, /) -> Glyph:
-    """Seats a composite's mark component at its base component's anchor and gives the composite the base's anchors."""
+    """Moves a composite's mark component onto its base component's anchor and gives the composite the base's anchors."""
     match tuple(source.named.get(part.name) for part in glyph.components):
         case (Glyph() as base, Glyph(role=Mark()) as mark):
             offset = next(((seat.x - side.x, seat.y - side.y) for side in mark.anchors if side.name.startswith("_") for seat in base.anchor(side.name[1:]).to_list()), (0.0, 0.0))
@@ -122,7 +122,7 @@ def _seated(source: Source, glyph: Glyph, /) -> Glyph:
 
 
 def _near(ink: Box, other: Box, shift: float, reach: float, /) -> bool:
-    """Whether a box moved by a shift stands within a reach of another."""
+    """Whether another box moved by a shift stands within a reach of a box."""
     return (ink.grown(reach) & msgspec.structs.replace(other, xmin=other.xmin + shift, xmax=other.xmax + shift)) is not None
 
 
@@ -132,7 +132,7 @@ def _short(ink: Outline, other: Outline, shift: float, reach: float, /) -> float
 
 
 def _cleared(source: Source, rule: Anchors, /) -> tuple[tuple[Glyph, ...], tuple[Contextual, ...]]:
-    """Alternates of letters whose dot group stands within the dot clearance of a joined neighbour, the group moved away from it inside the advance, and the `calt` rules choosing them."""
+    """Alternates of letters whose dot group stands within the dot clearance of a joined neighbor, the group moved away from it inside the advance, and the `calt` rules choosing them."""
     letters, reach, unit = tuple(glyph for glyph in source.by_role(Letter) if glyph.contours), rule.dots * source.upm, rule.stack * source.upm / 2
     boxes, area_ = {glyph.name.text: box for glyph in letters if (box := bounds(glyph.contours))}, area(nuqta(source, rule.script.dotted))
     groups = {glyph.name.text: (body, union(*dots), bounds(union(*dots))) for glyph in letters for body, dots in (dotted(glyph, area_),) if dots}
@@ -140,7 +140,7 @@ def _cleared(source: Source, rule: Anchors, /) -> tuple[tuple[Glyph, ...], tuple
         (glyph.name.text, after, move, other.name.text)
         for glyph in letters
         if glyph.name.text in groups
-        for body, group, box in (groups[glyph.name.text],)
+        for _, group, box in (groups[glyph.name.text],)
         if box
         for other in letters
         for after, shift in ((True, -other.advance), (False, glyph.advance))
@@ -160,55 +160,56 @@ def _cleared(source: Source, rule: Anchors, /) -> tuple[tuple[Glyph, ...], tuple
 
 
 def _lifts(source: Source, rule: Anchors, /) -> tuple[Lifts, ...]:
-    """Lifts each above recipe mark of the vowel class on a letter clear of the letter before or after it, one rule per letter, side, mark, and lift rounded up to a step, joined pairs up to the joined limit and others up to the non-joining one."""
+    """Lifts the above marks of a letter clear of the letter before or after it, one rule per letter, side, and lift rounded up to a step, joined pairs up to the joined limit and others up to the non-joining one."""
     letters, reach, step = tuple(glyph for glyph in source.by_role(Letter) if glyph.contours), rule.clearance * source.upm, rule.stack * source.upm / 2
-    inks = tuple((glyph.name.text, transformed(glyph.contours, Offset(-seat.x, -seat.y))) for code in rule.script.recipes for glyph in source.glyph(key(code)).to_list() if glyph.contours for seat in glyph.anchor("_top").to_list())
-    tops, reached = {glyph.name.text: top for glyph in letters for top in glyph.anchor("top").to_list()}, bounds(union(*(ink for _, ink in inks)))
+    stack = union(*(transformed(glyph.contours, Offset(-seat.x, -seat.y)) for glyph in source.glyph(key(rule.script.vowels[0])).to_list() for seat in glyph.anchor("_top").to_list()))
+    placed = {glyph.name.text: (ink, box) for glyph in letters for top in glyph.anchor("top").to_list() for ink in (transformed(stack, Offset(top.x, top.y)),) if (box := bounds(ink))}
     boxes = {glyph.name.text: box for glyph in letters if (box := bounds(glyph.contours))}
     lifted = sorted(
-        (owner.name.text, after, mark, round(min(math.ceil(short / step) * step, rule.lifts[first.name.form.left] * source.upm)), other.name.text)
+        (owner.name.text, after, round(min(math.ceil(short / step) * step, rule.lifts[first.name.form.left] * source.upm)), other.name.text)
         for first in letters
         for second in letters
         if first.name.form.left == second.name.form.right
         for owner, other, after, shift in ((first, second, True, -second.advance), (second, first, False, second.advance))
-        if reached and (top := tops.get(owner.name.text)) and _near(msgspec.structs.replace(reached, xmin=reached.xmin + top.x, xmax=reached.xmax + top.x, ymin=reached.ymin + top.y, ymax=reached.ymax + top.y), boxes[other.name.text], shift, reach)
-        for mark, ink in inks
-        if (short := _short(transformed(ink, Offset(top.x, top.y)), other.contours, shift, reach))
+        if owner.name.text in placed and _near(placed[owner.name.text][1], boxes[other.name.text], shift, reach) and (short := _short(placed[owner.name.text][0], other.contours, shift, reach))
     )
+    above = tuple(glyph.name.text for glyph in source.by_role(Mark) if glyph.role == Mark(side=Side.ABOVE))
     rules = tuple(
-        Lift(input=((name,), (mark,)), lookahead=(others,), adjustments=(None, Adjustment(dy=lift)))
+        Lift(input=((name,), above), lookahead=(others,), adjustments=(None, Adjustment(dy=lift)))
         if after
-        else Lift(backtrack=(others,), input=((name,), (mark,)), adjustments=(None, Adjustment(dy=lift)))
-        for (name, after, mark, lift), group in groupby(lifted, key=lambda row: row[:4])
+        else Lift(backtrack=(others,), input=((name,), above), adjustments=(None, Adjustment(dy=lift)))
+        for (name, after, lift), group in groupby(lifted, key=lambda row: row[:3])
         for others in (tuple(other for *_, other in group),)
     )
-    return (Lifts(feature="mark", rules=rules),) if rules else ()
+    return (Lifts(feature="mark", rules=rules),) if rules and above else ()
 
 
 # --- [COMPOSITION]
 
 
 def seated(source: Source, rule: Anchors, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
-    """Sets every base, ligature, and mark anchor from ink at the original's mark clearance, seats composites, and adds the `calt` dot alternates and the neighbour lifts ahead of `mkmk`.
+    """Sets every base, ligature, and mark anchor from ink at the original's mark clearance, attaches composite marks, and adds the `calt` dot alternates and neighbor lifts.
 
     Returns:
         Ok(anchored source with its alternates and lifts), `ABSENT` for a face without an inked stem.
     """
     script = rule.script
     return inked(source, script.stem).bind(
-        lambda held: placement(source, original, script.stem).map(lambda move: _anchored(source, rule, held[1], *(move[0] * value for value in _clearances(original, corpus, script.vowels))))
+        lambda held: placement(source, original, script.stem).map(lambda move: _anchored(source, rule, held[1], move[0], _clearances(original, corpus, script.vowels)))
     )
 
 
-def _anchored(source: Source, rule: Anchors, stem: Box, above: float, below: float, /) -> Source:
-    """Seats the bases, the marks, the spaces, and the composites, then moves dot groups and lifts marks clear of their neighbours."""
-    script, stack = rule.script, rule.stack * source.upm
+def _anchored(source: Source, rule: Anchors, stem: Box, scale: float, clearances: tuple[float, float], /) -> Source:
+    """Anchors bases, marks, spaces, and composites at the clearances scaled onto the source, then moves dot groups and lifts marks clear of neighbors."""
+    script, stack, (above, below) = rule.script, rule.stack * source.upm, (scale * clearances[0], scale * clearances[1])
     widths = tuple(
         max((box.width for glyph in source.by_role(Mark) if (not codes or glyph.codes[:1] in codes) and (box := bounds(glyph.contours))), default=stem.width)
         for codes in ({(code,) for code in script.recipes}, set())
     )
     bases = tuple(
-        _based(glyph, above, below, (rule.wide * widths[0], widths[1]), stem) for glyph in source.glyphs if (isinstance(glyph.role, Letter | Ligature) or glyph.name.codes == (script.carrier,)) and glyph.contours
+        _based(glyph, above, below, (rule.wide * widths[0], widths[1]), stem)
+        for glyph in source.glyphs
+        if (isinstance(glyph.role, Letter | Ligature) or glyph.name.codes == (script.carrier,)) and glyph.contours
     )
     seats = source.replaced(*bases, *(_marked(glyph, stack, rule.wide * widths[0]) for glyph in source.by_role(Mark)))
     models, spaces = {"top": key(script.stem), "bottom": key(script.kashida) if script.kashida is not None else ""}, frozenset((space,) for space in script.spaces)

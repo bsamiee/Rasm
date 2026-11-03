@@ -7,16 +7,16 @@ import msgspec
 lazy from expression.extra.result import catch
 lazy from fontTools.misc.transform import Offset, Transform
 
-from typography.faces.declaration import Em, Ratio
-from typography.rules.scripts import Recipe, Rule, Script
+from typography.faces.declaration import Em, Ratio, Recipe, Script
+from typography.rules.measures import Rule
 lazy from typography.faces.faults import Outcome
-lazy from typography.faces.glyphs import Glyph, Mark, Outline, Point, role, Side, Source
+lazy from typography.faces.glyphs import Glyph, Mark, Outline, Point, Side, Source
 lazy from typography.faces.layout import Context, Contextual
 lazy from typography.faces.names import Form, GlyphName
 lazy from typography.outlines.measure import moments, restroked, stroke
 lazy from typography.outlines.nib import monoline
 lazy from typography.outlines.paths import bounds, Box, transformed, union
-lazy from typography.rules.measures import inked, key, nuqta, placement, text_ink
+lazy from typography.rules.measures import inked, key, made, nuqta, placement, text_ink
 lazy from typography.shaping.runs import Binary
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -47,7 +47,7 @@ class QuranicMarks(Rule, frozen=True, kw_only=True):
 
 
 class WordSigns(Rule, frozen=True, kw_only=True):
-    """The script's word signs the face lacks set from rows of the face's own shaped text, a sign of several rows stacked the gap apart within a block of stem heights."""
+    """Word signs of the script the face lacks, set from rows of the face's own shaped text, a sign of several rows stacked the gap apart within a block of stem heights."""
 
     script: Script
     stack: Em
@@ -69,7 +69,7 @@ def _fit(contours: Outline, box: Box, /, *, width: float | None = None, height: 
 
 
 def _ring(box: Box, pen: float, /) -> Outline:
-    """A round ring inside a box on a monoline pen, eight quadratic arcs on the circle through the box middle."""
+    """Round ring inside a box on a monoline pen, eight quadratic arcs on a circle about the box middle."""
     radius, (x, y) = (min(box.width, box.height) - pen) / 2, box.middle
     reach = tuple(radius / (math.cos(math.pi / 8) if step % 2 else 1.0) for step in range(8))
     points = tuple(Point(x=x + reach[step] * math.cos(math.pi * step / 4), y=y + reach[step] * math.sin(math.pi * step / 4), on=not step % 2) for step in range(8))
@@ -124,7 +124,7 @@ def _marked(source: Source, rule: Marks, width: float, height: Box, /) -> Source
     span = rule.length * source.upm if rule.length is not None else 0.3 * height.height
     stem, head, teeth = (source.named[name].contours if name in source.named else () for name in (key(script.stem), key(script.head), key(script.teeth, Form.MEDI)))
     models = (stem, head, teeth, nuqta(source, script.dotted))
-    lacking = tuple(Glyph(name=GlyphName(codes=(code,)), role=role(GlyphName(codes=(code,))), advance=0.0) for code in script.recipes if key(code) not in source.named)
+    lacking = tuple(made(GlyphName(codes=(code,)), 0.0) for code in script.recipes if key(code) not in source.named)
     return source.replaced(
         *(
             msgspec.structs.replace(glyph, advance=0.0, contours=contours)
@@ -182,12 +182,7 @@ def _miniatures(source: Source, rule: QuranicMarks, original: Binary, move: Tran
     pen = stroke(model.contours) if model and model.contours else 0.0
     drawn = {code: transformed(text_ink(original, text), move) for code in sorted(rule.codes) if tall and pen and not ((own := source.named.get(key(code))) and own.contours) and (text := _text(code))}
     glyphs = tuple(
-        Glyph(
-            name=GlyphName(codes=(code,)),
-            role=role(GlyphName(codes=(code,))),
-            advance=0.0,
-            contours=restroked(transformed(contours, (factor, 0, 0, factor, -factor * box.middle[0], -factor * foot)), pen),
-        )
+        made(GlyphName(codes=(code,)), 0.0, contours=restroked(transformed(contours, (factor, 0, 0, factor, -factor * box.middle[0], -factor * foot)), pen))
         for code, contours in drawn.items()
         if (box := bounds(contours)) and tall
         for foot in ((box.ymin if Side.of(code) is Side.ABOVE else box.ymax),)
@@ -218,7 +213,7 @@ def _miniatures(source: Source, rule: QuranicMarks, original: Binary, move: Tran
 
 
 def _stacked(rows: tuple[Outline, ...], gap: float, /) -> Outline:
-    """Stacks row inks top to bottom, each centred on the first, the gap between their ink."""
+    """Stacks row inks top to bottom, each centered on the first, the gap between their ink."""
     boxes = tuple(bounds(row) or Box(xmin=0, ymin=0, xmax=0, ymax=0) for row in rows)
     tops = tuple(-sum(box.height + gap for box in boxes[:index]) for index in range(len(boxes)))
     return union(*(transformed(row, (1.0, 0.0, 0.0, 1.0, boxes[0].middle[0] - box.middle[0], top + boxes[0].ymax - box.ymax)) for row, box, top in zip(rows, boxes, tops, strict=True)))
@@ -238,10 +233,9 @@ def _signs(source: Source, rule: WordSigns, original: Binary, move: Transform, h
     (glyph, stem), (wide, tall) = held, rule.block
     bearing = (glyph.advance - stem.width) / 2
     return tuple(
-        Glyph(
-            name=GlyphName(codes=(code,)),
-            role=role(GlyphName(codes=(code,))),
-            advance=factor * extent.width + 2 * bearing,
+        made(
+            GlyphName(codes=(code,)),
+            factor * extent.width + 2 * bearing,
             contours=transformed(drawn, (factor, 0.0, 0.0, factor, bearing - factor * extent.xmin, stem.middle[1] - factor * extent.middle[1] if factor != 1.0 else 0.0)),
         )
         for code, rows in sorted(rule.script.signs.items())

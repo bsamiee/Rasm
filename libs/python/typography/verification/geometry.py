@@ -110,7 +110,7 @@ def _clashes(binary: Binary, text: str, language: str, floor: float, /) -> tuple
 
 
 def clearance(binary: Binary, corpus: Corpus, floor: float, /) -> tuple[Breach, ...]:
-    """Mark and dot gaps over the matrix, letter pairs bare and between two dual-joining letters, and whole words, under each corpus language.
+    """Mark and dot gaps over the matrix, letter pairs unwrapped and between two dual-joining letters, and whole words, under each corpus language.
 
     Args:
         binary: Build to shape.
@@ -177,7 +177,7 @@ def distinct(binary: Binary, bound: float, /) -> tuple[Breach, ...]:
 
 
 def identity(binary: Binary, original: Binary, corpus: Corpus, /) -> tuple[Breach, ...]:
-    """Dots and hamzas of each letter form both fonts draw, every piece of either meeting the other's once the original is scaled by the median body height ratio and centred on the body.
+    """Dots and hamzas of each letter form both fonts draw, every piece of either meeting the other's once the original is scaled by the median body height ratio and centered on the body.
 
     Args:
         binary: Build to measure.
@@ -269,7 +269,7 @@ def _pitch(binary: Binary, /) -> float:
 
 
 def metrics(binary: Binary, original: Binary, corpus: Corpus, pitch: tuple[float, float] | None, /) -> tuple[Breach, ...]:
-    """Line pitch in em inside its band, and win ascent and descent over every glyph and every corpus and matrix run the face reaches.
+    """Line pitch in em inside its band, and win ascent and descent over every glyph and every corpus and matrix run the face reaches, up to twice the tallest and deepest glyph.
 
     Args:
         binary: Build to measure.
@@ -282,8 +282,10 @@ def metrics(binary: Binary, original: Binary, corpus: Corpus, pitch: tuple[float
     """
     upm, line, os2 = binary.upm, _pitch(binary), vars(_font(binary)["OS/2"])
     low, high = pitch or (_pitch(original),) * 2
+    glyphs = tuple((glyph, box) for glyph in binary.order if (box := _box(outline(binary, glyph))))
+    tallest, deepest = max((box.ymax for _, box in glyphs), default=0.0), min((box.ymin for _, box in glyphs), default=0.0)
     extents = (
-        *((glyph, box) for glyph in binary.order if (box := _box(outline(binary, glyph)))),
+        *glyphs,
         *(
             (text, box)
             for text in (*corpus.lines, *corpus.matrix)
@@ -294,8 +296,8 @@ def metrics(binary: Binary, original: Binary, corpus: Corpus, pitch: tuple[float
     top, bottom = max(extents, key=lambda extent: extent[1].ymax, default=None), min(extents, key=lambda extent: extent[1].ymin, default=None)
     return (
         *((("line pitch", line, low if line < low else high),) if not low <= line <= high else ()),
-        *(((f"win ascent at {top[0]}", top[1].ymax / upm, os2["usWinAscent"] / upm),) if top and top[1].ymax > os2["usWinAscent"] else ()),
-        *(((f"win descent at {bottom[0]}", -bottom[1].ymin / upm, os2["usWinDescent"] / upm),) if bottom and -bottom[1].ymin > os2["usWinDescent"] else ()),
+        *(((f"win ascent at {top[0]}", reach / upm, os2["usWinAscent"] / upm),) if top and (reach := min(top[1].ymax, 2 * tallest)) > os2["usWinAscent"] else ()),
+        *(((f"win descent at {bottom[0]}", reach / upm, os2["usWinDescent"] / upm),) if bottom and (reach := min(-bottom[1].ymin, -2 * deepest)) > os2["usWinDescent"] else ()),
     )
 
 

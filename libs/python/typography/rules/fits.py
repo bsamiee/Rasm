@@ -5,7 +5,7 @@ from functools import partial
 import msgspec
 
 from typography.faces.declaration import Em, Ratio
-from typography.rules.scripts import Rule
+from typography.rules.measures import Rule
 lazy from typography.faces.glyphs import Glyph, Letter, Outline, Source
 lazy from typography.faces.names import Form
 lazy from typography.outlines.measure import counter, gap
@@ -17,7 +17,7 @@ lazy from typography.rules.measures import band, dotted, key, nuqta
 
 
 class Outlines(Rule, frozen=True, kw_only=True):
-    """Points merged, joins smoothed, slivers dropped, straight art snapped, needle spurs cut under the join band, counters of the counter letters opened, dots seated on the one nuqta of the dotted letter and held the floor off their letter."""
+    """Points merged, joins smoothed, slivers dropped, straight art snapped, needle spurs cut under the join band, counters of the counter letters opened, single dots redrawn as the dotted letter's nuqta and held the floor off their letter."""
 
     merge: Em = 0.004
     corner: float = 25.0
@@ -35,7 +35,7 @@ class Outlines(Rule, frozen=True, kw_only=True):
 
 
 def _unified(contours: Outline, canonical: Outline, area_: float, single: tuple[float, float], /) -> Outline:
-    """Replaces a dot whose area over the nuqta's sits inside the single-dot band by the canonical nuqta at the dot's ink middle."""
+    """Replaces a dot with an area ratio to the nuqta inside the single-dot band by the canonical nuqta at the dot's ink middle."""
     match bounds(contours), bounds(canonical):
         case (dot, model) if dot and model and single[0] < area(contours) / area_ < single[1]:
             return transformed(canonical, (1.0, 0.0, 0.0, 1.0, dot.middle[0] - model.middle[0], dot.middle[1] - model.middle[1]))
@@ -44,7 +44,7 @@ def _unified(contours: Outline, canonical: Outline, area_: float, single: tuple[
 
 
 def _floored(body: Outline, dots: tuple[Outline, ...], floor: float, /) -> Outline:
-    """Moves a dot group straight away from its letter's middle until the group stands the floor off the body."""
+    """Moves a dot group vertically away from its letter's middle until the group stands the floor off the body."""
     group = union(*dots)
     match bounds(body), bounds(group):
         case (held, moving) if held and moving and (short := floor - gap(body, group)) > 0:
@@ -60,7 +60,7 @@ def _opened(contours: Outline, width: float, /) -> Outline:
 
 
 def _fit(rule: Outlines, joins: tuple[float, float] | None, canonical: Outline, counted: frozenset[str], em: float, glyph: Glyph, /) -> Glyph:
-    """Snaps straight art, tidies, cuts spurs under the join band, opens narrow counters, and seats the dots of one glyph."""
+    """Snaps straight art, tidies, cuts spurs under the join band, opens narrow counters, and redraws the single dots of one glyph as the nuqta."""
     straight = sum(not point.on for contour in glyph.contours for point in contour) <= 0.05 * sum(map(len, glyph.contours))
     contours = tidied(snapped(glyph.contours, rule.snap * em) if rule.snap is not None and straight else glyph.contours, merge=rule.merge * em, corner=rule.corner, sliver=rule.sliver * em)
     contours = despiked(contours, joins) if joins and isinstance(glyph.role, Letter) and glyph.role.form in {Form.INIT, Form.MEDI} else contours
@@ -72,7 +72,7 @@ def _fit(rule: Outlines, joins: tuple[float, float] | None, canonical: Outline, 
 
 
 def fitted(source: Source, rule: Outlines, /) -> Source:
-    """Cleans every drawn glyph and seats each dotted letter's dots on the face's one nuqta, at least the floor apart from the body."""
+    """Cleans every drawn glyph and redraws each letter's single dots as the face's nuqta, at least the floor off the body."""
     counted = frozenset(key(code, form) for code in rule.letters for form in Form)
     fit = partial(_fit, rule, band(source) if rule.spurs else None, nuqta(source, rule.dot) if rule.dot is not None else (), counted, source.upm)
     return source.replaced(*(fit(glyph) for glyph in source.glyphs if glyph.contours))

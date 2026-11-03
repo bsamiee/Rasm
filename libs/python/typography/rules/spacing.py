@@ -5,8 +5,8 @@ lazy import math
 
 import msgspec
 
-from typography.faces.declaration import Band, Em, Ratio
-from typography.rules.scripts import Rule, Script
+from typography.faces.declaration import Band, Em, Ratio, Script
+from typography.rules.measures import Rule
 lazy from typography.faces.faults import Outcome
 lazy from typography.faces.glyphs import Joining, Letter, Outline, Source
 lazy from typography.faces.layout import Adjustment, Pairs
@@ -92,7 +92,7 @@ def _pairs(source: Source, rule: Spacing, /) -> Pairs | None:
 
 
 def spaced(source: Source, rule: Spacing, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
-    """Sets the word spaces and the glyphs drawn as them to the gap ratio times the inside gap within a band, and kerns non-joining tails to the face's rhythm.
+    """Sets the word spaces and the glyphs drawn as them to the gap ratio times the inside gap within a band, and kerns non-joining tails to the median gap after standing letters.
 
     Returns:
         Ok(spaced source with its kerning), `ABSENT` for a face without an inked stem.

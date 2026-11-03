@@ -189,7 +189,7 @@ def _covered(face: Faces, binary: Binary, /) -> tuple[Breach, ...]:
         case OrnamentFace(first=first):
             used = sum(1 for code in codes if code >= first and unicodedata.category(chr(code)) == "Co")
             coverage = Covered(required=frozenset({*range(first, first + used), *(code for code in codes if unicodedata.category(chr(code)) != "Co")}), excluded=(), blocks=frozenset())
-    return (*((f"U+{code:04X}", "unmapped", "required") for code in coverage.uncovered(codes)), *((f"U+{code:04X}", "mapped", "required or excluded") for code in coverage.unrecorded(codes)))
+    return (*((f"U+{code:04X}", "unmapped", "required") for code in coverage.uncovered(codes)), *((f"U+{code:04X}", "mapped", "required, excluded, or kept") for code in coverage.unrecorded(codes)))
 
 
 # --- [PROCESSES]
@@ -305,7 +305,7 @@ def verified(binary: Binary, requirements: tuple[Requirements, ...], /, *, sourc
 
 
 def approved(binary: Binary, corpus: Corpus, path: Path, /) -> Outcome[Path]:
-    """Writes the shaping expectations of a named build's corpus runs to a path, the one way an approval file comes to exist.
+    """Writes the shaping expectations of a build's corpus runs to a path, the one writer of approval files.
 
     Returns:
         Ok(path), `UNWRITABLE` fault where the file cannot be written.

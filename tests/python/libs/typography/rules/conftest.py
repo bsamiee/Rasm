@@ -1,4 +1,4 @@
-"""Fixture fonts for the rules: an Arabic face with joining forms, a lam-alef ligature, harakat, digits, and mark anchors, and an ornament face."""
+"""Fixture fonts for the rules: an Arabic face with joining forms, a lam-alef ligature, vowel marks, digits, and mark anchors, and an ornament face."""
 
 from io import BytesIO
 lazy from pathlib import Path
@@ -146,7 +146,7 @@ def original(font: Path) -> Binary:
 @pytest.fixture(scope="session")
 def source(font: Path, face: Face) -> Source:
     """Fixture Arabic font imported into a source."""
-    return imported(font, face).ok
+    return imported(font, face).default_with(lambda faults: pytest.fail(str(faults)))
 
 
 @pytest.fixture(scope="session")
@@ -172,7 +172,7 @@ def sample() -> Corpus:
 
 @pytest.fixture(scope="session")
 def ornament(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, OrnamentFace]:
-    """Ornament font with a Latin template glyph, two copies of one square, a tall piece, a tile overlapping its advance, a blank slot, and art at a Private Use code point, and its face."""
+    """Ornament font with a Latin letter, two unmapped copies of one square, a tall piece, a tile overlapping its advance, a blank slot, and art at a Private Use code point, and its face."""
     glyphs: dict[str, tuple[int, tuple[Box, ...]]] = {
         ".notdef": (500, ((50, 0, 450, 700),)),
         "space": (26, ()),
@@ -184,7 +184,7 @@ def ornament(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, OrnamentFa
         "blank": (300, ()),
         "STAR": (500, ((50, 0, 150, 100), (250, 0, 350, 100))),
     }
-    cmap = {0x0020: "space", 0x0041: "A", 0xFE8D: "AIS_1", 0xFE8E: "AIF_1", 0xFE8F: "AIS_2", 0xFE90: "IF_1", 0xFE91: "blank", 0xE010: "STAR"}
+    cmap = {0x0020: "space", 0x0041: "A", 0xE010: "STAR"}
     path = tmp_path_factory.mktemp("ornaments") / "Orn-Symbols.ttf"
     path.write_bytes(_font(glyphs, cmap, "", "Orn"))
     return (path, OrnamentFace(style="Regular", original=path.name, family="Orn"))

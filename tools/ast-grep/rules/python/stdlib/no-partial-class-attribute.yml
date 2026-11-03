@@ -80,12 +80,14 @@ rule:
         - kind: call
           pattern: $VALUE
           all:
+            - inside: {kind: module, stopBy: end, regex: '\bpartial\b'}
             - has: {field: function, matches: partial-class}
             - matches: bound
             - not: {inside: {matches: record-field, stopBy: {not: {kind: 'parenthesized_expression, conditional_expression, boolean_operator'}}}}
         - kind: decorator
           pattern: $VALUE
           all:
+            - inside: {kind: module, stopBy: end, regex: '\bpartial\b'}
             - has: {matches: partial-class}
             - not: {follows: {kind: decorator, stopBy: end}}
             - inside: {kind: decorated_definition, matches: class-body}
