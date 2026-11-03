@@ -37,11 +37,13 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 
 ### Queue
 
-1. **Rust, after the TypeScript extension:** three rows in RUST.md order and three depth runs at once, each landing freeing its slot; `rust-tune` from `24ede74fc` over every landing, then every few landings.
-2. **InPage:** depth pass, clean prose, `typescript-tune` and the manual audit (`2a7c018e2`, PLAN.md `[17]-[DESKTOP_MANUAL]`) landed.
-3. **Then:** `typescript-sweep` from `2a7c018e2` runs, folding the split-concept defect.
-4. **InPage depth rerun:** once the sweep lands and before extension phases 4 to 7, rerun the depth pass from `.artifacts/workflows/typescript-extension/inpage/depth-prompt.md` (one Fable agent), its prompt extended with every finding and naivety fix recorded since, the plan's `[16]` and `[17]-[DESKTOP_MANUAL]` rows, the matching `docs/research` notes, and deeper fontkit, HarfBuzz and catalog package use only where it replaces hand logic or adds real capability; then one adversary confirms the InPage work full, derived and collapsed, fixing in place.
-5. **Folder guidance:** once the sweep and the Rust queue settle.
+1. **Rust tune:** once the running Rust runs land, `rust-tune` from `24ede74fc` over every landing since.
+2. **Rust, after the TypeScript extension:** three rows in RUST.md order and three depth runs at once, each landing freeing its slot; `rust-tune` every few landings.
+3. **InPage:** depth pass, clean prose, `typescript-tune` and the manual audit (`2a7c018e2`, PLAN.md `[17]-[DESKTOP_MANUAL]`) landed.
+4. **Then:** `typescript-sweep` from `2a7c018e2` runs, folding the split-concept defect.
+5. **InPage depth rerun:** once the sweep lands and before extension phases 4 to 7, rerun the depth pass from `.artifacts/workflows/typescript-extension/inpage/depth-prompt.md` (one Fable agent), its prompt extended with every finding and naivety fix recorded since, the plan's `[16]` and `[17]-[DESKTOP_MANUAL]` rows, the matching `docs/research` notes, and deeper fontkit, HarfBuzz and catalog package use only where it replaces hand logic or adds real capability; then one adversary confirms the InPage work full, derived and collapsed, fixing in place.
+6. **Folder guidance:** once the sweep and the Rust queue settle.
+7. **Font library, on the owner's signal:** `libs/python/fonts` built from `.artifacts/workflows/fonts/DECISION.md` and `ARCHITECTURE.md` with `docs/research/coding/python/font-engineering.md`, replacing the `docs/research` font tooling.
 
 ### Open defects
 

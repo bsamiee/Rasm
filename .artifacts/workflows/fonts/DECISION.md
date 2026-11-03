@@ -1,0 +1,93 @@
+# [DECISION]
+
+Keep: the font tooling becomes a Python library under `libs/python/fonts/`, rebuilt from its research findings and from none of its code.
+
+## [01]-[PROBLEM]
+
+Third-party and vendor fonts reach verified, standards-complete, script-correct deliverables. Each face is reconciled from its original binary through declared rules into a source, compiled, verified against one set of requirements, and packaged, and a rebuild from the same original and rules yields the same bytes.
+
+InPage originals show what such fonts lack (`observations.toml` `[summary]`, `SPEC.md`, `PLAN.md` [03.8]):
+- GDEF headers OTS rejects in 63 of 87 fonts, `GlyphClassDef` pointing at byte 10 of the 12-byte header
+- Word space of 0.025 em in every kept face against 0.13 to 0.29 em in reference faces
+- Joins abutting within 1 unit with no overlap in 47 of 78 text fonts, printing hairline seams
+- Nonzero mark advances, blank harakat in 25 styles, one fatha outline reused across 11 faces
+- Urdu forms on U+06F4 and U+06F7, no `FAR` language system, no pair kerning, metadata grouping nothing
+
+Repairs split into design decisions per face class and engineering every face shares, and a library holds the engineering half.
+
+## [02]-[DURABILITY]
+
+One font set with a rebuild loop carries the decision, a second set carries none of it:
+- InPage is the one set: 38 text families and 5 ornament sets kept, 11 families tossed (`PLAN.md` [01])
+- Rule changes rebuild every face, as fix rounds rebuilt the built families after each shared-pipeline change
+- Originals come from the plug-in's encrypted resources (`fonts/inpage/README.md`), so a plug-in release can carry new font versions
+- `TODO.md` adds plug-in 2.2 for InDesign 2026 and its macOS build to the decompile when they arrive
+- `@rasm/typography`, `@rasm/indesign` and atelier read each installed face as given, so only a build-time requirement catches a face defect
+- Sulus shipped a لا without its lam through OTS, fontbakery and the shaping baseline (`PLAN.md` [04]), so requirements measure geometry
+
+Gap: no planned work rebuilds another set, and the drive's premium font folders join Typeface alone (`TODO.md`). Root `[TYPOGRAPHY]` rows stand without an importer under the catalog rule, and ufo2ft, opentype-sanitizer and fontbakery joined them on 2026-11-02 with this rebuild, so they show no second consumer.
+
+Upkeep: `docs/research` is git-ignored, so the tools hold no history and `rebuild.py` is the only copy of evidence `PLAN.md` cites. On 2026-11-02 `tools/` held 10,638 Python lines, 484 module constants and an 899-line `families.toml` behind an untyped `design: dict`, edited by concurrent agents. A library puts that logic under the repository's checkers, tests and version history.
+
+## [03]-[SHAPE]
+
+Library with one command entry, holding only work no tool does:
+- Import packages under `libs/python/fonts/`, each with `py.typed`: `faces`, `outlines`, `shaping`, `rules`, `verification`, `foundry`
+- `ufo2ft` compiles through its writers and filters, fontspector and OTS judge generic conformance, and the library supplies their inputs
+- `foundry/__main__.py` holds one cyclopts `App` run as `python -m foundry <command> <set.toml>`, with no `tools/` binary or `eng/` module
+- Font sets are inputs: one TOML declaration per set beside its originals, read by path argument
+- InPage's licence allows no copying, so originals and declaration stay on the drive, and the library holds no family name, path or value
+- Tests under `tests/python/libs/fonts/<package>/` build their fonts with `fontTools.fontBuilder`, so the repository holds no licensed binary
+
+Face roles, outline geometry, design rules and requirements are domain code with tests, outside the `eng/` machinery root targets call and the `tools/` repository tooling.
+
+## [04]-[PLACE]
+
+- `libs/python/fonts/pyproject.toml` is a packaged uv workspace member on the `blender` pattern, joined to root `members` and `uv.lock` first
+- Manifest: hatchling, `dev-mode-dirs = [".."]`, `[project] dependencies` naming each import, `[tool.ruff] extend`, `[tool.deptry]`
+- Nx infers a project per `py.typed` directory with its `tests/python` folder, and ty, mypy and refurb run as root targets
+- `follow_untyped_imports` rows for `ufo2ft.*`, `ots.*`, `ttfautohint.*` and `youseedee.*` join the `fontTools.*` and `pathops.*` row
+- `untyped_calls_exclude` takes `fontTools.feaLib`, `fontTools.pens`, `ufo2ft` and `ots`, whose calls mypy strict reports as untyped
+- `fontspector` takes a `mise.toml` `"github:fonttools/fontspector"` row with `version_prefix = "fontspector-v"`, the repository tagging every crate
+- `uharfbuzz` 0.57.0 bundles HarfBuzz 15.0.0 with the `ot` shaper and, on macOS, `coretext`, so no HarfBuzz binary joins `mise.toml`
+- Use `docs/research/coding/python/font-engineering.md` for ecosystem facts
+
+## [05]-[LANGUAGE]
+
+Python at the mise 3.15.0 release, decided by stage coverage:
+
+| [INDEX] | [STAGE]         | [PYTHON]                                  | [RUST]                                      |
+| :-----: | :-------------- | :---------------------------------------- | :------------------------------------------ |
+|  [01]   | Binary import   | `fontTools.ttLib`, ufoLib2                | `read-fonts` reads, `norad` writes, no path |
+|  [02]   | Feature writing | `ufo2ft` writers, `feaLib.ast`            | `fontc` writers closed, `fea-rs` parses     |
+|  [03]   | Compile         | `ufo2ft` TTF and OTF, overlap removal     | `fontc` TTF alone, no overlap removal       |
+|  [04]   | Hint            | `ttfautohint-py`                          | None                                        |
+|  [05]   | Verify          | `opentype-sanitizer`, fontspector process | `fontspector`, harfrust                     |
+|  [06]   | Shape           | `uharfbuzz` on HarfBuzz 15.0.0            | `harfrust` 0.15.0                           |
+|  [07]   | Repository rule | Catalog rows present                      | `write-fonts` excluded by `RUST.md` [03]    |
+
+TypeScript reads fonts through fontkit and harfbuzzjs and compiles none, so it holds the runtime side alone. Typing is Python's cost: uharfbuzz and skia-pathops types stay out of signatures under the root mypy settings (`font-engineering.md`), so `shaping` and `outlines` keep those values inside function bodies and return msgspec records.
+
+## [06]-[DEFECTS]
+
+Findings of the code study and the journal that a rebuild leaves behind:
+
+| [INDEX] | [DEFECT]                                                                | [REPLACEMENT]                                          |
+| :-----: | :---------------------------------------------------------------------- | :----------------------------------------------------- |
+|  [01]   | GSUB and GPOS as `.fea` strings, a lib string reparsed in `AfterMarks`  | Lookup records emitted once through `feaLib.ast`       |
+|  [02]   | `design: dict` with over 80 keys read by string, `klass: str`           | Genre and treatment records per face                   |
+|  [03]   | `importer.LEFT_OUT` drops assigned code points without record           | Coverage with an `Excluded` record per code            |
+|  [04]   | `ibteda.py`, `xebec.py` each holding `sourced`, `design.py` run by path | One plan per genre and treatment, values declared      |
+|  [05]   | Checks as `tuple[str, bool]`, each mark tested on its own base alone    | `Finding` records from one relation                    |
+|  [06]   | Shaping baseline written when missing or under `--update`               | Expectations approved from a named build hash          |
+|  [07]   | Nuqta recognized by area and box tolerance, hamza became a dot          | Roles from Unicode decomposition and GSUB components   |
+|  [08]   | `body_and_dots` keeps a ligature's largest contour, Sulus lost its lam  | Ligature components by GSUB decomposition              |
+|  [09]   | `while` loops stepping a shift until a gap clears                       | Closed-form gap and lift from signed distance          |
+|  [10]   | `provisional_span` mutating the real UFO, `cache` on a mutable font     | Immutable face records, pure measurement               |
+|  [11]   | Reem Kufi under `Path.home()`, Drive path holding the owner's email     | Reference faces and outputs as declaration values      |
+|  [12]   | `PathOpsError` to 0.0, fontbakery `check=False` with ERROR as FAIL      | `Outcome` with a `Fault` per cause                     |
+|  [13]   | Metrics from `texts.py` lines, pitch past the 2.04 em cap               | Metrics from the shaped corpus, bounds as requirements |
+|  [14]   | `kern_pairs` as XAdvance on the first glyph, lifts after `mkmk`         | `KernFeatureWriter`, lifts before the writer marker    |
+|  [15]   | Builders locked out of `rules.py`, PLAN prose as the rule store         | Rules in code and declarations, checked and versioned  |
+|  [16]   | `fontbakery` 1.1.0 at CI 3.9 to 3.12                                    | `fontspector` 1.9.0 with its JSON report               |
+|  [17]   | Private `Subsetter._closure_glyphs`                                     | `Subsetter.subset` over a copy, retained glyph order   |
