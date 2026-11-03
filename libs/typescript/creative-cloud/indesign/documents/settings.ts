@@ -56,7 +56,7 @@ const SPACING_AXES = { word: 'WordSpacing', letter: 'LetterSpacing', glyph: 'Gly
 const SPACING_BOUNDS = { min: 'minimum', desired: 'desired', max: 'maximum' } as const;
 const SPACING = Record.fromIterableWith(Array.cartesian(Struct.keys(SPACING_AXES), Struct.keys(SPACING_BOUNDS)), (pair) => [pair.join(), pair]);
 const spacingMember = <A extends keyof typeof SPACING_AXES, B extends keyof typeof SPACING_BOUNDS>(axis: A, bound: B) => `${SPACING_BOUNDS[bound]}${SPACING_AXES[axis]}` as const;
-const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, (factor) => ({ decode: (held: number) => held / factor, encode: (given: number) => given * factor }));
+const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, (factor) => ({ decode: (value: number) => value / factor, encode: (value: number) => value * factor }));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -73,13 +73,13 @@ const direction = Schema.Struct({
 const numberingSystem = Schema.Struct({ digitsType: Schema.Literals(Struct.keys(NUMBERING)) }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.numberingSystem.schema), {
         decode: SchemaGetter.transform(({ digitsType }) => Option.fromNullOr(NUMBERING[digitsType])),
-        encode: SchemaGetter.transformEffect((given) => {
-            const held = Option.getOrNull(given);
+        encode: SchemaGetter.transformEffect((system) => {
+            const tag = Option.getOrNull(system);
             return pipe(
                 Struct.keys(NUMBERING),
-                Array.findFirst((member) => NUMBERING[member] === held),
+                Array.findFirst((member) => NUMBERING[member] === tag),
                 Option.map((digitsType) => ({ digitsType })),
-                Effect.fromOption(() => new SchemaIssue.InvalidValue({ message: `No digitsType member for ${held}` }, held)),
+                Effect.fromOption(() => new SchemaIssue.InvalidValue({ message: `No digitsType member for ${tag}` }, tag)),
             );
         }),
     }),
@@ -117,20 +117,20 @@ const features = Schema.Struct({
                 Array.findFirst(Struct.keys(CAPITALIZATIONS), (member) => Array.isReadonlyArrayNonEmpty(CAPITALIZATIONS[member]) && Array.isReadonlyArrayEmpty(Array.difference(CAPITALIZATIONS[member], tags))),
                 () => 'NORMAL' as const,
             );
-            const owned: readonly string[] = [...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]];
+            const memberTags: readonly string[] = [...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]];
             return {
                 otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.flatMap((tag, bit) => (tags.includes(tag) ? [2 ** bit] : []))),
                 ...Record.map(FEATURE_FLAGS, (tag) => tags.includes(tag)),
                 capitalization,
-                opentypeFeatures: Array.map(Array.difference(tags, owned), (tag) => [tag, 1] as const),
+                opentypeFeatures: Array.map(Array.difference(tags, memberTags), (tag) => [tag, 1] as const),
             };
         }),
     }),
 );
 const spacing = Schema.Struct(Record.mapEntries(SPACING, ([axis, bound]) => [spacingMember(axis, bound), Scaled(percent)])).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.spacing.schema), {
-        decode: SchemaGetter.transform((host) => Record.map(SPACING_AXES, (_member, axis) => Record.map(SPACING_BOUNDS, (_prefix, bound) => host[spacingMember(axis, bound)]))),
-        encode: SchemaGetter.transform((given) => Record.mapEntries(SPACING, ([axis, bound]) => [spacingMember(axis, bound), given[axis][bound]])),
+        decode: SchemaGetter.transform((members) => Record.map(SPACING_AXES, (_member, axis) => Record.map(SPACING_BOUNDS, (_prefix, bound) => members[spacingMember(axis, bound)]))),
+        encode: SchemaGetter.transform((values) => Record.mapEntries(SPACING, ([axis, bound]) => [spacingMember(axis, bound), values[axis][bound]])),
     }),
 );
 class HostSettings extends Schema.Class<HostSettings, { readonly brand: unique symbol }>('HostSettings')({ direction, numberingSystem, kashida, marks, features, spacing }) {
@@ -142,22 +142,22 @@ class HostSettings extends Schema.Class<HostSettings, { readonly brand: unique s
             read(HostSettings, `settings of ${target.toSpecifier()}`, () => Record.map(HostSettings.fields, (row) => picked(row.from.fields)(target))),
             Settings.make,
         );
-    static readonly write = Effect.fnUntraced(function* (target: Text | TextDefault, given: typeof Settings.Partial.Type) {
-        const { features: tags, ...members } = yield* Schema.encodeEffect(Given)(given);
-        const rest: Record.ReadonlyRecord<string, unknown> = Object.fromEntries(Object.values(members).flatMap(Object.entries));
-        return yield* Change.write(target, { ...rest, ...(tags === undefined ? {} : yield* featureMembers(target, tags)) });
+    static readonly write = Effect.fnUntraced(function* (target: Text | TextDefault, settings: typeof Settings.Partial.Type) {
+        const { features: tags, ...sections } = yield* Schema.encodeEffect(PartialHostSettings)(settings);
+        const members: Record.ReadonlyRecord<string, unknown> = Object.fromEntries(Object.values(sections).flatMap(Object.entries));
+        return yield* Change.write(target, { ...members, ...(tags === undefined ? {} : yield* featureMembers(target, tags)) });
     });
 }
-const Given = HostSettings.mapFields(Struct.map(Schema.optionalKey));
+const PartialHostSettings = HostSettings.mapFields(Struct.map(Schema.optionalKey));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const featureMembers = (target: Text | TextDefault, { capitalization, opentypeFeatures = [], ...flags }: typeof features.Encoded) =>
     Effect.map(
         read(Schema.String, `capitalization of ${target.toSpecifier()}`, () => target.capitalization),
-        (held) => ({
+        (current) => ({
             ...flags,
-            ...(capitalization === 'NORMAL' && Option.exists(Record.get<string, readonly string[]>(CAPITALIZATIONS, held), Array.isReadonlyArrayEmpty) ? {} : { capitalization }),
+            ...(capitalization === 'NORMAL' && Option.exists(Record.get<string, readonly string[]>(CAPITALIZATIONS, current), Array.isReadonlyArrayEmpty) ? {} : { capitalization }),
             ...(Array.isReadonlyArrayEmpty(opentypeFeatures) && !('opentypeFeatures' in target) ? {} : { opentypeFeatures }),
         }),
     );

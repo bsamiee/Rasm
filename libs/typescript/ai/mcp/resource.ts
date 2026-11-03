@@ -16,7 +16,7 @@ type Params<Schemas extends readonly Schema.Constraint[]> = { readonly [K in key
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const written = Schema.encodeEffect(Schema.fromJsonString(Schema.Json));
+const encodeJsonText = Schema.encodeEffect(Schema.fromJsonString(Schema.Json));
 const resourceValues = Effect.fnUntraced(function* <A, I, R>(schema: Schema.Codec<A, I>, mimeType: string | undefined, changes: Stream.Stream<unknown, never, R>) {
     const [server, store] = yield* Effect.all([McpServer.McpServer, SubscriptionRef.make(HashMap.empty<string, readonly [Effect.Effect<A, Error>, A]>())]);
     const encoded = Schema.encodeEffect(Schema.toCodecJson(schema));
@@ -25,7 +25,7 @@ const resourceValues = Effect.fnUntraced(function* <A, I, R>(schema: Schema.Code
             Effect.tap((value) => SubscriptionRef.update(store, HashMap.set(uri, [read, value] as const))),
             Effect.tapError((error) => (Cause.isNoSuchElementError(error) ? SubscriptionRef.update(store, HashMap.remove(uri)) : Effect.void)),
         );
-    const shown = (at: string, holds: Predicate.Predicate<A>) =>
+    const matchingEntry = (at: string, holds: Predicate.Predicate<A>) =>
         flow(
             Option.filter(holds),
             Option.map((value: A) => Effect.map(encoded(value), (json) => [at, json] as const)),
@@ -52,7 +52,7 @@ const resourceValues = Effect.fnUntraced(function* <A, I, R>(schema: Schema.Code
             orInternalError(
                 observe(uri, content).pipe(
                     Effect.flatMap(encoded),
-                    Effect.filterOrElse(Predicate.isString, written),
+                    Effect.filterOrElse(Predicate.isString, encodeJsonText),
                     Effect.map((text) => McpSchema.ReadResourceResult.make({ contents: [McpSchema.TextResourceContents.make({ uri, mimeType, text })] })),
                 ),
             ),
@@ -63,14 +63,14 @@ const resourceValues = Effect.fnUntraced(function* <A, I, R>(schema: Schema.Code
                 return {
                     refusal: UndefinedOr.match(refuse, {
                         onUndefined: () => Stream.empty,
-                        onDefined: (holds) => Stream.unwrap(Effect.flatMap(uri, (at) => Effect.as(current(at), Stream.mapEffect(SubscriptionRef.changes(store), flow(HashMap.get(at), Option.map(Tuple.get(1)), shown(at, holds)))))),
+                        onDefined: (holds) => Stream.unwrap(Effect.flatMap(uri, (at) => Effect.as(current(at), Stream.mapEffect(SubscriptionRef.changes(store), flow(HashMap.get(at), Option.map(Tuple.get(1)), matchingEntry(at, holds)))))),
                     }),
                     report: UndefinedOr.match(report, {
                         onUndefined: () => Effect.succeedNone,
                         onDefined: (holds) =>
                             Effect.gen(function* () {
                                 const at = yield* uri;
-                                return yield* shown(at, holds)(yield* current(at));
+                                return yield* matchingEntry(at, holds)(yield* current(at));
                             }),
                     }),
                 };
@@ -111,8 +111,8 @@ const registerResourceTemplate = <const Schemas extends readonly Schema.Codec<un
         const [scheme, services, { read, depend }] = yield* Effect.all([Scheme, Effect.context<R>(), resourceValues(options.schema, options.mimeType, options.changes)]);
         const rooted = Array.map((part: string, index: number) => (index === 0 ? scheme.uri(part) : part));
         const segments = Object.assign(rooted(path), { raw: rooted(path.raw) });
-        const woven = <B>(values: readonly B[]) => Array.flatMap(segments, (segment, index) => [segment, ...Option.toArray(Array.get(values, index))]);
-        const uri = Schema.encodeUnknownEffect(Schema.TemplateLiteralParser(woven(Array.map(schemas, (schema) => Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.toCodecStringTree(schema)))))));
+        const interleaved = <B>(values: readonly B[]) => Array.flatMap(segments, (segment, index) => [segment, ...Option.toArray(Array.get(values, index))]);
+        const uri = Schema.encodeUnknownEffect(Schema.TemplateLiteralParser(interleaved(Array.map(schemas, (schema) => Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.toCodecStringTree(schema)))))));
         yield* McpServer.registerResource(
             segments,
             ...schemas,
@@ -121,7 +121,7 @@ const registerResourceTemplate = <const Schemas extends readonly Schema.Codec<un
             completion: Record.map({ ...options.completion }, (complete) => flow(complete, Effect.provideContext(services))),
             content: (at, ...params) => read(at, Effect.provideContext(options.content(at, ...params), services)),
         });
-        return (...params: Params<Schemas>) => depend(uri(woven(params)), (at) => Effect.provideContext(options.content(at, ...params), services));
+        return (...params: Params<Schemas>) => depend(uri(interleaved(params)), (at) => Effect.provideContext(options.content(at, ...params), services));
     });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

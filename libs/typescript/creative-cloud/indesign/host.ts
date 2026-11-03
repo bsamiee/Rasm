@@ -36,10 +36,10 @@ const Contract = Requests.add(
 )
     .merge(Typesetting)
     .middleware(ScriptPreferences);
-const scripted = Effect.flatMap(Model, ({ app, MeasurementUnits, UserInteractionLevels }) => preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
+const preferences = Effect.flatMap(Model, ({ app, MeasurementUnits, UserInteractionLevels }) => preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
 const host = (indesign: typeof import('adobe:indesign')) => {
     const model = Effect.runSync(Effect.cached(Model.make(indesign)));
-    const local = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(scripted, scope), effect)).pipe(Effect.provideServiceEffect(Model, model));
+    const local = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(preferences, scope), effect)).pipe(Effect.provideServiceEffect(Model, model));
     return {
         server: Layer.merge(
             Contract.toLayer({

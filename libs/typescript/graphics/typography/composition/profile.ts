@@ -1,7 +1,7 @@
 import { Array, Data, Option, Order, Struct } from 'effect';
 import type { SvgPathCommand } from 'harfbuzzjs';
 import type { Face } from '#/face';
-import type { Shaped } from '#/shaped';
+import type { ShapedText } from '#/shaped-text';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -18,7 +18,7 @@ class Profile extends Data.Class<{
     readonly right: Edge;
     readonly advance: number;
 }> {
-    static readonly of = (face: Face, shaped: Shaped) => {
+    static readonly of = (face: Face, shaped: ShapedText) => {
         const { unitsPerEm } = face;
         const [, placed] = Array.mapAccum(shaped.glyphs, { x: 0, y: 0 }, ({ x, y }, { glyph, xAdvance, yAdvance, xOffset, yOffset }) => [{ x: x + xAdvance, y: y + yAdvance }, segments(face.font.glyphToJson(glyph), { x: (x + xOffset) * unitsPerEm, y: (y + yOffset) * unitsPerEm })]);
         const bands = [...Map.groupBy(placed.flat().flatMap(crossings), Struct.get('band'))];
@@ -28,21 +28,21 @@ class Profile extends Data.Class<{
             advance: shaped.advance * unitsPerEm,
         });
     };
-    static readonly wall = (profile: Profile, { x, top, foot }: { readonly x: number; readonly top: number; readonly foot: number }) => {
+    static readonly withBoundary = (profile: Profile, { slant, top, foot }: { readonly slant: number; readonly top: number; readonly foot: number }) => {
         const line = Array.range(Math.floor(foot), Math.ceil(top))
             .filter((height) => foot <= height && height < top)
-            .map((height) => [height, (x * (height - foot)) / (top - foot)] as const);
-        return Option.match(contact(line, profile.left), {
+            .map((height) => [height, (slant * (height - foot)) / (top - foot)] as const);
+        return Option.match(minClearance(line, profile.left), {
             onNone: () => profile,
-            onSome: (slid) => new Profile({ ...profile, left: new Map([...profile.left, ...line.map(([height, lean]) => [height, slid + lean] as const)]) }),
+            onSome: (offset) => new Profile({ ...profile, left: new Map([...profile.left, ...line.map(([height, shift]) => [height, offset + shift] as const)]) }),
         });
     };
-    static readonly gap = (before: Profile, after: Profile) => Option.map(contact(before.right, after.left), (clear) => before.advance + clear);
+    static readonly gap = (before: Profile, after: Profile) => Option.map(minClearance(before.right, after.left), (clearance) => before.advance + clearance);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const contact = (right: Iterable<readonly [number, number]>, left: Edge) =>
+const minClearance = (right: Iterable<readonly [number, number]>, left: Edge) =>
     Array.head(
         Array.sort(
             [...right].flatMap(([height, x]) => Option.toArray(Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x))),

@@ -30,7 +30,7 @@ class ApplicationView extends Schema.TaggedClass<ApplicationView, { readonly bra
         }),
     ).annotate({ description: 'Single open document, else document of the active window' }),
 }) {
-    static readonly owns = (model: typeof Model.Service) => model.owning<Application>('menuActions');
+    static readonly matches = (model: typeof Model.Service) => model.owning<Application>('menuActions');
     static readonly of = Effect.fn('ApplicationView.of')(function* (app: Application) {
         const { owning } = yield* Model;
         const overridable = owning<Text>('textHasOverrides');
@@ -126,18 +126,18 @@ const object = Effect.fn('object')(function* (found: InDesignDOMObject<unknown>,
     const { fields: own } = yield* Cache.get(model.rows, found.constructorName);
     const view = yield* Effect.transposeOption(
         Match.value<unknown>(found).pipe(
-            Match.when(ApplicationView.owns(model), ApplicationView.of),
-            Match.when(DocumentView.owns(model), DocumentView.of),
-            Match.when(PageView.owns(model), PageView.of),
-            Match.when(SpreadView.owns(model), SpreadView.of),
-            Match.when(LayerView.owns(model), LayerView.of),
-            Match.when(StyleView.owns(model), StyleView.of),
-            Match.when(SwatchView.owns(model), SwatchView.of),
-            Match.when(LinkView.owns(model), LinkView.of),
-            Match.when(StoryView.owns(model), StoryView.of),
-            Match.when(TextView.owns(model), (text) => TextView.of(text, slice)),
-            Match.when(FontView.owns(model), FontView.of),
-            Match.when(PreflightProcessView.owns(model), PreflightProcessView.of),
+            Match.when(ApplicationView.matches(model), ApplicationView.of),
+            Match.when(DocumentView.matches(model), DocumentView.of),
+            Match.when(PageView.matches(model), PageView.of),
+            Match.when(SpreadView.matches(model), SpreadView.of),
+            Match.when(LayerView.matches(model), LayerView.of),
+            Match.when(StyleView.matches(model), StyleView.of),
+            Match.when(SwatchView.matches(model), SwatchView.of),
+            Match.when(LinkView.matches(model), LinkView.of),
+            Match.when(StoryView.matches(model), StoryView.of),
+            Match.when(TextView.matches(model), (text) => TextView.of(text, slice)),
+            Match.when(FontView.matches(model), FontView.of),
+            Match.when(PreflightProcessView.matches(model), PreflightProcessView.of),
             Match.option,
         ),
     );

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/typography",
     "private": true,
-    "description": "Fonts as typed faces through to shaped, kerned, and justified text",
+    "description": "Font faces, text shaping, kerning, and justification",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -9,7 +9,7 @@
     },
     "exports": {
         "./face": "./face.ts",
-        "./shaped": "./shaped.ts",
+        "./shaped-text": "./shaped-text.ts",
         "./source": "./source.ts",
         "./settings": "./composition/settings.ts",
         "./words": "./text/words.ts",

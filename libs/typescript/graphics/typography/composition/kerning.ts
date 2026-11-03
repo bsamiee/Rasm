@@ -2,35 +2,35 @@ import { Array, Data, Effect, Option, Schema, SchemaGetter, SchemaIssue, Struct 
 import { JoiningGroup } from 'icu';
 import { Profile } from '#/composition/profile';
 import type { Face } from '#/face';
-import { Shaped } from '#/shaped';
+import { ShapedText } from '#/shaped-text';
 import { Word } from '#/text/words';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LONE_PUNCTUATION = /^\p{P}$/u;
 const SEPARATOR = /^[ \u{200C}]?$/u;
-const ARABIC = Shaped.Run.make({ text: '', script: Option.some('arab'), direction: Option.some('RTL') });
+const ARABIC = ShapedText.Run.make({ text: '', script: Option.some('arab'), direction: Option.some('RTL') });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Group = Schema.String.annotate({ description: 'ICU JoiningGroup value name' }).pipe(
+const GroupName = Schema.String.annotate({ description: 'ICU joining group name' }).pipe(
     Schema.decodeTo(Schema.instanceOf(JoiningGroup), {
         decode: SchemaGetter.transformEffect((name: string, options) => Effect.fromOption(Option.fromNullOr(JoiningGroup.tryFromStr(name)), () => new SchemaIssue.InvalidValue({ message: `No joining group named ${name}` }, name, options))),
         encode: SchemaGetter.transform((group: JoiningGroup) => group.value),
     }),
 );
-const Wall = Schema.Struct({
-    x: Schema.Finite.annotate({ description: 'Lean in em from foot to top, top toward preceding run when positive' }).pipe(Schema.withConstructorDefault(Effect.succeed(0))),
+const Boundary = Schema.Struct({
+    slant: Schema.Finite.annotate({ description: 'Em from foot to top, positive toward preceding run' }).pipe(Schema.withConstructorDefault(Effect.succeed(0))),
     top: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Height in em, face ascender when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
     foot: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Height in em, face descender when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
 });
 const Rule = Schema.Struct({
-    side: Schema.Literals(['before', 'after']).annotate({ description: 'Letters read: before the first two of following run, after the last of preceding run' }),
-    groups: Schema.Array(Group),
-    wall: Wall.annotate({ description: 'Line slid to contact with preceding run from the gap side' }).pipe(Schema.withConstructorDefault(Effect.sync(() => Wall.make({})))),
+    side: Schema.Literals(['before', 'after']).annotate({ description: 'Before reads first two letters of following run, after reads last letter of preceding run' }),
+    groups: Schema.Array(GroupName),
+    boundary: Boundary.annotate({ description: 'Line moved to touch preceding run from gap side' }).pipe(Schema.withConstructorDefault(Effect.sync(() => Boundary.make({})))),
     correction: Schema.Finite.annotate({ description: 'Added to gap, in em' }).pipe(Schema.withConstructorDefault(Effect.succeed(0))),
 });
-const Otherwise = Rule.mapFields(Struct.omit(['side', 'groups']));
+const Fallback = Rule.mapFields(Struct.omit(['side', 'groups']));
 class Kerning extends Data.Class<{
     readonly index: number;
     readonly em: number;
@@ -38,24 +38,24 @@ class Kerning extends Data.Class<{
     static readonly Rule = Rule;
     static readonly Rules = Schema.Struct({
         rows: Schema.Array(Rule).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
-        otherwise: Otherwise.pipe(Schema.withConstructorDefault(Effect.sync(() => Otherwise.make({})))),
+        fallback: Fallback.pipe(Schema.withConstructorDefault(Effect.sync(() => Fallback.make({})))),
     });
-    static readonly rule = (rules: typeof Kerning.Rules.Type, before: string, after: string) => {
-        const facing = { before: Array.take(Word.letters(after), 2), after: Array.takeRight(Word.letters(before), 1) };
+    static readonly ruleFor = (rules: typeof Kerning.Rules.Type, before: string, after: string) => {
+        const letters = { before: Array.take(Word.letters(after), 2), after: Array.takeRight(Word.letters(before), 1) };
         return Option.getOrElse(
-            Array.findFirst(rules.rows, ({ side, groups }) => facing[side].some(({ group }) => groups.includes(group))),
-            () => rules.otherwise,
+            Array.findFirst(rules.rows, ({ side, groups }) => letters[side].some(({ group }) => groups.includes(group))),
+            () => rules.fallback,
         );
     };
     static readonly pair =
-        (face: Face, rules: typeof Kerning.Rules.Type, run: typeof Shaped.Run.Type = ARABIC) =>
+        (face: Face, rules: typeof Kerning.Rules.Type, run: typeof ShapedText.Run.Type = ARABIC) =>
         (before: string, after: string) => {
-            const { wall, correction } = Kerning.rule(rules, before, after);
+            const { boundary, correction } = Kerning.ruleFor(rules, before, after);
             const { ascender, descender } = face.metrics.extents.hhea;
-            const profile = (text: string) => Profile.of(face, Shaped.of(face, { ...run, text }));
+            const profile = (text: string) => Profile.of(face, ShapedText.of(face, { ...run, text }));
             const [preceding, following] = [profile(before), profile(after)];
-            const walled = Profile.wall(preceding, { x: wall.x * face.unitsPerEm, top: Option.getOrElse(wall.top, () => ascender) * face.unitsPerEm, foot: Option.getOrElse(wall.foot, () => descender) * face.unitsPerEm });
-            return Option.match(Profile.gap(following, walled), { onNone: () => 0, onSome: (gap) => Math.max(Math.min(gap, preceding.advance) / face.unitsPerEm + correction, 0) });
+            const bounded = Profile.withBoundary(preceding, { slant: boundary.slant * face.unitsPerEm, top: Option.getOrElse(boundary.top, () => ascender) * face.unitsPerEm, foot: Option.getOrElse(boundary.foot, () => descender) * face.unitsPerEm });
+            return Option.match(Profile.gap(following, bounded), { onNone: () => 0, onSome: (gap) => Math.max(Math.min(gap, preceding.advance) / face.unitsPerEm + correction, 0) });
         };
     static readonly of = <R>(text: string, pair: (before: string, after: string) => Effect.Effect<number, never, R>) => {
         const content = ({ start, end }: Word['runs'][number]) => text.slice(start, end);

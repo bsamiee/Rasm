@@ -28,7 +28,7 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
     uses: Schema.Array(Schema.String).annotate({ description: 'Current document text and styles set in the face' }),
     installed: Schema.OptionFromOptionalKey(Installed),
 }) {
-    static readonly owns = (model: typeof Model.Service) => model.owning<import('adobe:indesign').Font>('postscriptName');
+    static readonly matches = (model: typeof Model.Service) => model.owning<import('adobe:indesign').Font>('postscriptName');
     static readonly of = Effect.fn('FontView.of')(function* (face: import('adobe:indesign').Font) {
         const { app, FontStatus, OpenTypeFeature, members } = yield* Model;
         const [family, installed] = [face.fontFamily, face.status.equals(FontStatus.INSTALLED)];

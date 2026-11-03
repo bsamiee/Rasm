@@ -10,8 +10,8 @@ const Content = <S extends Schema.Top>(schema: S, description: string, block: (v
             Schema.link<S['Type']>()(Schema.String.annotate({ description }), {
                 decode: SchemaGetter.forbidden(() => 'Content blocks hold value'),
                 encode: SchemaGetter.transformEffect((value: S['Type']) => {
-                    const [added, shown] = block(value);
-                    return ToolCall.use(({ add }) => Effect.as(add(added), shown));
+                    const [contentBlock, text] = block(value);
+                    return ToolCall.use(({ add }) => Effect.as(add(contentBlock), text));
                 }),
             }),
     });
@@ -21,7 +21,7 @@ const Attachment = <S extends Schema.Top & { readonly Type: { readonly uri: stri
         Option.match(
             Option.filter(mimeType, (type) => type.startsWith('image/')),
             {
-                onSome: (image) => McpSchema.ImageContent.make({ data, mimeType: image }),
+                onSome: (imageType) => McpSchema.ImageContent.make({ data, mimeType: imageType }),
                 onNone: () => McpSchema.EmbeddedResource.make({ resource: McpSchema.BlobResourceContents.make({ uri, blob: data, mimeType: Option.getOrUndefined(mimeType) }) }),
             },
         ),

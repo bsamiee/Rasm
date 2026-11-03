@@ -12,8 +12,8 @@ const Root = Schema.declare((value: unknown): value is HTMLElement => value inst
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const logged = flow(Cause.pretty, Console.error);
-const hosted = Layer.merge(
+const logCause = flow(Cause.pretty, Console.error);
+const hostLayer = Layer.merge(
     Layer.effect(Clock.Clock)(
         Effect.map(Clock.Clock, (base) => {
             const monotonicTimeNanosUnsafe = (): bigint => Duration.toNanosUnsafe(performance.now());
@@ -38,24 +38,24 @@ const plugin = <E, F>(
         readonly panels: Record.ReadonlyRecord<string, (root: HTMLElement) => Effect.Effect<void, F, Scope.Scope | Uxp | Plugin>>;
     } = { commands: {}, panels: {} },
 ): void => {
-    const manifest = 'plugin:/manifest.json';
+    const path = 'plugin:/manifest.json';
     const runtime = ManagedRuntime.make(
         Effect.gen(function* () {
-            const decoded = yield* Effect.try({ try: () => fs.readFileSync(manifest, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: manifest, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json)));
+            const manifest = yield* Effect.try({ try: () => fs.readFileSync(path, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: path, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json)));
             const origin = yield* Effect.fromOption(
-                Option.map(decoded.requiredPermissions.network, ({ domains: [first] }) => first),
-                () => new Cause.NoSuchElementError(`${decoded.name} manifest lacks requiredPermissions.network domains`),
+                Option.map(manifest.requiredPermissions.network, ({ domains: [first] }) => first),
+                () => new Cause.NoSuchElementError(`${manifest.name} manifest lacks requiredPermissions.network`),
             );
-            return Layer.provideMerge(dial({ origin, extension: decoded.name }), Layer.succeed(Plugin)(decoded));
-        }).pipe(Layer.unwrap, Layer.provideMerge(hosted), Layer.tapCause(logged)),
+            return Layer.provideMerge(dial({ origin, extension: manifest.name }), Layer.succeed(Plugin)(manifest));
+        }).pipe(Layer.unwrap, Layer.provideMerge(hostLayer), Layer.tapCause(logCause)),
     );
-    const run = <X>(work: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(Effect.tapCause(work, logged)));
-    const panels = Record.map(entries.panels, (shown) => {
-        const held = Effect.runSync(Scope.provide(ScopedRef.fromAcquire(Effect.void), runtime.scope));
-        const forked = flow(shown, Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly), logged), Effect.forkScoped, Effect.asVoid);
+    const run = <X>(effect: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(Effect.tapCause(effect, logCause)));
+    const panels = Record.map(entries.panels, (panel) => {
+        const ref = Effect.runSync(Scope.provide(ScopedRef.fromAcquire(Effect.void), runtime.scope));
+        const fork = flow(panel, Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly), logCause), Effect.forkScoped, Effect.asVoid);
         return {
-            show: (root?: unknown): Promise<void> => run(Effect.flatMap(Schema.decodeUnknownEffect(Root)(root), (element) => ScopedRef.set(held, forked(element)))),
-            hide: (): Promise<void> => run(ScopedRef.set(held, Effect.void)),
+            show: (root?: unknown): Promise<void> => run(Effect.flatMap(Schema.decodeUnknownEffect(Root)(root), (element) => ScopedRef.set(ref, fork(element)))),
+            hide: (): Promise<void> => run(ScopedRef.set(ref, Effect.void)),
         };
     });
     Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints).pipe(
@@ -63,31 +63,31 @@ const plugin = <E, F>(
             Effect.sync(() =>
                 setup.call(entrypoints, {
                     plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() },
-                    commands: Record.map(entries.commands, (work) => () => run(work)),
+                    commands: Record.map(entries.commands, (command) => () => run(command)),
                     panels,
                 } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>),
             ),
         ),
-        Effect.tapCause(logged),
+        Effect.tapCause(logCause),
         Effect.runFork,
     );
 };
 const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
     Effect.gen(function* () {
-        const [{ script: host }, serialization] = yield* Effect.all([Schema.decodeUnknownEffect(Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) }))(uxp), RpcSerialization.RpcSerialization]);
-        const answer = (chunk: string | Uint8Array) => Effect.sync(() => host.setResult(Predicate.isString(chunk) ? chunk : new TextDecoder().decode(chunk)));
+        const [{ script: uxpScript }, serialization] = yield* Effect.all([Schema.decodeUnknownEffect(Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) }))(uxp), RpcSerialization.RpcSerialization]);
+        const setResult = (chunk: string | Uint8Array) => Effect.sync(() => uxpScript.setResult(Predicate.isString(chunk) ? chunk : new TextDecoder().decode(chunk)));
         yield* Layer.launch(server).pipe(
-            Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide(Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(host.args), stdin: Stream.encodeText(Stream.fromIterable(host.args)), stdout: () => Sink.forEach(answer), stderr: () => Sink.forEach(Console.error) }))))),
+            Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide(Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(uxpScript.args), stdin: Stream.encodeText(Stream.fromIterable(uxpScript.args)), stdout: () => Sink.forEach(setResult), stderr: () => Sink.forEach(Console.error) }))))),
             Effect.catchCauseIf(
                 Predicate.not(Cause.hasInterruptsOnly),
                 flow(
                     Cause.squash,
                     Schema.encodeEffect(Schema.Defect()),
-                    Effect.flatMap((defect) => UndefinedOr.match(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect)), { onUndefined: () => Effect.void, onDefined: answer })),
+                    Effect.flatMap((defect) => UndefinedOr.match(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect)), { onUndefined: () => Effect.void, onDefined: setResult })),
                 ),
             ),
         );
-    }).pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly), logged), Effect.provide([hosted, RpcSerialization.layerJson]), Effect.runSyncExit);
+    }).pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly), logCause), Effect.provide([hostLayer, RpcSerialization.layerJson]), Effect.runSyncExit);
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

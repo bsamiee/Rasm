@@ -29,7 +29,7 @@ class PreflightProcessView extends Schema.TaggedClass<PreflightProcessView, { re
     appliedProfile: Schema.OptionFromOptionalKey(Reference.annotate({ description: 'Absent for document-embedded profiles' })),
     aggregatedResults: Schema.Result(Schema.Array(Row), Schema.Defect()).annotate({ description: 'Rows of finished process, empty without issues, refusal while checking' }),
 }) {
-    static readonly owns = (model: typeof Model.Service) => model.owning<PreflightProcess>('aggregatedResults');
+    static readonly matches = (model: typeof Model.Service) => model.owning<PreflightProcess>('aggregatedResults');
     static readonly of = (process: PreflightProcess) =>
         Effect.try({
             try: () =>

@@ -5,11 +5,11 @@ import type { Face } from '#/face';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const HEXADECIMAL = 16;
-const LAST_CODE_POINT = 0x10_ff_ff;
+const MAX_CODE_POINT = 0x10_ff_ff;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const CodePoint = Schema.String.pipe(Schema.decodeTo(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: LAST_CODE_POINT })), SchemaTransformation.transform({ decode: (cell) => Number.parseInt(cell, HEXADECIMAL), encode: (point) => point.toString(HEXADECIMAL) })));
+const CodePoint = Schema.String.pipe(Schema.decodeTo(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: MAX_CODE_POINT })), SchemaTransformation.transform({ decode: (cell) => Number.parseInt(cell, HEXADECIMAL), encode: (point) => point.toString(HEXADECIMAL) })));
 class Symbols extends Schema.Class<Symbols, { readonly brand: unique symbol }>('Symbols')({ sets: Schema.Record(Schema.String, Schema.Array(CodePoint)).annotate({ description: 'Code points by header name' }) }) {
     static readonly decode = Effect.fn('Symbols.decode')(function* (file: string) {
         const rows = yield* Stream.make(file).pipe(Stream.pipeThroughChannel(Csv.decodeString({ delimiter: '\t', headers: true, ignoreEmptyLines: true })), Stream.runCollect);

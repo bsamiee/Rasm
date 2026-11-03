@@ -35,7 +35,7 @@ class LayerView extends Schema.TaggedClass<LayerView, { readonly brand: unique s
     layerColor: Schema.Json.annotate({ description: 'UIColors member or RGB values' }),
     items: Schema.Int,
 }) {
-    static readonly owns = (model: typeof Model.Service) => model.owning<Layer>('layerColor');
+    static readonly matches = (model: typeof Model.Service) => model.owning<Layer>('layerColor');
     static readonly of = (layer: Layer) => read(LayerView, layer.toSpecifier(), () => ({ ...picked(LayerView.fields)(layer), ...reference(layer), _tag: 'Layer', items: layer.pageItems.length }));
 }
 class LinkView extends Schema.TaggedClass<LinkView, { readonly brand: unique symbol }>()('Link', {
@@ -46,11 +46,11 @@ class LinkView extends Schema.TaggedClass<LinkView, { readonly brand: unique sym
     linkType: Schema.String,
     needed: Schema.Boolean,
     edited: Schema.Boolean,
-    size: Schema.Finite.annotate({ description: 'Source file size in bytes' }),
+    size: Schema.Finite.annotate({ description: 'Source file bytes' }),
     date: Schema.String.annotate({ description: 'Source file modification date' }),
     parent: Reference.annotate({ description: 'Placed graphic or story' }),
 }) {
-    static readonly owns = (model: typeof Model.Service) => model.owning<Link>('linkResourceURI');
+    static readonly matches = (model: typeof Model.Service) => model.owning<Link>('linkResourceURI');
     static readonly of = (link: Link) => read(LinkView, link.toSpecifier(), () => ({ ...picked(LinkView.fields)(link), ...reference(link), _tag: 'Link' }));
 }
 class SwatchView extends Schema.TaggedClass<SwatchView, { readonly brand: unique symbol }>()('Swatch', {
@@ -64,7 +64,7 @@ class SwatchView extends Schema.TaggedClass<SwatchView, { readonly brand: unique
         MixedInk: { baseColor: Reference, inkPercentages: Schema.Array(Schema.Finite) },
     }).annotate({ description: 'Empty Swatch for None and mixed ink groups' }),
 }) {
-    static readonly owns = (model: typeof Model.Service) => model.owning<PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup>('parentColorGroup');
+    static readonly matches = (model: typeof Model.Service) => model.owning<PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup>('parentColorGroup');
     static readonly of = (swatch: PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup) => {
         const { cases } = SwatchView.fields.value;
         const value = Match.value(swatch).pipe(
@@ -91,7 +91,7 @@ class PageView extends Schema.TaggedClass<PageView, { readonly brand: unique sym
     }),
     items: Schema.Struct({ own: Schema.Int, inherited: Schema.Int }).annotate({ description: 'Own and parent page item counts' }),
 }) {
-    static readonly owns = (model: typeof Model.Service) => model.page;
+    static readonly matches = (model: typeof Model.Service) => model.page;
     static readonly of = (page: Page) =>
         Effect.flatMap(Extent.of(page), (extent) =>
             read(PageView, page.toSpecifier(), () => {
@@ -114,23 +114,23 @@ class SpreadView extends Schema.TaggedClass<SpreadView, { readonly brand: unique
     showMasterItems: Schema.Boolean,
     appliedMaster: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Applied parent, or base parent of a parent spread' }),
     kind: Schema.TaggedUnion({ Spread: { allowPageShuffle: Schema.Boolean }, MasterSpread: { namePrefix: Schema.String, baseName: Schema.String } }),
-    pages: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(PageView.fields, ['side', 'extent'])))).annotate({ description: 'Pages in order' }),
+    pages: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(PageView.fields, ['side', 'extent'])))).annotate({ description: 'In order' }),
     items: Schema.Int,
 }) {
-    static readonly owns = (model: typeof Model.Service) => Predicate.or(model.spread, model.owning<MasterSpread>('namePrefix'));
-    static readonly of = (found: Spread | MasterSpread) =>
+    static readonly matches = (model: typeof Model.Service) => Predicate.or(model.spread, model.owning<MasterSpread>('namePrefix'));
+    static readonly of = (spread: Spread | MasterSpread) =>
         Effect.flatMap(
-            Effect.forEach(found.pages.everyItem().getElements(), (page) => Effect.map(Extent.of(page), (extent) => ({ ...reference(page), side: page.side, extent }))),
+            Effect.forEach(spread.pages.everyItem().getElements(), (page) => Effect.map(Extent.of(page), (extent) => ({ ...reference(page), side: page.side, extent }))),
             (pages) =>
-                read(SpreadView, found.toSpecifier(), () => ({
+                read(SpreadView, spread.toSpecifier(), () => ({
                     _tag: 'Spread',
-                    ...reference(found),
-                    index: found.index,
-                    showMasterItems: found.showMasterItems,
-                    appliedMaster: Option.fromNullOr(found.appliedMaster),
-                    kind: found.constructorName === 'Spread' ? { _tag: 'Spread', allowPageShuffle: found.allowPageShuffle } : { _tag: 'MasterSpread', namePrefix: found.namePrefix, baseName: found.baseName },
+                    ...reference(spread),
+                    index: spread.index,
+                    showMasterItems: spread.showMasterItems,
+                    appliedMaster: Option.fromNullOr(spread.appliedMaster),
+                    kind: spread.constructorName === 'Spread' ? { _tag: 'Spread', allowPageShuffle: spread.allowPageShuffle } : { _tag: 'MasterSpread', namePrefix: spread.namePrefix, baseName: spread.baseName },
                     pages,
-                    items: found.pageItems.length,
+                    items: spread.pageItems.length,
                 })),
         );
 }
@@ -143,35 +143,35 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
     intent: Schema.String,
     facingPages: Schema.Boolean,
     size: Schema.Struct({ width: Schema.Finite, height: Schema.Finite }).annotate({ description: 'Default page size in points' }),
-    units: Schema.Struct({ horizontal: Schema.String, vertical: Schema.String, origin: Schema.String }).annotate({ description: 'Ruler units and origin, results stay in points' }),
+    units: Schema.Struct({ horizontal: Schema.String, vertical: Schema.String, origin: Schema.String }).annotate({ description: 'Ruler units and origin, results in points' }),
     pages: Schema.Int,
     spreads: Schema.Int,
     parents: Schema.Array(Reference.mapFields(Struct.assign({ pages: Schema.Int }))).annotate({ description: 'Parent (master) spreads' }),
     sections: Schema.Array(Reference.mapFields(Struct.assign({ start: Schema.String, length: Schema.Int, pageNumberStart: Schema.Int, continueNumbering: Schema.Boolean }))),
     layers: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(LayerView.fields, ['visible', 'locked', 'printable'])))),
     stories: Schema.Struct({ count: Schema.Int, overset: Schema.Array(Schema.String) }),
-    links: Schema.Record(Schema.String, Schema.Int).annotate({ description: 'Link count per LinkStatus member' }),
-    fonts: Schema.Array(Schema.Struct({ name: Schema.String, status: Schema.String })).annotate({ description: 'Document fonts with FontStatus' }),
+    links: Schema.Record(Schema.String, Schema.Int).annotate({ description: 'Count per LinkStatus member' }),
+    fonts: Schema.Array(Schema.Struct({ name: Schema.String, status: Schema.String })).annotate({ description: 'FontStatus per font' }),
     swatches: Schema.Array(Reference),
-    styles: Schema.Struct(Struct.Record(['paragraph', 'character', 'object', 'table', 'cell'], Schema.Int)).annotate({ description: 'Style counts, grouped styles included' }),
+    styles: Schema.Struct(Struct.Record(['paragraph', 'character', 'object', 'table', 'cell'], Schema.Int)).annotate({ description: 'Counts with grouped styles' }),
     preflightOptions: Schema.Struct({
         ...Struct.Record(['preflightOff', 'preflightIncludeObjectsOnPasteboard', 'preflightIncludeNonprintingObjects'], Schema.Boolean),
         ...Struct.Record(['preflightProfilePolicy', 'preflightWorkingProfile', 'preflightScope', 'preflightWhichLayers'], Schema.String),
     }),
-    activeProcess: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Absent while live preflight is off' }),
+    activeProcess: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Absent with live preflight off' }),
     textDefaults: ParagraphAttributes,
 }) {
     static readonly Row = Schema.Struct(Struct.pick(DocumentView.fields, ['type', 'specifier', 'name', 'valid', 'saved', 'modified', 'path', 'windows']));
-    static readonly owns = (model: typeof Model.Service) => model.document;
+    static readonly matches = (model: typeof Model.Service) => model.document;
     static readonly overset = ({ stories }: Document): readonly string[] => Array.flatMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows === true ? [stories.itemByID(id).toSpecifier()] : []));
     static readonly row = Effect.fn('DocumentView.row')(function* (document: Document) {
         const { saved } = document;
         return { ...reference(document), saved, modified: document.modified, path: saved ? yield* Model.file(document, 'fullName') : Option.none(), windows: Array.map(document.windows.everyItem().getElements(), (window) => window.toSpecifier()) };
     });
-    static readonly of = (found: Document) =>
-        Effect.flatMap(Effect.all([DocumentView.row(found), HostSettings.read(found.textDefaults)]), ([row, settings]) =>
-            read(DocumentView, found.toSpecifier(), () => {
-                const { documentPreferences: preferences, viewPreferences: view, preflightOptions: preflight } = found;
+    static readonly of = (document: Document) =>
+        Effect.flatMap(Effect.all([DocumentView.row(document), HostSettings.read(document.textDefaults)]), ([row, settings]) =>
+            read(DocumentView, document.toSpecifier(), () => {
+                const { documentPreferences: preferences, viewPreferences: view, preflightOptions: preflight } = document;
                 return {
                     _tag: 'Document',
                     ...row,
@@ -179,19 +179,19 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
                     facingPages: preferences.facingPages,
                     size: { width: preferences.pageWidth, height: preferences.pageHeight },
                     units: { horizontal: view.horizontalMeasurementUnits, vertical: view.verticalMeasurementUnits, origin: view.rulerOrigin },
-                    pages: found.pages.length,
-                    spreads: found.spreads.length,
-                    parents: Array.map(found.masterSpreads.everyItem().getElements(), (each) => ({ ...reference(each), pages: each.pages.length })),
-                    sections: Array.map(found.sections.everyItem().getElements(), (each) => ({ ...reference(each), start: each.pageStart.toSpecifier(), length: each.length, pageNumberStart: each.pageNumberStart, continueNumbering: each.continueNumbering })),
-                    layers: Array.map(found.layers.everyItem().getElements(), (each) => ({ ...reference(each), visible: each.visible, locked: each.locked, printable: each.printable })),
-                    stories: { count: found.stories.length, overset: DocumentView.overset(found) },
-                    links: Record.map(Array.groupBy(found.links.everyItem().status, String), Array.length),
-                    fonts: Array.zipWith(found.fonts.everyItem().name, found.fonts.everyItem().status, (name, status) => ({ name, status })),
-                    swatches: found.swatches.everyItem().getElements(),
-                    styles: { paragraph: found.allParagraphStyles.length, character: found.allCharacterStyles.length, object: found.allObjectStyles.length, table: found.allTableStyles.length, cell: found.allCellStyles.length },
+                    pages: document.pages.length,
+                    spreads: document.spreads.length,
+                    parents: Array.map(document.masterSpreads.everyItem().getElements(), (each) => ({ ...reference(each), pages: each.pages.length })),
+                    sections: Array.map(document.sections.everyItem().getElements(), (each) => ({ ...reference(each), start: each.pageStart.toSpecifier(), length: each.length, pageNumberStart: each.pageNumberStart, continueNumbering: each.continueNumbering })),
+                    layers: Array.map(document.layers.everyItem().getElements(), (each) => ({ ...reference(each), visible: each.visible, locked: each.locked, printable: each.printable })),
+                    stories: { count: document.stories.length, overset: DocumentView.overset(document) },
+                    links: Record.map(Array.groupBy(document.links.everyItem().status, String), Array.length),
+                    fonts: Array.zipWith(document.fonts.everyItem().name, document.fonts.everyItem().status, (name, status) => ({ name, status })),
+                    swatches: document.swatches.everyItem().getElements(),
+                    styles: { paragraph: document.allParagraphStyles.length, character: document.allCharacterStyles.length, object: document.allObjectStyles.length, table: document.allTableStyles.length, cell: document.allCellStyles.length },
                     preflightOptions: { ...picked(DocumentView.fields.preflightOptions.fields)(preflight), preflightWorkingProfile: Predicate.isString(preflight.preflightWorkingProfile) ? preflight.preflightWorkingProfile : preflight.preflightWorkingProfile.name },
-                    activeProcess: preflight.preflightOff ? Option.none() : Option.some(found.activeProcess),
-                    textDefaults: ParagraphAttributes.of(found.textDefaults, settings),
+                    activeProcess: preflight.preflightOff ? Option.none() : Option.some(document.activeProcess),
+                    textDefaults: ParagraphAttributes.of(document.textDefaults, settings),
                 };
             }),
         );
@@ -199,7 +199,7 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const open = ({ file }: Open) => Model.use(({ app }) => Effect.try({ try: () => reference(app.open(decodeURIComponent(file.pathname), false)), catch: HostError.refused(`open of ${file.href}`) }));
+const open = ({ file }: Open) => Model.use(({ app }) => Effect.try({ try: () => reference(app.open(decodeURIComponent(file.pathname), false)), catch: HostError.refused(`open ${file.href}`) }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

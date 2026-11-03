@@ -3,11 +3,15 @@ import { Buffer, BufferFlag, ClusterLevel, Direction, Feature, GlyphClass, Glyph
 import type { Face } from '#/face';
 import { Tag, TagSettings } from '#/tags';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const DEFAULT_CLUSTER_LEVEL = 'MONOTONE_CHARACTERS' as const;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 const GlyphFlags = Schema.Literals(Struct.keys(Struct.omit(GlyphFlag, ['DEFINED'])));
 const GlyphClasses = Schema.Literals(Struct.keys(GlyphClass));
-class Shaped extends Schema.Class<Shaped, { readonly brand: unique symbol }>('Shaped')({
+class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbol }>('ShapedText')({
     glyphs: Schema.Array(
         Schema.Struct({
             glyph: Schema.Int.annotate({ description: 'Glyph ID' }),
@@ -27,13 +31,13 @@ class Shaped extends Schema.Class<Shaped, { readonly brand: unique symbol }>('Sh
         script: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems script (cyrl, arab), detected from text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         direction: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(Struct.omit(Direction, ['INVALID']))).annotate({ description: 'Script direction when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         clusterLevel: Schema.Literals(Struct.keys(Struct.omit(ClusterLevel, ['DEFAULT'])))
-            .annotate({ description: 'HarfBuzz cluster level, MONOTONE_CHARACTERS when absent' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed('MONOTONE_CHARACTERS')), Schema.withConstructorDefault(Effect.succeed('MONOTONE_CHARACTERS' as const))),
+            .annotate({ description: `HarfBuzz cluster level, ${DEFAULT_CLUSTER_LEVEL} when absent` })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_CLUSTER_LEVEL)), Schema.withConstructorDefault(Effect.succeed(DEFAULT_CLUSTER_LEVEL))),
         flags: Schema.UniqueArray(Schema.Literals(Struct.keys(Struct.omit(BufferFlag, ['DEFAULT', 'DEFINED']))))
             .annotate({ description: 'HarfBuzz buffer flags (BOT, EOT, PRODUCE_UNSAFE_TO_CONCAT), none when absent' })
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
     });
-    static readonly of = (face: Face, { text, features, language, script, direction, clusterLevel, flags }: typeof Shaped.Run.Type) => {
+    static readonly of = (face: Face, { text, features, language, script, direction, clusterLevel, flags }: typeof ShapedText.Run.Type) => {
         const em = (units: number) => units / face.unitsPerEm;
         const buffer = new Buffer();
         buffer.addText(text);
@@ -47,14 +51,14 @@ class Shaped extends Schema.Class<Shaped, { readonly brand: unique symbol }>('Sh
         shape(face.font, buffer, [...features]);
         const glyphs = buffer.getGlyphInfos();
         const unmapped = new Set(glyphs.filter(({ codepoint }) => codepoint === 0).map(Struct.get('cluster')));
-        return Shaped.make({
-            glyphs: Array.zipWith(glyphs, buffer.getGlyphPositions(), ({ codepoint, cluster, flags: set }, position) => ({
+        return ShapedText.make({
+            glyphs: Array.zipWith(glyphs, buffer.getGlyphPositions(), ({ codepoint, cluster, flags: glyphFlags }, position) => ({
                 glyph: codepoint,
                 cluster,
                 ...Record.map(position, em),
                 extents: Option.map(Option.fromUndefinedOr(face.font.glyphExtents(codepoint)), Record.map(em)),
                 class: Array.getUnsafe(GlyphClasses.literals, face.font.face.getGlyphClass(codepoint)),
-                flags: GlyphFlags.literals.filter((flag) => (set & GlyphFlag[flag]) !== 0),
+                flags: GlyphFlags.literals.filter((flag) => (glyphFlags & GlyphFlag[flag]) !== 0),
             })),
             missing: Array.dedupe(characters.filter(({ cluster }) => unmapped.has(cluster)).map(({ codepoint }) => String.fromCodePoint(codepoint))),
         });
@@ -64,10 +68,10 @@ class Shaped extends Schema.Class<Shaped, { readonly brand: unique symbol }>('Sh
         return Number.sumAll(this.glyphs.map(Struct.get('xAdvance')));
     }
     offsetMarks({ x, y }: { readonly x: number; readonly y: number }) {
-        return Shaped.make({ glyphs: this.glyphs.map((glyph) => (glyph.class === 'MARK' ? { ...glyph, xOffset: glyph.xOffset + x, yOffset: glyph.yOffset + y } : glyph)), missing: this.missing });
+        return ShapedText.make({ glyphs: this.glyphs.map((glyph) => (glyph.class === 'MARK' ? { ...glyph, xOffset: glyph.xOffset + x, yOffset: glyph.yOffset + y } : glyph)), missing: this.missing });
     }
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Shaped };
+export { ShapedText };

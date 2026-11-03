@@ -15,12 +15,12 @@ import { TagSettings } from '#/tags';
 
 const Outlines = Schema.Literals(['glyf', 'CFF ', 'CFF2']);
 const Collection = Schema.Array(Tables.mapFields(Struct.pick(['fvar'])));
-const Opened = <S extends Schema.Top>(schema: S) => schema.pipe(Schema.encodeTo(Schema.optionalKey(Schema.Never), { decode: SchemaGetter.forbidden(() => 'Encoded face omits font data, open from font bytes'), encode: SchemaGetter.omit() }));
+const OmittedOnEncode = <S extends Schema.Top>(schema: S) => schema.pipe(Schema.encodeTo(Schema.optionalKey(Schema.Never), { decode: SchemaGetter.forbidden(() => 'Encoded face omits font data'), encode: SchemaGetter.omit() }));
 class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')(
     {
         ...Struct.Record(['postscriptName', 'fullName'], Schema.OptionFromOptionalKey(Schema.String)),
         style: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Subfamily name' })),
-        ...Record.map({ family: 'Name ID 16 else 1', version: 'Name ID 5' }, (description) => Schema.OptionFromOptionalKey(Schema.String.annotate({ description: `${description}, preferring English` }))),
+        ...Record.map({ family: Names.ids.family, version: Names.ids.version }, (ids) => Schema.OptionFromOptionalKey(Schema.String.annotate({ description: `Name ID ${Object.values(ids).join(' else ')}, preferring English` }))),
         unitsPerEm: Schema.Int.annotate({ description: 'Font units per em, other lengths in em' }),
         glyphCount: Schema.Int.annotate({ description: 'Includes .notdef' }),
         coverage: Schema.Int.annotate({ description: 'Unicode code points mapped to glyphs' }),
@@ -44,8 +44,8 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
                 variations: Schema.Record(Schema.String, Schema.Finite).annotate({ description: 'Axis values by tag' }),
             }),
         ).annotate({ description: 'Selectable by PostScript name' }),
-        font: Opened(Schema.instanceOf(Font)),
-        extenders: Opened(Schema.Array(Schema.Int).annotate({ description: 'JSTF arab extender glyphs' })),
+        font: OmittedOnEncode(Schema.instanceOf(Font)),
+        extenders: OmittedOnEncode(Schema.Array(Schema.Int).annotate({ description: 'JSTF arab extender glyphs' })),
     },
     { description: 'Face at one instance, names from instance matching coordinates, else Adobe Technical Note 5902 postscriptName' },
 ) {
@@ -57,7 +57,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         const container = yield* Effect.try({ try: () => create(Buffer.from(data.buffer, data.byteOffset, data.byteLength)), catch: (cause) => TypographyError.make({ subject: `${data.byteLength} font bytes`, cause }) }).pipe(
             Effect.filterOrFail(
                 ({ type }) => type !== 'WOFF' && type !== 'WOFF2',
-                ({ type }) => new Cause.IllegalArgumentError(`${type} unsupported, decode to OpenType or TrueType bytes`),
+                ({ type }) => new Cause.IllegalArgumentError(`${type} unsupported`),
             ),
         );
         const blob = new Blob(data);
@@ -66,35 +66,35 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         const faces = Array.zip(fonts, records).map(([parsed, { fvar }], index) => {
             const handle = new HarfBuzzFace(blob, index);
             const names = Names.of(handle);
-            const infos = Object.values(handle.getAxisInfos());
+            const axisInfos = Object.values(handle.getAxisInfos());
             const postscriptName = names.named('postscriptName');
             return {
                 parsed,
                 handle,
                 names,
-                infos,
-                base: { names: { postscriptName, fullName: names.named('fullName'), style: names.named('style') }, keys: Option.toArray(postscriptName), variations: Record.fromIterableWith(infos, ({ tag, default: fallback }) => [tag, fallback]) },
-                instances: fvar.instance.map((record) => ({ ...names.instance(record), variations: Record.fromEntries(Array.zip(infos.map(Struct.get('tag')), record.coord)) })),
+                axisInfos,
+                base: { names: { postscriptName, fullName: names.named('fullName'), style: names.named('style') }, keys: Option.toArray(postscriptName), variations: Record.fromIterableWith(axisInfos, ({ tag, default: fallback }) => [tag, fallback]) },
+                instances: fvar.instance.map((record) => ({ ...names.instance(record), variations: Record.fromEntries(Array.zip(axisInfos.map(Struct.get('tag')), record.coord)) })),
             };
         });
         const rows = faces.flatMap((face) => [face.base, ...face.instances].map((row) => ({ face, ...row })));
-        const listed = Option.flatMap(selection, (wanted) => Array.findFirst(rows, ({ keys }) => Array.contains(keys, wanted)));
+        const namedRow = Option.flatMap(selection, (wanted) => Array.findFirst(rows, ({ keys }) => Array.contains(keys, wanted)));
         const generated = Effect.fnUntraced(function* (wanted: string) {
             const { prefix, variations: decoded } = yield* Schema.decodeUnknownEffect(Names.Generated)(wanted);
             const face = yield* Effect.fromOption(Array.findFirst(faces, (each) => Option.contains(each.names.prefix, prefix) && Array.isReadonlyArrayEmpty(Array.difference(Record.keys(decoded), Record.keys(each.base.variations)))));
             return { face, variations: { ...face.base.variations, ...decoded } };
         });
-        const { face: chosen, variations: given } = yield* Option.match(selection, {
+        const { face: chosen, variations: selectedVariations } = yield* Option.match(selection, {
             onNone: () =>
                 Effect.map(
                     Unmatched.single(faces, 'face in collection', Option.none(), ({ base }) => base.keys),
                     (face) => ({ face, variations: face.base.variations }),
                 ),
-            onSome: (wanted) => Effect.mapError(Option.match(listed, { onNone: () => generated(wanted), onSome: Effect.succeed }), () => Unmatched.make({ subject: 'face or instance', query: selection, candidates: Array.getSomes(rows.map(flow(Struct.get('names'), Struct.get('postscriptName')))) })),
+            onSome: (wanted) => Effect.mapError(Option.match(namedRow, { onNone: () => generated(wanted), onSome: Effect.succeed }), () => Unmatched.make({ subject: 'face or instance', query: selection, candidates: Array.getSomes(rows.map(flow(Struct.get('names'), Struct.get('postscriptName')))) })),
         });
         const tables = yield* Schema.decodeUnknownEffect(Tables)(chosen.parsed);
-        const requested = { ...given, ...Record.fromIterableWith([...variations, ...Option.toArray(Option.map(size, (points) => new Variation('opsz', points)))], ({ tag, value }) => [tag, value]) };
-        const axes = chosen.infos.map(({ tag, nameId, flags, min, default: fallback, max }) => ({
+        const requested = { ...selectedVariations, ...Record.fromIterableWith([...variations, ...Option.toArray(Option.map(size, (points) => new Variation('opsz', points)))], ({ tag, value }) => [tag, value]) };
+        const axes = chosen.axisInfos.map(({ tag, nameId, flags, min, default: fallback, max }) => ({
             tag,
             name: chosen.names.byId(nameId),
             min,
@@ -104,11 +104,11 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             hidden: (flags & AxisFlags.HIDDEN) !== 0,
         }));
         const coordinates = Record.fromIterableWith(axes, ({ tag, value }) => [tag, Names.coordinate(value)]);
-        const encoded = yield* chosen.names.generated(Record.filter(coordinates, (value, tag) => Option.exists(Record.get(chosen.base.variations, tag), (fallback) => Names.coordinate(fallback) !== value)));
+        const generatedName = yield* chosen.names.generated(Record.filter(coordinates, (value, tag) => Option.exists(Record.get(chosen.base.variations, tag), (fallback) => Names.coordinate(fallback) !== value)));
         const identity = pipe(
-            Array.findFirst([...Option.toArray(listed), chosen.base, ...chosen.instances], (row) => Equal.equals(Record.map(row.variations, Names.coordinate), coordinates)),
+            Array.findFirst([...Option.toArray(namedRow), chosen.base, ...chosen.instances], (row) => Equal.equals(Record.map(row.variations, Names.coordinate), coordinates)),
             Option.map(Struct.get('names')),
-            Option.getOrElse(() => ({ postscriptName: encoded, fullName: Option.none<string>(), style: Option.none<string>() })),
+            Option.getOrElse(() => ({ postscriptName: generatedName, fullName: Option.none<string>(), style: Option.none<string>() })),
         );
         const font = new Font(chosen.handle);
         font.setVariations(axes.map(({ tag, value }) => new Variation(tag, value)));
@@ -150,7 +150,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
 
 class TypographyError extends Schema.TaggedError<TypographyError, { readonly brand: unique symbol }>()('TypographyError', { subject: Schema.String, cause: Schema.Defect() }) {
     override get message() {
-        return `Unreadable ${this.subject}, decode to OpenType or TrueType bytes`;
+        return `Unreadable ${this.subject}`;
     }
 }
 

@@ -6,7 +6,7 @@ import { error, Reference } from '#/requests';
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Adjust extends Schema.Class<Adjust, { readonly brand: unique symbol }>('Adjust')({
-    target: Schema.String.annotate({ description: 'Text or text container specifier, / for text defaults' }),
+    target: Schema.String.annotate({ description: 'Text or container specifier, / for text defaults' }),
     deltas: Schema.Struct({
         kerning: Schema.optionalKey(Schema.Finite.annotate({ description: 'Em after last base letter, before its marks, negative tightens' })),
         tracking: Schema.optionalKey(Schema.Finite.annotate({ description: 'Em, negative tightens' })),
@@ -19,9 +19,9 @@ class Adjust extends Schema.Class<Adjust, { readonly brand: unique symbol }>('Ad
         ),
     })
         .check(Schema.isMinProperties(1))
-        .annotate({ description: 'Added to current value of each style run' }),
+        .annotate({ description: 'Added to each style run value' }),
 }) {
-    static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String).annotate({ description: 'Members written' }) }));
+    static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String).annotate({ description: 'Member names' }) }));
 
     get label(): string {
         return `Adjust ${Struct.keys(this.deltas).join(', ')} of ${this.target}`;
@@ -31,12 +31,12 @@ class Kerns extends Schema.Class<Kerns, { readonly brand: unique symbol }>('Kern
     target: Adjust.fields.target,
     kerns: Schema.Array(
         Schema.Struct({
-            index: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).annotate({ description: 'Insertion point index within target' }),
+            index: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).annotate({ description: 'Insertion point index in target' }),
             em: Schema.Finite.annotate({ description: 'Negative tightens' }),
         }),
-    ).annotate({ description: 'Kerning written at insertion points, nonzero manual kerning kept' }),
+    ).annotate({ description: 'Written at insertion points, nonzero manual kerning kept' }),
 }) {
-    static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Int.annotate({ description: 'Insertion points written' }) }));
+    static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Int.annotate({ description: 'Insertion point count' }) }));
 
     get label(): string {
         return `Kern ${this.kerns.length} insertion points of ${this.target}`;
@@ -46,7 +46,7 @@ class Typeset extends Schema.Class<Typeset, { readonly brand: unique symbol }>('
     target: Adjust.fields.target,
     settings: Schema.OptionFromOptionalKey(Settings.Partial.check(Schema.isMinProperties(1))),
 }) {
-    static readonly Result = Settings.annotate({ description: 'Settings of target, first run of mixed text' });
+    static readonly Result = Settings.annotate({ description: 'Target settings, first run of mixed text' });
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

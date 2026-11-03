@@ -1,5 +1,5 @@
 import { Array, Effect, Function, flow, Option, Predicate, pipe, Schema } from 'effect';
-import { ranked } from '#/ranked';
+import { rank } from '#/rank';
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -39,14 +39,14 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
     );
 
     override get message(): string {
-        const suggestions = 100;
+        const limit = 100;
         const ordered = pipe(
             this.query,
-            Option.map((query) => ranked(query, this.candidates)),
+            Option.map((query) => rank(query, this.candidates)),
             Option.filter(Array.isReadonlyArrayNonEmpty),
             Option.getOrElse(() => this.candidates),
         );
-        const shown = Array.take(ordered, suggestions);
+        const shown = Array.take(ordered, limit);
         const rest = this.candidates.length - shown.length;
         const listed = new Intl.ListFormat('en').format([...shown, ...(rest === 0 ? [] : [`${rest} more`])]);
         return `No ${this.subject}${Option.match(this.query, { onNone: () => '', onSome: (query) => ` matching ${query}` })}${listed === '' ? '' : `, candidates: ${listed}`}`;

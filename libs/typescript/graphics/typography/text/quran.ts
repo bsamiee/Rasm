@@ -16,12 +16,12 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
     static readonly Columns = Schema.Struct({ ayahs: Schema.Struct(Struct.Record(Struct.keys(AyahRow.fields), Header)), surahs: Schema.Struct(Struct.Record(Struct.keys(SurahRow.fields), Header)) });
     static readonly decode = Effect.fn('Quran.decode')(function* (files: { readonly ayahs: string; readonly surahs: string }, columns: typeof Quran.Columns.Type) {
         const [ayahs, surahs] = yield* Effect.all([rows(AyahRow, files.ayahs, columns.ayahs), rows(SurahRow, files.surahs, columns.surahs)]);
-        const groups = Array.groupBy(ayahs, ({ surah }) => String(surah));
-        const named = Array.dedupeWith(surahs, (left, right) => left.number === right.number);
-        yield* Effect.forEach(Record.keys(groups), (surah) => Unmatched.single(named, 'surah', Option.some(surah), ({ number }) => [String(number)]));
+        const ayahsBySurah = Array.groupBy(ayahs, ({ surah }) => String(surah));
+        const uniqueSurahs = Array.dedupeWith(surahs, (left, right) => left.number === right.number);
+        yield* Effect.forEach(Record.keys(ayahsBySurah), (surah) => Unmatched.single(uniqueSurahs, 'surah', Option.some(surah), ({ number }) => [String(number)]));
         return Quran.make({
             surahs: Array.sortWith(
-                named.map(({ number, name }) => ({ number, name, ayahs: Array.map(groups[String(number)] ?? [], Struct.omit(['surah'])) })),
+                uniqueSurahs.map(({ number, name }) => ({ number, name, ayahs: Array.map(ayahsBySurah[String(number)] ?? [], Struct.omit(['surah'])) })),
                 Struct.get('number'),
                 Order.Number,
             ),

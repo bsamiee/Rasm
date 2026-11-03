@@ -8,14 +8,14 @@ const DECIMAL = /\p{Nd}/gu;
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Digits extends Data.Class<{ readonly system: string; readonly table: readonly string[] }> {
-    static readonly #place = (digit: string): number =>
+    static readonly #value = (digit: string): number =>
         Array.unfold((digit.codePointAt(0) ?? 0) - 1, (previous) =>
             Option.map(
                 Option.liftPredicate(previous, (candidate) => String.fromCodePoint(candidate).search(DECIMAL) === 0),
-                (run) => [run, run - 1] as const,
+                (codePoint) => [codePoint, codePoint - 1] as const,
             ),
         ).length % ASCII.length;
-    static readonly fold = (text: string): string => text.replace(DECIMAL, (digit) => `${Digits.#place(digit)}`);
+    static readonly fold = (text: string): string => text.replace(DECIMAL, (digit) => `${Digits.#value(digit)}`);
     static readonly of = (system: string): Option.Option<Digits> =>
         Option.map(
             Option.liftPredicate(system, (given) => Array.contains(Intl.supportedValuesOf('numberingSystem'), given)),

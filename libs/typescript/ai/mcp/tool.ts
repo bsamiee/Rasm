@@ -27,10 +27,10 @@ const registerTool = Effect.fnUntraced(function* <P extends Schema.Top, S extend
     const visible = Context.get(tool.annotations, Visible);
     yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide([toolkit.toLayer({ [tool.name]: Function.identity }), McpServer.visibility(() => orInternalError(visible)).layer]));
 });
-const stated = flow(Record.fromEntries<readonly [string, Schema.Json]>, Schema.encodeEffect(Schema.fromJsonString(Schema.JsonObject)), Effect.orDie);
-const refused = flow(
-    stated,
-    Effect.map((shown) => new Cause.IllegalArgumentError(shown)),
+const encodeEntries = flow(Record.fromEntries<readonly [string, Schema.Json]>, Schema.encodeEffect(Schema.fromJsonString(Schema.JsonObject)), Effect.orDie);
+const refusalError = flow(
+    encodeEntries,
+    Effect.map((reportText) => new Cause.IllegalArgumentError(reportText)),
 );
 const registerRoutedTool =
     <Chosen, Fields extends Schema.Struct.Fields, RR>(route: Route<Chosen, Fields, RR>) =>
@@ -49,9 +49,9 @@ const registerRoutedTool =
                     (exit) => !(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)),
                     () =>
                         Effect.gen(function* () {
-                            const [[holding, failed], { add }] = yield* Effect.all([Effect.partition(dependencies, (dependency) => orInternalError(dependency.report), { concurrency: 'unbounded' }), ToolCall]);
-                            const shown = yield* pipe(holding, Array.getSomes, Option.liftPredicate(Array.isReadonlyArrayNonEmpty), Option.map(stated), Effect.transposeOption);
-                            yield* Effect.forEach([...Option.toArray(shown), ...Array.map(failed, Struct.get('message'))], (text) => add(McpSchema.TextContent.make({ text })), { discard: true });
+                            const [[reports, failed], { add }] = yield* Effect.all([Effect.partition(dependencies, (dependency) => orInternalError(dependency.report), { concurrency: 'unbounded' }), ToolCall]);
+                            const reportText = yield* pipe(reports, Array.getSomes, Option.liftPredicate(Array.isReadonlyArrayNonEmpty), Option.map(encodeEntries), Effect.transposeOption);
+                            yield* Effect.forEach([...Option.toArray(reportText), ...Array.map(failed, Struct.get('message'))], (text) => add(McpSchema.TextContent.make({ text })), { discard: true });
                         }),
                 );
         const guarded =
@@ -60,11 +60,11 @@ const registerRoutedTool =
                 Effect.scoped(
                     Effect.gen(function* () {
                         const peeled = yield* Effect.forEach(dependencies, (dependency) => Stream.peel(dependency.refusal, Sink.head()));
-                        yield* Array.match(Array.getSomes(Array.map(peeled, ([first]) => Option.flatten(first))), { onEmpty: () => Effect.void, onNonEmpty: flow(refused, Effect.flatMap(Effect.fail)) });
+                        yield* Array.match(Array.getSomes(Array.map(peeled, ([first]) => Option.flatten(first))), { onEmpty: () => Effect.void, onNonEmpty: flow(refusalError, Effect.flatMap(Effect.fail)) });
                         yield* Stream.mergeAll(Array.map(peeled, Tuple.get(1)), { concurrency: 'unbounded' }).pipe(
                             Stream.filter(Option.isSome),
                             Stream.take(1),
-                            Stream.mapEffect(({ value }) => refused([value])),
+                            Stream.mapEffect(({ value }) => refusalError([value])),
                             Stream.catch(Stream.succeed),
                             Stream.runForEach((refusal) => ToolCall.use(({ respond }) => respond(refusal))),
                             Effect.forkScoped,
