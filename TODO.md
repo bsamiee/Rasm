@@ -78,7 +78,7 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 
 ### State
 
-- **Running:** `internals-finish` (preferences, right-to-left, composers, color, guides) and `font-foundry`; the derivation principle (`.artifacts/workflows/skills/derivation.md`) landed in every `<language>-coding` skill (`0a2cc53ef`).
+- **Running:** `internals-finish` on color alone with one binary round (preferences, right-to-left, composers and guides distilled); `font-foundry` stopped, its tooling replaced by the font library; the derivation principle (`.artifacts/workflows/skills/derivation.md`) landed in every `<language>-coding` skill (`0a2cc53ef`).
 - **InPage landing:** library, depth pass (`f9bfccb21`) and Atelier (`233e6a109`) committed; plan at `.artifacts/workflows/typescript-extension/inpage/PLAN.md`.
 - **Research notes:** every value stated as library behavior is rewritten as the relation, parameter or measured property it derives from; `grids.md` holds one page relation solved for any free quantity.
 - **Harnesses:** rebuilt on one launch path with no automatic quit, kill, press, or relaunch; a dialog, hang, or crash ends a batch, pid in `failed`.
