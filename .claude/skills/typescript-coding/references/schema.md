@@ -114,6 +114,7 @@ const CertificateFromPem = Schema.String.pipe(
 - Transformations shared by more than one schema are one value, `composeTransformation` chains transformations in place of an intermediate schema
 - `Schema.StringFromUriComponent` as a `TemplateLiteralParser` part escapes each URI path segment on encode
 - Services a transformation reads join `DecodingServices` and `EncodingServices`, and the decode effect requires them
+- Values writing side output on JSON encode declare it through `X.annotate({ toCodecJson: () => Schema.link<T>()(Schema.String, { decode: SchemaGetter.forbidden(f), encode: SchemaGetter.transformEffect((v) => Output.use(({ add }) => Effect.as(add(v), label(v)))) }) })`, and every codec deriving from `X` writes through `Output`, a `Context.Reference`
 - Runtime handles stay out of the encoded value through `encodeTo(Schema.optionalKey(Schema.Never), { decode: SchemaGetter.forbidden(f), encode: SchemaGetter.omit() })`
 - `Schema.decodeEffect` types its input as the schema's `Encoded` and `decodeUnknownEffect` as `unknown`, both running one decode
 
@@ -161,4 +162,7 @@ const snakeCased = <S extends Schema.Top & { readonly fields: Schema.Struct.Fiel
 - Writes encode through the codec their read decodes with, `Schema.encodeEffect(Schema.fromJsonString(X))` in place of `JSON.stringify`
 - `toCodecGoJson` decodes the `null` Go writes for a nil slice, map, or optional field as empty or absent
 - `Schema.toCodecArrayFromSingle` over an array field accepts the lone value a query string or form sends for a one-item list
+- `Schema.Exit(A, E, Schema.Defect())` encodes a finished run, `Schema.Result(A, Schema.ErrorInstance())` a stream item holding its own failure
+- Members typed `Schema.instanceOf(C, { toCodecJson: () => undefined })` encode to nothing in JSON
+- `.check(Schema.isMinProperties(1))` on an all-optional struct rejects an empty patch
 - `Schema.ArrayEnsure(S)` normalizes one value or an array of values into an array on decode, an `Array.ensure` over a decoded value restating it

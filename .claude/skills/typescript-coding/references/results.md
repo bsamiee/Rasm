@@ -14,6 +14,7 @@ const escalation = Effect.fn('escalation')(function* (id: CustomerId) {
 
 - `Effect.fromNullishOr` enters a nullable host value into the same chain
 - `Effect.fromOption(option, onNone)` fails with the error `onNone` builds (a `SchemaIssue`, a lookup's candidates), and a rebuilt `NoSuchElementError` restates it
+- Exactly-one lookups fail through `Effect.filterOrFail(lookup, Predicate.isTupleOf(1), onOther)` and map through `Array.headNonEmpty`, at-least-one lookups through `Effect.fromOption(Option.liftPredicate(matches, Array.isReadonlyArrayNonEmpty), onEmpty)`
 - `UndefinedOr.match(x, { onUndefined, onDefined })` and `UndefinedOr.map` fold an optional field in place of converting it through `Option.fromUndefinedOr` to match it
 - `Option.firstSomeOf` returns the first present source, and a new source is one more element of its list
 - `Array.findFirst` with a function returning `Option` finds and maps in one pass
@@ -77,7 +78,8 @@ Defects are failures no caller handles (a broken invariant, a host call throwing
 const isolated = <A, E, R>(job: Effect.Effect<A, E, R>) => Effect.catchCauseIf(Effect.asVoid(job), Predicate.not(Cause.hasInterruptsOnly), Effect.logError);
 ```
 
-- `Predicate.not(Cause.hasInterruptsOnly)` leaves an interrupted job's cause an interruption and logs nothing
+- `Predicate.not(Cause.hasInterruptsOnly)` leaves an interrupted job's cause an interruption and logs nothing, and a `catchCause` returning `Effect.interrupt` replaces the job's interruption with the current fiber's
+- Causes rendered into a value (an error response, a reply) are a pure `(cause) => A` over `Cause.fail(e)`, an `Effect.flip` over a caught `Effect.fail` restating it as an effect
 - `Effect.logError` attaches a cause argument to its log record
 - `Effect.catchDefect` stands at a boundary recovering defects alone, and typed errors stay for its caller
 - Steps no later step reads (a finalizer, a cleanup) log and discard through `Effect.ignore({ log, message })`, which keeps defects
