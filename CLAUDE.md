@@ -11,6 +11,7 @@
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Run applications and hosts live as work needs them
 - Host probes run through `tools/harnesses`, a probe that fails or falls short fixes its harness at the cause as general capability
+- Tools agents run outside Nx targets answer in one command with no path or flag beyond the question, and log, observe, and clean up automatically
 - Checks, tests, and host probes run once when work is done, a loop that reruns them after each change is a defect
 
 ## [01]-[LANGUAGE_STANDARDS]
