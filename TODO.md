@@ -44,7 +44,6 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 ### Open defects
 
 - **Split concepts:** modules export a model beside its operations under separate names (`{ Change, change }`, the `@rasm/indesign` requests, `{ Destination, destination }` in the portfolio uploader, `FontView`, `PreflightProcessView`); each folds into one name with its operations.
-- **Unread exports:** knip as a root check with each package's real entry points.
 - **Stroke gap:** InDesign reads the stroke family's 4 pt bottom-edge case as 4 against 1 from the rebuilt module.
 - **Ghidra migration:** `.artifacts/workflows/ghidra/MIGRATION.md` once the decompile runs finish.
 
