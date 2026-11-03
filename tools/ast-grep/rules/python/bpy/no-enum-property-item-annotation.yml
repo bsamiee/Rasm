@@ -7,12 +7,13 @@ files:
     - apps/blender/**
 rule:
     pattern: $ITEM
-    matches: {python-member-use: {module: {regex: '^bpy\.types$'}, name: {regex: '^EnumPropertyItem$'}}}
-    inside:
-        kind: type
-        stopBy: end
-        any:
-            - inside: {kind: assignment, field: type}
-            - inside: {kind: function_definition, field: return_type}
+    all:
+        - inside:
+            kind: type
+            stopBy: end
+            any:
+                - inside: {kind: assignment, field: type}
+                - inside: {kind: function_definition, field: return_type}
+        - matches: {python-member-use: {module: {regex: '^bpy\.types$'}, name: {regex: '^EnumPropertyItem$'}}}
 message: 'Declared `$ITEM` value outlives the `enum_items` iteration that frees dynamic enum items'
 note: 'Hold `<item>.identifier`'

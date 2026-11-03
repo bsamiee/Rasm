@@ -18,6 +18,8 @@ pub enum Relation {
     Equality,
 }
 
+pub trait Objective<E> = Fn(&[f64], Option<&mut [f64]>) -> Result<f64, E>;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[nutype::nutype(validate(predicate = |maxtime| !maxtime.is_zero()), derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord))]
@@ -67,8 +69,8 @@ pub struct Settings<'problem> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn optimize<K, F>(space: &Space<K>, start: DVector<f64>, target: Target, objective: F, settings: &Settings<'_>) -> Result<Solution, NEVec<OptimizeError>>
-where F: ObjFn<()> {
+pub fn optimize<K, F, E>(space: &Space<K>, start: DVector<f64>, target: Target, objective: F, settings: &Settings<'_>) -> Result<Result<Solution, E>, NEVec<OptimizeError>>
+where F: Objective<E> {
     fn configure<O, U>(nlopt: &mut Nlopt<O, U>, optimizer: &Optimizer) -> Result<(), FailState>
     where O: ObjFn<U> {
         let scalars = [
@@ -98,7 +100,23 @@ where F: ObjFn<()> {
     .collect::<Validated<(), _>>()
     .ok()?;
     let ends = |end: fn(&Bounds) -> f64| space.values().into_iter().map(end).collect::<Vec<_>>();
-    let mut nlopt = Nlopt::new(settings.optimizer.algorithm, dimensions, objective, target, ());
+    let worst = match target {
+        Target::Minimize => f64::INFINITY,
+        Target::Maximize => f64::NEG_INFINITY,
+    };
+    let mut nlopt = Nlopt::new(
+        settings.optimizer.algorithm,
+        dimensions,
+        |point: &[f64], slot: Option<&mut [f64]>, failure: &mut Option<E>| match failure {
+            Some(_) => worst,
+            None => objective(point, slot).unwrap_or_else(|error| {
+                *failure = Some(error);
+                worst
+            }),
+        },
+        target,
+        None,
+    );
     (try {
         nlopt.set_lower_bounds(&ends(|bounds| bounds.start))?;
         nlopt.set_upper_bounds(&ends(|bounds| bounds.last))?;
@@ -126,13 +144,15 @@ where F: ObjFn<()> {
             .map_err(|state| OptimizeError::Constraint { constraint, state })
         })
         .map_err(NEVec::new)?;
-    Nlopt::<F, ()>::srand_seed(settings.seed.map(u64::from));
+    Nlopt::<fn(&[f64], Option<&mut [f64]>, &mut ()) -> f64, ()>::srand_seed(settings.seed.map(u64::from));
     let mut point = start;
-    match nlopt.optimize(point.as_mut_slice()) {
-        Err((state @ (FailState::InvalidArgs | FailState::OutOfMemory), _)) => Err(OptimizeError::Algorithm { algorithm: settings.optimizer.algorithm, state }),
-        Err((state, value)) => Err(OptimizeError::Nonlinear { point, objective: value, termination: Termination::Failure(state) }),
-        Ok((_, value)) if !value.is_finite() => Err(OptimizeError::Nonlinear { point, objective: value, termination: Termination::Objective }),
-        Ok((status, value)) => Ok(Solution { point, objective: value, status }),
+    let outcome = nlopt.optimize(point.as_mut_slice());
+    match (outcome, nlopt.recover_user_data()) {
+        (Err((state @ (FailState::InvalidArgs | FailState::OutOfMemory), _)), _) => Err(OptimizeError::Algorithm { algorithm: settings.optimizer.algorithm, state }),
+        (_, Some(failure)) => Ok(Err(failure)),
+        (Err((state, value)), None) => Err(OptimizeError::Nonlinear { point, objective: value, termination: Termination::Failure(state) }),
+        (Ok((_, value)), None) if !value.is_finite() => Err(OptimizeError::Nonlinear { point, objective: value, termination: Termination::Objective }),
+        (Ok((status, value)), None) => Ok(Ok(Solution { point, objective: value, status })),
     }
     .map_err(NEVec::new)
 }

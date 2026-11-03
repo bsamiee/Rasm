@@ -1,4 +1,4 @@
-#![feature(default_field_values, deref_patterns, try_blocks)]
+#![feature(default_field_values, deref_patterns, trait_alias, try_blocks)]
 
 use clarabel::{
     algebra::SparseFormatError,

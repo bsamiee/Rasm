@@ -1,6 +1,6 @@
 import { Schema, Struct } from 'effect';
 import { answers, Expression, Name, Reads } from '#/cases';
-import { common, Enumerated, hostCase, outcome, record, recorded, reply } from '#/results';
+import { Common, Enumerated, hostCase, outcome, record, recorded, reply } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -71,7 +71,7 @@ const State = Schema.Struct({
 const Header = Schema.Struct({ application: Schema.String, version: Schema.String, state: State, survey: Schema.optionalKey(Survey) });
 const Reply = reply(Header);
 const fields = {
-    ...common,
+    ...Common.fields,
     writes: recorded(
         Schema.Struct({
             target: Schema.optionalKey(Schema.String.annotate({ description: 'object:/document[@id=N] with /layer[@id=M], /<part>[n], or /json under it, or customOptions, the application when absent' })),

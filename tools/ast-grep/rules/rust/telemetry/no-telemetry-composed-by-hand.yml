@@ -8,7 +8,6 @@ utils:
         any:
             - kind: scoped_identifier
               regex: '^(::)?((tracing::)?(subscriber|dispatcher)|tracing)::(set_global_default|set_default|with_default)$|^(::)?(tracing_log::)?LogTracer::init$'
-            - matches: {rust-imported-name: {source: {regex: '\btracing\b'}, name: {regex: '^(set_global_default|set_default|with_default)$'}}}
             - kind: field_expression
               all:
                 - has: {field: field, regex: '^init$'}
@@ -24,15 +23,12 @@ utils:
                 - regex: '(?s)^\w*Builder::(new|default)\(\)'
                 - inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '(?s)\blog_tracer::.*\bBuilder\b'}}
     global-install:
-        any:
-            - kind: scoped_identifier
-              regex: '(^|::)global::set_(tracer_provider|meter_provider|text_map_propagator)$'
-            - matches: {rust-imported-name: {source: {regex: '\bglobal\b'}, name: {regex: '^set_(tracer_provider|meter_provider|text_map_propagator)$'}}}
+        kind: scoped_identifier
+        regex: '(^|::)global::set_(tracer_provider|meter_provider|text_map_propagator)$'
     panic-hook:
         any:
             - kind: scoped_identifier
               regex: '(^|::)panic::(set_hook|take_hook)$'
-            - matches: {rust-imported-name: {source: {regex: '\bpanic\b'}, name: {regex: '^(set_hook|take_hook)$'}}}
             - all:
                 - any:
                     - {kind: scoped_identifier, regex: '(^|::)panic::update_hook$'}
@@ -50,14 +46,16 @@ utils:
 rule:
     kind: 'identifier, scoped_identifier, field_expression'
     pattern: $SITE
-    any:
-        - matches: subscriber-install
-        - matches: global-install
-        - matches: panic-hook
-    not:
-        any:
-            - matches: rust-test-scope
-            - inside: {kind: scoped_identifier}
-            - inside: {kind: use_declaration, stopBy: end}
+    all:
+        - not:
+            any:
+                - inside: {kind: scoped_identifier}
+                - inside: {kind: use_declaration, stopBy: end}
+        - any:
+            - matches: subscriber-install
+            - matches: global-install
+            - matches: panic-hook
+            - matches: {rust-imported-name: {source: {regex: '\b(tracing|global|panic)\b'}, name: {regex: '^(set_global_default|set_default|with_default|set_(tracer_provider|meter_provider|text_map_propagator)|set_hook|take_hook)$'}}}
+        - not: {matches: rust-test-scope}
 message: '`$SITE` installs a subscriber, `LogTracer`, provider, or propagator outside `rasm-telemetry`, or a panic hook dropping the one before it'
 note: 'Run process entry through `rasm_command::run`, and chain a hook held for process lifetime onto the previous hook through `panic::update_hook` calling its first parameter'

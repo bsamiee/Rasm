@@ -134,9 +134,11 @@ enum Request: Decodable, Sendable {
                 )
                 return try await .value(Executed(reply: AppleEventValue(event.sent(), in: dictionary), reading: artifacts))
             case .screenshot(let pid, let window, let longestSide, let file):
-                let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration(file: file)
+                let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
                 configuration.showsCursor = false
-                return try await .value(Captured(windows: running(pid).instance.screenshot(of: window, longestSide: longestSide, configuration: configuration).windows))
+                let captured: (output: SCScreenshotOutput, windows: [CGWindowID]) = try await running(pid).instance.screenshot(of: window, longestSide: longestSide, configuration: configuration)
+                try captured.output.write(to: file)
+                return .value(Captured(windows: captured.windows))
             case .faces:
                 return .value(FontFace.available())
             case .face(let name):

@@ -36,7 +36,7 @@ const composed = Effect.fnUntraced(function* (source: typeof Source.Type, instan
     const justified = Option.map(width, (line) => Justification.justify(face, run, line, settings));
     return {
         face,
-        shaped: Option.match(justified, { onNone: () => ShapedText.of(face, run), onSome: Struct.get('shaped') }).offsetMarks(settings.marks),
+        shaped: Option.match(justified, { onNone: () => ShapedText.of(face, run, settings), onSome: Struct.get('shaped') }).offsetMarks(settings.marks),
         justified: Option.map(justified, ({ run: { text }, slack, ratios, amounts }) => ({ text, slack, ratios, amounts })),
     };
 });

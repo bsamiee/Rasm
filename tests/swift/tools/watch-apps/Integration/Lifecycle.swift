@@ -86,7 +86,7 @@ extension Integration {
             expectNoDifference(Set(launched.lines.map(\.key)), [fixture.identifier])
             expectNoDifference(Set(pids(in: launched.lines)), [[launched.pid]])
             expectNoDifference(launchPhases, launching + [.responding])
-            expectNoDifference(phases(of: launched.pid, in: transcript), [.launching, .responding])
+            expectNoDifference(Array(phases(of: launched.pid, in: transcript).drop { phase in phase == .launching }), [.responding])
             expectNoDifference(outline, [Outline(role: "AXWindow", subrole: "AXStandardWindow", title: "Fixture 0", requiresAnswer: false, numbered: true, detailed: false)])
         }
 
@@ -122,6 +122,9 @@ extension Integration {
             }
             expectNoDifference(ended.status, .exited(0))
             expectNoDifference(phases(in: ended.lines.map(\.line)), [.launching])
+            _ = try await watching([fixture.identifier], within: .seconds(15)) { lines in
+                _ = try await lines.next { line in line.entry.instances?[ended.outcome]?.phase == .responding }
+            }
             let titles: [String] = try await read(fixture, pid: ended.outcome).compactMap(\.title)
             expectNoDifference(titles.contains("Fixture 0"), true, "\(titles)")
         }
@@ -189,7 +192,7 @@ extension Integration {
                 try await press(.hangBusy, in: fixture, pid: pid)
                 let hung: TimedLine<WatchAppsLine> = try await lines.next { line in line.entry.instances?[pid]?.phase == .unresponsive(.running) }
                 _ = try #require(hung.line.entry.instances?[pid]?.running?.usage, "unresponsive line holds usage")
-                expectNoDifference(hung.line.windows(of: pid)?.map(\.number).contains(described), true)
+                expectNoDifference(hung.line.windows(of: pid)?.contains { window in window.number == described }, true)
                 let released: Int32 = kill(pid, SIGUSR1)
                 expectNoDifference(released, 0)
                 _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }

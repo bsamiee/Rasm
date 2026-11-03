@@ -43,6 +43,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SequencedMap;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -53,10 +54,6 @@ import java.util.stream.Stream;
 
 public class Apply extends GhidraScript {
     // --- [ROWS]
-
-    private static final String NONE = "-";
-
-    private static final int COLUMNS = 7;
 
     enum Kind {
         FUNCTION,
@@ -111,13 +108,12 @@ public class Apply extends GhidraScript {
         }
     }
 
-    private static Optional<String> cell(String[] cells, int index) {
-        return Optional.of(index < cells.length ? cells[index].strip() : "")
-                .filter(text -> !text.isEmpty() && !NONE.equals(text));
-    }
-
     private Report.Result<Row> row(Path file, int number, String line) {
         String[] cells = line.split("\t", -1);
+        IntFunction<Optional<String>> cell =
+                index ->
+                        Optional.of(index < cells.length ? cells[index].strip() : "")
+                                .filter(text -> !text.isEmpty() && !"-".equals(text));
         String at = "%s:%d".formatted(file, number);
         Optional<Address> address =
                 Optional.ofNullable(
@@ -127,11 +123,11 @@ public class Apply extends GhidraScript {
                         .filter(each ->
                                 each.name()
                                         .equalsIgnoreCase(
-                                                cell(cells, COLUMNS - 1)
+                                                cell.apply(6)
                                                         .orElse(Kind.FUNCTION.name())))
                         .findFirst();
         List<Local> locals =
-                cell(cells, 5).stream()
+                cell.apply(5).stream()
                         .flatMap(text -> Arrays.stream(text.split(";")))
                         .filter(Predicate.not(String::isBlank))
                         .map(Local::of)
@@ -161,54 +157,38 @@ public class Apply extends GhidraScript {
                                 : new Report.Success<>(
                                         new Row(
                                                 address.get(),
-                                                cell(cells, 1)
+                                                cell.apply(1)
                                                         .map(text ->
                                                                 SymbolUtilities.replaceInvalidChars(
                                                                         text, true)),
-                                                cell(cells, 2)
+                                                cell.apply(2)
                                                         .map(text ->
                                                                 SymbolUtilities.replaceInvalidChars(
                                                                         text, true)),
-                                                cell(cells, 3),
-                                                cell(cells, 4),
+                                                cell.apply(3),
+                                                cell.apply(4),
                                                 locals,
                                                 kind.get()));
     }
 
-    private Stream<Report.Result<Row>> rows(String file) {
-        Path path = Path.of(file);
-        try {
-            List<String> lines = Files.readAllLines(path);
-            return IntStream.range(0, lines.size())
-                    .filter(index -> !lines.get(index).isBlank())
-                    .filter(index -> !lines.get(index).startsWith("#"))
-                    .mapToObj(index -> row(path, index + 1, lines.get(index)));
-        } catch (IOException exception) {
-            return Stream.of(
-                    new Report.Failure<>(
-                            "Rows file `%s` is unreadable, %s".formatted(file, exception)));
-        }
-    }
-
     // --- [NAMES]
-
-    private Namespace namespace(Optional<String> path)
-            throws InvalidInputException, DuplicateNameException {
-        if (path.isEmpty()) {
-            return currentProgram.getGlobalNamespace();
-        }
-        Namespace namespace =
-                NamespaceUtils.createNamespaceHierarchy(
-                        path.get(), null, currentProgram, SourceType.USER_DEFINED);
-        return namespace.getSymbol().getSymbolType() == SymbolType.NAMESPACE
-                ? NamespaceUtils.convertNamespaceToClass(namespace)
-                : namespace;
-    }
 
     private Outcome name(Row row) {
         Step step = row.kind() == Kind.LABEL ? Step.LABELED : Step.NAMED;
         try {
-            Namespace namespace = namespace(row.namespace());
+            Namespace created =
+                    row.namespace().isPresent()
+                            ? NamespaceUtils.createNamespaceHierarchy(
+                                    row.namespace().get(),
+                                    null,
+                                    currentProgram,
+                                    SourceType.USER_DEFINED)
+                            : currentProgram.getGlobalNamespace();
+            Namespace namespace =
+                    row.namespace().isPresent()
+                                    && created.getSymbol().getSymbolType() == SymbolType.NAMESPACE
+                            ? NamespaceUtils.convertNamespaceToClass(created)
+                            : created;
             return switch (row.kind()) {
                 case LABEL -> {
                     Symbol label =
@@ -251,51 +231,6 @@ public class Apply extends GhidraScript {
                 | DuplicateNameException
                 | CircularDependencyException exception) {
             return new Outcome(step, row.address(), new Report.Failure<>(exception.getMessage()));
-        }
-    }
-
-    // --- [PROTOTYPES]
-
-    private Outcome type(Row row, String prototype) {
-        Function function = getFunctionAt(row.address());
-        try {
-            FunctionDefinitionDataType definition =
-                    CParserUtils.parseSignature(
-                            (DataTypeManagerService) null, currentProgram, prototype, false);
-            if (definition == null) {
-                return new Outcome(
-                        Step.TYPED,
-                        row.address(),
-                        new Report.Failure<>("`%s` holds no function name".formatted(prototype)));
-            }
-            ApplyFunctionSignatureCmd command =
-                    new ApplyFunctionSignatureCmd(
-                            row.address(),
-                            definition,
-                            SourceType.USER_DEFINED,
-                            definition.hasUnknownCallingConventionName(),
-                            false,
-                            DataTypeConflictHandler.DEFAULT_HANDLER,
-                            FunctionRenameOption.NO_CHANGE);
-            return new Outcome(
-                    Step.TYPED,
-                    row.address(),
-                    runCommand(command)
-                            ? new Report.Success<>(function.getPrototypeString(true, false))
-                            : new Report.Failure<>(command.getStatusMsg()));
-        } catch (ParseException exception) {
-            return new Outcome(
-                    Step.TYPED,
-                    row.address(),
-                    new Report.Failure<>(
-                            "`%s` did not parse (%s)"
-                                    .formatted(
-                                            prototype,
-                                            exception
-                                                    .getMessage()
-                                                    .lines()
-                                                    .findFirst()
-                                                    .orElse(""))));
         }
     }
 
@@ -403,7 +338,24 @@ public class Apply extends GhidraScript {
         List<Row> rows =
                 usage.values(
                         Stream.concat(
-                                files.stream().flatMap(this::rows),
+                                files.stream()
+                                        .<Report.Result<Row>>flatMap(file -> {
+                                            Path path = Path.of(file);
+                                            try {
+                                                List<String> lines = Files.readAllLines(path);
+                                                return IntStream.range(0, lines.size())
+                                                        .filter(index -> !lines.get(index).isBlank())
+                                                        .filter(index ->
+                                                                !lines.get(index).startsWith("#"))
+                                                        .mapToObj(index ->
+                                                                row(path, index + 1, lines.get(index)));
+                                            } catch (IOException exception) {
+                                                return Stream.of(
+                                                        new Report.Failure<>(
+                                                                "Rows file `%s` is unreadable, %s"
+                                                                        .formatted(file, exception)));
+                                            }
+                                        }),
                                 usage.require(!files.isEmpty(), "rows file")));
         List<Outcome> named = rows.stream().map(this::name).toList();
         List<Row> functions =
@@ -414,7 +366,59 @@ public class Apply extends GhidraScript {
         List<Outcome> typed =
                 functions.stream()
                         .flatMap(row ->
-                                row.prototype().map(prototype -> type(row, prototype)).stream())
+                                row.prototype()
+                                        .map(prototype -> {
+                                            Function function = getFunctionAt(row.address());
+                                            try {
+                                                FunctionDefinitionDataType definition =
+                                                        CParserUtils.parseSignature(
+                                                                (DataTypeManagerService) null,
+                                                                currentProgram,
+                                                                prototype,
+                                                                false);
+                                                if (definition == null) {
+                                                    return new Outcome(
+                                                            Step.TYPED,
+                                                            row.address(),
+                                                            new Report.Failure<>(
+                                                                    "`%s` holds no function name"
+                                                                            .formatted(prototype)));
+                                                }
+                                                ApplyFunctionSignatureCmd command =
+                                                        new ApplyFunctionSignatureCmd(
+                                                                row.address(),
+                                                                definition,
+                                                                SourceType.USER_DEFINED,
+                                                                definition
+                                                                        .hasUnknownCallingConventionName(),
+                                                                false,
+                                                                DataTypeConflictHandler.DEFAULT_HANDLER,
+                                                                FunctionRenameOption.NO_CHANGE);
+                                                return new Outcome(
+                                                        Step.TYPED,
+                                                        row.address(),
+                                                        runCommand(command)
+                                                                ? new Report.Success<>(
+                                                                        function.getPrototypeString(
+                                                                                true, false))
+                                                                : new Report.Failure<>(
+                                                                        command.getStatusMsg()));
+                                            } catch (ParseException exception) {
+                                                return new Outcome(
+                                                        Step.TYPED,
+                                                        row.address(),
+                                                        new Report.Failure<>(
+                                                                "`%s` did not parse (%s)"
+                                                                        .formatted(
+                                                                                prototype,
+                                                                                exception
+                                                                                        .getMessage()
+                                                                                        .lines()
+                                                                                        .findFirst()
+                                                                                        .orElse(""))));
+                                            }
+                                        })
+                                        .stream())
                         .toList();
         List<Outcome> removed = functions.stream().flatMap(this::remove).toList();
         List<Row> renaming =

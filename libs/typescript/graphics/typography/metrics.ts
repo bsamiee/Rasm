@@ -7,6 +7,7 @@ import type { Tables } from '#/tables';
 
 const Extents = Schema.Struct(Struct.Record(['ascender', 'descender', 'lineGap'], Schema.Finite));
 const Stroke = Schema.Struct({ position: Schema.Finite.annotate({ description: 'Stroke center, negative below baseline' }), thickness: Schema.Finite });
+const Shift = Schema.Struct(Struct.Record(['size', 'offset'], Schema.Struct(Struct.Record(['x', 'y'], Schema.Finite))));
 class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('Metrics')({
     extents: Schema.Struct({
         horizontal: Extents.annotate({ description: 'At the instance, OS/2 typo values under fsSelection USE_TYPO_METRICS else hhea, descender negative' }),
@@ -19,6 +20,8 @@ class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('
         cff: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'CFF Top DICT stroke' })),
     }),
     strikeout: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'OS/2 stroke' })),
+    superscript: Schema.OptionFromOptionalKey(Shift.annotate({ description: 'OS/2 superscript em size and offset from the baseline, y up' })),
+    subscript: Schema.OptionFromOptionalKey(Shift.annotate({ description: 'OS/2 subscript em size and offset from the baseline, y down' })),
     bounds: Schema.Struct(Struct.Record(['minX', 'minY', 'maxX', 'maxY'], Schema.Finite)).annotate({ description: 'head table box at default instance' }),
     italicAngle: Schema.Finite.annotate({ description: 'Degrees counterclockwise from vertical, slnt axis value when present' }),
 }) {
@@ -27,6 +30,7 @@ class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('
         const metric = (tag: MetricsTag) => Option.map(Option.fromUndefinedOr(font.getMetricPosition(tag)), em);
         const drawn = Option.filter(({ thickness }: typeof Stroke.Type) => thickness !== 0);
         const stroke = ([offset, width]: readonly [MetricsTag, MetricsTag]) => drawn(Option.map(Option.all({ position: metric(offset), thickness: metric(width) }), ({ position, thickness }) => ({ position: position - thickness / 2, thickness })));
+        const shift = (script: 'SUPERSCRIPT' | 'SUBSCRIPT') => Option.all(Record.map({ size: 'SIZE', offset: 'OFFSET' } as const, (part) => Option.all(Record.map({ x: 'X', y: 'Y' } as const, (axis) => metric(MetricsTag[`${script}_EM_${axis}_${part}`])))));
         return Metrics.make({
             extents: {
                 horizontal: Record.map(font.hExtents(), em),
@@ -39,6 +43,8 @@ class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('
                 cff: drawn(Option.map(tables['CFF '], ({ topDict: { UnderlinePosition, UnderlineThickness, FontMatrix } }) => ({ position: UnderlinePosition * FontMatrix[3], thickness: UnderlineThickness * FontMatrix[3] }))),
             },
             strikeout: stroke([MetricsTag.STRIKEOUT_OFFSET, MetricsTag.STRIKEOUT_SIZE]),
+            superscript: shift('SUPERSCRIPT'),
+            subscript: shift('SUBSCRIPT'),
             bounds: Record.map(Struct.pick(parsed.bbox, ['minX', 'minY', 'maxX', 'maxY']), em),
             italicAngle: Option.match(
                 Array.findFirst(axes, ({ tag }) => tag === 'slnt'),

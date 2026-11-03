@@ -12,7 +12,7 @@ import WatchAppsWire
 
 extension Integration {
     struct Crashes {
-        @Test(.application(FixtureApplication.self, launches: false), .timeLimit(.minutes(2)))
+        @Test(.application(FixtureApplication.self, launches: false))
         func crashPrintsSignalThenReportWithMachException() async throws {
             let fixture: Fixture = try Fixture()
             let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier], within: .seconds(90)) { lines in

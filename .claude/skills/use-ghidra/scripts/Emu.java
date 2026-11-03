@@ -64,12 +64,6 @@ import java.util.stream.Stream;
 public class Emu extends GhidraScript {
     // --- [PLAN]
 
-    private static final long REGION = 0x100_0000L;
-
-    private static final long PAGE = 0x1000L;
-
-    private static final int TRAP = 0x10;
-
     record Plan(long steps, Map<String, String> stubs, List<Run> runs) {
         Plan {
             stubs = Objects.requireNonNullElse(stubs, Map.of());
@@ -193,11 +187,12 @@ public class Emu extends GhidraScript {
                             .mapToLong(Address::getOffset)
                             .max()
                             .orElse(0);
-            long base = (end / REGION + 1) * REGION;
+            long region = 0x100_0000L;
+            long base = (end / region + 1) * region;
             return new Layout(
                     space.getAddress(base),
-                    space.getAddress(base + PAGE),
-                    space.getAddress(base + REGION));
+                    space.getAddress(base + 0x1000L),
+                    space.getAddress(base + region));
         }
 
         List<String> rows() {
@@ -252,7 +247,7 @@ public class Emu extends GhidraScript {
                 IntStream.range(0, pointed.size())
                         .mapToObj(index ->
                                 new Stub(
-                                        layout.traps().add((long) index * TRAP),
+                                        layout.traps().add(index * 0x10L),
                                         pointed.get(index).getKey().getName(),
                                         pointed.get(index).getValue())));
     }
@@ -320,26 +315,24 @@ public class Emu extends GhidraScript {
             AddressSetView image = set.intersect(loaded);
             PcodeExecutorStatePiece<A, byte[]> bytes =
                     PcodeStateCallbacks.checkValueDomain(piece, byte[].class);
-            image.forEach(range -> load(bytes, range));
+            image.forEach(range -> {
+                byte[] buffer = new byte[(int) range.getLength()];
+                try {
+                    memory.getBytes(range.getMinAddress(), buffer);
+                } catch (MemoryAccessException exception) {
+                    throw new IllegalStateException(exception);
+                }
+                bytes.setVarInternal(
+                        range.getAddressSpace(),
+                        range.getMinAddress().getOffset(),
+                        buffer.length,
+                        buffer);
+            });
             AddressSetView missing = image.isEmpty() ? set : set.subtract(image);
             if (reason == Reason.EXECUTE_READ) {
                 uninitialized.add(missing);
             }
             return missing;
-        }
-
-        private <A> void load(PcodeExecutorStatePiece<A, byte[]> piece, AddressRange range) {
-            byte[] buffer = new byte[(int) range.getLength()];
-            try {
-                memory.getBytes(range.getMinAddress(), buffer);
-            } catch (MemoryAccessException exception) {
-                throw new IllegalStateException(exception);
-            }
-            piece.setVarInternal(
-                    range.getAddressSpace(),
-                    range.getMinAddress().getOffset(),
-                    buffer.length,
-                    buffer);
         }
 
         @Override
@@ -418,12 +411,6 @@ public class Emu extends GhidraScript {
                 .orElseGet(() -> new Report.Failure<>("`%s` names no address".formatted(text)));
     }
 
-    private Report.Result<Register> register(String name) {
-        return Optional.ofNullable(currentProgram.getLanguage().getRegister(name))
-                .<Report.Result<Register>>map(Report.Success::new)
-                .orElseGet(() -> new Report.Failure<>("`%s` names no register".formatted(name)));
-    }
-
     private Report.Result<Address> entry(String text) {
         return text.startsWith("0x")
                 ? address(text)
@@ -442,10 +429,31 @@ public class Emu extends GhidraScript {
 
     private Report.Result<Prepared> prepare(Run run, long steps, Convention convention) {
         boolean bigEndian = currentProgram.getLanguage().isBigEndian();
+        java.util.function.Function<String, Report.Result<Register>> register =
+                name ->
+                        Optional.ofNullable(currentProgram.getLanguage().getRegister(name))
+                                .<Report.Result<Register>>map(Report.Success::new)
+                                .orElseGet(() ->
+                                        new Report.Failure<>(
+                                                "`%s` names no register".formatted(name)));
+        java.util.function.Function<String, Report.Result<BigInteger>> number =
+                text -> {
+                    try {
+                        return new Report.Success<>(NumericUtilities.decodeBigInteger(text));
+                    } catch (NumberFormatException exception) {
+                        return new Report.Failure<>("`%s` is no number".formatted(text));
+                    }
+                };
+        java.util.function.Function<String, Report.Result<byte[]>> bytes =
+                text ->
+                        Optional.ofNullable(NumericUtilities.convertStringToBytes(text))
+                                .<Report.Result<byte[]>>map(Report.Success::new)
+                                .orElseGet(() ->
+                                        new Report.Failure<>(
+                                                "`%s` is no hex bytes".formatted(text)));
         Report.Result<Address> entry = entry(Objects.requireNonNullElse(run.entry(), ""));
         Report.Result<Map<Register, byte[]>> registers =
-                Emu.<Register, BigInteger, String>entries(
-                                run.registers(), this::register, Emu::number)
+                Emu.<Register, BigInteger, String>entries(run.registers(), register, number)
                         .map(values ->
                                 values.entrySet().stream()
                                         .collect(
@@ -460,7 +468,7 @@ public class Emu extends GhidraScript {
                                                         (first, _) -> first,
                                                         LinkedHashMap::new)));
         Report.Result<Map<Address, byte[]>> memory =
-                entries(run.memory(), this::address, Emu::bytes);
+                entries(run.memory(), this::address, bytes);
         Report.Result<Map<Address, Integer>> reads =
                 entries(
                         run.reads(),
@@ -475,7 +483,7 @@ public class Emu extends GhidraScript {
                         (run.results().isEmpty()
                                         ? List.of(convention.result().getName())
                                         : run.results())
-                                .stream().map(this::register));
+                                .stream().map(register));
         String failures =
                 Stream.of(entry, registers, memory, reads, results)
                         .flatMap(Report.Result::failures)
@@ -492,20 +500,6 @@ public class Emu extends GhidraScript {
                                 value(reads),
                                 value(results)))
                 : new Report.Failure<>(failures);
-    }
-
-    private static Report.Result<BigInteger> number(String text) {
-        try {
-            return new Report.Success<>(NumericUtilities.decodeBigInteger(text));
-        } catch (NumberFormatException exception) {
-            return new Report.Failure<>("`%s` is no number".formatted(text));
-        }
-    }
-
-    private static Report.Result<byte[]> bytes(String text) {
-        return Optional.ofNullable(NumericUtilities.convertStringToBytes(text))
-                .<Report.Result<byte[]>>map(Report.Success::new)
-                .orElseGet(() -> new Report.Failure<>("`%s` is no hex bytes".formatted(text)));
     }
 
     // --- [EXECUTION]
@@ -539,22 +533,6 @@ public class Emu extends GhidraScript {
         return new Machine(emulator, recorder);
     }
 
-    private Outcome execute(
-            PcodeThread<byte[]> thread, Recorder recorder, Address sentinel, long budget) {
-        long steps = 0;
-        try {
-            for (; steps < budget && !thread.getCounter().equals(sentinel); steps++) {
-                recorder.step = steps;
-                thread.stepInstruction();
-            }
-        } catch (PcodeExecutionException exception) {
-            return new Faulted(steps, thread.getCounter(), exception.getMessage());
-        }
-        return thread.getCounter().equals(sentinel)
-                ? new Returned(steps, thread.getCounter())
-                : new Exhausted(steps, thread.getCounter());
-    }
-
     // --- [RUN]
 
     @Override
@@ -573,7 +551,31 @@ public class Emu extends GhidraScript {
                                                                 "Arguments name %d plans"
                                                                         .formatted(
                                                                                 operands.size()))),
-                                        operands.stream().limit(1).map(Emu::read)))
+                                        operands.stream()
+                                                .limit(1)
+                                                .<Report.Result<Plan>>map(file -> {
+                                                    try {
+                                                        return Optional.ofNullable(
+                                                                        new Gson()
+                                                                                .fromJson(
+                                                                                        Files.readString(
+                                                                                                Path.of(file)),
+                                                                                        Plan.class))
+                                                                .filter(parsed -> parsed.steps() > 0)
+                                                                .<Report.Result<Plan>>map(
+                                                                        Report.Success::new)
+                                                                .orElseGet(() ->
+                                                                        new Report.Failure<>(
+                                                                                "Plan `%s` sets no positive steps"
+                                                                                        .formatted(file)));
+                                                    } catch (IOException | JsonParseException exception) {
+                                                        return new Report.Failure<>(
+                                                                "Plan `%s` is unreadable, %s"
+                                                                        .formatted(
+                                                                                file,
+                                                                                exception.getMessage()));
+                                                    }
+                                                })))
                         .getFirst();
         Layout layout = Layout.of(currentProgram);
         Convention convention = usage.values(Stream.of(Convention.of(currentProgram))).getFirst();
@@ -627,8 +629,22 @@ public class Emu extends GhidraScript {
                                     .getDisassemblyContext(prepared.entry()))
                     .ifPresentOrElse(thread::overrideContext, thread::overrideContextWithDefault);
             machine.recorder().begin();
-            Outcome outcome =
-                    execute(thread, machine.recorder(), layout.sentinel(), prepared.steps());
+            long steps = 0;
+            Outcome outcome;
+            try {
+                for (;
+                        steps < prepared.steps() && !thread.getCounter().equals(layout.sentinel());
+                        steps++) {
+                    machine.recorder().step = steps;
+                    thread.stepInstruction();
+                }
+                outcome =
+                        thread.getCounter().equals(layout.sentinel())
+                                ? new Returned(steps, thread.getCounter())
+                                : new Exhausted(steps, thread.getCounter());
+            } catch (PcodeExecutionException exception) {
+                outcome = new Faulted(steps, thread.getCounter(), exception.getMessage());
+            }
             outcomes.add(
                     "%s %s%s"
                             .formatted(
@@ -690,20 +706,5 @@ public class Emu extends GhidraScript {
         println(
                 Report.write(
                         out, currentProgram, sections, String.join(" ", usage.operands(args))));
-    }
-
-    private static Report.Result<Plan> read(String file) {
-        try {
-            return Optional.ofNullable(
-                            new Gson().fromJson(Files.readString(Path.of(file)), Plan.class))
-                    .filter(plan -> plan.steps() > 0)
-                    .<Report.Result<Plan>>map(Report.Success::new)
-                    .orElseGet(() ->
-                            new Report.Failure<>(
-                                    "Plan `%s` sets no positive steps".formatted(file)));
-        } catch (IOException | JsonParseException exception) {
-            return new Report.Failure<>(
-                    "Plan `%s` is unreadable, %s".formatted(file, exception.getMessage()));
-        }
     }
 }

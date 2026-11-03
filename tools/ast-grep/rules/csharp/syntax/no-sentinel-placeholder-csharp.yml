@@ -251,16 +251,16 @@ rule:
         - kind: object_creation_expression
           all:
             - has: {field: type, matches: type-name}
-            - matches: file-record
             - any:
                 - has: {field: arguments, has: {matches: argument-value}}
                 - has: {field: initializer, has: {matches: initializer-value}}
+            - matches: file-record
         - kind: implicit_object_creation_expression
           all:
             - has: {kind: argument_list, has: {kind: argument}}
             - matches: target-type
-            - matches: file-record
             - has: {kind: argument_list, has: {matches: argument-value}}
+            - matches: file-record
         - kind: with_expression
           all:
             - any:
@@ -273,7 +273,7 @@ rule:
                         stopBy: end
                         kind: method_declaration, local_function_statement
                         has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $RECEIVER}}, {has: {field: type, matches: type-name}}]}}
-            - matches: file-record
             - has: {kind: with_initializer, matches: member-value}
+            - matches: file-record
 message: '`$TYPE` receives sentinel `$SENTINEL` for a value its path lacks'
 note: 'Type the member `Option<T>`, or build a case holding only facts its path has'

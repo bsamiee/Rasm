@@ -4,6 +4,7 @@ public import CasePaths
 public import OrderedCollections
 public import Processes
 public import Subprocess
+import Synchronization
 public import System
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -113,7 +114,7 @@ extension NSRunningApplication {
 
 extension NSWorkspace {
     public func instances(of matching: (NSRunningApplication) -> Bool) -> [NSRunningApplication] {
-        runningApplications.filter { instance in instance.activationPolicy != .prohibited && matching(instance) }
+        runningApplications.filter { instance in instance.activationPolicy != .prohibited && !instance.isTerminated && matching(instance) }
     }
 
     @MainActor
@@ -125,12 +126,15 @@ extension NSWorkspace {
         reportWithin limit: Duration = .seconds(60),
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
-        let watched: @Sendable (NSRunningApplication) -> Bool = { instance in instance.activationPolicy != .prohibited && matching(instance) }
+        let watched: @Sendable (NSRunningApplication) -> Bool = { instance in instance.activationPolicy != .prohibited && !instance.isTerminated && matching(instance) }
         let (inserted, insert): (AsyncStream<NSRunningApplication>, AsyncStream<NSRunningApplication>.Continuation) = AsyncStream.makeStream()
-        let initial: Set<NSRunningApplication> = Set(instances(of: matching))
+        let listed: Mutex<Set<NSRunningApplication>?> = Mutex(nil)
         let observation: NSKeyValueObservation = observe(\.runningApplications, options: [.initial, .new]) { _, change in
-            for instance: NSRunningApplication in change.newValue ?? [] where watched(instance) { insert.yield(instance) }
+            let running: [NSRunningApplication] = (change.newValue ?? []).filter(watched)
+            listed.withLock { held in held = held ?? Set(running) }
+            for instance: NSRunningApplication in running { insert.yield(instance) }
         }
+        let initial: Set<NSRunningApplication> = listed.withLock { held in held ?? [] }
         let changes: AsyncStream<(instance: NSRunningApplication, state: InstanceState)> = AsyncStream { change in
             let following: Task<Void, Never> = Task {
                 await withDiscardingTaskGroup { group in
@@ -153,8 +157,8 @@ extension NSWorkspace {
             (initial.isEmpty ? [OrderedDictionary()] : []).async,
             changes.reductions(into: (states: OrderedDictionary<NSRunningApplication, InstanceState>(), waiting: initial)) { held, next in
                 if held.waiting.isEmpty { held.states.removeAll { _, state in state.is(\.exited) } }
-                held.states[next.instance] = next.state
-                held.waiting.remove(next.instance)
+                let awaited: Bool = held.waiting.remove(next.instance) != nil
+                if !(awaited && next.state.is(\.exited)) { held.states[next.instance] = next.state }
             }
             .drop { held in !held.waiting.isEmpty }
             .map(\.states),

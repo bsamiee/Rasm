@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Array, Deferred, type Duration, Effect, FileSystem, identity, Match, Option, Path, Result, Schema, Stream, String as Text, Struct } from 'effect';
+import { Array, Deferred, type Duration, Effect, FileSystem, identity, Match, Option, Path, Result, Schema, Stream, String, Struct } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { Encoded, Engine, HostCase, type Placed, Recorded, Reply, SURVEY, Survey, Written } from '#/blender/contract';
 import { precondition } from '#/blender/precondition';
@@ -17,15 +17,9 @@ type Rerun = Extract<Hosting['compare'], { readonly _tag: 'Hosted' }>['run'];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const BUNDLE = 'org.blenderfoundation.blender';
 const VERSION = /^Blender (?<release>\S+) ?(?<cycle>.*)$[\s\S]*?build hash: (?<hash>\w+)/mu;
 const ENGINE = new URL('engine.py', import.meta.url);
-const PROFILE = 'profile';
-const LOG = 'blender.log';
 const HOST = 'host.json';
-const SESSION = 'session.json';
-const REPLY = 'reply.json';
-const QUIT = 'quit';
 const REBUILT = 'rebuilt';
 const EXTENSION = '.py';
 
@@ -55,12 +49,12 @@ const identify = Effect.fn('identify')(function* (app: string) {
     );
     return { identifier: CFBundleIdentifier, name: CFBundleName, app, version, watched: [CFBundleIdentifier] } satisfies Installed;
 });
-const installed = Effect.flatMap(output('mdfind', [`kMDItemCFBundleIdentifier == "${BUNDLE}"`]), (listed) => Effect.forEach(Array.fromIterable(Text.linesIterator(listed)).filter(Text.isNonEmpty), identify));
+const installed = Effect.flatMap(output('mdfind', ['kMDItemCFBundleIdentifier == "org.blenderfoundation.blender"']), (listed) => Effect.forEach(Array.fromIterable(String.linesIterator(listed)).filter(String.isNonEmpty), identify));
 
 // --- [SOURCE]
-const engine = (scripts: readonly string[]): Result.Result<typeof Engine.Type, string> => {
+const engine = (scripts: readonly string[]): Result.Result<typeof Engine.Type, HarnessError> => {
     const unknown = scripts.filter((script) => !script.endsWith(EXTENSION));
-    return unknown.length === 0 ? Result.succeed(Engine.literal) : Result.fail(`${unknown.join(', ')} holds no ${EXTENSION} extension`);
+    return unknown.length === 0 ? Result.succeed(Engine.literal) : Result.fail(HarnessError.make({ reason: { _tag: 'Unavailable', because: `holds no ${EXTENSION} extension` }, subject: unknown.join(', ') }));
 };
 
 // --- [CASES]
@@ -99,44 +93,39 @@ const appeared = (folder: string, file: string) =>
     );
 const launch = Effect.fn('launch')(function* (chosen: Installed, scratch: string, authored: typeof Authored.Type) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const profile = path.join(scratch, PROFILE);
+    const profile = path.join(scratch, 'profile');
     yield* fs.makeDirectory(profile, { recursive: true });
     const { executable } = yield* bundle(chosen.app);
-    const args = ['--log-file', path.join(scratch, LOG), '--log', 'operator', '--log-level', 'debug', '--python-exit-code', '1', '--python', yield* path.fromFileUrl(ENGINE), '--', scratch];
+    const args = ['--log-file', path.join(scratch, 'blender.log'), '--log', 'operator', '--log-level', 'debug', '--python-exit-code', '1', '--python', yield* path.fromFileUrl(ENGINE), '--', scratch];
     const environment = { BLENDER_USER_RESOURCES: profile };
-    return windowed(authored)
-        ? ({ arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment } satisfies Launched)
-        : ({ _tag: 'Spawned', command: executable, arguments: ['--background', ...args], environment } satisfies Spawned);
+    return windowed(authored) ? ({ arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment } satisfies Launched) : ({ _tag: 'Spawned', command: executable, arguments: ['--background', ...args], environment } satisfies Spawned);
 });
 const opened = Effect.fn('opened')(function* (live: Live) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const file = path.join(live.scratch, HOST);
     yield* Effect.raceFirst(
         appeared(live.scratch, file),
-        Effect.flatMap(Deferred.await(live.verdict), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `instance ${live.pid} ended before the engine wrote ${HOST}` }, subject: chosenName(live) })),
+        Effect.flatMap(Deferred.await(live.verdict), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `instance ${live.pid} ended before the engine wrote ${HOST}` }, subject: `${live.chosen.name} ${live.chosen.version}` })),
     );
     return Option.some(yield* Schema.decodeEffect(Written)(yield* fs.readFileString(file)));
 });
-const chosenName = ({ chosen }: Live) => `${chosen.name} ${chosen.version}`;
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const folder = path.dirname(batch.records);
-    const [session, reply] = [path.join(folder, SESSION), path.join(folder, REPLY)];
+    const [session, reply] = [path.join(folder, 'session.json'), path.join(folder, 'reply.json')];
     yield* fs.writeFileString(`${session}.tmp`, yield* Schema.encodeEffect(Encoded)({ records: batch.records, reply, survey: Option.isNone(batch.survey), cases: batch.cases }));
     yield* fs.rename(`${session}.tmp`, session);
     yield* appeared(folder, reply);
     const answer = yield* Schema.decodeEffect(Reply)(yield* fs.readFileString(reply));
     return yield* 'failed' in answer ? HarnessError.make({ reason: { _tag: 'Unavailable', because: answer.failed }, subject: `instance ${live.pid} batch` }) : Effect.succeed(answer);
 });
-const quit = (live: Live) => Effect.flatMap(Effect.all([FileSystem.FileSystem, Path.Path]), ([fs, path]) => fs.writeFileString(path.join(live.scratch, QUIT), ''));
-
 // --- [COMPARING]
 const run: Rerun = Effect.fn('run')(function* (chosen: Installed, calls: readonly Rebuilt<typeof HostCase.Type>[], scratch: string, limit: Duration.Duration, authored: typeof Authored.Type) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const root = path.join(scratch, REBUILT);
     const sendable = yield* Effect.forEach(calls, ({ hosted, fn, args, module }, index) =>
         Effect.gen(function* () {
-            const folder = path.join(root, String(index));
+            const folder = path.join(root, `${index}`);
             yield* fs.makeDirectory(folder, { recursive: true });
             const { source, map } = yield* prepared(module, Option.none());
             const rebuilt: typeof HostCase.Type = { ...Struct.pick(hosted, ['name', 'precondition', 'read', 'keywords', 'confirms', 'files']), _tag: 'Call', folder, source, call: fn, args };
@@ -164,10 +153,10 @@ const Host = {
     opened,
     send,
     records: (_, file) => recorded(Recorded)(file),
-    quit,
+    quit: (live) => Effect.flatMap(Effect.all([FileSystem.FileSystem, Path.Path]), ([fs, path]) => fs.writeFileString(path.join(live.scratch, 'quit'), '')),
     digest,
     compare: { _tag: 'Hosted', run },
-} satisfies Hosting;
+} as const satisfies Hosting;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

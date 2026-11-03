@@ -24,7 +24,6 @@ const JsonObject = Schema.Record(Schema.String, Schema.Json);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const kept = ({ kind, path }: Reference): unknown => ({ $: `${kind}:${path}` });
 const tagged = (tag: string, located: (reference: Reference) => unknown): unknown =>
     Option.getOrElse(
         Option.firstSomeOf<unknown>([
@@ -35,7 +34,7 @@ const tagged = (tag: string, located: (reference: Reference) => unknown): unknow
         ]),
         () => tag,
     );
-const revive = (value: Schema.Json, located: (reference: Reference) => unknown = kept): unknown =>
+const revive = (value: Schema.Json, located: (reference: Reference) => unknown = ({ kind, path }) => ({ $: `${kind}:${path}` })): unknown =>
     Match.value(value).pipe(
         Match.when(Array.isArray, (items) => items.map((item) => revive(item, located))),
         Match.when(

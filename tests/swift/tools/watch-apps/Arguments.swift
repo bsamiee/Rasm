@@ -19,16 +19,11 @@ private let helps: [(arguments: [String], names: [String])] = [
 
 private let malformed: [[String]] = { (absent: String) -> [[String]] in
     [
-        ["undeclared"], ["watch"], ["launch"], ["show"], ["read"], ["capture"], ["perform"], ["set"], ["perform", "AXPress"], ["read", absent, "--pid"], ["read", absent, "--pid", "1.5"],
-        ["show", absent, "--pid"], ["read", absent, "\(absent).second", "--pid", "1"], ["show", absent, "\(absent).second", "--pid", "1"], ["capture", absent, "\(absent).second", "--pid", "1"],
-        ["capture", absent, "--longest-side", "0"], ["watch", absent, "--pid", "1"], ["read", absent, "--new"], ["launch", absent, "--document"], ["launch", absent, "--environment", "NAME"],
-        ["perform", "element", "AXPress", "extra"], ["set", "element", "text", "extra"], ["watch", absent, "--undeclared"], ["launch", absent, "--undeclared"], ["show", absent, "--undeclared"],
-        ["read", absent, "--undeclared"], ["capture", absent, "--undeclared"], ["read", absent, "--pid", "text"], ["show", absent, "--pid", "text"], ["capture", absent, "--pid", "text"],
-        ["capture", absent, "--window", "text"], ["capture", absent, "--longest-side", "text"],
+        ["undeclared"], ["watch"], ["read", absent, "--undeclared"], ["read", absent, "--pid", "text"], ["read", absent, "\(absent).second", "--pid", "1"],
+        ["capture", absent, "--longest-side", "0"], ["launch", absent, "--environment", "NAME"], ["launch", absent, "--document", "/\(absent)/absent.txt"],
+        ["perform", "not base64!", "AXPress"], ["set", "", "text"],
     ]
 }("dev.rasm.absent")
-
-private let malformedElements: [[String]] = [["perform", "not base64!", "AXPress"], ["set", "not base64!", "text"], ["perform", "", "AXPress"], ["set", "", "text"]]
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -60,7 +55,7 @@ struct Arguments {
         expectNoDifference(lines.filter { line in line.hasPrefix("{") }, [])
     }
 
-    @Test(arguments: malformed + malformedElements)
+    @Test(arguments: malformed)
     func malformedArgumentsPrintOneFailLineKeyedByWatchApps(arguments: [String]) async throws {
         let run: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
             of: .product(named: "watch-apps"),

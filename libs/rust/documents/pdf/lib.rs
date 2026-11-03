@@ -1,10 +1,14 @@
 #![feature(default_field_values, error_reporter, float_conversions, iterator_try_collect)]
 
-use core::{fmt, str::Utf8Error};
+use core::{borrow::Borrow, fmt, str::Utf8Error};
 use std::{collections::BTreeMap, error::Report, sync::Arc};
 
 use hayro::hayro_interpret::TransformExt as _;
-use hayro_syntax::{DecryptionError, LoadPdfError, Pdf, page::Page};
+use hayro_syntax::{
+    DecryptionError, LoadPdfError, Pdf,
+    object::dict::keys::{LAST_MODIFIED, PIECE_INFO, PRIVATE, USER_UNIT},
+    page::Page,
+};
 use jiff::Zoned;
 use krilla::{
     configure::{Accessibility, Archival, ConfigurationError, Validators},
@@ -13,8 +17,8 @@ use krilla::{
 };
 use kurbo::Affine;
 use lopdf::{Dictionary, LoadOptions, Object, ObjectId, decode_text_string, dictionary, text_string};
-use moxcms::{CmsError, ColorProfile, DataColorSpace};
-use nonempty_collections::NEVec;
+use moxcms::{CmsError, ColorProfile, DataColorSpace, ProfileClass};
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use pdf_oxide::{
     PdfDocument,
     compliance::{PdfALevel, PdfUaLevel, PdfXLevel},
@@ -22,10 +26,16 @@ use pdf_oxide::{
     ocr::OcrError,
 };
 use rasm_linework::LineworkError;
+use secrecy::{ExposeSecret as _, SecretString};
 use uom::si::{
     f64::{Length, LinearNumberDensity},
     length::{inch, millimeter},
 };
+use validated::Validated;
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+pub type Fields = BTreeMap<Arc<str>, Arc<str>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -38,10 +48,12 @@ const POINTS_PER_INCH: f64 = 72.0;
 pub struct Document(#[debug(skip)] Arc<Pdf>);
 
 impl Document {
-    pub fn new(bytes: Vec<u8>, password: Option<&str>) -> Result<Self, PdfError> {
+    pub fn new(bytes: Vec<u8>, password: Option<&SecretString>) -> Result<Self, PdfError> {
         let plain = if lopdf::Document::load_metadata_mem(&bytes)?.encrypted {
             let mut decrypted = Vec::new();
-            lopdf::Document::load_mem_with_options(&bytes, LoadOptions { password: password.map(str::to_owned), ..LoadOptions::default() })?.save_to(&mut decrypted)?;
+            lopdf::Document::load_mem_with_options(&bytes, LoadOptions { password: password.map(|secret| secret.expose_secret().to_owned()), ..LoadOptions::default() })?
+                .save_to(&mut decrypted)
+                .map_err(lopdf::Error::from)?;
             decrypted
         } else {
             bytes
@@ -64,7 +76,9 @@ pub struct OutputIntent {
 impl OutputIntent {
     pub fn new(data: Arc<[u8]>) -> Result<Self, PdfError> {
         let profile = ColorProfile::new_from_slice(&data)?;
-        (profile.data_color_space == DataColorSpace::Cmyk && ICCProfile::<4>::new(&data).is_some()).ok_or(PdfError::Intent).map(|()| Self { data, profile })
+        (profile.profile_class == ProfileClass::OutputDevice && profile.color_space == DataColorSpace::Cmyk && ICCProfile::<4>::new(&data).is_some())
+            .ok_or(PdfError::Intent)
+            .map(|()| Self { data, profile })
     }
 }
 
@@ -78,7 +92,11 @@ pub enum Standard {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, derive_more::Display)]
 pub enum Subject {
     #[display("element {index} of layer {layer} on page {page}")]
-    Element { page: usize, layer: Arc<str>, index: usize },
+    Element {
+        page: usize,
+        layer: Arc<str>,
+        index: usize,
+    },
     #[display("page {_0}")]
     Page(usize),
     #[display("part {_0}")]
@@ -97,7 +115,11 @@ pub enum PdfError {
     #[error(transparent)]
     Writer(#[from] KrillaError),
     #[error("{}", fmt::from_fn(|formatter| {
-        let standards = |validators: Validators| fmt::from_fn(move |list| write!(list, "{} and {}", validators.archival().map_or("no archival standard", Archival::as_str), validators.accessibility().map_or("no accessibility standard", Accessibility::as_str)));
+        let standards = |validators: Validators| fmt::from_fn(move |list| {
+            let archival = validators.archival().map_or("no archival standard", Archival::as_str);
+            let accessibility = validators.accessibility().map_or("no accessibility standard", Accessibility::as_str);
+            write!(list, "{archival} and {accessibility}")
+        });
         match .0 {
             ConfigurationError::NoOverlappingValidatorsRange(validators) => write!(formatter, "{} share no PDF version", standards(*validators)),
             ConfigurationError::VersionDoesNotMatchValidatorsRange(version, validators) => write!(formatter, "{} lies outside the versions {} allow", version.as_str(), standards(*validators)),
@@ -128,6 +150,8 @@ pub enum PdfError {
     Compare(#[from] image_compare::CompareError),
     #[error(transparent)]
     Xml(#[from] xot::Error),
+    #[error(transparent)]
+    Text(#[from] Utf8Error),
     #[error(transparent)]
     Http(#[from] reqwest::Error),
     #[error(transparent)]
@@ -163,27 +187,58 @@ pub enum PdfError {
     #[error("document holds no layer {0}")]
     Group(Arc<str>),
     #[error("refused{}", fmt::from_fn(|formatter| .0.iter().try_for_each(|(subject, error)| write!(formatter, "\n{subject}: {}", Report::new(error)))))]
-    Refused(NEVec<(Subject, PdfError)>),
+    Refused(NEVec<(Subject, Self)>),
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn save(document: &Document, options: SaveOptions) -> Result<Vec<u8>, PdfError> {
-    DocumentEditor::from_bytes(document.data().as_ref().to_vec()).and_then(|mut editor| editor.save_to_bytes_with_options(options)).map_err(PdfError::from)
+    let bytes = document.data().as_ref().to_vec();
+    match options {
+        SaveOptions { incremental: true, compress: _, linearize: false, garbage_collect: _, encryption: None } => Ok(bytes),
+        rewrite => DocumentEditor::from_bytes(bytes).and_then(|mut editor| editor.save_to_bytes_with_options(rewrite)).map_err(PdfError::from),
+    }
 }
 
-pub fn fields(document: &Document, index: usize) -> Result<BTreeMap<Arc<str>, Arc<str>>, PdfError> {
+pub fn fields(document: &Document) -> Result<Vec<Fields>, PdfError> {
     let structure = structure(document)?;
-    let pages = structure.page_iter().collect::<Vec<_>>();
-    let sheet = structure.get_dictionary(*pages.get(index).ok_or(PdfError::Page { index, count: pages.len() })?)?;
-    [b"PieceInfo".as_slice(), env!("CARGO_PKG_NAME").as_bytes(), b"Private".as_slice()]
+    let path = [PIECE_INFO, env!("CARGO_PKG_NAME").as_bytes(), PRIVATE];
+    let entry = |(key, value): (&Vec<u8>, &Object)| {
+        Validated::from(str::from_utf8(key).map(Arc::from).map_err(PdfError::from))
+            .map2(Validated::from(structure.dereference(value).and_then(|(_, text)| decode_text_string(text)).map(Arc::from).map_err(PdfError::from)), |key, value| (key, value))
+    };
+    structure
+        .page_iter()
+        .enumerate()
+        .map(|(index, page)| {
+            structure
+                .get_dictionary(page)
+                .and_then(|sheet| nested(&structure, sheet, &path))
+                .map_or_else(|error| Validated::fail(PdfError::from(error)), |found| found.into_iter().flat_map(Dictionary::iter).map(entry).collect::<Validated<Fields, _>>())
+                .map_err(|errors| errors.into_nonempty_iter().map(|error| (Subject::Page(index), error)).collect())
+        })
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
+        .map_err(PdfError::Refused)
+}
+
+pub fn set_fields<I, F>(document: &Document, pages: I, modified: &Zoned) -> Result<Document, PdfError>
+where
+    I: IntoIterator<Item = (usize, F)>,
+    F: Borrow<Fields>,
+{
+    let mut structure = structure(document)?;
+    let sheets = structure.page_iter().collect::<Vec<_>>();
+    let placed = pages
         .into_iter()
-        .try_fold(Some(sheet), |found, key| found.filter(|parent| parent.has(key)).map(|parent| structure.get_dict_in_dict(parent, key)).transpose())?
-        .into_iter()
-        .flat_map(Dictionary::iter)
-        .map(|(key, value)| Ok::<_, lopdf::Error>((Arc::from(str::from_utf8(key).map_err(|Utf8Error { .. }| lopdf::Error::CharacterEncoding)?), Arc::from(decode_text_string(structure.dereference(value)?.1)?))))
-        .collect::<Result<BTreeMap<_, _>, _>>()
-        .map_err(PdfError::from)
+        .map(|(index, fields)| sheets.get(index).map(|&sheet| (sheet, fields)).ok_or((Subject::Page(index), PdfError::Page { index, count: sheets.len() })))
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
+        .map_err(PdfError::Refused)?;
+    placed.iter().try_for_each(|(sheet, fields)| write_fields(&mut structure, *sheet, fields.borrow(), modified))?;
+    let mut bytes = Vec::new();
+    structure.save_to(&mut bytes).map_err(lopdf::Error::from)?;
+    Document::new(bytes, None)
 }
 
 fn structure(document: &Document) -> Result<lopdf::Document, PdfError> { lopdf::Document::load_mem(document.data().as_ref()).map_err(PdfError::from) }
@@ -195,16 +250,33 @@ fn page(document: &Document, index: usize) -> Result<&Page<'_>, PdfError> {
     pages.get(index).ok_or(PdfError::Page { index, count: pages.len() })
 }
 
-fn frame(page: &Page<'_>) -> Affine { Affine::scale(Length::new::<inch>(POINTS_PER_INCH.recip()).get::<millimeter>()) * page.initial_transform(true).to_kurbo() }
+fn frame(page: &Page<'_>) -> Affine {
+    let unit = page.raw().get::<f64>(USER_UNIT).filter(|unit| unit.is_normal() && unit.is_sign_positive()).unwrap_or(1.0);
+    Affine::scale(Length::new::<inch>(unit / POINTS_PER_INCH).get::<millimeter>()) * page.initial_transform(true).to_kurbo()
+}
 
-fn write_fields(structure: &mut lopdf::Document, page: ObjectId, fields: &BTreeMap<Arc<str>, Arc<str>>, created: &Zoned) -> Result<(), PdfError> {
-    let modified = "LastModified";
-    let stamp = || Object::from(created.clone());
-    let sheet = structure.get_dictionary_mut(page)?;
-    if !fields.is_empty() {
-        sheet.set("PieceInfo", dictionary! { env!("CARGO_PKG_NAME") => dictionary! { modified => stamp(), "Private" => fields.iter().map(|(key, value)| (key.as_bytes(), text_string(value))).collect::<Dictionary>() } });
-        sheet.set(modified, stamp());
+fn nested<'held>(structure: &'held lopdf::Document, node: &'held Dictionary, path: &[&[u8]]) -> Result<Option<&'held Dictionary>, lopdf::Error> {
+    path.iter().try_fold(Some(node), |found, &key| found.filter(|parent| parent.has(key)).map(|parent| structure.get_dict_in_dict(parent, key)).transpose())
+}
+
+fn write_fields(structure: &mut lopdf::Document, page: ObjectId, fields: &Fields, modified: &Zoned) -> Result<(), lopdf::Error> {
+    let application = env!("CARGO_PKG_NAME").as_bytes();
+    let stamp = || Object::from(modified.clone());
+    let mut pieces = nested(structure, structure.get_dictionary(page)?, &[PIECE_INFO])?.cloned().unwrap_or_default();
+    let written = (!fields.is_empty()).then(|| dictionary! { LAST_MODIFIED => stamp(), PRIVATE => fields.iter().map(|(key, value)| (key.as_bytes(), text_string(value))).collect::<Dictionary>() });
+    if pieces.remove(application).is_none() && written.is_none() {
+        return Ok(());
     }
+    if let Some(data) = written {
+        pieces.set(application, data);
+    }
+    let sheet = structure.get_dictionary_mut(page)?;
+    if pieces.is_empty() {
+        sheet.remove(PIECE_INFO);
+    } else {
+        sheet.set(PIECE_INFO, pieces);
+    }
+    sheet.set(LAST_MODIFIED, stamp());
     Ok(())
 }
 

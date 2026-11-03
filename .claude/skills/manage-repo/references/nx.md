@@ -53,7 +53,9 @@ Use JSON discovery from workspace root:
 - `cache: true` alone caches a target, `cache: false` overrides a `targetDefaults` entry setting it for the name
 - Container targets take `cache: false` and `parallelism: false`, no task input hashes container or service state
 - `parallelism: false` runs a target with no other task of its `nx` process
-- `--output-style=static-failures-only` prints failing tasks and a single-project run in full, agent default `summary` names failing task log files
+- `NX_DEFAULT_OUTPUT_STYLE` in `mise.toml` overrides the `summary` style Nx picks for an agent
+- `static` and `static-failures-only` hold task output until the task exits, `stream-without-prefixes` streams it live
+- Nx reads an unknown `<project>:<target>:<config>` as target `<target>` and drops the configuration, `rasm:lint:ty` ran every linter
 
 ## [04]-[INPUTS]
 

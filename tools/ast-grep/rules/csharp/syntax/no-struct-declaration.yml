@@ -29,11 +29,11 @@ utils:
     package-struct-contract:
         has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^IPaletteDitherImageProcessor$'}}}}}
 rule:
-    any:
-        - kind: struct_declaration
-        - kind: record_declaration
-          has: {regex: '^struct$'}
     all:
+        - any:
+            - kind: struct_declaration
+            - kind: record_declaration
+              has: {regex: '^struct$'}
         - has: {field: name, pattern: $NAME}
         - not: {has: {regex: '^ref$'}}
         - not: {matches: {csharp-attributed: {name: {regex: '^StructLayout(Attribute)?$'}}}}

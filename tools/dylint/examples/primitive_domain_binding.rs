@@ -12,6 +12,8 @@ trait Schedule {
 const POLL_INTERVAL: u64 = 250;
 static CONFIG_PATH: &str = "config.toml";
 const ITEM_PATH: &str = "crate::Item";
+const SHEET_WIDTH_MM: f64 = 210.0;
+const POINTS_PER_INCH: f64 = 72.0;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -111,6 +113,14 @@ fn ratio(base: f64) -> f64 {
     load_percent
 }
 
+fn printed(base: f32, dpi: f64) -> f64 {
+    let margin_mm = base * 2.0;
+    let samples_per_mm = f64::from(margin_mm) * dpi;
+    let mm_per_inch = 25.4_f64;
+    let retries_per_ms = samples_per_mm / mm_per_inch;
+    retries_per_ms * POINTS_PER_INCH * SHEET_WIDTH_MM
+}
+
 const fn annotated() -> u64 {
     let retry_delay: u64 = 500;
     retry_delay
@@ -137,6 +147,6 @@ fn main() {
     black_box((waited_for(1), inferred(2), labeled("c")));
     job.wait(4);
     reading.wait(5);
-    black_box(&(waited(1), located("a"), described("b"), stamped(2), dated(3), measured(4.0), typed(5), kept("c"), sized(6), (ratio(7.0), annotated())));
-    black_box(&(scheduled(&job, 5, "a", "b"), Native { delay_ms: 8 }, payload_bytes, exported(10), POLL_INTERVAL, ITEM_PATH, CONFIG_PATH));
+    black_box(&(waited(1), located("a"), described("b"), stamped(2), dated(3), measured(4.0), typed(5), kept("c"), sized(6), (ratio(7.0), annotated(), printed(1.0, 300.0))));
+    black_box(&(scheduled(&job, 5, "a", "b"), Native { delay_ms: 8 }, payload_bytes, exported(10), POLL_INTERVAL, ITEM_PATH, CONFIG_PATH, SHEET_WIDTH_MM, POINTS_PER_INCH));
 }

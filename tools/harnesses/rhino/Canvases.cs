@@ -2,12 +2,12 @@ using System.Collections.Generic;
 using System.Text.Json.Nodes;
 using Grasshopper2.Components;
 using Grasshopper2.Diagnostics;
+using Grasshopper2.Doc;
 using Grasshopper2.Extensions;
 using Grasshopper2.Framework;
 using Grasshopper2.Parameters;
 using Grasshopper2.UI;
 using Rhino;
-using GhDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Harnesses.Rhino;
 
@@ -16,12 +16,14 @@ public sealed class Canvases : ICanvases {
     private Option<Density> density;
 
     // --- [HOST]
-    public object Editor => (Grasshopper2.UI.Editor.Instance ?? throw new InvalidOperationException("Grasshopper 2 holds no editor")).Canvas;
+    public object Editor => Shown().Canvas;
 
     public Grasshopper Start() {
-        _ = Grasshopper2.UI.Editor.Instance is null ? PluginServer.LoadAllScopedPlugins() : default;
-        _ = Grasshopper2.UI.Editor.Instance ?? Grasshopper2.UI.Editor.ShowEditor(createVisible: false);
-        density = density.IsSome ? density : Some(Logger.Density);
+        if (Grasshopper2.UI.Editor.Instance is null) {
+            _ = PluginServer.LoadAllScopedPlugins();
+            _ = Grasshopper2.UI.Editor.ShowEditor(createVisible: false);
+        }
+        density = density || Some(Logger.Density);
         Logger.Density = Density.Verbose;
         Plugins state = PluginServer.State;
         return new Grasshopper(typeof(Editor).Assembly.GetName().Version?.ToString() ?? "",
@@ -38,26 +40,26 @@ public sealed class Canvases : ICanvases {
         [.. Logger.Diagnostics().Skip(since).Select(static entry => new Diagnosed("Grasshopper2", entry.Kind.ToString(), entry.Message))];
 
     // --- [DOCUMENTS]
-    public (object Document, object? Prior) Open(string? source) {
-        Editor editor = Grasshopper2.UI.Editor.Instance ?? throw new InvalidOperationException("Grasshopper 2 holds no editor");
-        GhDocument? prior = editor.Canvas.Document;
-        GhDocument document = source is null
-            ? Pushed(editor, GhDocument.NewActiveDocument())
-            : editor.Documents.TryOpenDocument(source, Grasshopper2.UI.Canvas.OpenDocumentOptions.Activate) ? editor.Documents.Current : throw new FileLoadException("editor refused the definition", source);
+    public (object Document, Option<object> Prior) Open(Option<string> source) {
+        Editor editor = Shown();
+        Option<object> prior = Optional<object>(editor.Canvas.Document);
+        Document document = source.Match(
+            Some: path => editor.Documents.TryOpenDocument(path, Grasshopper2.UI.Canvas.OpenDocumentOptions.Activate) ? editor.Documents.Current : throw new FileLoadException("editor refused the definition", path),
+            None: () => Pushed(editor, Document.NewActiveDocument()));
         editor.Canvas.Document = document;
         return ReferenceEquals(editor.Canvas.Document, document) ? (document, prior) : throw new InvalidOperationException("editor canvas kept another document");
     }
 
-    public void Release(object document, object? prior) {
-        Editor? editor = Grasshopper2.UI.Editor.Instance;
-        _ = editor?.Documents.Pop((GhDocument)document, accept: false);
-        editor?.Canvas.Document = (GhDocument?)prior;
-    }
+    public void Release(object document, Option<object> prior) =>
+        _ = Optional(Grasshopper2.UI.Editor.Instance).Iter(editor => {
+            _ = editor.Documents.Pop((Document)document, accept: false);
+            editor.Canvas.Document = (Document?)prior.ValueUnsafe();
+        });
 
     // --- [SOLUTIONS]
     public JsonObject Solve(object canvas) {
-        GhDocument document = (GhDocument)canvas;
-        Task<Grasshopper2.Doc.Solution>? running = document.Solution.Start();
+        Document document = (Document)canvas;
+        Task<Solution>? running = document.Solution.Start();
         while (running is { IsCompleted: false }) RhinoApp.Wait();
         return new JsonObject {
             ["phase"] = running?.Status.ToString(),
@@ -66,12 +68,14 @@ public sealed class Canvases : ICanvases {
         };
     }
 
-    private static GhDocument Pushed(Editor editor, GhDocument document) {
+    private static Editor Shown() => Optional(Grasshopper2.UI.Editor.Instance).IfNone(static () => throw new InvalidOperationException("Grasshopper 2 holds no editor"));
+
+    private static Document Pushed(Editor editor, Document document) {
         _ = editor.Documents.Push(document);
         return document;
     }
 
-    private static JsonObject Read(Grasshopper2.Doc.IDocumentObject member) => new() {
+    private static JsonObject Read(IDocumentObject member) => new() {
         ["id"] = member.InstanceId.ToString(),
         ["name"] = member.DisplayName,
         ["user"] = member.UserName,
@@ -83,7 +87,7 @@ public sealed class Canvases : ICanvases {
         ["outputs"] = new JsonArray([.. Outputs(member).Select(static parameter => (JsonNode)new JsonObject { ["name"] = parameter.DisplayName, ["tree"] = Tree(parameter.State.Data?.Tree()) })]),
     };
 
-    private static IEnumerable<IParameter> Outputs(Grasshopper2.Doc.IDocumentObject member) => member switch {
+    private static IEnumerable<IParameter> Outputs(IDocumentObject member) => member switch {
         Component component => component.Parameters.Outputs,
         IParameter parameter => [parameter],
         _ => [],

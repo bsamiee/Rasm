@@ -109,7 +109,7 @@ rule:
                 stopBy: end
                 all:
                     - has: {stopBy: end, matches: reference, inside: {stopBy: end, matches: reader}}
-                    - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER, matches: member}}}}
+                    - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, pattern: $READER, matches: member}}}]}}
         - kind: function_declaration
           all:
             - matches: private
@@ -129,7 +129,7 @@ rule:
                 stopBy: end
                 all:
                     - has: {stopBy: end, matches: reference, inside: {stopBy: end, matches: reader}}
-                    - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER, matches: member}}}}
+                    - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, pattern: $READER, matches: member}}}]}}
             - not:
                 any:
                     - matches: nested-3

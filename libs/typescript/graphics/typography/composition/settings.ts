@@ -36,9 +36,9 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
         numberingSystem: Schema.OptionFromOptionalKey(NumberingSystem).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         kashida: Kashida.pipe(Schema.withConstructorDefault(Effect.sync(() => Kashida.make({})))),
         marks: Marks.pipe(Schema.withConstructorDefault(Effect.sync(() => Marks.make({})))),
-        features: Schema.Array(Tag)
-            .annotate({ description: 'Enabled OpenType feature tags' })
-            .pipe(Schema.withConstructorDefault(Effect.succeed([]))),
+        features: Schema.Record(Tag, Schema.Int.check(Schema.isGreaterThan(0)))
+            .annotate({ description: 'Enabled OpenType features by tag, a value above 1 selecting that alternate' })
+            .pipe(Schema.withConstructorDefault(Effect.succeed({}))),
         spacing: Spacing.pipe(Schema.withConstructorDefault(Effect.sync(() => Spacing.make({})))),
     },
     { description: 'Typesetting of one paragraph or run' },

@@ -3,5 +3,19 @@
     "description": "Language servers as agent code navigation and diagnostics",
     "author": {
         "name": "Bardia Samiee"
+    },
+    "lspServers": {
+        "rust": {
+            "command": "mise",
+            "args": [ "exec", "--", "rust-analyzer" ],
+            "extensionToLanguage": { ".rs": "rust" },
+            "diagnostics": false,
+            "initializationOptions": {
+                "cargo": { "extraEnv": { "CARGO_BUILD_TARGET_DIR": "${CLAUDE_PROJECT_DIR}/.artifacts/rust/rust-analyzer", "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/rust-analyzer" } },
+                "cachePriming": { "enable": false },
+                "checkOnSave": false,
+                "rustc": { "source": ".cargo/rustc-source/Cargo.toml" }
+            }
+        }
     }
 }

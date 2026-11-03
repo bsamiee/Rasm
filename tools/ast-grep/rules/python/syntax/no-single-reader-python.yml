@@ -115,10 +115,11 @@ utils:
             - matches: reference
             - has: {stopBy: end, matches: reference}
     later-reference:
-        matches: reference
-        any:
-            - follows: {stopBy: end, matches: holds-reference}
-            - inside: {stopBy: end, follows: {stopBy: end, matches: holds-reference}}
+        all:
+            - matches: reference
+            - any:
+                - follows: {stopBy: end, matches: holds-reference}
+                - inside: {stopBy: end, follows: {stopBy: end, matches: holds-reference}}
     level:
         kind: block
         not: {inside: {kind: 'class_definition, match_statement', field: body}}
@@ -149,32 +150,32 @@ rule:
           all:
             - has: {field: left, kind: identifier, pattern: $NAME, not: {regex: '^__\w+__$'}}
             - not: {has: {field: type, kind: type}}
-            - any:
-                - has: {field: right, matches: literal}
-                - all:
-                    - has: {field: right, kind: dictionary, matches: table}
-                    - inside: {kind: module, stopBy: end, not: {has: {stopBy: end, matches: reference, any: [{not: {matches: lookup}}, {matches: deep-site}]}}}
-                - all:
-                    - has: {field: right, kind: 'set, call', matches: table}
-                    - inside: {kind: module, stopBy: end, not: {has: {stopBy: end, matches: reference, not: {matches: lookup}}}}
             - inside:
                 matches: module-statement
                 not:
                     any:
                         - follows: {stopBy: end, matches: assigned}
                         - precedes: {stopBy: end, matches: assigned}
+            - any:
+                - has: {field: right, matches: literal}
+                - all:
+                    - has: {field: right, kind: dictionary, matches: table}
+                    - inside: {kind: module, stopBy: end, not: {has: {stopBy: end, all: [{matches: reference}, {any: [{not: {matches: lookup}}, {matches: deep-site}]}]}}}
+                - all:
+                    - has: {field: right, kind: 'set, call', matches: table}
+                    - inside: {kind: module, stopBy: end, not: {has: {stopBy: end, all: [{matches: reference}, {not: {matches: lookup}}]}}}
             - inside:
                 kind: module
                 stopBy: end
                 all:
                     - not: {has: {matches: exported}}
                     - has: {stopBy: end, kind: identifier, pattern: $NAME, matches: reference, inside: {stopBy: end, matches: reader}}
-                    - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER, matches: owner}}}}
+                    - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, pattern: $READER, matches: owner}}}]}}
                     - not: {has: {stopBy: end, matches: rebinding}}
                     - not: {has: {stopBy: end, matches: reference, inside: {stopBy: end, kind: type}}}
                     - not:
                         all:
-                            - has: {stopBy: end, matches: reference, not: {matches: scoped}}
+                            - has: {stopBy: end, all: [{matches: reference}, {not: {matches: scoped}}]}
                             - has: {stopBy: end, matches: later-reference}
         - kind: function_definition
           pattern: $DECLARATION

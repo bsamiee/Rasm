@@ -119,9 +119,9 @@ const opened = Effect.fn('opened')(function* (live: Live) {
 });
 
 // --- [SOURCE]
-const engine = (scripts: readonly string[]): Result.Result<typeof Engine.Type, string> => {
+const engine = (scripts: readonly string[]): Result.Result<typeof Engine.Type, HarnessError> => {
     const unknown = scripts.filter((script) => !EXTENSIONS.some((extension) => script.endsWith(`.${extension}`)));
-    return unknown.length > 0 ? Result.fail(`${unknown.join(', ')} holds no extension of ${EXTENSIONS.join(' ')}`) : Result.succeed(Engine.literal);
+    return unknown.length > 0 ? Result.fail(HarnessError.make({ reason: { _tag: 'Unavailable', because: `holds no extension of ${EXTENSIONS.join(' ')}` }, subject: unknown.join(', ') })) : Result.succeed(Engine.literal);
 };
 const named = (node: unknown) => Option.map(Schema.decodeUnknownOption(Named)(node), (found) => (found.type === 'Identifier' ? found.name : String(found.value)));
 const escaping = (_: string, node: unknown) => Option.exists(Schema.decodeUnknownOption(Reached)(node), ({ property }) => Option.exists(named(property), shadowed));

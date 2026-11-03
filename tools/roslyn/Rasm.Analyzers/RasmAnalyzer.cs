@@ -35,10 +35,10 @@ public static class Scopes {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = GeneratedCodeAnalysisFlags.None) : DiagnosticAnalyzer {
+public abstract class RasmAnalyzer : DiagnosticAnalyzer {
     public sealed override void Initialize(AnalysisContext context) {
         context.EnableConcurrentExecution();
-        context.ConfigureGeneratedCodeAnalysis(generated);
+        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(Start);
     }
 

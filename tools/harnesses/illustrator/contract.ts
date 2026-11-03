@@ -1,6 +1,6 @@
 import { Record, Schema, Struct } from 'effect';
 import { answers, Expression, Name, Reads } from '#/cases';
-import { common, Enumerated, hostCase, outcome, record, recorded, reply } from '#/results';
+import { Common, Enumerated, hostCase, outcome, record, recorded, reply } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -98,7 +98,7 @@ const Write = Schema.TaggedUnion({
     Pasteboard: { member: Schema.Literals(PASTEBOARD) },
 }).annotate({ description: 'Application member, preference key, or pasteboard the original changed, restored after the case' });
 const fields = {
-    ...common,
+    ...Common.fields,
     logs: recorded(Schema.Struct({ file: Schema.String, line: Schema.String }).annotate({ description: 'Line written while the case ran to a log file no other process holds open' })),
     writes: recorded(Write),
 };

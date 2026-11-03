@@ -13,6 +13,7 @@ import System
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 let messagingTimeout: Duration = .seconds(1)
+let unhideTimeout: Duration = .seconds(5)
 let notifications: Swift.Set<String> = [
     kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXUIElementDestroyedNotification, kAXFocusedWindowChangedNotification, kAXTitleChangedNotification,
     kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification,
@@ -298,7 +299,12 @@ struct Show: AsyncParsableCommand {
 
     func run() async throws {
         await WatchApps.run(instance.installed.names) { applications, output in
-            await instance.each(of: applications.keys, output: output, { _, running in Result { () throws(ApplicationFailure) in try running.show() } }, as: { _ in nil })
+            await instance.each(
+                of: applications.keys,
+                output: output,
+                { _, running in await Result { () async throws(ApplicationFailure) in try await running.shown(within: unhideTimeout) } },
+                as: { _ in nil },
+            )
         }
     }
 }
@@ -348,9 +354,11 @@ struct Capture: AsyncParsableCommand {
             do { try FileManager.default.createDirectory(at: captures, withIntermediateDirectories: true) } catch {
                 throw ApplicationFailure(subject: captures.path(percentEncoded: false), reason: .host(error))
             }
-            let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration(file: file)
+            let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
             configuration.showsCursor = false
-            return try await Screenshot(file: file.path(percentEncoded: false), windows: running.screenshot(of: window, longestSide: longestSide, configuration: configuration).windows)
+            let captured: (output: SCScreenshotOutput, windows: [CGWindowID]) = try await running.screenshot(of: window, longestSide: longestSide, configuration: configuration)
+            try captured.output.write(to: file)
+            return Screenshot(file: file.path(percentEncoded: false), windows: captured.windows)
         }
     }
 }

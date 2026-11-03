@@ -3,7 +3,7 @@ import indesign, { type ScriptLanguage } from 'adobe:indesign';
 import uxp from 'adobe:uxp';
 import { Encoded, type fields, type HostCase, Outcome, Recorded, Reply } from '@rasm/harnesses/indesign/contract';
 import { bury, JsonObject, type Reference, revive } from '@rasm/harnesses/values';
-import { Equal, Match, Option, Predicate, Record, Result, Schema } from 'effect';
+import { Equal, identity, Match, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -35,8 +35,6 @@ interface Session {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const STACK_LINE = /<anonymous>:(?<line>\d+):\d+/gu;
-const ACTIVATING = ['show', 'revealInSystem', 'revealInBridge'] as const;
-const SCHEDULING = ['queueMicrotask', 'setTimeout', 'setInterval', 'setImmediate', 'requestAnimationFrame'] as const;
 const LIVE = ['activeDocument', 'activeWindow', 'layoutWindows', 'windows', 'selection'] as const;
 const VALUED: Record.ReadonlyRecord<string, string> = {
     textEditboxes: 'editContents',
@@ -80,7 +78,7 @@ const invoked = (target: unknown, key: string, args: readonly unknown[]): unknow
 const items = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
 const strings = (value: unknown): readonly string[] => Option.getOrElse(Schema.decodeUnknownOption(Schema.Array(Schema.String))(value), () => []);
 const elements = (list: unknown) => items(invoked(invoked(list, 'everyItem', []), 'getElements', []));
-const called = (made: unknown, args: readonly unknown[]): unknown => (Predicate.isFunction(made) ? Reflect.apply(made, undefined, args) : undefined);
+const called = (made: unknown, args: readonly unknown[]): unknown => Reflect.apply(Option.getOrThrow(Option.liftPredicate(made, Predicate.isFunction)), undefined, args);
 const enumerator = (value: unknown): value is object => value instanceof indesign.Enumerator;
 const equal = (left: unknown, right: unknown) => enumerator(left) && enumerator(right) && invoked(left, 'equals', [right]) === true;
 const members = (enumeration: unknown) => Object.getOwnPropertyNames(Object.getPrototypeOf(enumeration)).filter((key) => enumerator(field(enumeration, key)) && String(field(enumeration, key)) === key);
@@ -90,34 +88,37 @@ const codecOf = (enumerations: Batch['enumerations']): Codec => {
     const qualified = (held: object) => {
         const name = String(invoked(held, 'toString', []));
         const holding = (owners.get(name) ?? []).filter((enumeration) => equal(field(field(indesign, enumeration), name), held));
-        return holding.length === 1 ? `enum:${holding[0]}.${name}` : `enum:${name}`;
+        return Option.match(
+            Option.filter(Option.fromUndefinedOr(holding[0]), () => holding.length === 1),
+            { onNone: () => `enum:${name}`, onSome: (owner) => `enum:${owner}.${name}` },
+        );
     };
     const named = (held: object): Option.Option<string> =>
         Match.value(held).pipe(
-            Match.when(enumerator, (value) => Option.some(qualified(value))),
+            Match.when(enumerator, qualified),
             Match.when(
                 (value: object) => Predicate.isFunction(field(value, 'toSpecifier')),
-                (value) => Option.some(`object:${String(invoked(value, 'toSpecifier', []))}`),
+                (value) => `object:${String(invoked(value, 'toSpecifier', []))}`,
             ),
-            Match.orElse(() => Option.none()),
+            Match.option,
         );
     const resolved = (path: string): unknown => {
         const dot = path.indexOf('.');
         const candidates = dot < 0 ? (owners.get(path) ?? []).map((enumeration) => field(field(indesign, enumeration), path)).filter(enumerator) : [field(field(indesign, path.slice(0, dot)), path.slice(dot + 1))].filter(enumerator);
         const [first] = candidates;
-        if (first === undefined || !candidates.every((held) => equal(held, first))) {
-            throw new Error(`enum:${path} names ${first === undefined ? 'no enumerator' : `enumerators of ${(owners.get(path) ?? []).join(', ')} with different codes`}`);
-        }
-        return first;
+        return Option.getOrThrowWith(
+            Option.filter(Option.fromUndefinedOr(first), (held) => candidates.every((other) => equal(other, held))),
+            () => new Error(`enum:${path} names ${first === undefined ? 'no enumerator' : `enumerators of ${(owners.get(path) ?? []).join(', ')} with different codes`}`),
+        );
     };
     const located = ({ kind, path }: Reference): unknown =>
         Match.value(kind).pipe(
             Match.when('enum', () => resolved(path)),
-            Match.when('object', () => app.doScript(`resolve(${JSON.stringify(path)})`, indesign.ScriptLanguage.JAVASCRIPT)),
+            Match.when('object', () => app.doScript('resolve(arguments[0])', indesign.ScriptLanguage.JAVASCRIPT, [path])),
             Match.orElse(() => ({ $: `${kind}:${path}` })),
         );
     const encoded = (value: unknown) => bury(value, named);
-    return { encoded, record: (value) => Record.map(value, encoded), revived: (value) => revive(value, located) };
+    return { encoded, record: Record.map(encoded), revived: (value) => revive(value, located) };
 };
 const compiled = (parameters: readonly string[], code: string) => {
     // biome-ignore lint/nursery/noImpliedEval: case data and originals compile inside the host
@@ -141,8 +142,6 @@ const shadow = <T extends object>(target: T, get: (key: PropertyKey, value: unkn
     new Proxy(target, {
         get: (held, key) => get(key, Reflect.get(held, key)),
         set: (_, key, value) => set(key, value),
-        defineProperty: (held, key, descriptor) => Reflect.defineProperty(held, key, descriptor),
-        getOwnPropertyDescriptor: (held, key) => Reflect.getOwnPropertyDescriptor(held, key),
     });
 
 // --- [STATE]
@@ -264,12 +263,14 @@ const prototypes = (session: Session) => {
         throw new Error(`${name} schedules work that outlives the answer`);
     };
     const printed = (...parts: readonly unknown[]) => session.record.console.push(parts.map(String).join(' '));
+    const reaching = ['show', 'revealInSystem', 'revealInBridge'] as const;
+    const scheduling = ['queueMicrotask', 'setTimeout', 'setInterval', 'setImmediate', 'requestAnimationFrame'] as const;
     const activating = names.flatMap((name) => {
         const prototype = field(Reflect.get(indesign, name), 'prototype');
-        return Predicate.isObject(prototype) ? ACTIVATING.filter((member) => Predicate.isFunction(Object.getOwnPropertyDescriptor(prototype, member)?.value)).map((member) => [prototype, member, () => session.record.activations.push(member)] as const) : [];
+        return Predicate.isObject(prototype) ? reaching.filter((member) => Predicate.isFunction(Object.getOwnPropertyDescriptor(prototype, member)?.value)).map((member) => [prototype, member, () => session.record.activations.push(member)] as const) : [];
     });
     const printers = Object.keys(console).filter((name) => Predicate.isFunction(Reflect.get(console, name)));
-    return patched([...activating, ...SCHEDULING.map((name) => [globalThis, name, scheduled(name)] as const), ...printers.map((name) => [console, name, printed] as const)]);
+    return patched([...activating, ...scheduling.map((name) => [globalThis, name, scheduled(name)] as const), ...printers.map((name) => [console, name, printed] as const)]);
 };
 const dialogs = (session: Session): unknown[] => {
     const list: unknown[] = [];
@@ -308,7 +309,7 @@ const dialogs = (session: Session): unknown[] => {
                             const index = counts.get(kind) ?? 0;
                             counts.set(kind, index + 1);
                             const member = VALUED[kind];
-                            Option.map(Option.fromUndefinedOr(filled[`${kind}#${index}`]), (value) => (member === undefined ? undefined : Reflect.set(row, member, value)));
+                            Option.map(Record.get(filled, `${kind}#${index}`), (value) => (member === undefined ? undefined : Reflect.set(row, member, value)));
                             return session.codec.encoded({ kind, index, label: row.staticLabel, ...(member === undefined ? {} : { value: row[member] }) });
                         }),
                     });
@@ -396,10 +397,7 @@ const installed = (session: Session) => {
         return called(compiled(keys, `return function () {${code}\n};`)(...values), extra);
     };
     const ours = (doc: unknown) => session.documents.some((held) => field(held, 'isValid') === true && field(held, 'id') === field(doc, 'id'));
-    const activeOf = () => {
-        const active = Option.getOrUndefined(Result.getSuccess(Result.try(() => app.activeDocument)));
-        return ours(active) ? Option.some(active) : Option.none();
-    };
+    const activeOf = () => Option.filter(Result.getSuccess(Result.try(() => app.activeDocument)), ours);
     const windowed = (list: unknown) => elements(list).filter((window) => ours(field(window, 'parent')));
     const live: { readonly [K in (typeof LIVE)[number]]: () => unknown } = {
         activeDocument: () => Option.getOrElse(activeOf(), () => session.documents.findLast((doc) => field(doc, 'isValid') === true && field(doc, 'constructorName') === 'Document')),
@@ -512,20 +510,24 @@ const opened = (session: Session): readonly unknown[] => {
     }
     return docs;
 };
-const state = (codec: Codec, doc: unknown) =>
-    codec.encoded({
+const state = (codec: Codec, doc: unknown) => {
+    const nested = (name: string) =>
+        pipe(
+            Result.try(() => field(doc, name)),
+            Result.getSuccess,
+            Option.filter((value) => Predicate.isObject(value) && !owned(value) && !('id' in value) && Predicate.isObject(field(value, 'properties'))),
+            Option.map((value) => [name, field(value, 'properties')] as const),
+        );
+    return codec.encoded({
         name: field(doc, 'name'),
-        ...Object.fromEntries(
-            preferences(doc).flatMap((name) =>
-                Option.toArray(Option.flatMap(Result.getSuccess(Result.try(() => field(doc, name))), (value) => (Predicate.isObject(value) && !owned(value) && !('id' in value) && Predicate.isObject(field(value, 'properties')) ? Option.some([name, field(value, 'properties')] as const) : Option.none()))),
-            ),
-        ),
+        ...Object.fromEntries(preferences(doc).flatMap((name) => Option.toArray(nested(name)))),
         cmykProfile: field(doc, 'cmykProfile'),
         rgbProfile: field(doc, 'rgbProfile'),
         appliedLanguage: field(field(field(doc, 'textDefaults'), 'appliedLanguage'), 'name'),
         fonts: { names: field(invoked(field(doc, 'fonts'), 'everyItem', []), 'name'), status: field(invoked(field(doc, 'fonts'), 'everyItem', []), 'status') },
         links: { names: field(invoked(field(doc, 'links'), 'everyItem', []), 'name'), status: field(invoked(field(doc, 'links'), 'everyItem', []), 'status') },
     });
+};
 const reads = (session: Session, fake: unknown, docs: readonly unknown[], made: Node) => {
     const [doc] = docs;
     const unit = app.scriptPreferences.measurementUnit;
@@ -537,7 +539,7 @@ const reads = (session: Session, fake: unknown, docs: readonly unknown[], made: 
     });
     try {
         const evaluate = (expression: string) => given(fake, expression, doc, made);
-        const rows = Object.entries(session.item.read).map(([key, expression]) => {
+        const rows = Record.collect(session.item.read, (key, expression) => {
             try {
                 return { state: { [key]: evaluate(expression) }, failed: {} };
             } catch (error) {
@@ -568,12 +570,12 @@ const exported = (session: Session, docs: readonly unknown[], moment: string) =>
     session.item.precondition.idml === true ? docs.forEach((doc, index) => (field(doc, 'isValid') === true ? invoked(doc, 'exportFile', [indesign.ExportFormat.INDESIGN_MARKUP, `${session.item.folder}/${index}.${moment}.idml`]) : undefined)) : undefined;
 
 // --- [RUN]
-const thrown = (error: unknown) => {
-    const stack = lines(error).map((line) => ({ line: line - HEAD }));
-    return { _tag: 'Thrown' as const, message: `${String(field(error, 'name') ?? 'Error')}: ${message(error)}`, ...(stack.length === 0 ? {} : { line: stack[0]?.line ?? 0, stack }) };
-};
 const ran = (session: Session, { fake, evaluate }: ReturnType<typeof installed>, docs: readonly unknown[], made: Node) => {
     const { item } = session;
+    const thrown = (error: unknown) => {
+        const stack = lines(error).map((line) => ({ line: line - HEAD }));
+        return { _tag: 'Thrown' as const, message: `${String(field(error, 'name') ?? 'Error')}: ${message(error)}`, ...(stack.length === 0 ? {} : { line: stack[0]?.line ?? 0, stack }) };
+    };
     try {
         app.scriptPreferences.userInteractionLevel = item.interact ? indesign.UserInteractionLevels.INTERACT_WITH_ALL : indesign.UserInteractionLevels.NEVER_INTERACT;
         const value = (() => {
@@ -637,7 +639,7 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
             prepare(shadows.fake, docs[0], session, made);
             const before = reads(session, shadows.fake, docs, made).state;
             const inner: { done?: ReturnType<typeof ran>; after?: ReturnType<typeof reads> } = {};
-            try {
+            const rolled = Result.try(() =>
                 app.doScript(
                     () => {
                         exported(session, docs, 'before');
@@ -653,13 +655,12 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
                     [],
                     indesign.UndoModes.ENTIRE_SCRIPT,
                     item.name,
-                );
-            } catch (error) {
-                if (inner.done === undefined || inner.after === undefined) {
-                    throw error;
-                }
-            }
-            const { done = { completion: { _tag: 'Failed' as const, reason: 'case did not finish' } }, after = { state: {}, failed: {} } } = inner;
+                ),
+            );
+            const { done, after } = Option.getOrThrowWith(
+                Option.zipWith(Option.fromUndefinedOr(inner.done), Option.fromUndefinedOr(inner.after), (finished, read) => ({ done: finished, after: read })),
+                () => Result.match(rolled, { onFailure: identity, onSuccess: () => new Error('case did not finish') }),
+            );
             return { ...done, before, read: after.state, readFailed: after.failed };
         } catch (error) {
             return { completion: { _tag: 'Failed', reason: message(error) } };

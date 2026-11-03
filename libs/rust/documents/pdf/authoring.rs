@@ -1,0 +1,202 @@
+use core::{borrow::Borrow, iter};
+use std::{borrow::Cow, sync::Arc};
+
+use fontdb::Database;
+use jiff::{SignedDuration, Zoned};
+use krilla::{
+    SerializeSettings,
+    action::LinkAction,
+    annotation::{Annotation, LinkAnnotation, Target},
+    configure::{PdfVersion, ValidationError},
+    destination::XyzDestination,
+    embed::EmbeddedFile,
+    error::KrillaError,
+    geom::{self, Quadrilateral, Transform},
+    metadata::{DateTime, Metadata},
+    outline::Outline,
+    page::PageSettings,
+    tagging::TagTree,
+};
+use kurbo::{Point, Size};
+use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
+use rasm_linework::{
+    Tolerance, Visibility,
+    pages::{self, Destination, Link, Page},
+};
+use uom::si::{
+    f64::Length,
+    length::{inch, millimeter},
+};
+use validated::Validated;
+
+use self::{content::Drawing, standards::Standards, tagging::Leaves};
+use crate::{
+    Document, POINTS_PER_INCH, PdfError, Resolution, Subject,
+    layers::{self, Group},
+    measurement,
+    navigation::{self, Navigation},
+};
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+pub struct Options {
+    pub metadata: Metadata,
+    pub created: Zoned,
+    pub standards: Standards = Standards { .. },
+    pub navigation: Option<Navigation> = None,
+    pub attachments: Vec<EmbeddedFile> = Vec::new(),
+    pub fonts: Arc<Database>,
+    pub resolution: Option<Resolution> = None,
+    pub tolerance: Tolerance,
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+pub fn author<I>(pages: I, options: &Options) -> Result<Document, PdfError>
+where I: IntoNonEmptyIterator<Item: Borrow<Page>> {
+    let held = pages.into_nonempty_iter().collect::<NEVec<_>>();
+    let sheets = held.iter().map(Borrow::<Page>::borrow).collect::<Vec<_>>();
+    let settings = standards::settings(&options.standards)?;
+    let layered = settings.configuration.version() >= PdfVersion::Pdf15;
+    let labels = options.navigation.as_ref().map_or(&[][..], |stated| stated.labels.as_slice());
+    let (count, scale) = (sheets.len(), points_per_millimeter());
+    let annotation = |link: &Link| {
+        let area = link.area.abs().scale_from_origin(scale);
+        let quad = geom::Rect::from_ltrb(area.x0.cast::<f32>(), area.y0.cast::<f32>(), area.x1.cast::<f32>(), area.y1.cast::<f32>())
+            .ok_or_else(|| pdf_oxide::Error::InvalidOperation(format!("link area {} by {} holds no bounds", area.width(), area.height())))?;
+        let (target, alt) = match &link.destination {
+            Destination::Uri(uri) => (Target::Action(LinkAction::new(uri.to_string()).into()), uri.to_string()),
+            Destination::Page { index, area: anchor } => {
+                (*index < count).ok_or(PdfError::Page { index: *index, count })?;
+                let origin = anchor.map_or(Point::ZERO, |rect| rect.abs().origin()).to_vec2() * scale;
+                let label = navigation::label(labels, *index).filter(|text| !text.is_empty()).unwrap_or_else(|| format!("page {}", index.strict_add(1)));
+                (Target::Destination(XyzDestination::new(*index, geom::Point::from_xy(origin.x.cast::<f32>(), origin.y.cast::<f32>())).into()), label)
+            }
+        };
+        Ok::<_, PdfError>(Annotation::new_link(LinkAnnotation::new_with_quad_points(vec![Quadrilateral::from(quad)], target), Some(alt)))
+    };
+    let mut document = opened(settings, options)?;
+    let mut drawing = Drawing::new(options);
+    let (groups, parts): (Vec<_>, Vec<_>) = sheets
+        .iter()
+        .enumerate()
+        .map(|(index, page)| {
+            let located = |error: PdfError| (Subject::Page(index), error);
+            let sized = Validated::from(dimensioned(page.size).map_err(located));
+            let paper = page
+                .viewports
+                .iter()
+                .map(|viewport| pages::paper(viewport.clone()).map_or_else(Validated::Fail, Validated::Good))
+                .collect::<Validated<Vec<_>, _>>()
+                .map_err(|errors| errors.into_nonempty_iter().map(|error| located(error.into())).collect());
+            let linked = page.links.iter().map(|link| annotation(link).map_err(located)).collect::<Validated<Vec<_>, _>>();
+            let ((page_settings, _), paper, annotations) = match sized.map3(paper, linked, |sized, paper, annotations| (sized, paper, annotations)) {
+                Validated::Good(parts) => parts,
+                Validated::Fail(errors) => return Validated::Fail(errors),
+            };
+            let sheet = page.size.to_rect();
+            let mut canvas = document.start_page_with(page_settings);
+            let mut surface = canvas.surface();
+            surface.push_transform(&Transform::from_scale(scale.cast::<f32>(), scale.cast::<f32>()));
+            let layers = iter::chain(paper.iter().flatten(), &page.layers)
+                .map(|layer| {
+                    let mut leaves = Leaves::default();
+                    if layered {
+                        surface.push_isolated();
+                    }
+                    let result = match (layered, layer.view) {
+                        (true, Visibility::Visible | Visibility::Hidden) | (false, Visibility::Visible) => content::draw(&mut surface, &layer.elements, sheet, &mut drawing, &mut leaves),
+                        (false, Visibility::Hidden) => Validated::Good(()),
+                    };
+                    if layered {
+                        surface.pop();
+                    }
+                    result
+                        .map(|()| (layer, leaves))
+                        .map_err(|errors| errors.into_nonempty_iter().map(|(element, error)| (Subject::Element { page: index, layer: Arc::clone(&layer.name), index: element }, error)).collect())
+                })
+                .collect::<Validated<Vec<_>, _>>();
+            surface.pop();
+            surface.finish();
+            let links = annotations.into_iter().map(|link| canvas.add_tagged_annotation(link)).collect::<Vec<_>>();
+            canvas.finish();
+            layers.map(|bound| {
+                let groups = if layered { bound.iter().map(|(layer, _)| Group { name: Arc::clone(&layer.name), print: layer.print, view: layer.view }).collect() } else { Vec::new() };
+                (groups, tagging::part(bound.into_iter().map(|(layer, leaves)| (&layer.name, leaves)), links))
+            })
+        })
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
+        .map_err(PdfError::Refused)?
+        .into_iter()
+        .unzip();
+    document.set_tag_tree(TagTree::from(parts));
+    closed(document, &sheets, &groups, options)
+}
+
+pub fn scan(tiff: &[u8], options: &Options) -> Result<Document, PdfError> {
+    let settings = standards::settings(&options.standards)?;
+    (!settings.enable_tagging).ok_or_else(|| KrillaError::Validation(vec![(ValidationError::MissingTagging, settings.configuration.validators())]))?;
+    let mut document = opened(settings, options)?;
+    rasters::frames(tiff)?.enumerate().try_for_each(|(index, frame)| {
+        let (paper, raster) = frame?;
+        let (page, size) = dimensioned(paper)?;
+        let image = rasters::image(&raster, rasters::target(&raster, paper, options.resolution))
+            .map_err(|errors| PdfError::Refused(errors.into_nonempty_iter().map(|error| (Subject::Page(index), error)).collect()))?;
+        document.start_page_with(page).surface().draw_image(image, size);
+        Ok::<_, PdfError>(())
+    })?;
+    closed(document, &[], &[], options)
+}
+
+fn opened(settings: SerializeSettings, options: &Options) -> Result<krilla::Document, PdfError> {
+    let zoned = &options.created;
+    let offset = SignedDuration::from_secs(zoned.offset().seconds().into());
+    let created = DateTime::new(zoned.year().max(0).cast_unsigned())
+        .month(zoned.month().cast_unsigned())
+        .day(zoned.day().cast_unsigned())
+        .hour(zoned.hour().cast_unsigned())
+        .minute(zoned.minute().cast_unsigned())
+        .second(zoned.second().cast_unsigned())
+        .utc_offset_hour(i8::try_from(offset.as_hours()).unwrap_or(i8::MAX))
+        .utc_offset_minute(u8::try_from(offset.saturating_sub(SignedDuration::from_hours(offset.as_hours())).as_mins().unsigned_abs()).unwrap_or(u8::MAX));
+    let mut document = krilla::Document::new_with(settings);
+    document.set_metadata(options.metadata.clone().creation_date(created));
+    document.set_outline(Outline::new());
+    options.attachments.iter().try_for_each(|file| {
+        document.embed_file(EmbeddedFile { modification_date: file.modification_date.or(Some(created)), ..file.clone() }).ok_or_else(|| PdfError::Attachment(Arc::from(file.path.as_str())))
+    })?;
+    Ok(document)
+}
+
+fn closed(document: krilla::Document, sheets: &[&Page], groups: &[Vec<Group>], options: &Options) -> Result<Document, PdfError> {
+    let mut structure = lopdf::Document::load_mem(&document.finish()?)?;
+    if groups.iter().any(|layer_groups| !layer_groups.is_empty()) {
+        layers::bind(&mut structure, groups, standards::forbids(&options.standards))?;
+    }
+    measurement::write(&mut structure, sheets.iter().copied())?;
+    navigation::write(&mut structure, &options.navigation.as_ref().map_or_default(Cow::Borrowed))?;
+    let identifiers = structure.page_iter().collect::<Vec<_>>();
+    iter::zip(identifiers, sheets).try_for_each(|(identifier, sheet)| crate::write_fields(&mut structure, identifier, &sheet.fields, &options.created))?;
+    standards::close(&mut structure, &options.standards)?;
+    let mut bytes = Vec::new();
+    structure.save_to(&mut bytes).map_err(lopdf::Error::from)?;
+    Document::new(bytes, None)
+}
+
+fn dimensioned(paper: Size) -> Result<(PageSettings, geom::Size), PdfError> {
+    let scale = points_per_millimeter();
+    let (width, height) = (paper.width * scale, paper.height * scale);
+    let size = content::extent(width.cast::<f32>(), height.cast::<f32>())?;
+    Ok((PageSettings::new(size).with_trim_box(geom::Rect::from_xywh(0.0, 0.0, size.width(), size.height())), size))
+}
+
+fn points_per_millimeter() -> f64 { Length::new::<millimeter>(1.0).get::<inch>() * POINTS_PER_INCH }
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+mod content;
+mod rasters;
+pub mod standards;
+mod tagging;

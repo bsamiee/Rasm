@@ -185,5 +185,5 @@ extension InstanceState {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(2)))
 struct Integration {}

@@ -13,6 +13,9 @@ import Testing
 
 private let detailMask: Int32 = NOTE_EXIT_DECRYPTFAIL | NOTE_EXIT_MEMORY | NOTE_EXIT_CSERROR
 private let signals: [Signal] = [.kill, .terminate, .terminalClosed, .interrupt, .userDefinedOne, .userDefinedTwo, .alarm]
+private let grandchildren: [(script: String, status: TerminationStatus)] = [
+    ("/bin/sh -c 'read _; exit 5' <&0 & echo $!; wait", .exited(5)), ("/bin/sleep 600 & echo $!; read _; kill -TERM $!; wait", .signaled(SIGTERM)),
+]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -73,28 +76,16 @@ struct ProcessTerminations {
         expectNoDifference(stop, .exited(9))
     }
 
-    @Test
-    func grandchildExitCodeReachesWatcherThatIsNotItsParent() async throws {
-        let (observed, _): (value: [Result<ProcessExit, Errno>], status: TerminationStatus) = try await child(running: "/bin/sh -c 'read _; exit 5' <&0 & echo $!; wait") { _, line, execution in
+    @Test(arguments: grandchildren)
+    func grandchildTerminationReachesWatcherThatIsNotItsParent(script: String, status: TerminationStatus) async throws {
+        let (observed, _): (value: [Result<ProcessExit, Errno>], status: TerminationStatus) = try await child(running: script) { _, line, execution in
             let parsed: pid_t? = pid_t(line)
             let grandchild: pid_t = try #require(parsed)
             let stream: AsyncStream<Result<ProcessExit, Errno>> = termination(of: grandchild)
             try await execution.standardInputWriter.finish()
             return await Array(stream)
         }
-        expectNoDifference(observed, [.success(ProcessExit(status: .exited(5), detail: []))])
-    }
-
-    @Test
-    func grandchildSignalReachesWatcherThatIsNotItsParent() async throws {
-        let (observed, _): (value: [Result<ProcessExit, Errno>], status: TerminationStatus) = try await child(running: "/bin/sleep 600 & echo $!; read _; kill -TERM $!; wait") { _, line, execution in
-            let parsed: pid_t? = pid_t(line)
-            let grandchild: pid_t = try #require(parsed)
-            let stream: AsyncStream<Result<ProcessExit, Errno>> = termination(of: grandchild)
-            try await execution.standardInputWriter.finish()
-            return await Array(stream)
-        }
-        expectNoDifference(observed, [.success(ProcessExit(status: .signaled(SIGTERM), detail: []))])
+        expectNoDifference(observed, [.success(ProcessExit(status: status, detail: []))])
     }
 
     @Test

@@ -36,18 +36,23 @@ pub struct Clash {
 pub fn clashes(assembly: &Assembly, other: Option<&Assembly>, clearance: Distance, rule: impl Fn(usize, usize) -> bool + Sync) -> Result<Vec<Clash>, NEVec<ProximityError>> {
     let prediction = clearance.into_inner();
     let candidates = other.unwrap_or(assembly);
-    assembly
-        .bvh
-        .leaf_pairs(&candidates.bvh, |node, candidate| node.aabb().loosened(prediction).intersects(&candidate.aabb()))
-        .filter(|&(left, right)| (other.is_some() || left < right) && rule(left as usize, right as usize))
-        .collect::<Vec<_>>()
+    let rule = &rule;
+    (0..u32::MAX)
         .into_par_iter()
-        .filter_map(|(left, right)| {
-            let (element @ (_, pose, shape, _), candidate @ (_, candidate_pose, candidate_shape, _)) = leaf(assembly, left).zip(leaf(candidates, right))?;
-            query::contact(pose, &**shape, candidate_pose, &**candidate_shape, prediction)
-                .map_err(|Unsupported| unsupported(element, candidate))
-                .map(|contact| clash(element, candidate, contact))
-                .transpose()
+        .zip(&assembly.elements)
+        .filter_map(|(slot, _)| leaf(assembly, slot))
+        .flat_map_iter(|element @ (index, pose, shape, aabb)| {
+            let reach = aabb.loosened(prediction);
+            candidates
+                .bvh
+                .leaves(move |node| reach.intersects(&node.aabb()))
+                .filter_map(move |partner| leaf(candidates, partner).filter(|&(partner, ..)| (other.is_some() || index < partner) && rule(index, partner)))
+                .filter_map(move |candidate @ (_, candidate_pose, candidate_shape, _)| {
+                    query::contact(pose, &**shape, candidate_pose, &**candidate_shape, prediction)
+                        .map_err(|Unsupported| unsupported(element, candidate))
+                        .map(|contact| clash(element, candidate, contact))
+                        .transpose()
+                })
         })
         .collect::<Validated<Vec<Clash>, ProximityError>>()
         .ok()

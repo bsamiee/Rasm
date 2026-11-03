@@ -4,12 +4,10 @@ import { Opened, Placed, type Survey, Template } from '#/rhino/contract';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const ancestry = (culture: string) => {
-    const parts = culture.split('-').filter((part) => part !== '');
-    return parts.map((_, index) => parts.slice(0, parts.length - index).join('-'));
-};
 const precondition = (survey: typeof Survey.Type) => {
-    const language = { language: Schema.optionalKey(Schema.Literals(ancestry(survey.language.culture)).annotate({ description: 'Culture the instance runs or one of its parents' })) };
+    const parts = survey.language.culture.split('-').filter((part) => part !== '');
+    const ancestry = parts.map((_, index) => parts.slice(0, parts.length - index).join('-'));
+    const language = { language: Schema.optionalKey(Schema.Literals(ancestry).annotate({ description: 'Culture the instance runs or one of its parents' })) };
     const placed = { ...Struct.omit(Placed.fields, ['source', 'language']), ...language };
     const scripted = { ...Struct.pick(Placed.fields, ['canvas', 'steps', 'batch']), ...language };
     return placings(

@@ -45,26 +45,22 @@ utils:
             - kind: identifier
               pattern: $TEXT
               inside:
-                stopBy: end
-                follows:
-                    stopBy: end
-                    kind: local_declaration_statement
-                    has:
-                        kind: variable_declaration
-                        has:
-                            kind: variable_declarator
-                            all:
-                                - has: {field: name, pattern: $TEXT}
-                                - has: {nthChild: 2, matches: message-text}
-            - kind: identifier
-              pattern: $TEXT
-              inside:
-                stopBy: end
+                stopBy:
+                    kind: 'block, arrow_expression_clause'
+                    inside: {kind: 'method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration, property_declaration, indexer_declaration'}
                 follows:
                     stopBy: end
                     any:
+                        - kind: local_declaration_statement
+                          has:
+                            kind: variable_declaration
+                            has:
+                                kind: variable_declarator
+                                all:
+                                    - has: {field: name, pattern: $TEXT}
+                                    - has: {nthChild: 2, matches: message-text}
                         - matches: bound-message
-                        - has: {stopBy: end, matches: bound-message}
+                        - has: {stopBy: end, kind: is_pattern_expression, matches: bound-message}
     bound-message:
         kind: is_pattern_expression
         all:

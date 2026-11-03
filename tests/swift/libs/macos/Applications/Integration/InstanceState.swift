@@ -69,8 +69,8 @@ extension Integration {
             let listed: [Window] = try #require(state.windows)
             let undescribed: Window = try #require(listed.first { window in window.title == "Undescribed" })
             let size: CGSize = await NSWindow.frameRect(forContentRect: NSRect(origin: .zero, size: undescribedSize), styleMask: [.titled]).size
-            expectNoDifference(state.elements.compactMap(\.title).contains("Undescribed"), false)
-            expectNoDifference(listed.map(\.number).contains(described), false)
+            expectNoDifference(state.elements.contains { element in element.title == "Undescribed" }, false)
+            expectNoDifference(listed.contains { window in window.number == described }, false)
             expectNoDifference([undescribed.frame.width, undescribed.frame.height], [size.width, size.height])
             expectNoDifference([undescribed.layer, undescribed.onScreen ? 1 : 0], [0, 1])
         }
@@ -88,7 +88,7 @@ extension Integration {
             )
             let turned: Observed = try #require(hung.last)
             expectNoDifference(phases(hung).last, .unresponsive(process))
-            expectNoDifference(turned.state.windows?.map(\.number).contains(described), true)
+            expectNoDifference(turned.state.windows?.contains { window in window.number == described }, true)
             let first: ResourceUsage = try #require(turned.state.usage, "unresponsive line holds usage")
             let sampled: ContinuousClock.Instant = clock.now
             let reread: InstanceState = await instance.state { _ in false }

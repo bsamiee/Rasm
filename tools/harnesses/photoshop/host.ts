@@ -1,24 +1,22 @@
 import { createHash } from 'node:crypto';
 import type { Installation } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
-import { Array, Effect, FileSystem, Option, Path, type PlatformError, Result, Schema, Stream, String as Text } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, type PlatformError, Result, Schema, Stream, String } from 'effect';
 import { ChildProcess } from 'effect/process';
 import jsesc from 'jsesc';
 import { HarnessError } from '#/error';
-import { Document, Encoded, Engine, HostCase, type Placed, Quit, Recorded, Reply, SURVEY, Survey } from '#/photoshop/contract';
+import { Document, Encoded, Engine, HostCase, type Placed, type Quit, Recorded, Reply, SURVEY, Survey } from '#/photoshop/contract';
 import { precondition } from '#/photoshop/precondition';
 import { type Batch, type Host as Harness, type Installed, type Live, recorded } from '#/session';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const IDENTIFIER = 'com.adobe.Photoshop';
 const JAVASCRIPT = { command: 'miscDjxM', argument: 'JArg' } as const;
 const EXTENSIONS: readonly string[] = ['jsx', 'jsxbin', 'js'];
 const WRITABLE = /^[A-Z0-9]+$/u;
 const SPACED = /\s+/u;
 const SHARED = new URL('../extendscript.jsxinc', import.meta.url);
 const ENGINE = new URL('extendscript.jsxinc', import.meta.url);
-const SOURCE = 'harness.jsx';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -45,21 +43,21 @@ const released = Effect.fn('released')(function* (installation: Installation) {
     const app = yield* path.fromFileUrl(installation.url);
     const [own, nested] = yield* Effect.all([Effect.flatMap(output('plutil', ['-convert', 'json', '-o', '-', path.join(app, 'Contents', 'Info.plist')]), Schema.decodeEffect(Info)), output('find', [path.join(app, 'Contents'), '-name', '*.app', '-prune'])], { concurrency: 'unbounded' });
     const version = yield* Effect.fromOption(installation.version, () => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'Launch Services reports no version' }, subject: installation.name }));
-    return { identifier: installation.identifier, name: installation.name, app, version: `${version}+${own['Adobe Product Build']}.${own.RELEASECHANNEL}`, watched: [installation.identifier, ...Array.fromIterable(Text.linesIterator(nested)).filter((line) => line !== '')] } satisfies Installed;
+    return { identifier: installation.identifier, name: installation.name, app, version: `${version}+${own['Adobe Product Build']}.${own.RELEASECHANNEL}`, watched: [installation.identifier, ...Array.fromIterable(String.linesIterator(nested)).filter((line) => line !== '')] } satisfies Installed;
 });
-const installed = Effect.flatMap(Automation, (automation) =>
-    Effect.flatMap(automation.installed, (rows) =>
-        Effect.forEach(
-            rows.filter((row) => row.scriptable && row.identifier === IDENTIFIER),
-            released,
-        ),
-    ),
-);
+const installed = Effect.gen(function* () {
+    const automation = yield* Automation;
+    const rows = yield* automation.installed;
+    return yield* Effect.forEach(
+        rows.filter((row) => row.scriptable && row.identifier === 'com.adobe.Photoshop'),
+        released,
+    );
+});
 
 // --- [SOURCE]
-const engine = (scripts: readonly string[]): Result.Result<typeof Engine.Type, string> => {
+const engine = (scripts: readonly string[]): Result.Result<typeof Engine.Type, HarnessError> => {
     const unknown = scripts.filter((script) => !EXTENSIONS.some((extension) => script.endsWith(`.${extension}`)));
-    return unknown.length > 0 ? Result.fail(`${unknown.join(', ')} holds no extension of ${EXTENSIONS.join(' ')}`) : Result.succeed(Engine.literal);
+    return unknown.length > 0 ? Result.fail(HarnessError.make({ reason: { _tag: 'Unavailable', because: `holds no extension of ${EXTENSIONS.join(' ')}` }, subject: unknown.join(', ') })) : Result.succeed(Engine.literal);
 };
 
 // --- [CASES]
@@ -70,7 +68,7 @@ const placed = Effect.fn('placed')(function* (decoded: typeof Placed.Type, folde
         decoded.documents,
         (document): Effect.Effect<typeof Document.Type, PlatformError.PlatformError> =>
             Document.match(document, {
-                Made: (made) => Effect.succeed(made),
+                Made: Effect.succeed<typeof Document.cases.Made.Type>,
                 Opened: ({ open }) => Effect.as(fs.copyFile(path.join(product, open), copy(open)), Document.cases.Opened.make({ open: copy(open) })),
             }),
     );
@@ -89,7 +87,7 @@ const digest = Effect.fn('digest')(function* (file: string) {
 // --- [TRANSPORT]
 const executed = Effect.fn('executed')(function* (live: Live, argument: string) {
     const [automation, fs, path] = yield* Effect.all([Automation, FileSystem.FileSystem, Path.Path]);
-    const file = path.join(live.scratch, SOURCE);
+    const file = path.join(live.scratch, 'harness.jsx');
     const sources = yield* Effect.forEach([SHARED, ENGINE], (url) => Effect.flatMap(path.fromFileUrl(url), fs.readFileString));
     yield* fs.writeFileString(file, `${sources.join('\n')}\nharness(arguments[0]);\n`);
     const direct = `$.evalFile(new File(${jsesc(file, { quotes: 'double', wrap: true })}))`;
@@ -101,8 +99,6 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
     const answer = yield* Schema.decodeUnknownEffect(Reply)(reply);
     return yield* 'failed' in answer ? HarnessError.make({ reason: { _tag: 'Unavailable', because: answer.failed }, subject: `${Engine.literal} batch` }) : Effect.succeed(answer);
 });
-const quit = (live: Live) => Effect.asVoid(Effect.flatMap(Schema.encodeEffect(Quit)({ quit: true }), (argument) => executed(live, argument)));
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Host = {
@@ -120,10 +116,10 @@ const Host = {
     opened: () => Effect.succeedNone,
     send,
     records: (_, file) => recorded(Recorded)(file),
-    quit,
+    quit: (live) => Effect.asVoid(executed(live, JSON.stringify({ quit: true } satisfies typeof Quit.Type))),
     digest,
     compare: { _tag: 'Imported' },
-} satisfies Harness<typeof Survey, typeof HostCase, typeof Engine, typeof Placed.Type>;
+} as const satisfies Harness<typeof Survey, typeof HostCase, typeof Engine, typeof Placed.Type>;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

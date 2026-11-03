@@ -117,24 +117,23 @@ const features = Schema.Struct({
 }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.features.schema), {
         decode: SchemaGetter.transform(({ otfStylisticSets, capitalization, opentypeFeatures = [], ...flags }) =>
-            Array.dedupe([
-                ...STYLISTIC_TAGS.filter((_, bit) => Math.floor(otfStylisticSets / 2 ** bit) % 2 === 1),
-                ...Object.values(Record.filter(FEATURE_FLAGS, (_, flag) => flags[flag])),
-                ...CAPITALIZATIONS[capitalization],
-                ...Array.getSomes(opentypeFeatures.map(([tag, value]) => Option.liftPredicate(tag, () => value !== 0))),
+            Record.fromEntries([
+                ...[...STYLISTIC_TAGS.filter((_, bit) => Math.floor(otfStylisticSets / 2 ** bit) % 2 === 1), ...Object.values(Record.filter(FEATURE_FLAGS, (_, flag) => flags[flag])), ...CAPITALIZATIONS[capitalization]].map((tag) => [tag, 1] as const),
+                ...opentypeFeatures.filter(([, value]) => value !== 0),
             ]),
         ),
-        encode: SchemaGetter.transform((tags) => {
+        encode: SchemaGetter.transform((features) => {
+            const flagged = (tag: string) => Option.contains(Record.get(features, tag), 1);
             const capitalization = Option.getOrElse(
-                Array.findFirst(Struct.keys(CAPITALIZATIONS), (member) => Array.isReadonlyArrayNonEmpty(CAPITALIZATIONS[member]) && Array.isReadonlyArrayEmpty(Array.difference(CAPITALIZATIONS[member], tags))),
+                Array.findFirst(Struct.keys(CAPITALIZATIONS), (member) => Array.isReadonlyArrayNonEmpty(CAPITALIZATIONS[member]) && CAPITALIZATIONS[member].every(flagged)),
                 () => 'NORMAL' as const,
             );
-            const memberTags: readonly string[] = [...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]];
+            const memberTags: readonly string[] = [...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]].filter(flagged);
             return {
-                otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (tags.includes(tag) ? 2 ** bit : 0))),
-                ...Record.map(FEATURE_FLAGS, (tag) => tags.includes(tag)),
+                otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (flagged(tag) ? 2 ** bit : 0))),
+                ...Record.map(FEATURE_FLAGS, flagged),
                 capitalization,
-                opentypeFeatures: Array.map(Array.difference(tags, memberTags), (tag) => [tag, 1] as const),
+                opentypeFeatures: Record.toEntries(Record.filter(features, (_, tag) => !memberTags.includes(tag))),
             };
         }),
     }),

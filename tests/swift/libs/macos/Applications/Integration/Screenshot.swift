@@ -157,13 +157,14 @@ extension Integration {
             let seen: [Observed] = try await observe(
                 instance,
                 within: .seconds(15),
-                until: { seen in seen.last?.state.windows?.contains { window in window.frame.isEmpty } == true },
+                until: { seen in seen.last?.state.elements.contains { element in element.title == "Collapsed" } == true },
                 acting: { try await run(.collapsed, in: instance) },
             )
-            let collapsed: Window = try #require(seen.last?.state.windows?.first { window in window.frame.isEmpty })
-            let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await instance.screenshot(of: collapsed.number) }
+            let numbered: CGWindowID? = seen.last?.state.elements.first { element in element.title == "Collapsed" }?.window
+            let collapsed: CGWindowID = try #require(numbered)
+            let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await instance.screenshot(of: collapsed) }
             let absent: String = try #require(failure.reason[case: \.absent])
-            expectNoDifference(absent.contains(String(collapsed.number)), true, absent)
+            expectNoDifference(absent.contains(String(collapsed)), true, absent)
         }
 
         @Test(.application(FixtureApplication.self, arguments: Settings().arguments))

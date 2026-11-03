@@ -25,7 +25,7 @@ Hooks fix a wrong call and let it run, the model keeps working:
 ## [02]-[OUTPUT]
 
 Texts reaching a model or harness (refusal, context, toast, log line) appear only when they change the next action:
-- ALWAYS write a fact sentence, then an action sentence where one follows, under 15 words and passing `clean-prose`
+- ALWAYS write a fact sentence, then an action sentence naming the replacement, under 10 words and passing `clean-prose`
 - ALWAYS state what the hook derived from the call and point to the owner (skill, file, target) of the rest
 - Enumerated cases, hardcoded values, and guessed fixes steer the model to a wrong form
 - `context` is a note Claude reads after a tool result, and users never see it
@@ -40,3 +40,4 @@ Harness loads `hooks/register.ts` and its imports with no DOM and no Node. Modul
 - ALWAYS compose faults through the result type in `composition.ts`
 - ALWAYS spawn a program by name, or by the path `mise which` prints in the repository when mise configuration changes the resolved path
 - Modules that fail to load register no hook, and every call then runs unchecked
+- Every running session loads saved files at its next plugin reload, so each save leaves every module loadable and every name defined

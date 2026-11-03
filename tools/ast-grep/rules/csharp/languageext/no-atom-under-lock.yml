@@ -98,11 +98,14 @@ rule:
     all:
         - any:
             - matches: mutation
-            - matches: helper-call
+            - has: {field: function, kind: identifier}
         - inside:
             stopBy: {matches: deferred-callback}
             matches: lock-region
             pattern: $REGION
+        - any:
+            - matches: mutation
+            - matches: helper-call
 labels:
     WRITE: {style: primary, message: 'Writes the atom'}
     REGION: {style: secondary, message: 'Holds the lock'}

@@ -461,146 +461,162 @@ fn option_fields_as_result(found: &str) {
 fn primitive_domain_binding(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `wait_millis` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:54:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:56:9
        |
-    54 |     let wait_millis = base.saturating_mul(2);
+    56 |     let wait_millis = base.saturating_mul(2);
        |         ^^^^^^^^^^^
        |
        = help: declare `wait_millis` as `core::time::Duration` and build it with `Duration::from_millis`
        = note: `#[warn(primitive_domain_binding)]` on by default
 
     warning: `retry_delay` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:55:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:57:9
        |
-    55 |     let retry_delay = 500_u64;
+    57 |     let retry_delay = 500_u64;
        |         ^^^^^^^^^^^
        |
        = help: declare `retry_delay` as `core::time::Duration`
 
     warning: `cache_dir` holds a path as `String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:60:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:62:9
        |
-    60 |     let cache_dir = format!("{root}/cache");
+    62 |     let cache_dir = format!("{root}/cache");
        |         ^^^^^^^^^
        |
        = help: declare `cache_dir` as `std::path::PathBuf`
 
     warning: `data_file` holds a path as `String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:61:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:63:9
        |
-    61 |     let data_file = format!("{root}/data.json");
+    63 |     let data_file = format!("{root}/data.json");
        |         ^^^^^^^^^
        |
        = help: declare `data_file` as `std::path::PathBuf`
 
     warning: `log_file` holds a path as `String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:62:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:64:9
        |
-    62 |     let log_file = format!("{root}/run.log");
+    64 |     let log_file = format!("{root}/run.log");
        |         ^^^^^^^^
        |
        = help: declare `log_file` as `std::path::PathBuf`
 
     warning: `created_at` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:72:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:74:9
        |
-    72 |     let created_at = base.saturating_add(1);
+    74 |     let created_at = base.saturating_add(1);
        |         ^^^^^^^^^^
        |
        = help: declare `created_at` as `jiff::Timestamp`
 
     warning: `since_epoch` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:73:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:75:9
        |
-    73 |     let since_epoch = base.saturating_add(2);
+    75 |     let since_epoch = base.saturating_add(2);
        |         ^^^^^^^^^^^
        |
        = help: declare `since_epoch` as `jiff::Timestamp`
 
     warning: `epoch_ms` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:74:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:76:9
        |
-    74 |     let epoch_ms = base.saturating_add(3);
+    76 |     let epoch_ms = base.saturating_add(3);
        |         ^^^^^^^^
        |
        = help: declare `epoch_ms` as `jiff::Timestamp` and build it with `Timestamp::from_millisecond`
 
     warning: `timestamp` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:75:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:77:9
        |
-    75 |     let timestamp = base.saturating_add(4);
+    77 |     let timestamp = base.saturating_add(4);
        |         ^^^^^^^^^
        |
        = help: declare `timestamp` as `jiff::Timestamp`
 
     warning: `start_date` holds a calendar value as `String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:80:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:82:9
        |
-    80 |     let start_date = format!("2026-10-{day:02}");
+    82 |     let start_date = format!("2026-10-{day:02}");
        |         ^^^^^^^^^^
        |
        = help: declare `start_date` as `jiff::civil::Date`
 
     warning: `length_mm` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:85:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:87:9
        |
-    85 |     let length_mm = base * 2.0;
+    87 |     let length_mm = base * 2.0;
        |         ^^^^^^^^^
        |
        = help: declare `length_mm` as `uom::si::f64::Length` and build it with `Length::new::<uom::si::length::millimeter>`
 
     warning: `angle_degrees` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:86:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:88:9
        |
-    86 |     let angle_degrees = length_mm / 3.0;
+    88 |     let angle_degrees = length_mm / 3.0;
        |         ^^^^^^^^^^^^^
        |
        = help: declare `angle_degrees` as `uom::si::f64::Angle` and build it with `Angle::new::<uom::si::angle::degree>`
 
     warning: `scan_dpi` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:87:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:89:9
        |
-    87 |     let scan_dpi = angle_degrees * 300.0;
+    89 |     let scan_dpi = angle_degrees * 300.0;
        |         ^^^^^^^^
        |
        = help: declare `scan_dpi` as `uom::si::f64::LinearNumberDensity` and build it with `LinearNumberDensity::new::<uom::si::linear_number_density::per_inch>`
 
     warning: `declared_ms` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:93:9
+      --> tools/dylint/examples/primitive_domain_binding.rs:95:9
        |
-    93 |     let declared_ms: u64 = base;
+    95 |     let declared_ms: u64 = base;
        |         ^^^^^^^^^^^
        |
        = help: declare `declared_ms` as `core::time::Duration` and build it with `Duration::from_millis`
 
     warning: `total_bytes` holds a byte size as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:104:9
+       --> tools/dylint/examples/primitive_domain_binding.rs:106:9
         |
-    104 |     let total_bytes = base.saturating_mul(2);
+    106 |     let total_bytes = base.saturating_mul(2);
         |         ^^^^^^^^^^^
         |
         = help: declare `total_bytes` as `bytesize::ByteSize` and build it with `ByteSize::b`
 
     warning: `load_percent` holds a physical quantity as `f64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:110:9
+       --> tools/dylint/examples/primitive_domain_binding.rs:112:9
         |
-    110 |     let load_percent = base / 2.0;
+    112 |     let load_percent = base / 2.0;
         |         ^^^^^^^^^^^^
         |
         = help: declare `load_percent` as `uom::si::f64::Ratio` and build it with `Ratio::new::<uom::si::ratio::percent>`
 
-    warning: `retry_delay` holds a duration as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:115:9
+    warning: `margin_mm` holds a physical quantity as `f32`
+       --> tools/dylint/examples/primitive_domain_binding.rs:117:9
         |
-    115 |     let retry_delay: u64 = 500;
+    117 |     let margin_mm = base * 2.0;
+        |         ^^^^^^^^^
+        |
+        = help: declare `margin_mm` as `uom::si::f32::Length` and build it with `Length::new::<uom::si::length::millimeter>`
+
+    warning: `samples_per_mm` holds a physical quantity as `f64`
+       --> tools/dylint/examples/primitive_domain_binding.rs:118:9
+        |
+    118 |     let samples_per_mm = f64::from(margin_mm) * dpi;
+        |         ^^^^^^^^^^^^^^
+        |
+        = help: declare `samples_per_mm` as `uom::si::f64::LinearNumberDensity` and build it with `LinearNumberDensity::new::<uom::si::linear_number_density::per_millimeter>`
+
+    warning: `retry_delay` holds a duration as `u64`
+       --> tools/dylint/examples/primitive_domain_binding.rs:125:9
+        |
+    125 |     let retry_delay: u64 = 500;
         |         ^^^^^^^^^^^
         |
         = help: declare `retry_delay` as `core::time::Duration`
 
     warning: `timeout_ms` holds a duration as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:134:23
+       --> tools/dylint/examples/primitive_domain_binding.rs:144:23
         |
-    134 |     let waited_for = |timeout_ms: u64| timeout_ms.saturating_add(1);
+    144 |     let waited_for = |timeout_ms: u64| timeout_ms.saturating_add(1);
         |                       ^^^^^^^^^^
         |
         = help: declare `timeout_ms` as `core::time::Duration` and build it with `Duration::from_millis`
@@ -621,84 +637,110 @@ fn primitive_domain_binding(found: &str) {
        |
        = help: declare `CONFIG_PATH` as `&std::path::Path` through `Path::new` under `#![feature(const_convert)]`
 
-    warning: `timeout_ms` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:19:5
+    warning: `SHEET_WIDTH_MM` holds a physical quantity as `f64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:15:7
        |
-    19 |     timeout_ms: u64,
+    15 | const SHEET_WIDTH_MM: f64 = 210.0;
+       |       ^^^^^^^^^^^^^^
+       |
+       = help: declare `SHEET_WIDTH_MM` as `uom::si::f64::Length` through a `Length { dimension: PhantomData, units: PhantomData, value }` literal holding its value in base units
+       = note: `Length::new::<uom::si::length::millimeter>` builds it outside a const context
+
+    warning: `POINTS_PER_INCH` holds a physical quantity as `f64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:16:7
+       |
+    16 | const POINTS_PER_INCH: f64 = 72.0;
+       |       ^^^^^^^^^^^^^^^
+       |
+       = help: declare `POINTS_PER_INCH` as `uom::si::f64::LinearNumberDensity` through a `LinearNumberDensity { dimension: PhantomData, units: PhantomData, value }` literal holding its value in base units
+       = note: `LinearNumberDensity::new::<uom::si::linear_number_density::per_inch>` builds it outside a const context
+
+    warning: `timeout_ms` holds a duration as `u64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:21:5
+       |
+    21 |     timeout_ms: u64,
        |     ^^^^^^^^^^
        |
        = help: declare `timeout_ms` as `core::time::Duration` and build it with `Duration::from_millis`
 
     warning: `output_dir` holds a path as `String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:20:5
+      --> tools/dylint/examples/primitive_domain_binding.rs:22:5
        |
-    20 |     output_dir: String,
+    22 |     output_dir: String,
        |     ^^^^^^^^^^
        |
        = help: declare `output_dir` as `std::path::PathBuf`
 
     warning: `started_at` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:22:5
+      --> tools/dylint/examples/primitive_domain_binding.rs:24:5
        |
-    22 |     started_at: i64,
+    24 |     started_at: i64,
        |     ^^^^^^^^^^
        |
        = help: declare `started_at` as `jiff::Timestamp`
 
     warning: `width_mm` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:23:5
+      --> tools/dylint/examples/primitive_domain_binding.rs:25:5
        |
-    23 |     width_mm: f64,
+    25 |     width_mm: f64,
        |     ^^^^^^^^
        |
        = help: declare `width_mm` as `uom::si::f64::Length` and build it with `Length::new::<uom::si::length::millimeter>`
 
     warning: `sample_bytes` holds a byte size as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:33:5
+      --> tools/dylint/examples/primitive_domain_binding.rs:35:5
        |
-    33 |     sample_bytes: u64,
+    35 |     sample_bytes: u64,
        |     ^^^^^^^^^^^^
        |
        = help: declare `sample_bytes` as `bytesize::ByteSize` and build it with `ByteSize::b`
        = note: `ByteSize` serializes as text in human-readable formats
 
     warning: `created_at` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:34:5
+      --> tools/dylint/examples/primitive_domain_binding.rs:36:5
        |
-    34 |     created_at: i64,
+    36 |     created_at: i64,
        |     ^^^^^^^^^^
        |
        = help: declare `created_at` as `jiff::Timestamp` with `#[serde_as(as = "TimestampSeconds<i64>")]`
        = note: `TimestampMilliSeconds`, `TimestampMicroSeconds`, and `TimestampNanoSeconds` encode other wire units
 
     warning: `window_secs` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:35:5
+      --> tools/dylint/examples/primitive_domain_binding.rs:37:5
        |
-    35 |     window_secs: u64,
+    37 |     window_secs: u64,
        |     ^^^^^^^^^^^
        |
        = help: declare `window_secs` as `core::time::Duration` with `#[serde_as(as = "DurationSeconds<u64>")]`
 
     warning: `payload_bytes` holds a byte size as `usize`
-      --> tools/dylint/examples/primitive_domain_binding.rs:48:13
+      --> tools/dylint/examples/primitive_domain_binding.rs:50:13
        |
-    48 |     Sized { payload_bytes: usize },
+    50 |     Sized { payload_bytes: usize },
        |             ^^^^^^^^^^^^^
        |
        = help: declare `payload_bytes` as `bytesize::ByteSize` and build it with `ByteSize::b`
 
-    warning: `retry_secs` holds a duration as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:119:25
+    warning: `dpi` holds a physical quantity as `f64`
+       --> tools/dylint/examples/primitive_domain_binding.rs:116:23
         |
-    119 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
+    116 | fn printed(base: f32, dpi: f64) -> f64 {
+        |                       ^^^
+        |
+        = help: declare `dpi` as `uom::si::f64::LinearNumberDensity` and build it with `LinearNumberDensity::new::<uom::si::linear_number_density::per_inch>`
+
+    warning: `retry_secs` holds a duration as `u64`
+       --> tools/dylint/examples/primitive_domain_binding.rs:129:25
+        |
+    129 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
         |                         ^^^^^^^^^^
         |
         = help: declare `retry_secs` as `core::time::Duration` and build it with `Duration::from_secs`
 
     warning: `cache_file` holds a path as `&str`
-       --> tools/dylint/examples/primitive_domain_binding.rs:119:42
+       --> tools/dylint/examples/primitive_domain_binding.rs:129:42
         |
-    119 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
+    129 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
         |                                          ^^^^^^^^^^
         |
         = help: declare `cache_file` as `&std::path::Path`

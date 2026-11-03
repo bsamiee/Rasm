@@ -24,6 +24,12 @@ interface Program {
     readonly headless?: readonly string[];
     readonly flags?: readonly string[];
     readonly targets?: readonly string[];
+    readonly timer?: true | readonly string[];
+    readonly endless?: true | readonly string[];
+    readonly verdict?: true;
+    readonly repeats?: true;
+    readonly standalone?: RegExp;
+    readonly closes?: true | readonly string[];
 }
 interface Operands {
     readonly inputs: readonly string[];
@@ -78,6 +84,8 @@ const FD: Program = {
     walks: { paths: ['--search-path'], base: ['-C', '--base-directory'] },
 };
 const FIND: Program = { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'], walks: { before: ['-', '(', '!'] } };
+const PROCESSES: Program = { valued: ['-d', '-F', '-G', '-g', '-P', '-s', '-t', '-U', '-u'] };
+const VERDICT: Program = { verdict: true };
 const SQL: Program = {
     valued: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'],
     leading: 1,
@@ -102,15 +110,24 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         stdbuf: { valued: ['-e', '-i', '-o'], runs: [[]] },
         timeout: { valued: ['-k', '-s', '--kill-after', '--signal'], leading: 1, runs: [[]] },
         time: { valued: ['-o'], runs: [[]] },
-        xargs: { valued: ['-E', '-I', '-J', '-L', '-n', '-P', '-R', '-S', '-s'], stdin: 'always', runs: [[]] },
+        xargs: { valued: ['-E', '-I', '-J', '-L', '-n', '-P', '-R', '-S', '-s'], stdin: 'always', runs: [[]], repeats: true },
         kill: { valued: ['-s', '-n'] },
-        caffeinate: { valued: ['-t', '-w'], runs: [[]] },
+        pgrep: PROCESSES,
+        pkill: PROCESSES,
+        sleep: { timer: true },
+        wait4path: { endless: true },
+        caffeinate: { valued: ['-t', '-w'], runs: [[]], timer: ['-t'] },
         arch: { valued: ['-arch', '-d'], runs: [[]] },
         xcrun: { valued: ['--sdk', '--toolchain'], runs: [[]] },
         lockf: { valued: ['-t'], leading: 1, runs: [[]] },
         npx: { runs: [[]] },
-        npm: { runs: [['exec'], ['x']] },
-        pnpm: { runs: [[], ['exec'], ['dlx']] },
+        npm: { runs: [['exec'], ['x']], verdict: true },
+        pnpm: { runs: [[], ['exec'], ['dlx']], verdict: true },
+        dotnet: VERDICT,
+        swift: VERDICT,
+        xcodebuild: VERDICT,
+        pytest: VERDICT,
+        vitest: VERDICT,
         uv: {
             valued: [
                 '--extra',
@@ -173,6 +190,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
                 '--config-file',
             ],
             runs: [['run'], ['tool', 'run']],
+            verdict: true,
         },
         poetry: { runs: [['run']] },
         hatch: { runs: [['run']] },
@@ -271,6 +289,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             leadingOptions: ['-e', '--regexp', '-f', '--file', '-N', '--neg-regexp'],
             stdin: 'default',
             walks: { when: ['-r', '-R', '--recursive', '--dereference-recursive'] },
+            closes: ['-q', '--quiet', '--silent', '-m', '--max-count', '-l', '--files-with-matches'],
         },
         rg: {
             valued: [
@@ -328,11 +347,12 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             leadingOptions: ['-e', '--regexp', '-f', '--file', '--files', '--type-list', '--generate'],
             informational: ['-h', '-V'],
             walks: {},
+            closes: ['-q', '--quiet', '-m', '--max-count', '-l', '--files-with-matches'],
         },
         cat: { stdin: 'default' },
         wc: { stdin: 'default' },
-        head: { valued: ['-n', '-c'], stdin: 'default' },
-        tail: { valued: ['-b', '-c', '-n'], stdin: 'default' },
+        head: { valued: ['-n', '-c'], stdin: 'default', closes: true },
+        tail: { valued: ['-b', '-c', '-n'], stdin: 'default', endless: ['-f', '-F', '--follow'] },
         sort: { valued: ['-k', '-t', '-o', '-S', '-T', '--batch-size', '--parallel', '--random-source', '--compress-program'], stdin: 'default', stdinless: ['--files0-from'] },
         uniq: { valued: ['-f', '-s'], stdin: 'default' },
         cut: { valued: ['-b', '-c', '-f', '-d'], stdin: 'default' },
@@ -341,10 +361,10 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         tr: { stdin: 'always' },
         tee: { stdin: 'always' },
         pbcopy: { stdin: 'always' },
-        read: { stdin: 'always', stdinless: ['-u'] },
+        read: { valued: ['-a', '-d', '-i', '-n', '-N', '-p', '-t', '-u'], stdin: 'always', stdinless: ['-u'], timer: ['-t'] },
         base64: { valued: ['-b', '-i', '-o', '--break', '--input', '--output'], stdin: 'always', stdinless: ['-i', '--input'] },
         sed: { valued: ['-e', '-f'], leading: 1, leadingOptions: ['-e', '-f', '--expression', '--file'], stdin: 'default' },
-        awk: { valued: ['-F', '-v', '-f'], leading: 1, leadingOptions: ['-f'], stdin: 'default' },
+        awk: { valued: ['-F', '-v', '-f'], leading: 1, leadingOptions: ['-f'], stdin: 'default', standalone: /^\s*BEGIN\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*$/u },
         jq: { valued: ['-L', '--library-path', '--indent'], arities: { '--arg': 2, '--argjson': 2, '--slurpfile': 2, '--rawfile': 2 }, leading: 1, stdin: 'default', stdinless: ['-n', '--null-input'] },
         yq: { valued: ['-o', '-p', '-I', '--output-format', '--input-format', '--indent', '--from-file'], leading: 1, leadingOptions: ['--from-file'], stdin: 'default', stdinless: ['-n', '--null-input'] },
         sd: {
@@ -359,6 +379,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         perl: { valued: ['-I'], stdin: 'default', code: ['-e', '-E'], informational: ['-v', '-V', '-h'] },
         ruby: { valued: ['-I', '-r', '-C', '-E'], stdin: 'default', code: ['-e'], informational: ['-v', '-h', '--copyright'] },
         eval: { shell: 'joined' },
+        set: { valued: ['-o', '+o'] },
         cd: { chdir: ['~'] },
         pushd: { chdir: [] },
         popd: { chdir: [] },
@@ -371,15 +392,17 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         ksh: SHELL,
         sqlite3: SQL,
         duckdb: SQL,
-        nx: { valued: ['-c', '--configuration', '-t', '--targets', '--target', '-p', '--projects', '--exclude', '--outputStyle', '--output-style', '--runner', '--base', '--head', '--files', '--parallel', '--tuiAutoExit', '--type', '--withTarget', '--sep'] },
+        nx: { verdict: true, valued: ['-c', '--configuration', '-t', '--targets', '--target', '-p', '--projects', '--exclude', '--outputStyle', '--output-style', '--runner', '--base', '--head', '--files', '--parallel', '--tuiAutoExit', '--type', '--withTarget', '--sep'] },
         tsc: {
             valued: ['-p', '--project', '--pretty', '-t', '--target', '-m', '--module', '--moduleResolution', '--lib', '--types', '--typeRoots', '--outDir', '--outFile', '--rootDir', '--declarationDir', '--tsBuildInfoFile', '--jsx', '--locale', '--generateTrace'],
             informational: ['-v', '-h', '-b', '--build', '-w', '--watch', '--init', '--showConfig'],
             targets: ['-p', '--project'],
+            verdict: true,
         },
         cargo: {
             valued: ['-p', '--package', '--exclude', '-m', '--manifest-path', '-C', '--target', '--target-dir', '-F', '--features', '--profile', '-j', '--jobs', '--config', '-Z', '--color', '--message-format', '--bin', '--example', '--test', '--bench'],
             targets: ['-p', '--package'],
+            verdict: true,
         },
         biome: {
             valued: [
@@ -549,11 +572,13 @@ const operands = (invocation: Invocation) => {
 
 const informational = (program: string, options: readonly string[]): boolean => options.some((name) => name === '--help' || name === '--version' || declared(program).informational?.includes(name) === true);
 
+const marked = (listed: true | readonly string[] | undefined, options: readonly string[]): boolean => listed === true || options.some((name) => listed?.includes(name) === true);
+
 const waits = (invocation: Invocation): boolean => {
     const [program] = invocation;
-    const { stdin, stdinless = [], code = [] } = declared(program);
-    const { inputs, options, roots } = operands(invocation);
-    return stdin !== undefined && !informational(program, options) && !options.some((name) => [...stdinless, ...code].includes(name)) && (stdin === 'always' || inputs.includes('-') || (inputs.length === 0 && roots.length === 0));
+    const { stdin, stdinless = [], code = [], standalone } = declared(program);
+    const { inputs, options, roots, leading } = operands(invocation);
+    return stdin !== undefined && !informational(program, options) && !options.some((name) => [...stdinless, ...code].includes(name)) && !leading.some((text) => standalone?.test(text) === true) && (stdin === 'always' || inputs.includes('-') || (inputs.length === 0 && roots.length === 0));
 };
 
 // --- [INVOCATIONS]
@@ -607,4 +632,4 @@ const staged = <W extends { readonly text: string }>(words: readonly W[], [invoc
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { declared, firstOperand, type Invocation, informational, invocations, operands, option, optional, placed, staged, unquoted, waits, within };
+export { declared, firstOperand, type Invocation, informational, invocations, marked, operands, option, optional, placed, staged, unquoted, waits, within };

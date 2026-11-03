@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { answers, Expression, Name, Reads } from '#/cases';
-import { common, hostCase, outcome, record, recorded, reply } from '#/results';
+import { Common, hostCase, outcome, record, recorded, reply } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -77,9 +77,9 @@ const Survey = Schema.Struct({
 const Header = Schema.Struct({ application: Schema.String, version: Schema.String, survey: Schema.optionalKey(Survey) });
 const Reply = reply(Header);
 const fields = {
-    console: common.console,
-    files: common.files,
-    opened: common.opened,
+    console: Common.fields.console,
+    files: Common.fields.files,
+    opened: Common.fields.opened,
     windows: recorded(Schema.Array(Schema.String).annotate({ description: 'Area types of one window the case opened, closed after it' })),
     stderr: recorded(Schema.String.annotate({ description: 'Line the original wrote to the error stream' })),
     log: recorded(Schema.Struct({ category: Schema.String, message: Schema.String }).annotate({ description: 'Blender operator log line of the case body, each call with its properties' })),

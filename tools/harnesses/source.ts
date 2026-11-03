@@ -1,4 +1,4 @@
-import { Array, Effect, FileSystem, Option, Path, type PlatformError, String as Text } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, type PlatformError, String } from 'effect';
 import type { Call } from '#/cases';
 import { HarnessError } from '#/error';
 
@@ -48,7 +48,7 @@ const prepared = Effect.fn('prepared')(function* (script: string, lines: Option.
                 onNone: () => Effect.succeed([[DIRECTIVE.test(source) ? '' : source, { file, line: index + 1 }] as const]),
                 onSome: (name) => Effect.flatMap(located(file, searched, name, chain), nested),
             });
-        return (yield* Effect.forEach(Array.fromIterable(Text.linesIterator(body)), lined)).flat();
+        return (yield* Effect.forEach(Array.fromIterable(String.linesIterator(body)), lined)).flat();
     });
     const rows = Option.isSome(binary) ? [[binary.value, { file: script, line: 1 }] as const] : yield* expanded(script, text, [script]);
     const kept = Option.match(lines, { onNone: () => rows, onSome: (ranges) => ranges.flatMap(([from, to]) => rows.slice(from - 1, to)) });

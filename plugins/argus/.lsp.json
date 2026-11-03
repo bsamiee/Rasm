@@ -18,8 +18,9 @@
         "extensionToLanguage": { ".rs": "rust" },
         "diagnostics": false,
         "initializationOptions": {
-            "cargo": { "extraEnv": { "CARGO_BUILD_TARGET_DIR": "${CLAUDE_PROJECT_DIR}/.artifacts/rust/rust-analyzer", "CARGO_BUILD_BUILD_DIR": "${CLAUDE_PROJECT_DIR}/.cache/rust/rust-analyzer" } },
-            "check": { "overrideCommand": [ "cargo", "clippy", "--locked", "--workspace", "--lib", "--bins", "--tests", "--message-format=json", "--keep-going", "--", "-D", "warnings" ] },
+            "cargo": { "extraEnv": { "CARGO_BUILD_TARGET_DIR": "${CLAUDE_PROJECT_DIR}/.artifacts/rust/rust-analyzer", "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/rust-analyzer" } },
+            "cachePriming": { "enable": false },
+            "check": { "command": "clippy", "workspace": false, "allTargets": false, "extraArgs": [ "--locked" ] },
             "rustc": { "source": ".cargo/rustc-source/Cargo.toml" }
         }
     },
@@ -27,12 +28,12 @@
         "command": "sourcekit-lsp",
         "extensionToLanguage": { ".swift": "swift" },
         "diagnostics": false,
-        "env": { "SWIFTPM_BUILD_DIR": "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index" },
-        "initializationOptions": { "swiftPM": { "scratchPath": "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index", "forceResolvedVersions": true } }
+        "env": { "SWIFTPM_BUILD_DIR": "${RASM_CACHE_HOME}/swiftpm/index" },
+        "initializationOptions": { "swiftPM": { "scratchPath": "${RASM_CACHE_HOME}/swiftpm/index", "forceResolvedVersions": true } }
     },
     "java": {
         "command": "mise",
-        "args": [ "exec", "--", "jdtls", "-data", "${CLAUDE_PROJECT_DIR}/.cache/jdtls/workspace", "--jvm-arg=-Dosgi.configuration.area=${CLAUDE_PROJECT_DIR}/.cache/jdtls/configuration" ],
+        "args": [ "exec", "--", "jdtls", "-data", "${RASM_CACHE_HOME}/jdtls/workspace", "--jvm-arg=-Dosgi.configuration.area=${RASM_CACHE_HOME}/jdtls/configuration" ],
         "extensionToLanguage": { ".java": "java" },
         "diagnostics": false,
         "workspaceFolder": "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts",
@@ -48,8 +49,7 @@
                 "project": {
                     "sourcePaths": [ "." ],
                     "referencedLibraries": [ "${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar" ]
-                },
-                "diagnostic": { "filter": [ "**/.cache/**" ] }
+                }
             }
         }
     },

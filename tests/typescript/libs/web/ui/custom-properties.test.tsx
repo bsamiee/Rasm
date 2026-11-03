@@ -28,7 +28,11 @@ it('keeps scopes with different declarations apart and hoists one shared rule fo
             {_scoped('Third', { '--ratio': 0.5 })}
         </>,
     );
-    expect([[...document.head.querySelectorAll('style')].filter(({ textContent }) => textContent.includes('--ratio:2')).length, ...['First', 'Second', 'Third'].map((text) => getComputedStyle(screen.getByText(text).element()).getPropertyValue('--ratio'))]).toEqual([1, '2', '2', '0.5']);
+    const declared = [...document.styleSheets]
+        .flatMap(({ cssRules }) => [...cssRules])
+        .filter((rule) => rule instanceof CSSStyleRule)
+        .map(({ style }) => style.getPropertyValue('--ratio'));
+    expect([declared.filter((ratio) => ratio === '2').length, declared.filter((ratio) => ratio === '0.5').length, ...['First', 'Second', 'Third'].map((text) => getComputedStyle(screen.getByText(text).element()).getPropertyValue('--ratio'))]).toEqual([1, 1, '2', '2', '0.5']);
 });
 it('follows changed declarations on rerender', async () => {
     const screen = await render(_scoped('Figure', { '--media-ratio': 1.5, '--media-focus': '50% 50%' }));

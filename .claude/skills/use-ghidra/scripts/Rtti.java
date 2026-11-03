@@ -25,7 +25,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -34,9 +36,7 @@ import java.util.stream.Stream;
 public class Rtti extends GhidraScript {
     // --- [LAYOUT]
 
-    private static final String ABI = "*__cxxabiv1*";
-
-    private static final String TYPEINFO_SYMBOL = "^_*ZTI";
+    private static final Pattern TYPEINFO_SYMBOL = Pattern.compile("^_*ZTI");
 
     enum Kind {
         CLASS("17__class_type_infoE"),
@@ -164,41 +164,6 @@ public class Rtti extends GhidraScript {
         }
     }
 
-    private static Optional<Slot> slot(Image image, Address at, int index) {
-        try {
-            Address target = image.target(at, 0);
-            MemoryBlock block = image.program().getMemory().getBlock(target);
-            Function function = image.program().getFunctionManager().getFunctionAt(target);
-            String symbol =
-                    Optional.ofNullable(image.program().getSymbolTable().getPrimarySymbol(target))
-                            .map(each -> each.getName(true))
-                            .orElse("-");
-            return function != null
-                    ? Optional.of(new Slot(index, target, "function", function.getName(true)))
-                    : block == null
-                            ? Optional.empty()
-                            : block.getName().startsWith(MemoryBlock.EXTERNAL_BLOCK_NAME)
-                                    ? Optional.of(new Slot(index, target, "import", symbol))
-                                    : block.isExecute()
-                                            ? Optional.of(new Slot(index, target, "code", symbol))
-                                            : Optional.empty();
-        } catch (IOException exception) {
-            return Optional.empty();
-        }
-    }
-
-    private static List<Slot> slots(Image image, Address point, Predicate<Address> ends) {
-        MemoryBlock block = image.program().getMemory().getBlock(point);
-        return Stream.iterate(0, index -> index + 1)
-                .map(index -> Map.entry(index, point.add((long) index * image.pointer())))
-                .takeWhile(entry -> block.contains(entry.getValue()))
-                .takeWhile(entry -> !ends.test(entry.getValue()))
-                .map(entry -> slot(image, entry.getValue(), entry.getKey()))
-                .takeWhile(Optional::isPresent)
-                .map(Optional::get)
-                .toList();
-    }
-
     // --- [RUN]
 
     @Override
@@ -208,7 +173,7 @@ public class Rtti extends GhidraScript {
         Memory memory = currentProgram.getMemory();
         List<Report.Result<TypeInfo>> parsed =
                 CollectionUtils.asStream(
-                                currentProgram.getSymbolTable().getSymbolIterator(ABI, true))
+                                currentProgram.getSymbolTable().getSymbolIterator("*__cxxabiv1*", true))
                         .flatMap(symbol ->
                                 Kind.of(symbol).stream()
                                         .flatMap(kind ->
@@ -249,7 +214,7 @@ public class Rtti extends GhidraScript {
                                                                 .getPrimarySymbol(address))
                                                 .map(Symbol::getName)
                                                 .map(name ->
-                                                        name.replaceFirst(TYPEINFO_SYMBOL, "")))
+                                                        TYPEINFO_SYMBOL.matcher(name).replaceFirst("")))
                                 .orElse(address.toString());
         List<Map.Entry<TypeInfo, Address>> headers =
                 types.stream()
@@ -267,6 +232,35 @@ public class Rtti extends GhidraScript {
                         .collect(Collectors.toSet());
         Predicate<Address> ends =
                 at -> boundaries.contains(at) || types.stream().anyMatch(type -> type.holds(at));
+        BiFunction<Address, Integer, Optional<Slot>> slotAt =
+                (at, index) -> {
+                    try {
+                        Address target = image.target(at, 0);
+                        MemoryBlock block = memory.getBlock(target);
+                        Function function =
+                                currentProgram.getFunctionManager().getFunctionAt(target);
+                        String symbol =
+                                Optional.ofNullable(
+                                                currentProgram
+                                                        .getSymbolTable()
+                                                        .getPrimarySymbol(target))
+                                        .map(each -> each.getName(true))
+                                        .orElse("-");
+                        return function != null
+                                ? Optional.of(
+                                        new Slot(index, target, "function", function.getName(true)))
+                                : block == null
+                                        ? Optional.empty()
+                                        : block.getName().startsWith(MemoryBlock.EXTERNAL_BLOCK_NAME)
+                                                ? Optional.of(new Slot(index, target, "import", symbol))
+                                                : block.isExecute()
+                                                        ? Optional.of(
+                                                                new Slot(index, target, "code", symbol))
+                                                        : Optional.empty();
+                    } catch (IOException exception) {
+                        return Optional.empty();
+                    }
+                };
         List<Vtable> vtables =
                 headers.stream()
                         .flatMap(entry -> {
@@ -276,16 +270,32 @@ public class Rtti extends GhidraScript {
                                                 .readValue(
                                                         entry.getValue().getOffset(),
                                                         image.pointer());
+                                if (offset > 0) {
+                                    return Stream.empty();
+                                }
                                 Address point = entry.getValue().add(2L * image.pointer());
-                                return offset > 0
-                                        ? Stream.empty()
-                                        : Stream.of(
-                                                new Vtable(
-                                                        entry.getValue(),
-                                                        entry.getKey(),
-                                                        offset,
-                                                        slots(image, point, ends),
-                                                        image.referrers(point).sorted().toList()));
+                                MemoryBlock block = memory.getBlock(point);
+                                List<Slot> slots =
+                                        Stream.iterate(0, index -> index + 1)
+                                                .map(index ->
+                                                        Map.entry(
+                                                                index,
+                                                                point.add(
+                                                                        (long) index
+                                                                                * image.pointer())))
+                                                .takeWhile(each -> block.contains(each.getValue()))
+                                                .takeWhile(each -> !ends.test(each.getValue()))
+                                                .map(each -> slotAt.apply(each.getValue(), each.getKey()))
+                                                .takeWhile(Optional::isPresent)
+                                                .map(Optional::get)
+                                                .toList();
+                                return Stream.of(
+                                        new Vtable(
+                                                entry.getValue(),
+                                                entry.getKey(),
+                                                offset,
+                                                slots,
+                                                image.referrers(point).sorted().toList()));
                             } catch (IOException exception) {
                                 return Stream.empty();
                             }

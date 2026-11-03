@@ -13,7 +13,7 @@ MSBuild directory files and central package versions own every shared .NET decla
 - Package metadata and downloads read NuGet's HTTP cache under its default age
 - Rows move down when their current version is unlisted or incompatible with the repository target framework
 - `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry
-- SDK moves enable the new SDK's analyzer rules through `latest-all`, rules it leaves disabled (CA1021, CA1045) take their own `.editorconfig` rows
+- SDK moves enable the new SDK's analyzer rules through `latest-all`, rules it leaves disabled (CA1021, CA1045) take their own `.config/analyzers.globalconfig` rows
 
 ## [02]-[FILE_BASED_APPS]
 
@@ -53,6 +53,7 @@ Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/rosl
 - Analyzer references undefine `RhinoPlugIn` and `ArtifactsPivots`, plug-in library copies share one analyzer build
 - Code fix providers and `Microsoft.CodeAnalysis.CSharp.Workspaces` stay in the code fix project, RS1038 rejects Workspaces beside analyzer types
 - Tests check a reviewed Verify snapshot of each rule's diagnostics and fixed source
-- Diagnostics fail builds through the `.editorconfig` severity floor, a descriptor's default severity sets no exemption
+- Diagnostics fail builds through the `.config/analyzers.globalconfig` severity floor, a descriptor's default severity sets no exemption
+- Global config `none` skips running an analyzer, an `.editorconfig` `none` still runs it
 - Rules a package disables by default and source generator diagnostics (Mapperly `RMG`) escape the floor and take their own rows
 - Rule options (`MA0053.public_class_should_be_sealed`) widen what a rule reports

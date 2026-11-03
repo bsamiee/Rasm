@@ -31,8 +31,8 @@ public enum Scenario: String, CaseIterable, Sendable {
     public var atLaunch: Bool {
         switch self {
             case .slowLaunch, .launchModal, .singleInstance: true
-            case .window, .undescribed, .collapsed, .swatch, .table, .sheet, .modal, .saveSheet, .systemDialog, .floatingPanel, .edited, .minimize, .hangBlocked, .hangBusy, .hangQuiet, .stop, .fault, .abort,
-                .exit, .helper, .terminate:
+            case .window, .undescribed, .collapsed, .swatch, .table, .sheet, .modal, .saveSheet, .systemDialog, .floatingPanel, .edited, .minimize, .hangBlocked, .hangBusy, .hangQuiet, .stop, .fault,
+                .abort, .exit, .helper, .terminate:
                 false
         }
     }

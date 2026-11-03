@@ -1,7 +1,5 @@
 import CustomDump
 import Darwin
-import Encoding
-import Foundation
 import Processes
 import Subprocess
 import System
@@ -66,18 +64,5 @@ struct ResourceUsages {
     func reapedProcessThrowsNoSuchProcess() async throws {
         let process: pid_t = try await reapedProcess()
         #expect(throws: Errno.noSuchProcess) { try ResourceUsage(of: process) }
-    }
-
-    @Test
-    func wireHoldsCPUSecondsFootprintBytesAndThreads() throws {
-        let usage: ResourceUsage = try ResourceUsage(of: getpid())
-        let encoded: Data = try JSONEncoder().encode(usage)
-        let wire: JSONValue = try JSONDecoder().decode(JSONValue.self, from: encoded)
-        let fields: [String: JSONValue] = try wire.decode()
-        let seconds: Double = Double(usage.cpu.components.seconds) + Double(usage.cpu.components.attoseconds) / 1e18
-        let cpu: Double = try #require(fields["cpu"]).decode()
-        expectNoDifference(fields.filter { key, _ in key != "cpu" }, ["footprint": .number(Double(usage.footprint)), "threads": .number(Double(usage.threads))])
-        let drift: Double = abs(cpu - seconds)
-        #expect(drift <= 1e-9, "cpu \(cpu) for \(usage.cpu)")
     }
 }

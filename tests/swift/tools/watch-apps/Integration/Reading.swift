@@ -141,10 +141,10 @@ extension Integration {
             let listed: [WatchAppsLine.Window] = try #require(status.windows)
             let undescribed: WatchAppsLine.Window = try #require(listed.first { window in window.title == "Undescribed" })
             let size: CGSize = NSWindow.frameRect(forContentRect: NSRect(origin: .zero, size: undescribedSize), styleMask: [.titled]).size
-            expectNoDifference(shown.windows(of: pid)?.map(\.number).contains(described), false)
-            expectNoDifference(shown.elements(of: pid)?.compactMap(\.title).contains("Undescribed"), false)
-            expectNoDifference(status.responding?.elements.compactMap(\.title).contains("Undescribed"), false)
-            expectNoDifference(listed.map(\.number).contains(described), false)
+            expectNoDifference(shown.windows(of: pid)?.contains { window in window.number == described }, false)
+            expectNoDifference(shown.elements(of: pid)?.contains { element in element.title == "Undescribed" }, false)
+            expectNoDifference(status.responding?.elements.contains { element in element.title == "Undescribed" }, false)
+            expectNoDifference(listed.contains { window in window.number == described }, false)
             expectNoDifference([undescribed.frame.width, undescribed.frame.height], [size.width, size.height])
             expectNoDifference([undescribed.layer, undescribed.onScreen ? 1 : 0], [0, 1])
         }

@@ -11,10 +11,40 @@ utils:
                 - has: {field: path, any: [{kind: identifier, matches: name}, {kind: scoped_identifier, has: {field: name, matches: name}}]}
             - kind: identifier
               all: [{pattern: $BOUND}, {matches: name}, {not: {inside: {kind: use_as_clause, stopBy: {kind: use_declaration}}}}]
+    named:
+        kind: 'identifier, shorthand_field_identifier'
+        pattern: $BOUND
+        not: {inside: {kind: 'tuple_struct_pattern, struct_pattern', field: type}}
+    binds:
+        any:
+            - matches: named
+            - has: {stopBy: end, matches: named}
+    shadowed:
+        any:
+            - inside:
+                stopBy: {not: {kind: &pattern 'tuple_pattern, tuple_struct_pattern, struct_pattern, field_pattern, ref_pattern, mut_pattern, captured_pattern, slice_pattern, or_pattern, reference_pattern, match_pattern'}}
+                kind: 'let_declaration, parameter, for_expression, let_condition, match_arm'
+                field: pattern
+            - inside:
+                stopBy: {not: {kind: *pattern}}
+                kind: closure_parameters
+            - inside: {stopBy: end, follows: {stopBy: end, kind: let_declaration, has: {field: pattern, matches: binds}}}
+            - inside: {stopBy: end, kind: 'function_item, closure_expression', has: {field: parameters, matches: binds}}
+            - inside: {stopBy: end, kind: 'match_arm, for_expression', has: {field: pattern, matches: binds}}
+            - inside:
+                stopBy: end
+                kind: 'if_expression, while_expression'
+                has:
+                    field: condition
+                    any:
+                        - {kind: let_condition, has: {field: pattern, matches: binds}}
+                        - {has: {stopBy: end, kind: let_condition, has: {field: pattern, matches: binds}}}
 rule:
     kind: identifier
     pattern: $BOUND
-    inside:
-        kind: 'source_file, declaration_list, block'
-        stopBy: end
-        has: {kind: use_declaration, matches: source, has: {stopBy: end, matches: imported-leaf}}
+    all:
+        - inside:
+            kind: 'source_file, declaration_list, block'
+            stopBy: end
+            has: {kind: use_declaration, matches: source, has: {stopBy: end, matches: imported-leaf}}
+        - not: {matches: shadowed}

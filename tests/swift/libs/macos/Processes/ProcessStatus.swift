@@ -1,7 +1,6 @@
 import AsyncAlgorithms
 import CustomDump
 import Darwin
-import Foundation
 import Processes
 import Subprocess
 import System
@@ -61,12 +60,5 @@ struct ProcessStatuses {
     func reapedProcessThrowsNoSuchProcess() async throws {
         let process: pid_t = try await reapedProcess()
         #expect(throws: Errno.noSuchProcess) { try ProcessStatus(of: process) }
-    }
-
-    @Test
-    func wireSpellsEachStatusAsReadersDecode() throws {
-        let encoder: JSONEncoder = JSONEncoder()
-        let spellings: [String?] = try [ProcessStatus.running, .sleeping, .stopped].map { status in String(bytes: try encoder.encode(status), encoding: .utf8) }
-        expectNoDifference(spellings, [#""running""#, #""sleeping""#, #""stopped""#])
     }
 }

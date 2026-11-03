@@ -2,147 +2,218 @@ use core::{fmt, iter, mem};
 use std::{borrow::Cow, io};
 
 use itertools::{Itertools as _, Position};
-use kurbo::{Affine, CubicBez, DEFAULT_ACCURACY, ParamCurve as _, ParamCurveArclen as _, ParamCurveExtrema as _, PathSeg, Point, Rect, Vec2};
+use kurbo::{Affine, CubicBez, DEFAULT_ACCURACY, ParamCurve as _, ParamCurveArclen as _, PathSeg, Point, Rect, Vec2};
 use nonempty_collections::NEVec;
 use petgraph::{
     EdgeType,
-    dot::{Config, Dot},
+    stable_graph::EdgeIndex,
+    visit::{EdgeRef as _, IntoEdgeReferences as _, IntoNodeReferences as _},
 };
 use petgraph_graphml::GraphMl;
+use uom::si::{
+    f64::Length,
+    length::{inch, point_computer},
+};
 
-use crate::{Drawing, Format, LayoutError, Placed, Routed};
+use crate::{Drawing, LayoutError, Placed, Routed};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub type Attributes<'weight> = Vec<(Cow<'static, str>, Cow<'weight, str>)>;
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, derive_more::Display)]
+pub enum Format {
+    #[display("GraphML")]
+    GraphMl,
+    #[display("DOT")]
+    Dot(Length),
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn write<N, E, Ty, W>(format: Format, node: impl Fn(&N) -> Attributes<'_>, edge: impl Fn(&E) -> Attributes<'_>, drawing: &Drawing<N, E, Ty>, mut writer: W) -> Result<(), LayoutError>
+pub fn write<N, E, Ty, W>(format: Format, node: impl Fn(&N) -> Attributes<'_>, edge: impl Fn(&E) -> Attributes<'_>, drawing: &Drawing<N, E, Ty>, writer: W) -> Result<(), LayoutError>
 where
     Ty: EdgeType,
     W: io::Write,
 {
-    const POINTS_PER_INCH: f64 = 72.0;
-    const ARROW_LENGTH: f64 = 10.0;
-    const POSITION: &str = "pos";
-    const WIDTH: &str = "width";
-    const HEIGHT: &str = "height";
-    fn merged(geometry: impl IntoIterator<Item = (&'static str, String)>, attributes: Attributes<'_>) -> Attributes<'_> {
-        let mut kept = geometry.into_iter().filter(|&(key, _)| attributes.iter().all(|(name, _)| *name != key)).map(|(key, value)| (Cow::Borrowed(key), Cow::Owned(value))).collect::<Vec<_>>();
-        kept.extend(attributes);
-        kept
-    }
     fn borrowed<'weight>(attributes: &'weight Attributes<'_>) -> Attributes<'weight> { attributes.iter().map(|(key, value)| (key.clone(), Cow::Borrowed(&**value))).collect() }
-    let exported = match format {
+    match format {
         Format::GraphMl => {
-            let corner = |keys: [&'static str; 4], rect: Rect| {
-                let rect = rect.abs();
-                iter::zip(keys, [rect.x0, rect.y0, rect.width(), rect.height()]).map(|(key, value)| (key, value.to_string()))
-            };
-            GraphMl::new(&drawing.map(
-                |_, Placed { weight, frame }| merged(corner(["x", "y", WIDTH, HEIGHT], *frame), node(weight)),
-                |_, Routed { weight, path, label }| {
-                    merged(iter::once(("path", path.to_svg())).chain(label.iter().flat_map(|&rect| corner(["label_x", "label_y", "label_width", "label_height"], rect))), edge(weight))
+            let corner = |keys: [&'static str; 4], rect: Rect| iter::zip(keys, [rect.x0, rect.y0, rect.width(), rect.height()]).map(|(key, value)| (key, value.to_string()));
+            let labeled = move |label: Option<Rect>| label.into_iter().flat_map(move |rect| corner(["label_x", "label_y", "label_width", "label_height"], rect));
+            GraphMl::new(&drawing.graph.map(
+                |_, Placed { weight, frame, shape, parent, label }| {
+                    merged(
+                        corner(["x", "y", "width", "height"], *frame)
+                            .chain(iter::once(("shape", shape.to_string())))
+                            .chain(parent.map(|cluster| ("parent", format!("n{}", cluster.index()))))
+                            .chain(labeled(*label)),
+                        node(weight),
+                    )
                 },
+                |_, Routed { weight, path, label }| merged(iter::once(("path", path.to_svg())).chain(labeled(*label)), edge(weight)),
             ))
             .export_node_weights(Box::new(borrowed))
             .export_edge_weights(Box::new(borrowed))
             .to_writer(writer)
         }
-        Format::Dot => {
-            let bounds = drawing
-                .node_weights()
-                .map(|placed| placed.frame.abs())
-                .chain(drawing.edge_weights().flat_map(|routed| routed.path.segments().map(|segment| segment.bounding_box()).chain(routed.label.map(|rect| rect.abs()))))
-                .reduce(|whole, rect| whole.union(rect));
-            let flip = bounds.map_or(Affine::IDENTITY, |Rect { x0: _, y0, x1: _, y1 }| Affine::FLIP_Y.then_translate(Vec2::new(0.0, y0 + y1)));
-            let coordinates = |point: Point| {
-                let Point { x, y } = flip * point;
-                format!("{x},{y}")
-            };
-            let arrows = |attributes: &Attributes<'_>| {
-                let value = |key: &str| attributes.iter().rev().find(|(name, _)| *name == key).map(|(_, value)| &**value);
-                let unarrowed = |token: Option<&str>| token == Some("none");
-                let (tail, head) = match value("dir") {
-                    Some("forward") => (false, true),
-                    Some("back") => (true, false),
-                    Some("both") => (true, true),
-                    dir if unarrowed(dir) => (false, false),
-                    Some(_) | None => (false, drawing.is_directed()),
-                };
-                [(tail, "arrowtail"), (head, "arrowhead")].map(|(drawn, shape)| (drawn && !unarrowed(value(shape))).then_some(ARROW_LENGTH))
-            };
-            let spline = |segments: &NEVec<PathSeg>, [tail, head]: [Option<f64>; 2]| {
-                let lengths = segments.iter().map(|segment| segment.arclen(DEFAULT_ACCURACY)).collect::<Vec<_>>();
-                let total = lengths.iter().sum::<f64>();
-                let fit = (total / (tail.unwrap_or_default() + head.unwrap_or_default())).min(1.0);
-                let from = (tail.unwrap_or_default() * fit).min(total);
-                let to = head.unwrap_or_default().mul_add(-fit, total).max(from);
-                let parameter = |segment: &PathSeg, along: f64, length: f64| match along {
-                    ..=0.0 => 0.0,
-                    along if along >= length => 1.0,
-                    along => segment.inv_arclen(along, DEFAULT_ACCURACY),
-                };
-                let cubics = iter::zip(segments.iter(), lengths.iter().scan(0.0, |start: &mut f64, &length| Some((mem::replace(start, *start + length), length))))
-                    .filter_map(|(segment, (start, length))| {
-                        let (low, high) = (from.max(start), to.min(start + length));
-                        (low <= high).then(|| segment.subsegment(parameter(segment, low - start, length)..parameter(segment, high - start, length)).to_cubic())
-                    })
-                    .collect::<Vec<_>>();
-                iter::chain(tail.map(|_| format!("s,{}", coordinates(segments.first().start()))), head.map(|_| format!("e,{}", coordinates(segments.last().end()))))
-                    .chain(iter::chain(cubics.first().map(|cubic| cubic.p0), cubics.iter().flat_map(|&CubicBez { p0: _, p1, p2, p3 }| [p1, p2, p3])).map(coordinates))
-                    .join(" ")
-            };
-            let quoted = |text: &str| {
-                format!(
-                    "\"{}\"",
-                    text.chars().zip(text.chars().skip(1).map(Some).chain([None])).format_with("", |pair, sink| match pair {
-                        ('"', _) => sink(&"\\\""),
-                        ('\\', Some('"' | '\n') | None) => sink(&"\\\\"),
-                        (character, _) => sink(&character),
-                    })
-                )
-            };
-            let listed = |attributes: &Attributes<'_>| attributes.iter().format_with(", ", |(key, value), sink| sink(&format_args!("{}={}", quoted(key), quoted(value)))).to_string();
-            let attributed = drawing.map(
-                |_, Placed { weight, frame }| {
-                    merged(
-                        [
-                            (POSITION, coordinates(frame.center())),
-                            (WIDTH, (frame.width().abs() / POINTS_PER_INCH).to_string()),
-                            (HEIGHT, (frame.height().abs() / POINTS_PER_INCH).to_string()),
-                            ("shape", "box".to_owned()),
-                            ("fixedsize", "true".to_owned()),
-                        ],
-                        node(weight),
-                    )
-                },
-                |_, Routed { weight, path, label }| {
-                    let attributes = edge(weight);
-                    let [tail, head] = arrows(&attributes);
-                    let pos = path
-                        .subpaths()
-                        .filter_map(|elements| NEVec::try_from_vec(kurbo::segments(elements.iter().copied()).collect()))
-                        .with_position()
-                        .map(|(Position { is_first, is_last }, segments)| spline(&segments, [tail.filter(|_| is_first), head.filter(|_| is_last)]))
-                        .join(";");
-                    merged(iter::chain(Some((POSITION, pos)).filter(|(_, pos)| !pos.is_empty()), label.map(|rect| ("lp", coordinates(rect.center())))), attributes)
-                },
-            );
+        Format::Dot(unit) => dot(unit, node, edge, drawing, writer)?,
+    }
+    .map_err(|source| LayoutError::Export { format, source })
+}
+
+fn merged(geometry: impl IntoIterator<Item = (&'static str, String)>, attributes: Attributes<'_>) -> Attributes<'_> {
+    let mut kept = geometry.into_iter().filter(|&(key, _)| attributes.iter().all(|(name, _)| *name != key)).map(|(key, value)| (Cow::Borrowed(key), Cow::Owned(value))).collect::<Vec<_>>();
+    kept.extend(attributes);
+    kept
+}
+
+fn dot<N, E, Ty, W>(unit: Length, node: impl Fn(&N) -> Attributes<'_>, edge: impl Fn(&E) -> Attributes<'_>, drawing: &Drawing<N, E, Ty>, mut writer: W) -> Result<io::Result<()>, LayoutError>
+where
+    Ty: EdgeType,
+    W: io::Write,
+{
+    const ARROW_LENGTH: f64 = 10.0;
+    const ARROW_NORMAL: (&str, f64) = ("normal", 1.0);
+    const DIRECTIONS: [(&str, [bool; 2]); 4] = [("forward", [false, true]), ("back", [true, false]), ("both", [true, true]), ("none", [false, false])];
+    fn quoted(text: &str) -> impl fmt::Display {
+        fmt::from_fn(move |formatter| {
             write!(
-                writer,
-                "{kind} {{\n{bounds}{content}}}\n",
-                kind = if drawing.is_directed() { "digraph" } else { "graph" },
-                bounds = fmt::from_fn(|formatter| bounds.map_or(Ok(()), |Rect { x0, y0, x1, y1 }| writeln!(formatter, "    graph [bb=\"{x0},{y0},{x1},{y1}\"]"))),
-                content = fmt::from_fn(|formatter| {
-                    Dot::with_attr_getters(&attributed, &[Config::NodeNoLabel, Config::EdgeNoLabel, Config::GraphContentOnly], &|_, reference| listed(reference.weight()), &|_, (_, attributes)| {
-                        listed(attributes)
+                formatter,
+                "\"{}\"",
+                text.chars()
+                    .zip(text.chars().skip(1).map(Some).chain([None]))
+                    .scan(false, |odd, (character, next)| {
+                        *odd = character == '\\' && !*odd;
+                        Some((character, next, *odd))
                     })
-                    .graph_fmt(formatter, |_, _| Ok(()), |_, _| Ok(()))
-                }),
+                    .format_with("", |escaped, sink| match escaped {
+                        ('"', _, _) => sink(&"\\\""),
+                        ('\\', Some('"' | '\n') | None, true) => sink(&"\\\\"),
+                        (character, _, _) => sink(&character),
+                    })
             )
-        }
+        })
+    }
+    fn listed(attributes: &Attributes<'_>) -> impl fmt::Display {
+        attributes.iter().format_with(", ", |(key, value), sink| sink(&format_args!("{}={}", quoted(key), quoted(value))))
+    }
+    fn arrow(name: &str) -> f64 {
+        const ARROW_GAP: (&str, f64) = ("none", 0.5);
+        const ARROW_MODIFIERS: [&str; 5] = ["o", "l", "r", "e", "half"];
+        const ARROW_SHAPES: [(&str, f64); 14] = [
+            ("invempty", 1.0),
+            ARROW_NORMAL,
+            ("crow", 1.0),
+            ("tee", 0.5),
+            ("box", 1.0),
+            ("diamond", 1.2),
+            ("dot", 0.8),
+            ARROW_GAP,
+            ("inv", 1.0),
+            ("vee", 1.0),
+            ("pen", 1.0),
+            ("mpty", 1.0),
+            ("curve", 1.0),
+            ("icurve", 1.0),
+        ];
+        let shapes = iter::successors(Some((name, ("", 0.0))), |&(rest, _)| {
+            let unmodified = iter::successors(Some(rest), |rest| ARROW_MODIFIERS.into_iter().find_map(|modifier| rest.strip_prefix(modifier))).last()?;
+            ARROW_SHAPES
+                .into_iter()
+                .find_map(|(shape, factor)| Some((unmodified.strip_prefix(shape)?, (shape, factor))))
+                .or_else(|| (unmodified.len() < rest.len()).then_some((unmodified, ARROW_NORMAL)))
+        })
+        .skip(1)
+        .take(4)
+        .collect::<Vec<_>>();
+        shapes
+            .iter()
+            .enumerate()
+            .map(|(position, &(_, (shape, factor)))| match (shape == ARROW_GAP.0, position, shapes.len()) {
+                (true, 3, _) | (true, 0, 1) => 0.0,
+                _ => factor,
+            })
+            .sum()
+    }
+    let directed = drawing.graph.is_directed();
+    let (points, inches) = (unit.get::<point_computer>(), unit.get::<inch>());
+    let Rect { x0: _, y0, x1: _, y1 } = drawing.canvas;
+    let placement = Affine::FLIP_Y.then_translate(Vec2::new(0.0, y0 + y1)).then_scale(points);
+    let coordinates = |point: Point| {
+        let Point { x, y } = placement * point;
+        format!("{x},{y}")
     };
-    exported.map_err(|source| LayoutError::Export { format, source })
+    let arrows = |index: EdgeIndex, attributes: &Attributes<'_>| -> Result<[Option<f64>; 2], LayoutError> {
+        let value = |key: &str| attributes.iter().rev().find(|(name, _)| *name == key).map(|(_, value)| &**value);
+        let length = value("arrowsize").map(|size| size.parse::<f64>().map_err(|source| LayoutError::Arrowsize { edge: index, value: size.to_owned(), source })).transpose()?.unwrap_or(1.0) * ARROW_LENGTH / points;
+        let [tail, head] = value("dir").and_then(|dir| DIRECTIONS.into_iter().find_map(|(name, drawn)| (name == dir).then_some(drawn))).unwrap_or([false, directed]);
+        Ok([(tail, "arrowtail"), (head, "arrowhead")].map(|(drawn, key)| Some(length * arrow(value(key).filter(|name| !name.is_empty()).unwrap_or(ARROW_NORMAL.0))).filter(|&clip| drawn && clip > 0.0)))
+    };
+    let spline = |segments: &NEVec<PathSeg>, [tail, head]: [Option<f64>; 2]| {
+        let lengths = segments.iter().map(|segment| segment.arclen(DEFAULT_ACCURACY)).collect::<Vec<_>>();
+        let total = lengths.iter().sum::<f64>();
+        let fit = (total / (tail.unwrap_or_default() + head.unwrap_or_default())).min(1.0);
+        let from = (tail.unwrap_or_default() * fit).min(total);
+        let to = head.unwrap_or_default().mul_add(-fit, total).max(from);
+        let parameter = |segment: &PathSeg, along: f64, length: f64| match along {
+            ..=0.0 => 0.0,
+            along if along >= length => 1.0,
+            along => segment.inv_arclen(along, DEFAULT_ACCURACY),
+        };
+        let cubics = iter::zip(segments.iter(), lengths.iter().scan(0.0, |start: &mut f64, &length| Some((mem::replace(start, *start + length), length))))
+            .filter_map(|(segment, (start, length))| {
+                let (low, high) = (from.max(start), to.min(start + length));
+                (low <= high).then(|| segment.subsegment(parameter(segment, low - start, length)..parameter(segment, high - start, length)).to_cubic())
+            })
+            .collect::<Vec<_>>();
+        iter::chain(tail.map(|_| format!("s,{}", coordinates(segments.first().start()))), head.map(|_| format!("e,{}", coordinates(segments.last().end()))))
+            .chain(iter::chain(cubics.first().map(|cubic| cubic.p0), cubics.iter().flat_map(|&CubicBez { p0: _, p1, p2, p3 }| [p1, p2, p3])).map(coordinates))
+            .join(" ")
+    };
+    let depth = |placed: &Placed<N>| iter::successors(placed.parent, |&parent| drawing.graph.node_weight(parent).and_then(|cluster| cluster.parent)).count();
+    let bounds = placement.transform_rect_bbox(drawing.canvas);
+    let edges = drawing
+        .graph
+        .edge_references()
+        .map(|reference| {
+            let Routed { weight, path, label } = reference.weight();
+            let given = edge(weight);
+            let [tail, head] = arrows(reference.id(), &given)?;
+            let pos = path
+                .subpaths()
+                .filter_map(|elements| NEVec::try_from_vec(kurbo::segments(elements.iter().copied()).collect()))
+                .with_position()
+                .map(|(Position { is_first, is_last }, segments)| spline(&segments, [tail.filter(|_| is_first), head.filter(|_| is_last)]))
+                .join(";");
+            Ok((reference, merged(iter::chain(Some(("pos", pos)).filter(|(_, pos)| !pos.is_empty()), label.map(|rect| ("lp", coordinates(rect.center())))), given)))
+        })
+        .collect::<Result<Vec<_>, LayoutError>>()?;
+    Ok(write!(
+        writer,
+        "{}",
+        fmt::from_fn(|formatter| {
+            writeln!(formatter, "{} {{", if directed { "digraph" } else { "graph" })?;
+            writeln!(formatter, "    graph [bb=\"{},{},{},{}\"]", bounds.x0, bounds.y0, bounds.x1, bounds.y1)?;
+            drawing.graph.node_references().sorted_by_cached_key(|&(_, placed)| depth(placed)).try_for_each(|(index, Placed { weight, frame, shape, parent: _, label: _ })| {
+                let attributes = merged(
+                    [
+                        ("pos", coordinates(frame.center())),
+                        ("width", (frame.width() * inches).to_string()),
+                        ("height", (frame.height() * inches).to_string()),
+                        ("shape", shape.to_string()),
+                        ("fixedsize", "true".to_owned()),
+                    ],
+                    node(weight),
+                );
+                writeln!(formatter, "    {} [{}]", index.index(), listed(&attributes))
+            })?;
+            edges.iter().try_for_each(|(reference, attributes)| {
+                writeln!(formatter, "    {} {} {} [{}]", reference.source().index(), if directed { "->" } else { "--" }, reference.target().index(), listed(attributes))
+            })?;
+            writeln!(formatter, "}}")
+        })
+    ))
 }

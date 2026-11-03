@@ -12,7 +12,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Manifest `support` targets hold test libraries and fixture executables
 - Modules take their suites' dependencies as Nx edges, a `support` target importing a package module cycles with each module whose suite uses it
 - Test targets take `<Module>Tests`, or `<Module>IntegrationTests` for cases needing a GUI session or TCC grant
-- Nx attaches each test target to its module's `test` or `test:integration` and filters on its C99 module name
+- Nx attaches each test target to its module's `test` or `test:integration` through `--test-product`, `--filter` builds every test target
 - `OMIT_DYNAMIC_TEST_SUPPORT` links `IssueReportingTestSupport` static for swift-custom-dump tests, the dynamic form prints linker version warnings
 - Remote packages take `.package(url:from:)` and an `up-to-next-major-version` row in each app linking their products, `upgrade:swift` moves both
 - Manifest `settings` restate `Xcode.xcconfig` compiler and linker policy in typed forms, `unsafeFlags` where none exists
@@ -23,8 +23,11 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - SwiftPM takes its scratch path from `SWIFTPM_BUILD_DIR` over `--scratch-path` and reads it from no file
 - SwiftPM writes `.build/` in the working folder when neither is set, `--help` included
 - `SWIFTPM_BUILD_DIR` holds an absolute path in `mise.toml` `[env]`, SwiftPM resolves a relative one against the working folder
-- `sourcekit-lsp` reads `swiftPM.scratchPath` and its `swift build` preparation reads `SWIFTPM_BUILD_DIR`, each client sets both to one folder
-- SwiftPM locks its scratch path per process, each SwiftPM target takes `parallelism: false`
+- `sourcekit-lsp` reads `swiftPM.scratchPath` and its `swift build` preparation reads `SWIFTPM_BUILD_DIR`, argus sets both to one folder
+- VS Code Swift settings expand no variable, the extension reads mise `SWIFTPM_BUILD_DIR` from the environment `code` starts with
+- SwiftPM locks its scratch path until the command exits, last test included, each SwiftPM target takes `parallelism: false`
+- `test:integration` takes its own `SWIFTPM_BUILD_DIR` so a hung GUI case blocks no build, every other SwiftPM target shares the mise folder
+- `swift test` stdout buffers until exit off a TTY, the `events.jsonl` beside attachments streams one flushed record per event for one test product
 - Executables outside `tests/` `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`
 - Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
 
@@ -68,8 +71,7 @@ Project and target settings override root `Xcode.xcconfig`:
 - Builds setting no `MARKETING_VERSION` write neither bundle version key, Sparkle then fails to start and shows an alert
 - Apps embedding a package framework set `LD_RUNPATH_SEARCH_PATHS` to `@executable_path/../Frameworks`, the app template row `target add` omits
 - CI-only settings join `build` configuration `ci`, which keeps the index store `lint:periphery` reads
-- Xcode reads every non-hidden file under the package root on each load and ignores `.gitignore`
-- Large trees no build reads take a dot prefix or the hidden flag (`chflags hidden <dir>`)
+- `xcodebuild` walks every folder under the package root except `.git` on each project load and ignores dot prefixes, the hidden flag, and `.gitignore`
 
 ## [05]-[COMPILER]
 

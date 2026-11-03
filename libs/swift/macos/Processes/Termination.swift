@@ -44,17 +44,22 @@ public func termination(of process: pid_t) -> AsyncStream<Result<ProcessExit, Er
             guard unsafe kevent(descriptor, &exit, 1, nil, 0, nil) == 0 else { throw Errno(rawValue: errno) }
             return queue
         }
+        @Sendable func drained(_ descriptor: Int32) -> Result<ProcessExit, Errno>? {
+            var exited: kevent = unsafe kevent()
+            var now: timespec = timespec()
+            let read: Int32 = unsafe kevent(descriptor, nil, 0, &exited, 1, &now)
+            guard read != 0 else { return nil }
+            let data: Int32 = Int32(truncatingIfNeeded: unsafe exited.data)
+            return read < 0 ? .failure(Errno(rawValue: errno)) : .success(ProcessExit(status: TerminationStatus(waitStatus: data), detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
+        }
         switch registered {
+            case .success(let queue) where Result { () throws(Errno) in try ProcessStatus(of: process) } == .failure(.noSuchProcess):
+                continuation.yield(drained(queue.fileDescriptor) ?? .failure(.noSuchProcess))
+                continuation.finish()
             case .success(let queue):
                 queue.readabilityHandler = { queue in
-                    var exited: kevent = unsafe kevent()
-                    var now: timespec = timespec()
-                    let read: Int32 = unsafe kevent(queue.fileDescriptor, nil, 0, &exited, 1, &now)
-                    guard read != 0 else { return }
-                    let data: Int32 = Int32(truncatingIfNeeded: unsafe exited.data)
-                    continuation.yield(
-                        read < 0 ? .failure(Errno(rawValue: errno)) : .success(ProcessExit(status: TerminationStatus(waitStatus: data), detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
-                    )
+                    guard let outcome: Result<ProcessExit, Errno> = drained(queue.fileDescriptor) else { return }
+                    continuation.yield(outcome)
                     continuation.finish()
                 }
                 continuation.onTermination = { _ in queue.readabilityHandler = nil }

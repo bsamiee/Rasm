@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-follow-wait
+language: bash
+severity: error
+rule:
+    kind: command
+    pattern: $TAIL
+    all:
+        - has: {field: name, regex: '^tail$'}
+        - has: {kind: word, regex: '^(-[A-Za-z0-9]*[fF][A-Za-z0-9]*|--follow(=.*)?)$'}
+        - any:
+            - inside: {stopBy: end, kind: process_substitution}
+            - inside: {kind: pipeline}
+              precedes:
+                stopBy: end
+                kind: command
+                any:
+                    - has: {field: name, regex: '^(head|read)$'}
+                    - all:
+                        - has: {field: name, regex: '^grep$'}
+                        - has: {kind: word, regex: '^(-[A-Za-z]*[mq][A-Za-z0-9]*|--(max-count|quiet|silent)(=.*)?)$'}
+message: '`$TAIL` never ends, poll the file in a bounded loop'
+note: 'Poll `grep -q <pattern> <file>` in `for _ in {1..<attempts>}; do ... && break; sleep <interval>; done`, a follower outlives its reader and never sees an absent line'

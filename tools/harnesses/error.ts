@@ -1,4 +1,10 @@
-import { Schema } from 'effect';
+import { Schema, SchemaGetter } from 'effect';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Thrown = Schema.instanceOf(Error)
+    .pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform((error) => `${error.name}: ${error.message}`), encode: SchemaGetter.forbiddenEncoding }))
+    .annotate({ description: 'Text a thrown error records, its name and message' });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -20,4 +26,4 @@ class HarnessError extends Schema.TaggedError<HarnessError, { readonly brand: un
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { HarnessError };
+export { HarnessError, Thrown };

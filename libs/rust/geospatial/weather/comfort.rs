@@ -1,33 +1,37 @@
-use core::range::Range;
+use core::{num::NonZero, range::RangeInclusive};
 
 use itertools::Either;
-use jiff::Timestamp;
+use rasm_analysis::roots;
+use rasm_stats::{Bounds, BoundsError};
 use solar_positioning::SolarPosition;
 use thermalcomfort::{
     ClothingInsulation, Humidity, MetabolicRate, PmvPpdResult, Speed, Temperature,
+    clothing::{CloDynamicAshraeOptions, CloDynamicIsoOptions, clo_dynamic_ashrae, clo_dynamic_iso},
+    constants::{R_AIR, STEFAN_BOLTZMANN},
+    environment::{OperativeTemperatureInputs, OperativeTemperatureOptions, operative_temperature},
     models::{
         adaptive::{AdaptiveAshraeResult, AdaptiveEnResult, AdaptiveInputs, AdaptiveOptions, adaptive_ashrae, adaptive_en},
-        pmv::{PmvPpdInputs, PmvPpdIsoOptions},
+        pmv::{PmvPpdAshraeOptions, PmvPpdInputs, PmvPpdIsoOptions, pmv_ppd_ashrae},
         solar_gain::{SolarGainInputs, SolarGainOptions, solar_gain},
         utci::{self, StressCategory, UtciInputs, UtciOptions, UtciResult},
     },
     pmv_ppd_iso,
-    psychrometrics::{PsyTaRhOptions, PsychrometricValues, psy_ta_rh},
+    psychrometrics::{PsyTaRhOptions, PsychrometricValues, p_sat, psy_ta_rh},
     v_relative,
 };
 use uom::si::{
-    angle::degree,
+    angle::{degree, radian},
     available_energy::joule_per_kilogram,
-    f64::{Angle, AvailableEnergy, HeatFluxDensity, Pressure, Ratio, TemperatureInterval, ThermodynamicTemperature, Velocity},
+    f64::{Angle, AvailableEnergy, Pressure, Ratio, SpecificVolume, ThermodynamicTemperature, Velocity},
     heat_flux_density::watt_per_square_meter,
     pressure::pascal,
     ratio::ratio,
-    temperature_interval,
-    thermodynamic_temperature::{degree_celsius, kelvin},
+    specific_volume::cubic_meter_per_kilogram,
+    thermodynamic_temperature::kelvin,
     velocity::meter_per_second,
 };
 
-use crate::{Hours, WeatherError, position};
+use crate::{Hour, Hours, WeatherError, position};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -41,10 +45,10 @@ pub enum Standard {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Conditions {
-    pub air: ThermodynamicTemperature,
-    pub radiant: ThermodynamicTemperature,
-    pub speed: Velocity,
-    pub humidity: Ratio,
+    pub dry_bulb: ThermodynamicTemperature,
+    pub mean_radiant: ThermodynamicTemperature,
+    pub air_speed: Velocity,
+    pub relative_humidity: Ratio,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -52,97 +56,185 @@ pub struct Exposure {
     pub facing: Angle,
     pub transmittance: Ratio,
     pub sky_view: Ratio,
-    pub gain: SolarGainOptions,
+    pub sunlit: Ratio,
+    pub surfaces: Option<ThermodynamicTemperature>,
+    pub options: SolarGainOptions,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Psychrometrics {
-    pub saturation: Pressure,
-    pub vapour: Pressure,
+    pub saturation_pressure: Pressure,
+    pub vapour_pressure: Pressure,
     pub humidity_ratio: Ratio,
     pub wet_bulb: ThermodynamicTemperature,
-    pub dew_point: ThermodynamicTemperature,
+    pub dew_point: Option<ThermodynamicTemperature>,
     pub enthalpy: AvailableEnergy,
+    pub specific_volume: SpecificVolume,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Limit {
+    pub operative: RangeInclusive<ThermodynamicTemperature>,
+    pub acceptable: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Limits {
+    Ashrae { acceptability_80: Limit, acceptability_90: Limit },
+    En { category_i: Limit, category_ii: Limit, category_iii: Limit },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Adaptive {
+    pub comfort: ThermodynamicTemperature,
+    pub operative: ThermodynamicTemperature,
+    pub limits: Limits,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[must_use]
-pub fn psychrometrics(air: ThermodynamicTemperature, humidity: Ratio, pressure: Pressure) -> Option<Psychrometrics> {
-    let PsychrometricValues { p_sat, p_vap, hr, t_wb, t_dp, h } =
-        psy_ta_rh(temperature(air), relative_humidity(humidity), PsyTaRhOptions { p_atm: thermalcomfort::Pressure::from_pascals(pressure.get::<pascal>()) });
-    Some(Psychrometrics {
-        saturation: Pressure::new::<pascal>(p_sat.as_pascals()),
-        vapour: Pressure::new::<pascal>(p_vap.as_pascals()),
-        humidity_ratio: Ratio::new::<ratio>(hr),
-        wet_bulb: ThermodynamicTemperature::new::<kelvin>(t_wb.as_kelvin()),
-        dew_point: ThermodynamicTemperature::new::<kelvin>(t_dp.as_kelvin()),
-        enthalpy: AvailableEnergy::new::<joule_per_kilogram>(h),
-    })
-    .filter(|&Psychrometrics { saturation, vapour, humidity_ratio, wet_bulb, dew_point, enthalpy }| {
-        [saturation.value, vapour.value, humidity_ratio.value, wet_bulb.value, dew_point.value, enthalpy.value].into_iter().all(f64::is_finite)
-    })
+pub fn psychrometrics(dry_bulb: ThermodynamicTemperature, relative_humidity: Ratio, pressure: Pressure) -> Result<Option<Psychrometrics>, WeatherError> {
+    const LOWEST: f64 = -100.0;
+    const DRY_AIR_HEAT: f64 = 1.006;
+    const VAPOUR_HEAT: f64 = 1.86;
+    const VOLUME_PER_HUMIDITY_RATIO: f64 = 1.607_858;
+    fn root<F>(equation: F, start: f64, last: f64) -> Result<Option<f64>, WeatherError>
+    where F: Fn(f64) -> f64 + Sync {
+        match Bounds::try_new(RangeInclusive { start, last }) {
+            Ok(bounds) => roots::bracketed(equation, bounds, NonZero::<usize>::MIN, None).map(|found| found.first().copied()).map_err(WeatherError::Analysis),
+            Err(BoundsError::PredicateViolated) => Ok(Some(start)),
+        }
+    }
+    let (tdb, options) = (temperature(dry_bulb), PsyTaRhOptions { p_atm: thermalcomfort::Pressure::from_pascals(pressure.get::<pascal>()) });
+    let PsychrometricValues { p_sat: saturation_pressure, p_vap: vapour_pressure, hr, t_wb: _, t_dp: _, h: enthalpy } = psy_ta_rh(tdb, humidity(relative_humidity), options);
+    let air = tdb.as_celsius();
+    let balance = |wet_bulb: f64| {
+        let (latent, recovered, condensate): (f64, f64, f64) = if wet_bulb >= 0.0 { (2501.0, 2.326, 4.186) } else { (2830.0, 0.24, 2.1) };
+        let saturated = psy_ta_rh(Temperature::from_celsius(wet_bulb), Humidity::from_ratio(1.0), options).hr;
+        DRY_AIR_HEAT.mul_add(wet_bulb - air, recovered.mul_add(-wet_bulb, latent) * saturated) / condensate.mul_add(-wet_bulb, VAPOUR_HEAT.mul_add(air, latent)) - hr
+    };
+    let condensation = |dew_point: f64| p_sat(Temperature::from_celsius(dew_point)).as_pascals() - vapour_pressure.as_pascals();
+    let celsius = |stated: f64| quantity(Temperature::from_celsius(stated));
+    (air > LOWEST && pressure.is_normal() && pressure.is_sign_positive() && (0.0..=1.0).contains(&relative_humidity.get::<ratio>()) && (0.0..f64::INFINITY).contains(&hr))
+        .then(|| {
+            let dew_point = root(condensation, LOWEST, air)?;
+            Ok(root(balance, dew_point.unwrap_or(LOWEST), air)?.map(|wet_bulb| Psychrometrics {
+                saturation_pressure: Pressure::new::<pascal>(saturation_pressure.as_pascals()),
+                vapour_pressure: Pressure::new::<pascal>(vapour_pressure.as_pascals()),
+                humidity_ratio: Ratio::new::<ratio>(hr),
+                wet_bulb: celsius(wet_bulb),
+                dew_point: dew_point.map(celsius),
+                enthalpy: AvailableEnergy::new::<joule_per_kilogram>(enthalpy),
+                specific_volume: SpecificVolume::new::<cubic_meter_per_kilogram>(R_AIR * dry_bulb.get::<kelvin>() * VOLUME_PER_HUMIDITY_RATIO.mul_add(hr, 1.0) / pressure.get::<pascal>()),
+            }))
+        })
+        .transpose()
+        .map(Option::flatten)
 }
 
-pub fn outdoor(hours: &Hours, exposure: Exposure, sunlit: impl Fn(SolarPosition) -> Ratio) -> Result<Vec<(Range<Timestamp>, Option<Conditions>)>, WeatherError> {
-    let delta_mrt = |sun: SolarPosition, direct: HeatFluxDensity| {
-        let (sine, cosine) = (Angle::new::<degree>(sun.azimuth()) - exposure.facing).sin_cos();
-        let inputs = SolarGainInputs {
-            sol_altitude: thermalcomfort::Angle::from_degrees(sun.elevation_angle()),
-            sharp: thermalcomfort::Angle::from_degrees(sine.abs().atan2(cosine).get::<degree>()),
-            sol_radiation_dir: thermalcomfort::HeatFluxDensity::from_watts_per_square_meter(direct.get::<watt_per_square_meter>()),
-            sol_transmittance: exposure.transmittance.get::<ratio>(),
-            f_svv: exposure.sky_view.get::<ratio>(),
-            f_bes: sunlit(sun).get::<ratio>(),
+pub fn outdoor(hours: &Hours, mut exposure: impl FnMut(&Hour, SolarPosition) -> Exposure) -> impl Iterator<Item = Result<(&Hour, Option<Conditions>), WeatherError>> {
+    const BODY_EMISSIVITY: f64 = 0.95;
+    const RADIATIVE_COEFFICIENT: f64 = 6.0;
+    let conditions = |hour: &Hour, sun: SolarPosition, Exposure { facing, transmittance, sky_view, sunlit, surfaces, options }: Exposure| -> Option<Conditions> {
+        let dry_bulb = hour.dry_bulb?;
+        let (surfaces, transmittance, half_sky) = (surfaces.unwrap_or(dry_bulb).get::<kelvin>(), transmittance.get::<ratio>(), 0.5 * sky_view.get::<ratio>());
+        let sky = (hour.infrared?.get::<watt_per_square_meter>() / (BODY_EMISSIVITY * STEFAN_BOLTZMANN)).powf(0.25);
+        let solar = if sun.is_sun_up() {
+            let (direct, diffuse) = (hour.direct_irradiance?.get::<watt_per_square_meter>(), hour.diffuse_irradiance?.get::<watt_per_square_meter>());
+            let (sine, cosine) = (Angle::new::<degree>(sun.azimuth()) - facing).sin_cos();
+            let beam = solar_gain(
+                SolarGainInputs {
+                    sol_altitude: thermalcomfort::Angle::from_degrees(sun.elevation_angle()),
+                    sharp: thermalcomfort::Angle::from_radians(sine.abs().atan2(cosine).get::<radian>()),
+                    sol_radiation_dir: thermalcomfort::HeatFluxDensity::from_watts_per_square_meter(direct),
+                    sol_transmittance: transmittance,
+                    f_svv: 0.0,
+                    f_bes: sunlit.get::<ratio>(),
+                },
+                SolarGainOptions { round_output: false, ..options },
+            );
+            let global = direct.mul_add(sun.elevation_angle().to_radians().sin(), diffuse);
+            beam.delta_mrt.as_celsius() + half_sky * transmittance * options.floor_reflectance.mul_add(global, diffuse) * options.asw / (BODY_EMISSIVITY * RADIATIVE_COEFFICIENT)
+        } else {
+            0.0
         };
-        Some(solar_gain(inputs, exposure.gain).delta_mrt.as_celsius()).filter(|delta| delta.is_finite()).map(TemperatureInterval::new::<temperature_interval::degree_celsius>)
-    };
-    hours
-        .hours
-        .iter()
-        .map(|hour| {
-            position(hours, hour).map(|(_, sun)| {
-                let conditions = match (hour.dry_bulb, hour.relative_humidity, hour.wind_speed, sun.is_sun_up(), hour.direct_irradiance) {
-                    (Some(air), Some(humidity), Some(speed), false, _) => Some(Conditions { air, radiant: air, speed, humidity }),
-                    (Some(air), Some(humidity), Some(speed), true, Some(direct)) => delta_mrt(sun, direct).map(|delta| Conditions { air, radiant: air + delta, speed, humidity }),
-                    (None, ..) | (_, None, ..) | (_, _, None, ..) | (.., true, None) => None,
-                };
-                (hour.interval, conditions)
-            })
+        Some(Conditions {
+            dry_bulb,
+            mean_radiant: Some(half_sky.mul_add(sky - surfaces, surfaces + solar)).filter(|radiant: &f64| radiant.is_finite()).map(ThermodynamicTemperature::new::<kelvin>)?,
+            air_speed: hour.wind_speed?,
+            relative_humidity: hour.relative_humidity?,
         })
-        .collect()
+    };
+    hours.records.iter().map(move |hour| position(hours, hour).map(|(_, sun)| (hour, conditions(hour, sun, exposure(hour, sun)))))
 }
 
 #[must_use]
 pub fn utci(conditions: Conditions) -> Option<(ThermodynamicTemperature, StressCategory)> {
     let (tdb, tr, speed, rh) = environment(conditions);
-    let UtciResult { utci, stress_category } = utci::utci(UtciInputs { tdb, tr, v: speed, rh }, UtciOptions { round_output: false, ..UtciOptions::default() });
-    stress_category.map(|category| (ThermodynamicTemperature::new::<degree_celsius>(utci), category))
+    let UtciResult { utci, stress_category } =
+        utci::utci(UtciInputs { tdb, tr, v: Speed::from_meters_per_second(speed.as_meters_per_second().clamp(0.5, 17.0)), rh }, UtciOptions { round_output: false, ..UtciOptions::default() });
+    stress_category.map(|category| (quantity(Temperature::from_celsius(utci)), category))
 }
 
 #[must_use]
-pub fn pmv(conditions: Conditions, met: MetabolicRate, clo: ClothingInsulation, options: PmvPpdIsoOptions) -> Option<PmvPpdResult> {
+pub fn pmv(conditions: Conditions, met: MetabolicRate, clo: ClothingInsulation, options: Either<PmvPpdIsoOptions, PmvPpdAshraeOptions>) -> Option<PmvPpdResult> {
     let (tdb, tr, speed, rh) = environment(conditions);
-    Some(pmv_ppd_iso(PmvPpdInputs { tdb, tr, vr: v_relative(speed, met), rh, met, clo }, options)).filter(|result| result.pmv.is_finite())
+    let inputs = |dynamic: ClothingInsulation| PmvPpdInputs { tdb, tr, vr: v_relative(speed, met), rh, met, clo: dynamic };
+    Some(options.either(
+        |options| pmv_ppd_iso(inputs(clo_dynamic_iso(clo, met, speed, CloDynamicIsoOptions::default())), options),
+        |options| pmv_ppd_ashrae(inputs(clo_dynamic_ashrae(clo, met, CloDynamicAshraeOptions::default())), options),
+    ))
+    .filter(|result| result.pmv.is_finite())
 }
 
 #[must_use]
-pub fn adaptive(conditions: Conditions, running_mean: ThermodynamicTemperature, standard: Standard) -> Option<Either<AdaptiveAshraeResult, AdaptiveEnResult>> {
+pub fn adaptive(conditions: Conditions, running_mean: ThermodynamicTemperature, standard: Standard, options: AdaptiveOptions) -> Option<Adaptive> {
     let (tdb, tr, speed, _) = environment(conditions);
     let inputs = AdaptiveInputs { tdb, tr, t_running_mean: temperature(running_mean), v: speed };
-    let options = AdaptiveOptions { round_output: false, ..AdaptiveOptions::default() };
-    Some(match standard {
-        Standard::Ashrae => Either::Left(adaptive_ashrae(inputs, options)),
-        Standard::En => Either::Right(adaptive_en(inputs, options)),
+    let limit = |low: Temperature, up: Temperature, acceptable: bool| Limit { operative: RangeInclusive { start: quantity(low), last: quantity(up) }, acceptable };
+    let (comfort, limits, use_ashrae) = match standard {
+        Standard::Ashrae => {
+            let AdaptiveAshraeResult { tmp_cmf, tmp_cmf_80_low, tmp_cmf_80_up, tmp_cmf_90_low, tmp_cmf_90_up, acceptability_80, acceptability_90 } = adaptive_ashrae(inputs, options);
+            (tmp_cmf, Limits::Ashrae { acceptability_80: limit(tmp_cmf_80_low, tmp_cmf_80_up, acceptability_80), acceptability_90: limit(tmp_cmf_90_low, tmp_cmf_90_up, acceptability_90) }, true)
+        }
+        Standard::En => {
+            let AdaptiveEnResult {
+                tmp_cmf,
+                tmp_cmf_cat_i_low,
+                tmp_cmf_cat_i_up,
+                tmp_cmf_cat_ii_low,
+                tmp_cmf_cat_ii_up,
+                tmp_cmf_cat_iii_low,
+                tmp_cmf_cat_iii_up,
+                acceptability_cat_i,
+                acceptability_cat_ii,
+                acceptability_cat_iii,
+            } = adaptive_en(inputs, options);
+            (
+                tmp_cmf,
+                Limits::En {
+                    category_i: limit(tmp_cmf_cat_i_low, tmp_cmf_cat_i_up, acceptability_cat_i),
+                    category_ii: limit(tmp_cmf_cat_ii_low, tmp_cmf_cat_ii_up, acceptability_cat_ii),
+                    category_iii: limit(tmp_cmf_cat_iii_low, tmp_cmf_cat_iii_up, acceptability_cat_iii),
+                },
+                false,
+            )
+        }
+    };
+    comfort.as_kelvin().is_finite().then(|| Adaptive {
+        comfort: quantity(comfort),
+        operative: quantity(operative_temperature(OperativeTemperatureInputs { tdb, tr, v: speed }, OperativeTemperatureOptions { use_ashrae })),
+        limits,
     })
-    .filter(|result| result.as_ref().either(|ashrae| ashrae.tmp_cmf, |en| en.tmp_cmf).as_kelvin().is_finite())
 }
 
 fn environment(conditions: Conditions) -> (Temperature, Temperature, Speed, Humidity) {
-    let Conditions { air, radiant, speed, humidity } = conditions;
-    (temperature(air), temperature(radiant), Speed::from_meters_per_second(speed.get::<meter_per_second>()), relative_humidity(humidity))
+    let Conditions { dry_bulb, mean_radiant, air_speed, relative_humidity } = conditions;
+    (temperature(dry_bulb), temperature(mean_radiant), Speed::from_meters_per_second(air_speed.get::<meter_per_second>()), humidity(relative_humidity))
 }
 
 fn temperature(value: ThermodynamicTemperature) -> Temperature { Temperature::from_kelvin(value.get::<kelvin>()) }
 
-fn relative_humidity(value: Ratio) -> Humidity { Humidity::from_ratio(value.get::<ratio>()) }
+fn humidity(value: Ratio) -> Humidity { Humidity::from_ratio(value.get::<ratio>()) }
+
+fn quantity(value: Temperature) -> ThermodynamicTemperature { ThermodynamicTemperature::new::<kelvin>(value.as_kelvin()) }

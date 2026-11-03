@@ -2,7 +2,7 @@
 
 [build]
 target-dir  = ".artifacts/rust"
-build-dir   = ".cache/rust/build"
+build-dir   = "{cargo-cache-home}/build/{workspace-path-hash}"
 warnings    = "deny"
 rustflags   = ["-Zunstable-options", "--jobs-frontend=4"]
 fingerprint = "content"
@@ -17,4 +17,5 @@ feature-unification = "workspace"
 [unstable]
 checksum-freshness  = true
 feature-unification = true
+fine-grain-locking  = true
 git                 = "shallow-deps"

@@ -56,9 +56,9 @@ curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.n
 3. Doc comment, attributes, and signature per overload with line, `-A<n>` on its `rg` reads the body
 
 ```bash
-dotnet dnx ilspycmd -y -- -l cisde <dll> | rg '<Type>'
-dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -n '^\s*public '
-dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*'
+ilspycmd -l cisde <dll> | rg '<Type>'
+ilspycmd -t '<Namespace.Type`N>' <dll> | rg -n '^\s*public '
+ilspycmd -t '<Namespace.Type`N>' <dll> | rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*'
 ```
 
 .NET decompiled files under `<main>/.artifacts/ilspy`, `<main>` the repository root:
@@ -66,8 +66,8 @@ dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -nU '(^[ \t]*///.*\
 2. Project with one file per type, without `-p` the whole assembly as one `<Name>.decompiled.cs`
 
 ```bash
-dotnet dnx ilspycmd -y -- --dump-table Assembly --json <dll> | jq -r '.rows[0] | "\(.Name)/\(.Version)"'
-dotnet dnx ilspycmd -y -- -p -o <main>/.artifacts/ilspy/<Name>/<Version> <dll>
+ilspycmd --dump-table Assembly --json <dll> | jq -r '.rows[0] | "\(.Name)/\(.Version)"'
+ilspycmd -p -o <main>/.artifacts/ilspy/<Name>/<Version> <dll>
 ```
 
 TypeScript package under `node_modules/<pkg>`, `package.json` `types` names the entry file:

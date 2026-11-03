@@ -36,7 +36,7 @@ use tokio::{
 use tokio_stream::wrappers::{BroadcastStream, SplitStream, errors::BroadcastStreamRecvError};
 use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
 
-use crate::{Endpoint, McpError, Meta, Notifier, Progress, Response, Update, host::Host, internal, list_changes, resynced, versions};
+use crate::{Endpoint, McpError, Meta, Notifier, Progress, Response, Update, host::Host, internal, list_changes, resynced};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -111,13 +111,13 @@ impl Proxy {
         E: Error + Send + Sync + 'static,
     {
         let (progress, tools, stop) = (ProgressDispatcher::new(), Arc::<Tools>::default(), CancellationToken::new());
-        let upstream = Upstream { config: ClientConfig::new(ClientCapabilities::default(), identity.clone()), notifier: notifier.clone(), progress: progress.clone() };
-        let lifecycle = ClientLifecycleMode::Auto {
-            preferred_versions: versions().iter().rev().filter(|version| !version.has_initialize()).cloned().collect(),
-            legacy_version: Some(ProtocolVersion::LATEST_WITH_INITIALIZE),
+        let upstream = Upstream {
+            config: ClientConfig::new(ClientCapabilities::default(), identity.clone()).with_protocol_version(ProtocolVersion::LATEST_WITH_INITIALIZE),
+            notifier: notifier.clone(),
+            progress: progress.clone(),
         };
         let handshake = |source| McpError::Handshake { source: Box::new(source) };
-        let service = serve_client_with_lifecycle_and_ct(upstream, transport, lifecycle, stop.clone()).await.map_err(handshake)?;
+        let service = serve_client_with_lifecycle_and_ct(upstream, transport, ClientLifecycleMode::Initialize, stop.clone()).await.map_err(handshake)?;
         let peer = service.peer().clone();
         let ServerPeerInfo { protocol_version: version, mut capabilities, server_info, instructions, meta, .. } =
             Arc::unwrap_or_clone(peer.peer_info().ok_or_else(|| handshake(ClientInitializeError::ExpectedInitResult(None)))?);

@@ -1,6 +1,6 @@
 import { Schema, Struct } from 'effect';
 import { answers, Expression, Name, Reads } from '#/cases';
-import { common, Enumerated, hostCase, outcome, record, recorded, reply } from '#/results';
+import { Common, Enumerated, hostCase, outcome, record, recorded, reply } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -66,7 +66,7 @@ const State = Schema.Struct({
 const Header = Schema.Struct({ application: Schema.String, version: Schema.String, state: State, survey: Schema.optionalKey(Survey) });
 const Reply = reply(Header);
 const fields = {
-    ...common,
+    ...Common.fields,
     dialogs: recorded(Schema.Json.annotate({ description: 'app.dialogs controls with their prefilled values' })),
     menus: recorded(Schema.Json),
     undo: recorded(Schema.String.annotate({ description: 'Undo step a case document recorded during the run, newest first' })),

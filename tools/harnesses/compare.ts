@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { Array, Effect, Match, Option, Predicate, Record, Result, Schema } from 'effect';
-import { HarnessError } from '#/error';
+import { HarnessError, Thrown } from '#/error';
 import type { Compare } from '#/results';
 import { bury } from '#/values';
 
@@ -18,12 +18,11 @@ interface Difference {
     readonly host: unknown;
     readonly rebuilt: unknown;
 }
-type Reply = Result.Result<unknown, unknown>;
+type Reply = Result.Result<unknown, string>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Module = Schema.Record(Schema.String, Schema.Unknown);
-const Thrown = Schema.Struct({ name: Schema.String, message: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -36,21 +35,20 @@ const differences = (host: unknown, rebuilt: unknown, path = ''): readonly Diffe
 const observed = (pair: Pair) =>
     Result.match({
         onSuccess: (value: unknown): readonly Difference[] => ('value' in pair.host ? differences(pair.host.value, pair.settled(value)) : [{ path: '.thrown', host: pair.host.thrown, rebuilt: value }]),
-        onFailure: (thrown: unknown): readonly Difference[] => {
-            const message = Option.getOrElse(
-                Option.map(Schema.decodeUnknownOption(Thrown)(thrown), ({ name, message: text }) => `${name}: ${text}`),
-                () => String(thrown),
-            );
-            return 'thrown' in pair.host ? differences(pair.host.thrown, message, '.thrown') : [{ path: '.thrown', host: pair.host.value, rebuilt: message }];
-        },
+        onFailure: (thrown: string): readonly Difference[] => ('thrown' in pair.host ? differences(pair.host.thrown, thrown, '.thrown') : [{ path: '.thrown', host: pair.host.value, rebuilt: thrown }]),
     });
 const imported = Effect.fn('imported')(function* (module: string) {
     const loaded = yield* Effect.tryPromise({ try: (): Promise<unknown> => import(pathToFileURL(module).href), catch: HarnessError.refused(module) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Module)));
-    return (pair: Pair): Effect.Effect<Reply, HarnessError> =>
-        Effect.map(
-            Effect.fromOption(Option.filter(Record.get(loaded, pair.fn), Predicate.isFunction), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `exports no function ${pair.fn}` }, subject: module })),
-            (made) => Result.try(() => Reflect.apply(made, undefined, pair.args)),
+    return Effect.fnUntraced(function* (pair: Pair) {
+        const made = yield* Record.get(loaded, pair.fn).pipe(
+            Option.filter(Predicate.isFunction),
+            Effect.fromOption(() => HarnessError.make({ reason: { _tag: 'Unavailable', because: `exports no function ${pair.fn}` }, subject: module })),
         );
+        return yield* Effect.try(() => Reflect.apply(made, undefined, pair.args)).pipe(
+            Effect.catch(({ cause }) => Effect.flip(Effect.orDie(Schema.decodeUnknownEffect(Thrown)(cause)))),
+            Effect.result,
+        );
+    });
 });
 const compared = (module: string, pairs: readonly Pair[], replies: ReadonlyMap<string, Reply>, unproven: readonly string[]): typeof Compare.Type => {
     const rows = pairs.flatMap((pair) => Option.toArray(Option.map(Option.fromUndefinedOr(replies.get(pair.name)), (reply) => ({ name: pair.name, fn: pair.fn, args: bury(pair.args), differences: observed(pair)(reply).map(({ path, host, rebuilt }) => ({ path, host: bury(host), rebuilt: bury(rebuilt) })) }))));

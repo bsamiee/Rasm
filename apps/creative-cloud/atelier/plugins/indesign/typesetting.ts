@@ -6,7 +6,7 @@ import { HostSettings, KASHIDA_WIDTH, LONGEST_KASHIDA_WIDTH } from '@rasm/indesi
 import { commit } from '@rasm/indesign/transactions';
 import { adjustText } from '@rasm/indesign/typesetting';
 import { Settings } from '@rasm/typography/settings';
-import { Array, Cause, Console, Effect, FiberSet, flow, Option, Ref, Schema, Struct } from 'effect';
+import { Array, Cause, Console, Effect, FiberSet, flow, Option, Record, Ref, Schema, Struct } from 'effect';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -62,7 +62,7 @@ const typesetting = (local: ReturnType<typeof host>['local']) => {
             }),
         );
     const kashida = (change: Partial<typeof Settings.Type.kashida>) => written('Set kashida', (text) => Effect.flatMap(HostSettings.read(text), (settings) => HostSettings.write(text, { kashida: { ...settings.kashida, ...change } })));
-    const stylistic = (tag: string, enabled: boolean) => written(`Set ${tag}`, (text) => Effect.flatMap(HostSettings.read(text), ({ features }) => HostSettings.write(text, { features: enabled ? Array.union(features, [tag]) : features.filter((feature) => feature !== tag) })));
+    const stylistic = (tag: string, enabled: boolean) => written(`Set ${tag}`, (text) => Effect.flatMap(HostSettings.read(text), ({ features }) => HostSettings.write(text, { features: enabled ? Record.set(features, tag, 1) : Record.remove(features, tag) })));
     const nudged = (axis: 'horizontal' | 'vertical', multiple: number) =>
         Effect.fnUntraced(function* (mode: keyof typeof modes) {
             const { app } = yield* Model;
@@ -103,7 +103,7 @@ const typesetting = (local: ReturnType<typeof host>['local']) => {
         const shownSettings = ({ kashida: { insertion: chosen, degree }, features }: Settings) => {
             insertion.value = chosen;
             width.valueAsNumber = degree;
-            sets.forEach(({ tag, box }) => Object.assign(box, { checked: features.includes(tag) }));
+            sets.forEach(({ tag, box }) => Object.assign(box, { checked: Record.has(features, tag) }));
         };
         const refresh = Effect.gen(function* () {
             const selection = yield* selected;

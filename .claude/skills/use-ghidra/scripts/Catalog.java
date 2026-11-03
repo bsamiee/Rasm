@@ -14,6 +14,7 @@ import util.CollectionUtils;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -108,32 +109,31 @@ public class Catalog extends GhidraScript {
         }
     }
 
-    private static Report.Section section(String name, Stream<? extends Row> rows) {
-        return Report.Section.rows(name, rows.sorted(Row.ORDER).map(Row::text).toList());
-    }
-
     // --- [RUN]
 
     @Override
     public void run() throws Exception {
         Path out = new Arguments.Usage(getScriptName(), "<out>").only(getScriptArgs());
+        BiFunction<String, Stream<? extends Row>, Report.Section> section =
+                (name, rows) ->
+                        Report.Section.rows(name, rows.sorted(Row.ORDER).map(Row::text).toList());
         List<Report.Section> sections =
                 List.of(
-                        section(
+                        section.apply(
                                 "STRINGS",
                                 CollectionUtils.asStream(
                                                 DefinedDataIterator.byDataInstance(
                                                         currentProgram,
                                                         StringDataInstance::isString))
                                         .map(StringRow::new)),
-                        section(
+                        section.apply(
                                 "IMPORTS",
                                 CollectionUtils.asStream(
                                                 currentProgram
                                                         .getFunctionManager()
                                                         .getExternalFunctions())
                                         .map(function -> new ImportRow(function, monitor))),
-                        section(
+                        section.apply(
                                 "FUNCTIONS",
                                 Functions.internal(currentProgram)
                                         .filter(Predicate.not(Function::isThunk))

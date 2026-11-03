@@ -1,6 +1,6 @@
 import { Effect, Schema, Struct } from 'effect';
 import { answers, Name, Reads } from '#/cases';
-import { common, hostCase, outcome, record, recorded } from '#/results';
+import { Common, hostCase, outcome, record, recorded } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -19,7 +19,7 @@ const Page = Schema.Struct({
     pages: Schema.Int.check(Schema.isGreaterThan(0))
         .pipe(Schema.withDecodingDefaultKey(Effect.succeed(1)))
         .annotate({ description: 'Page count, newPage adding each page after the first' }),
-    rotation: Schema.optionalKey(Schema.Int.check(Schema.isMultipleOf(QUARTER_TURN), Schema.isGreaterThanOrEqualTo(0), Schema.isLessThan(FULL_TURN)).annotate({ description: 'setPageRotations over every page, a quarter-turn multiple below a full turn' })),
+    rotation: Schema.optionalKey(Schema.Int.check(Schema.isMultipleOf(QUARTER_TURN), Schema.isBetween({ minimum: 0, maximum: FULL_TURN, exclusiveMaximum: true })).annotate({ description: 'setPageRotations over every page, a quarter-turn multiple below a full turn' })),
     boxes: Schema.optionalKey(Schema.Struct(Struct.Record(BOXES, Schema.optionalKey(Rect))).annotate({ description: 'setPageBoxes over every page' })),
 }).annotate({ description: 'Document app.newDoc makes, saved as <sandbox>/<index>.pdf before the case' });
 const Opened = Schema.Union([Schema.Struct({ open: Schema.NonEmptyString.annotate({ description: 'Absolute path of the case copy app.openDoc opens with a window' }) }), Page]);
@@ -72,7 +72,7 @@ const batch = {
 };
 const Request = Schema.TaggedUnion({ Survey: batch, Case: { ...batch, signatures: Model.fields.signatures, case: HostCase } });
 const fields = {
-    ...common,
+    ...Common.fields,
     alerts: recorded(Schema.Struct({ text: Schema.String, title: Schema.optionalKey(Schema.String), checkbox: Schema.optionalKey(Schema.String) })),
     confirms: recorded(Schema.String.annotate({ description: 'app.alert question or closeDoc save prompt the confirms answered' })),
     prompts: recorded(Schema.String.annotate({ description: 'app.response question or popUpMenu items the prompts answered' })),

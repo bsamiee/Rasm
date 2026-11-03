@@ -36,7 +36,7 @@ const Hang = Schema.Struct({ cpu: Schema.Literals(['busy', 'blocked']), sample: 
 const Enumerated = Schema.Struct({ $: Schema.TemplateLiteral(['enum:', Schema.String, '.', Schema.String]) }).annotate({ description: 'Enumerator the surveyed enumerations declare' });
 const Source = Schema.Struct({ script: Schema.String.annotate({ description: 'Original script path the case answers as the running script' }), code: Schema.String.annotate({ description: 'Prepared source the engine evaluates' }) });
 const Written = Schema.Struct({ file: Schema.String, size: Schema.Int, sha256: Schema.String }).annotate({ description: 'File the case wrote into its folder' });
-const common = {
+const Common = Schema.Struct({
     alerts: recorded(Schema.Struct({ text: Schema.String, title: Schema.optionalKey(Schema.String) })),
     confirms: recorded(Schema.String),
     prompts: recorded(Schema.String),
@@ -46,7 +46,7 @@ const common = {
     console: recorded(Schema.String.annotate({ description: 'Line the original printed' })),
     writes: recorded(Schema.Struct({ member: Schema.String, before: Schema.optionalKey(Schema.Json), after: Schema.Json }).annotate({ description: 'Application member the original changed, restored after the case' })),
     opened: recorded(Schema.Json.annotate({ description: 'Case document starting state' })),
-};
+}).annotate({ description: 'Outcome fields every scripted host records' });
 const Difference = Schema.Struct({ path: Schema.String, host: Schema.Json, rebuilt: Schema.Json });
 const Compare = Schema.Struct({
     module: Schema.String.annotate({ description: 'Rebuilt module the host answers were compared against' }),
@@ -101,4 +101,4 @@ const results = <E extends Schema.Top, H extends Schema.Struct.Fields, O extends
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answer, Answered, Compare, Completion, Crash, common, Dialog, Enumerated, Hang, hostCase, Outcome, outcome, Pid, record, recorded, reply, results, Source };
+export { Answer, Answered, Common, Compare, Completion, Crash, Dialog, Enumerated, Hang, hostCase, Outcome, outcome, Pid, record, recorded, reply, results, Source };

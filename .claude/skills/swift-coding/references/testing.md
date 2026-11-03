@@ -19,7 +19,7 @@ Suites are Swift Testing types, and the fact a test checks selects the assertion
 Suites hold `@Test` functions named for the behavior they check, and each test runs on a fresh suite instance:
 - `init() async throws` sets up per-test state, and `deinit` of a `final class` or `~Copyable` suite tears it down
 - Tests and parameterized cases run in parallel under `swift test`, and `.serialized` orders one suite's subtree while sibling suites keep running
-- Tests sharing Accessibility focus, the frontmost application, or screen capture sit under one serialized top-level suite
+- Tests sharing Accessibility focus, the frontmost application, or screen capture sit under one top-level suite holding `.serialized` and `.timeLimit`
 - `@Test(arguments:)` takes a collection, a pair of collections for their Cartesian product, or a `zip` for element pairs
 - `.enabled { await <check> }` gates a test on a host capability, and `try Test.cancel(<reason>)` ends one whose fact appears at run time with no failure
 - `.timeLimit(.minutes(<n>))` cancels cooperatively, and a body blocked in a wait that ignores cancellation (kqueue, semaphore, run loop) outlasts it
@@ -34,7 +34,7 @@ Suites hold `@Test` functions named for the behavior they check, and each test r
 - `#require` stops the test at an absent value, `#expect` records an issue and continues
 - Strict memory safety marks a call taking unsafe-typed arguments as `try unsafe #require(<call>)`
 - `#expect(processExitsWith: .signal(SIGABRT))` runs its body in a child copy of the test process, captures values through an explicit `Sendable & Codable` capture list, and reads output named in `observing:`
-- `Attachment.record(<image>, named: <name>, as: .png)` records a `CGImage` or `NSImage`, and target `test` writes each into `.artifacts/swift/test/<project>`
+- `Attachment.record(<image>, named: <name>, as: .png)` records a `CGImage` or `NSImage`, and targets write each into `.artifacts/swift/{test,test-integration}/<project>`
 
 ## [03]-[GENERATED_INPUTS]
 
@@ -69,5 +69,6 @@ Resources a test reads come from a trait: a `SuiteTrait & TestTrait & TestScopin
 |  [04]   | `jsonLines(of:arguments:as:)`     | Decoded output lines, termination status, and standard error of a built executable                |
 
 - Suites pass a library step to a trait as a function value
+- Fixture bundles sit in the user caches folder LaunchServices resolves by bundle id, `indexed: true` moves one to Spotlight-indexed `/Users/Shared`
 - Fixture executables under `tests/swift/fixtures/<name>` read their scenario from launch arguments a `Settings` value writes and exit with their owner process
 - Tests that crash a fixture instance await its exited state, and teardown finds its crash report

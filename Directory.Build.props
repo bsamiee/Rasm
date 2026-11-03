@@ -18,6 +18,7 @@
 
     <PropertyGroup Label="Rhino Plug-In Library Copies" Condition="'$(RhinoPlugIn)' != ''">
         <AssemblyName>$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
+        <RunAnalyzers>false</RunAnalyzers>
     </PropertyGroup>
 
     <PropertyGroup Label="Build Defaults">
@@ -33,6 +34,8 @@
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <NuGetAudit>false</NuGetAudit>
+        <SuppressImplicitGitSourceLink>true</SuppressImplicitGitSourceLink>
+        <DiscoverGlobalAnalyzerConfigFiles>false</DiscoverGlobalAnalyzerConfigFiles>
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">

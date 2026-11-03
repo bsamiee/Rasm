@@ -1,17 +1,15 @@
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { Array, Deferred, type Duration, Effect, FileSystem, Option, Path, type PlatformError, Record, Result, Schema, Stream, Struct } from 'effect';
+import { Array, Deferred, type Duration, Effect, FileSystem, identity, Option, Path, type PlatformError, Record, Result, Schema, Stream, Struct, UndefinedOr } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/error';
-import { Closed, Engine, HostCase, Info, type Placed, Recorded, REFUSED, Request, Rows, Sarif, Session, Source, Survey } from '#/rhino/contract';
+import { Closed, Engine, HostCase, Info, type Placed, REFUSED, Recorded, Request, Rows, Sarif, Session, Source, Survey } from '#/rhino/contract';
 import { precondition } from '#/rhino/precondition';
 import { type Batch, execute, type Host as Harness, type Installed, type Live, type Prepared, type Rebuilt, recorded } from '#/session';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Case = typeof HostCase.Type;
-type Reasons = Record.ReadonlyRecord<string, string>;
-type Building = Effect.Effect<string, HarnessError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -19,10 +17,8 @@ const PREFIX = 'com.mcneel.rhinoceros.';
 const HOST = new RegExp(`^${PREFIX.replaceAll('.', String.raw`\.`)}\\d+$`, 'u');
 const HARNESS = 'RASM_HARNESS';
 const SESSION = 'session.json';
-const REPLY = 'reply.json';
 const REQUEST = 'request';
 const ENTRY = { type: 'Cases', method: 'Run' } as const;
-const SURVEY = 'Language and environment the running instance reports';
 const LINE = /\r?\n/u;
 const PROJECT = fileURLToPath(new URL('Rasm.Harnesses.Rhino.csproj', import.meta.url));
 const LOADER = [
@@ -91,7 +87,11 @@ const lines = (text: string) => text.split(LINE).filter((line) => line.length > 
 const present = <K extends string, A>(key: K, value: Option.Option<A>) => Option.match(value, { onNone: () => ({}), onSome: (held) => Record.singleton(key, held) });
 
 // --- [INSTALLATIONS]
-const plist = (bundle: string) => Effect.flatMap(Path.Path, (path) => Effect.flatMap(output('plutil', ['-convert', 'json', '-o', '-', path.join(bundle, 'Contents', 'Info.plist')]), Schema.decodeEffect(Info)));
+const plist = Effect.fn('plist')(function* (bundle: string) {
+    const path = yield* Path.Path;
+    const printed = yield* output('plutil', ['-convert', 'json', '-o', '-', path.join(bundle, 'Contents', 'Info.plist')]);
+    return yield* Schema.decodeEffect(Info)(printed);
+});
 const companions = Effect.fn('companions')(function* (bundle: string, identifier: string) {
     const path = yield* Path.Path;
     const apps = lines(yield* output('fd', ['--type', 'directory', '--case-sensitive', '--glob', '--no-ignore', '*.app', path.join(bundle, 'Contents')]));
@@ -115,7 +115,7 @@ const appeared = Effect.fn('appeared')(function* (folder: string, name: string) 
         Stream.map(fs.watch(folder), () => undefined),
     ).pipe(
         Stream.mapEffect(() => fs.exists(file)),
-        Stream.filter((exists) => exists),
+        Stream.filter(identity),
         Stream.runHead,
     );
     return yield* fs.readFileString(file);
@@ -136,7 +136,7 @@ const placed = (decoded: typeof Placed.Type, _folder: string, product: string) =
     Effect.map(Path.Path, (path) => ({
         precondition: {
             ...decoded,
-            source: Source.match(decoded.source, { Template: (held) => held, Open: (held) => ({ ...held, path: path.join(product, held.path) }), Application: (held) => held }),
+            source: Source.match(decoded.source, { Template: identity, Open: (held) => ({ ...held, path: path.join(product, held.path) }), Application: identity }),
             ...(decoded.canvas?.open === undefined ? {} : { canvas: { open: path.join(product, decoded.canvas.open) } }),
         },
         copies: [],
@@ -156,30 +156,28 @@ const refusal = (_: typeof Engine.Type, hosted: Case) =>
 // --- [BUILD]
 const called = (name: string) => `Engine.Call(${name}, scope.Args)`;
 const lambda = (locals: string, body: string) => `static scope => { ${locals} ${body} }`;
-const localsOf = (hosted: Case) =>
-    [
-        hosted.precondition.source._tag === 'Application' ? 'var made = scope.Made;' : 'var (doc, view, made) = (scope.Doc, scope.View, scope.Made);',
-        hosted.precondition.canvas === undefined ? '' : 'var canvas = (Grasshopper2.Doc.Document)scope.Canvas; var editor = (Grasshopper2.UI.Canvas.Canvas)scope.Editor;',
-    ].join(' ');
-const bodyOf = (hosted: Case) =>
-    Option.orElse(
-        Option.map(Option.fromUndefinedOr(hosted.fn), called),
-        () => HostCase.match(hosted, { Probe: ({ evaluate }) => Option.some(`(object?)(${evaluate})`), Call: ({ call }) => Option.some(called(call)), Run: () => Option.none<string>() }),
-    );
+const bodyOf = (hosted: Case) => Option.orElse(Option.map(Option.fromUndefinedOr(hosted.fn), called), () => HostCase.match(hosted, { Probe: ({ evaluate }) => Option.some(`(object?)(${evaluate})`), Call: ({ call }) => Option.some(called(call)), Run: () => Option.none<string>() }));
 const entry = (hosted: Case) => {
-    const locals = localsOf(hosted);
+    const locals = [
+        hosted.precondition.source._tag === 'Application' ? 'var made = scope.Made;' : 'var (doc, made) = (scope.Doc, scope.Made); var view = doc.Views.ActiveView;',
+        hosted.precondition.canvas === undefined ? '' : 'var canvas = (Grasshopper2.Doc.Document)scope.Shown.Document; var editor = (Grasshopper2.UI.Canvas.Canvas)scope.Shown.Canvases.Editor;',
+    ].join(' ');
     return [
         '        new Rasm.Harnesses.Rhino.Expressions.Compiled(',
         `            ${lambda(locals, (hosted.precondition.steps ?? []).join(' '))},`,
         `            ${Option.match(bodyOf(hosted), { onNone: () => 'null', onSome: (body) => lambda(locals, `return ${body};`) })},`,
-        `            [${Object.values(hosted.read).map((expression) => `\n            ${lambda(locals, `return (object?)(${expression});`)}`).join(',')}],`,
+        `            [${Object.values(hosted.read)
+            .map((expression) => `\n            ${lambda(locals, `return (object?)(${expression});`)}`)
+            .join(',')}],`,
         `            [${(hosted.precondition.add ?? []).map(({ geometry }) => `\n            ${lambda(locals, `return (GeometryBase)(${geometry});`)}`).join(',')}]),`,
     ];
 };
-const uncompiled = (reason: string) => [`        new Rasm.Harnesses.Rhino.Expressions.Uncompiled(${JSON.stringify(reason)}),`];
 const program = (blocks: readonly (readonly string[])[]) => {
     const head = ['// <auto-generated/>', '#nullable enable', 'using Rasm.Harnesses.Rhino;', 'using Rhino;', 'using Rhino.Display;', 'using Rhino.DocObjects;', `internal static class ${ENTRY.type} {`, `    public static void ${ENTRY.method}(string[] args) => Engine.Run(args, [`];
-    const ends = blocks.reduce<readonly number[]>((held, block) => [...held, (held.at(-1) ?? head.length) + block.length], []);
+    const ends = Array.drop(
+        Array.scan(blocks, head.length, (end, block) => end + block.length),
+        1,
+    );
     const spans = ends.map((end, index) => [end - (blocks[index]?.length ?? 0) + 1, end] as const);
     return { text: [...head, ...blocks.flat(), '    ], static () => new Rasm.Harnesses.Rhino.Canvases());', '}', ''].join('\n'), spans };
 };
@@ -205,10 +203,10 @@ const failing = Effect.fn('failing')(function* (log: string, source: string, spa
     );
 });
 const building = (chosen: Installed, folder: string, cases: readonly Case[], module: Option.Option<string>, plugin: Option.Option<string>) => {
-    const attempt: (reasons: Reasons) => Building = Effect.fnUntraced(function* (reasons: Reasons) {
+    const attempt: (reasons: Record.ReadonlyRecord<string, string>) => Effect.Effect<string, HarnessError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner> = Effect.fnUntraced(function* (reasons: Record.ReadonlyRecord<string, string>) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const [source, log] = [path.join(folder, `${ENTRY.type}.cs`), path.join(folder, 'build.sarif')];
-        const { text, spans } = program(cases.map((hosted, index) => Option.match(Record.get(reasons, String(index)), { onNone: () => entry(hosted), onSome: uncompiled })));
+        const { text, spans } = program(cases.map((hosted, index) => Option.match(Record.get(reasons, String(index)), { onNone: () => entry(hosted), onSome: (reason) => [`        new Rasm.Harnesses.Rhino.Expressions.Uncompiled(${JSON.stringify(reason)}),`] })));
         yield* fs.writeFileString(source, text);
         const properties = [
             `-p:RhinoInstallPath=${chosen.app}`,
@@ -225,40 +223,39 @@ const building = (chosen: Installed, folder: string, cases: readonly Case[], mod
 };
 
 // --- [TRANSPORT]
-const launch = (_: Installed, scratch: string) =>
-    Effect.gen(function* () {
-        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const loader = path.join(scratch, 'loader.cs');
-        yield* fs.writeFileString(loader, LOADER);
-        return { arguments: ['-nosplash', `-runscript=_-ScriptEditor _Run "${loader}"`], environment: { [HARNESS]: scratch } };
-    });
+const launch = Effect.fn('launch')(function* (_: Installed, scratch: string) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const loader = path.join(scratch, 'loader.cs');
+    yield* fs.writeFileString(loader, LOADER);
+    return { arguments: ['-nosplash', `-runscript=_-ScriptEditor _Run "${loader}"`], environment: { [HARNESS]: scratch } };
+});
 const sessionOf = (live: Live) => Effect.flatMap(appeared(live.scratch, `${live.pid}.${SESSION}`), Schema.decodeEffect(Session));
 const opened = (live: Live) =>
     Effect.raceFirst(
         Effect.map(sessionOf(live), ({ survey }) => Option.some(survey)),
         Effect.flatMap(Deferred.await(live.verdict), (over) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `instance ${live.pid} ${over._tag.toLowerCase()} before the loader wrote ${SESSION}` }, subject: live.chosen.name })),
     );
-const rowOf = (hosted: Case) => ({
-    name: hosted.name,
-    folder: hosted.folder,
-    precondition: hosted.precondition,
-    reads: Record.keys(hosted.read),
-    macros: hosted.fn === undefined ? (hosted.commands ?? []) : [],
-    args: HostCase.match(hosted, { Probe: () => [], Call: ({ args }) => args, Run: ({ args }) => args }),
-    ...(hosted._tag === 'Run' && hosted.fn === undefined ? { script: hosted.source.script } : {}),
-});
 const ran = Effect.fn('ran')(function* (live: Live, records: string, cases: Array.NonEmptyReadonlyArray<Case>, module: Option.Option<string>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const folder = path.dirname(records);
     const plugin = Array.head(Array.getSomes(cases.map(({ plugin: file }) => Option.fromUndefinedOr(file))));
     const assembly = yield* building(live.chosen, folder, cases, module, plugin);
     const batch = path.join(folder, 'batch.json');
-    yield* fs.writeFileString(batch, yield* Schema.encodeEffect(Rows)({ cases: cases.map(rowOf), ...present('plugin', plugin) }));
+    const row = (hosted: Case) => ({
+        name: hosted.name,
+        folder: hosted.folder,
+        precondition: hosted.precondition,
+        reads: Record.keys(hosted.read),
+        macros: hosted.fn === undefined ? (hosted.commands ?? []) : [],
+        args: HostCase.match(hosted, { Probe: () => [], Call: ({ args }) => args, Run: ({ args }) => args }),
+        ...(hosted._tag === 'Run' && hosted.fn === undefined ? { script: hosted.source.script } : {}),
+    });
+    yield* fs.writeFileString(batch, yield* Schema.encodeEffect(Rows)({ cases: cases.map(row), ...present('plugin', plugin) }));
     yield* requested(live.scratch, `${live.pid}.${path.basename(folder)}`, [assembly, batch, records]);
-    const closed = yield* Effect.flatMap(appeared(folder, REPLY), Schema.decodeEffect(Closed));
-    return yield* Option.match(Option.fromUndefinedOr(closed.failed), {
-        onNone: () => Effect.succeed(Struct.omit(closed, ['failed'])),
-        onSome: (because) => HarnessError.make({ reason: { _tag: 'Unavailable', because }, subject: `${ENTRY.type} batch` }),
+    const closed = yield* Effect.flatMap(appeared(folder, 'reply.json'), Schema.decodeEffect(Closed));
+    return yield* UndefinedOr.match(closed.failed, {
+        onUndefined: () => Effect.succeed(Struct.omit(closed, ['failed'])),
+        onDefined: (because) => HarnessError.make({ reason: { _tag: 'Unavailable', because }, subject: `${ENTRY.type} batch` }),
     });
 });
 const send = (module: Option.Option<string>) =>
@@ -267,14 +264,13 @@ const send = (module: Option.Option<string>) =>
         const state = yield* Array.match(batch.cases, { onEmpty: () => Effect.succeedNone, onNonEmpty: (cases) => Effect.asSome(ran(live, batch.records, cases, module)) });
         return { application: session.application, version: session.version, survey: session.survey, ...present('state', state) };
     });
-const quit = (live: Live) => requested(live.scratch, `${live.pid}.quit`, []);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const hosting = (module: Option.Option<string>) => ({
     name: 'rhino',
     Engine,
-    survey: { question: SURVEY, Schema: Survey, host: (survey: typeof Survey.Type) => Option.some(survey) },
+    survey: { question: 'Language and environment the running instance reports', Schema: Survey, host: Option.some },
     Case: HostCase,
     shown: ['console', 'diagnostics'],
     engine: () => Result.succeed(Engine.literal),
@@ -286,21 +282,25 @@ const hosting = (module: Option.Option<string>) => ({
     opened,
     send: send(module),
     records: (_: Live, file: string) => recorded(Recorded)(file),
-    quit,
+    quit: (live: Live) => requested(live.scratch, `${live.pid}.quit`, []),
     digest,
 });
-const run = (chosen: Installed, calls: readonly Rebuilt<Case>[], scratch: string, limit: Duration.Duration) =>
-    Effect.gen(function* () {
-        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const module = Array.head(Array.dedupe(calls.map(({ module: held }) => held)));
-        const sendable = yield* Effect.forEach(calls, ({ hosted, fn }, index) => {
-            const folder = path.join(scratch, 'rebuilt', String(index));
-            return Effect.as(fs.makeDirectory(folder, { recursive: true }), { hosted: { ...hosted, fn, folder }, name: hosted.name, folder, map: [], presses: [], copies: [] } satisfies Prepared<Case>);
-        });
-        const done = yield* execute({ ...hosting(module), compare: { _tag: 'Imported' as const } }, chosen, scratch, ENTRY.type, limit, Option.none(), () => Effect.succeed({ engine: Engine.literal, sendable, settled: [] }));
-        return done.outcomes;
-    });
-const Host = { ...hosting(Option.none()), compare: { _tag: 'Hosted', run } } satisfies Harness<typeof Survey, typeof HostCase, typeof Engine, typeof Placed.Type>;
+const Host = {
+    ...hosting(Option.none()),
+    compare: {
+        _tag: 'Hosted',
+        run: Effect.fn('run')(function* (chosen: Installed, calls: readonly Rebuilt<Case>[], scratch: string, limit: Duration.Duration) {
+            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            const module = Array.head(Array.dedupe(calls.map(({ module: held }) => held)));
+            const sendable = yield* Effect.forEach(calls, ({ hosted, fn }, index) => {
+                const folder = path.join(scratch, 'rebuilt', String(index));
+                return Effect.as(fs.makeDirectory(folder, { recursive: true }), { hosted: { ...hosted, fn, folder }, name: hosted.name, folder, map: [], presses: [], copies: [] } satisfies Prepared<Case>);
+            });
+            const done = yield* execute({ ...hosting(module), compare: { _tag: 'Imported' as const } }, chosen, scratch, ENTRY.type, limit, Option.none(), () => Effect.succeed({ engine: Engine.literal, sendable, settled: [] }));
+            return done.outcomes;
+        }),
+    },
+} as const satisfies Harness<typeof Survey, typeof HostCase, typeof Engine, typeof Placed.Type>;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -40,6 +40,8 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 
     private static readonly ImmutableArray<CodeFixProvider> Fixes = Exported<CodeFixProvider, ExportCodeFixProviderAttribute>(typeof(RasmCodeFix).Assembly);
 
+    internal static readonly FrozenSet<string> Fixable = Fixes.SelectMany(static fix => fix.FixableDiagnosticIds).ToFrozenSet(StringComparer.Ordinal);
+
     private static readonly string EditorConfig = File.ReadAllText(Path.Combine(AttributeReader.GetSolutionDirectory(typeof(Analysis).Assembly), ".editorconfig"));
 
     internal Analysis(IEnumerable<(string Path, string Source)> sources, IEnumerable<(string Path, string Source)> fixes, IEnumerable<DiagnosticResult> expected) {
@@ -100,10 +102,11 @@ public sealed class Samples {
                 .WithOptions(DiagnosticOptions.IgnoreAdditionalLocations),
         ];
         CodeAction? applied = null;
-        _ = await Record.ExceptionAsync(() => new Analysis(sources, sources.Select(static source => (source.Path, "")), expected) {
-            CodeFixTestBehaviors = CodeFixTestBehaviors.SkipFixAllCheck,
-            CodeActionVerifier = (action, _) => applied = action,
-        }.RunAsync(token));
+        if (Analysis.Fixable.Contains(rule))
+            _ = await Record.ExceptionAsync(() => new Analysis(sources, sources.Select(static source => (source.Path, "")), expected) {
+                CodeFixTestBehaviors = CodeFixTestBehaviors.SkipFixAllCheck,
+                CodeActionVerifier = (action, _) => applied = action,
+            }.RunAsync(token));
         ImmutableArray<Document> documents = applied is null ? [] : [.. (await applied.GetOperationsAsync(token)).OfType<ApplyChangesOperation>().Single().ChangedSolution.Projects.Single().Documents];
         SourceText[] changed = await Task.WhenAll(documents.Select(document => document.GetTextAsync(token)));
         Option<ImmutableArray<(string Path, string Source)>> fixedSources = applied is null ? None : ImmutableArray.CreateRange(documents.Zip(changed, static (document, text) => (document.FilePath ?? document.Name, text.ToString())));

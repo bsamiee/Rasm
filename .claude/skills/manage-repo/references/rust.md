@@ -54,6 +54,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 ## [05]-[BUILD]
 
 - `build.target-dir` and `build.build-dir` name separate directories, Cargo writes intermediates into the output directory by default
+- `build.build-dir` and `CARGO_BUILD_BUILD_DIR` expand `{cargo-cache-home}` and `{workspace-path-hash}`, each checkout builds in its own folder
 - Profiles sit in root `Cargo.toml`, Cargo ignores a member's profile with a warning
 - Unstable Cargo flags sit in `.cargo/config.toml` `[unstable]`, profile keys in root `cargo-features`, every unit's `-Z` flags in `build.rustflags`
 - `build.rustflags` enters every fingerprint, one row every caller reads keeps one artifact set, a `RUSTFLAGS` variable replaces it and rebuilds all
@@ -80,7 +81,6 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Tested libraries select `--lib --bins --tests`, tested binary-only packages `--all-targets`, untested packages Cargo defaults
 - Joins stay on `futures::future::join` until a rust-analyzer release resolves the def-site helper macro of `core::future::join!`
 - `check.allTargets` and `check.extraArgs` check a saved example or binary alone by `--example` or `--bin`, an override runs one command per save
-- Editors and harnesses set `check.overrideCommand`, `rustc.source`, and `cargo.extraEnv`, `rust-analyzer.toml` flycheck and Cargo keys go unread
 - `cargo.extraEnv` points `CARGO_BUILD_TARGET_DIR` and `CARGO_BUILD_BUILD_DIR` at `rust-analyzer` folders no Nx target shares
 - Both clients read `.cargo/rustc-source/Cargo.toml` through an ignored symlink to mise's matching official compiler source archive
 - `cargo fmt` runs once at the virtual root, one invocation formats every member
@@ -110,7 +110,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - `lint!` writes a unit `Pass` and `new`, `default <Pass>` derives `new` from `Default`, passes holding resolved items write `new` from `TyCtxt`
 - Forms a lint splits by export belong to the lint whatever their `pub` text, an ast-grep rule over the same form excludes it through one shared util
 - `host:dylint` members take no `coverage`, the dylint driver runs their lints outside instrumentation
-- Drivers stay under `~/.dylint_drivers`, dylint refuses a missing driver directory and `rasm:clean` removes `.cache`
+- Drivers stay under `~/.dylint_drivers`, dylint refuses a missing driver directory and `rasm:clean` removes cache folders
 
 ## [10]-[MODULES]
 

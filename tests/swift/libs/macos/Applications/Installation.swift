@@ -94,4 +94,13 @@ struct Installations {
         expectNoDifference(unmatched.subject, "single \(absent.subject)")
         expectNoDifference(Set(unmatched.candidates), [first.url.path(percentEncoded: false), second.url.path(percentEncoded: false)])
     }
+
+    @Test(.timeLimit(.minutes(1)))
+    func unknownNameFailsUnmatchedOnceSpotlightGathers() async throws {
+        let name: String = "dev.rasm.absent.\(UUID().uuidString)"
+        let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await Installation.installed(named: name) }
+        let unmatched: Unmatched = try #require(failure.reason[case: \.unmatched])
+        expectNoDifference(unmatched.query, name)
+        expectNoDifference(unmatched.candidates, [])
+    }
 }

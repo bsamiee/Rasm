@@ -15,7 +15,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Testing">
-        <PackageReference Include="coverlet.MTP" />
         <PackageReference Include="CsCheck" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
         <PackageReference Include="Verify.XunitV3" />

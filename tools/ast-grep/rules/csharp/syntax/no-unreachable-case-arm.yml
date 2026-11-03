@@ -15,7 +15,12 @@ utils:
         inside:
             stopBy: end
             kind: compilation_unit
-            has: {stopBy: end, matches: throwing-helper, has: {field: name, pattern: $HELPER}}
+            has:
+                stopBy: end
+                kind: 'method_declaration, local_function_statement'
+                all:
+                    - has: {field: name, pattern: $HELPER}
+                    - matches: throwing-helper
     arm:
         any:
             - kind: 'lambda_expression, anonymous_method_expression'
@@ -27,17 +32,25 @@ utils:
             - matches: helper-group
             - kind: member_access_expression
               has: {field: name, matches: helper-group}
+    arm-name:
+        any:
+            - kind: identifier
+              regex: &arm-names '^(Switch|SwitchPartially|Map|MapPartially|Match|MatchUnsafe|BiMap|BiBind|IfNone|IfNoneUnsafe|IfFail|IfLeft|IfRight|match|ifNone|ifNoneUnsafe|ifLeft|ifRight)$'
+            - kind: generic_name
+              has: {kind: identifier, regex: *arm-names}
     arm-call:
-        kind: 'identifier, generic_name, member_access_expression'
-        regex: '(^|\.)\s*(Switch|SwitchPartially|Map|MapPartially|Match|MatchUnsafe|BiMap|BiBind|IfNone|IfNoneUnsafe|IfFail|IfLeft|IfRight|match|ifNone|ifNoneUnsafe|ifLeft|ifRight)(\s*<.+>)?$'
+        any:
+            - matches: arm-name
+            - kind: member_access_expression
+              has: {field: name, matches: arm-name}
 rule:
     kind: argument
     all:
-        - has: {matches: arm}
         - inside:
             kind: argument_list
             inside:
                 kind: invocation_expression
                 has: {field: function, pattern: $CALL, matches: arm-call}
+        - has: {matches: arm}
 message: 'Arm of `$CALL` throws `UnreachableException` for a case its value can hold'
 note: 'Narrow the value to a union or request type holding only cases its call handles'

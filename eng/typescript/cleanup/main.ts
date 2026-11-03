@@ -21,7 +21,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
     const [fs, path, home, ghidra, pulumi] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME'), Config.String('GHIDRA_PROJECT_DIR'), Config.String('PULUMI_HOME')]);
     const root = path.resolve(workspaceRoot);
     const shown = { stdout: 'inherit' } as const;
-    const residues = ['.build', '.cache', '.artifacts', '.playwright-cli', '.playwright-mcp'];
+    const residues = ['.build', '.artifacts', '.playwright-cli', '.playwright-mcp'];
     const under = (roots: readonly string[]) => (entry: string) => roots.some((at) => entry === at || entry.startsWith(`${at}${path.sep}`));
     const lineage = (entry: string) => Array.unfold(path.dirname(entry), (at) => (at === path.dirname(at) ? Option.none() : Option.some([at, path.dirname(at)] as const)));
     const lines = (text: string) => text.split('\n').filter(String.isNonEmpty);
@@ -71,7 +71,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
     const product = Schema.decodeUnknownOption(Schema.TemplateLiteralParser([Schema.String, ' v', Schema.String, ' (', Schema.String, '):']));
     const agent = Schema.is(Schema.TemplateLiteral(['dev.mise.', Schema.String, '.plist']));
     const launch = Schema.decodeUnknownOption(Schema.Struct({ Label: Schema.TemplateLiteralParser(['dev.mise.', Schema.String]), WorkingDirectory: Schema.Literal(root), StandardOutPath: Schema.OptionFromOptionalKey(Schema.String), StandardErrorPath: Schema.OptionFromOptionalKey(Schema.String) }));
-    const { graph, languages, worktrees, installed, developer, agents, launched, daemons, toolchains, products, members } = yield* Effect.all(
+    const { graph, languages, worktrees, installed, developer, agents, launched, daemons, toolchains, products } = yield* Effect.all(
         {
             graph: Effect.try(readCachedProjectGraph),
             languages: fs.readFileString(path.join(root, 'sgconfig.yml')).pipe(
@@ -98,13 +98,22 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
             daemons: stdout('mise', ['daemons', 'ls', '--json']).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, pid: Schema.OptionFromNullOr(Schema.Finite) })))))),
             toolchains: stdout('rustup', ['show', 'home']).pipe(Effect.flatMap((text) => entries(path.join(text.trim(), 'toolchains')))),
             products: stdout('cargo', ['install', '--list']).pipe(Effect.map((text) => Array.getSomes(lines(text).map((line) => product(line))))),
-            members: stdout('cargo', ['metadata', '--no-deps', '--format-version', '1']).pipe(
-                Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Schema.Struct({ name: Schema.String })) })))),
-                Effect.map(({ packages }) => new Set(packages.map(Struct.get('name')))),
-            ),
         },
         { concurrency: 'unbounded' },
     );
+    const checkouts = yield* Effect.forEach(
+        worktrees,
+        (worktree) =>
+            Effect.all({
+                worktree: Effect.succeed(worktree),
+                metadata: stdout('cargo', ['metadata', '--no-deps', '--format-version', '1'], { cwd: worktree }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Schema.Struct({ name: Schema.String })), build_directory: Schema.String }))))),
+                cache: stdout('mise', ['env', '--json'], { cwd: worktree }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Struct({ RASM_CACHE_HOME: Schema.String })))), Effect.map(Struct.get('RASM_CACHE_HOME'))),
+            }),
+        { concurrency: 'unbounded' },
+    );
+    const caches = checkouts.flatMap(({ metadata, cache }) => [metadata.build_directory, cache]);
+    const own = yield* Effect.fromNullishOr(checkouts.find(({ worktree }) => worktree === root));
+    const members = new Set(own.metadata.packages.map(Struct.get('name')));
     yield* accumulate(
         launched.filter(({ Label: [, name] }) => !agents.has(name)),
         ({ Label: [, name] }) => stdout('mise', ['bootstrap', 'services', 'remove', name, '--yes'], shown),
@@ -136,7 +145,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
     const descendants = (pid: number): (typeof running)[number][] => (children.get(pid) ?? []).flatMap((child) => [child, ...descendants(child.pid)]);
     const ancestors = (pid: number) => Array.unfold(pid, (current) => Option.flatMap(Option.fromUndefinedOr(processes.get(current)), ({ ppid }) => (ppid === current ? Option.none() : Option.some([current, ppid] as const))));
     const holds = (candidate: (typeof running)[number], descriptor: string, roots: readonly string[]) => candidate.opened.some((handle) => handle.descriptor === descriptor && under(roots)(handle.path));
-    const [local, tools] = [Array.cartesianWith(worktrees, ['node_modules', '.venv', ...residues], path.join), [...installed, ...developer, ...toolchains.map(Struct.get('path'))]];
+    const [local, tools] = [[...Array.cartesianWith(worktrees, ['node_modules', '.venv', ...residues], path.join), ...caches], [...installed, ...developer, ...toolchains.map(Struct.get('path'))]];
     const owned = (candidate: (typeof running)[number]) => holds(candidate, 'txt', local) || (holds(candidate, 'txt', tools) && holds(candidate, 'cwd', worktrees));
     const { uid } = yield* Effect.fromNullishOr(processes.get(self));
     const exempt = new Set([...ancestors(self), ...jobs.flatMap((pid) => [pid, ...descendants(pid).map(Struct.get('pid'))]), ...running.filter(({ terminal }) => Option.isSome(terminal)).flatMap(({ pid }) => ancestors(pid))]);
@@ -216,11 +225,13 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
         ...launched.filter(({ Label: [, name] }) => agents.get(name) === true).flatMap(({ StandardOutPath, StandardErrorPath }) => Array.getSomes([StandardOutPath, StandardErrorPath])),
         ...languages,
         cacheDir,
-        ...tasks.flatMap(({ definition }) => Option.toArray(xcode(definition.options))).map(({ env }) => path.resolve(root, env.XCODE_DERIVED_DATA_PATH)),
+        ...tasks.flatMap(({ definition }) => Option.toArray(xcode(definition.options))).map(({ env }) => path.join(own.cache, env.XCODE_DERIVED_DATA_PATH)),
         pulumi,
     ];
     const listed = new Set([
         ...residues.map((entry) => path.join(root, entry)),
+        own.cache,
+        own.metadata.build_directory,
         ghidra,
         ...tasks
             .filter(({ definition }) => definition.outputs !== undefined)

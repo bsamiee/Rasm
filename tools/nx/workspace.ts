@@ -279,7 +279,6 @@ const markers = {
     }),
     '*.cs': Effect.fnUntraced(function* ({ dir, base }, { file, root }) {
         yield* Effect.filterOrFail(decode(Schema.String, root, file), (text) => text.startsWith('#!'));
-        const inputs = ['default', '{workspaceRoot}/.editorconfig'];
         const binlog = (target: string) => `{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/${target}-${base}.binlog`;
         return {
             name: dir,
@@ -287,12 +286,10 @@ const markers = {
             targets: {
                 build: { executor: 'nx:noop', dependsOn: [{ target: 'build:*.cs', params: 'forward' }] },
                 format: { executor: 'nx:noop', dependsOn: [{ target: 'format:*.cs', params: 'forward' }] },
-                lint: { executor: 'nx:noop', dependsOn: [{ target: 'lint:*.cs', params: 'forward' }] },
                 [`restore:${base}`]: { outputs: [`{workspaceRoot}/.artifacts/dotnet/obj/${base}/project.assets.json`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*.nuget.*`, binlog('restore')], options: { args: [file] } },
-                [`build:${base}`]: { dependsOn: [`restore:${base}`], inputs, outputs: [`{workspaceRoot}/.artifacts/dotnet/bin/${base}`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*/**/*`, binlog('build')], options: { args: [file, '--no-restore'] } },
+                [`build:${base}`]: { dependsOn: [`restore:${base}`], inputs: ['default'], outputs: [`{workspaceRoot}/.artifacts/dotnet/bin/${base}`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*/**/*`, binlog('build')], options: { args: [file, '--no-restore'] } },
                 [`run:${base}`]: { dependsOn: [`build:${base}`], options: { args: [file, '--no-build', '--'] } },
                 [`format:${base}`]: { options: { args: [file, '--no-restore'] }, dependsOn: [`restore:${base}`] },
-                [`lint:${base}`]: { options: { args: [file, '--no-restore', '--verify-no-changes'] }, dependsOn: [`restore:${base}`], inputs: [...inputs, 'dotnet'], outputs: [binlog('lint')] },
                 check: {},
             },
         };
@@ -357,7 +354,7 @@ const markers = {
         const bundled = Array.match(Array.dedupe(owners), { onEmpty: () => [], onNonEmpty: (projects) => [{ projects, target: 'pack' }] });
         const tags = ['build:xcode', ...(updated ? ['output:appcast'] : [])];
         const xcode = swiftProject(tags, ['pack', 'install', 'lint:swiftlint', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
-        const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root), MinVerTagPrefix: yield* tagPrefix(held, tags, name), PRODUCT_BUNDLE_IDENTIFIER: identifier } };
+        const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('xcode', root), MinVerTagPrefix: yield* tagPrefix(held, tags, name), PRODUCT_BUNDLE_IDENTIFIER: identifier } };
         return { root, name, ...xcode, targets: Record.map(xcode.targets, (target, step) => ({ ...target, options, ...(['build', 'pack'].includes(step) ? { dependsOn: bundled } : {}) })) };
     }),
     'py.typed': Effect.fnUntraced(function* ({ dir }, workspace) {
@@ -470,7 +467,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
     const groups = Record.collect(
         Array.groupBy(scopes, ({ version }) => version),
         (version, members) => {
-            const environment = `.cache/python/${version}`;
+            const environment = `"$RASM_CACHE_HOME/python/${version}"`;
             const excludedGroups = Object.entries(requirements).flatMap(([group, { minimum }]) => (reaches(version)(minimum[1]) ? [] : [`--no-group ${group}`]));
             return { version, environment, scoped: members.map(({ scope }) => `"${scope}"`).join(' '), synced: [`export VIRTUAL_ENV=${environment} && uv sync --active --python ${version}`, ...excludedGroups, '&&'].join(' ') };
         },
@@ -488,7 +485,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
             return running.length > 0 ? [[version, scan([ids(running), scoped])] as const] : [];
         }),
     ]);
-    const lock = `python -c "import fcntl, subprocess, sys; lock = open(sys.argv[1], 'w'); fcntl.flock(lock, fcntl.LOCK_EX); sys.exit(subprocess.call(sys.argv[2:]))" .cache/ast-grep/rewrite.lock`;
+    const lock = `python -c "import fcntl, subprocess, sys; lock = open(sys.argv[1], 'w'); fcntl.flock(lock, fcntl.LOCK_EX); sys.exit(subprocess.call(sys.argv[2:]))" .artifacts/ast-grep/rewrite.lock`;
     const split = (target: string, children: Readonly<Record<string, string>>) => {
         const [lead, ...rest] = Object.keys(children).map((child) => `${target}:${child}`);
         return {
@@ -542,18 +539,17 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
                 ...Array.match(Object.values(attached), { onEmpty: () => ({}), onNonEmpty: (held) => suiteInput(...held.map(Struct.get('path'))) }),
                 root: target.path,
                 name: target.name,
-                targets: { ...project.targets, 'lint:periphery': excluded, ...Record.map(attached, ({ c99name }) => ({ options: { args: ['--filter', `'^${c99name}\\.'`] } })) },
+                targets: { ...project.targets, 'lint:periphery': excluded, ...Record.map(attached, ({ name }) => ({ options: { args: ['--test-product', name] } })) },
             },
         ] as const;
     });
-    const check = { SWIFTPM_BUILD_DIR: '.cache/swiftpm/check' };
     return {
         projects: {
             ...Object.fromEntries(modules),
             '.': {
                 root: '.',
                 targets: {
-                    'typecheck:swift': { inputs: ['swift', ...targets.map(({ path }) => `{workspaceRoot}/${path}/**/*`)], options: { env: check } },
+                    'typecheck:swift': { inputs: ['swift', ...targets.map(({ path }) => `{workspaceRoot}/${path}/**/*`)] },
                 },
             },
         },

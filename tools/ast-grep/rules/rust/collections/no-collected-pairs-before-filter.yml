@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-collected-pairs-before-filter
+language: rust
+severity: error
+utils:
+    pair-method:
+        pattern: $PAIR
+        regex: '^(leaf_pairs|intersection_candidates_with_other_tree|cartesian_product|multi_cartesian_product|tuple_combinations|array_combinations|combinations|combinations_with_replacement|permutations)$'
+    pair-stream:
+        any:
+            - kind: macro_invocation
+              has: {field: macro, pattern: $PAIR, regex: '^iproduct$'}
+            - kind: call_expression
+              has:
+                  field: function
+                  any:
+                      - kind: field_expression
+                        any: [{has: {field: field, matches: pair-method}}, {has: {field: value, matches: pair-stream}}]
+                      - kind: generic_function
+                        has:
+                            field: function
+                            kind: field_expression
+                            any: [{has: {field: field, matches: pair-method}}, {has: {field: value, matches: pair-stream}}]
+rule:
+    kind: call_expression
+    has:
+        field: function
+        kind: field_expression
+        all:
+            - has: {field: field, regex: '^(filter|filter_map)$', pattern: $FILTER}
+            - has: {field: value, kind: call_expression, pattern: '$PAIRS.collect::<Vec<$_>>().$ITER()'}
+            - has:
+                field: value
+                has:
+                    field: function
+                    has:
+                        field: value
+                        has: {field: function, kind: generic_function, has: {field: function, has: {field: value, matches: pair-stream}}}
+constraints:
+    ITER: {regex: '^(into_par_iter|par_iter|into_iter|iter)$'}
+labels:
+    PAIR: {style: secondary, message: 'Enumerates the pairs'}
+    FILTER: {style: primary, message: 'Discards pairs after every pair is stored'}
+message: '`$PAIR` pairs collect into a `Vec` before `$ITER().$FILTER` discards the pairs it rejects'
+note: 'Apply the predicate inside the pair stream so memory holds only kept pairs: feed rayon per element (`(0..n).into_par_iter()` querying each element for its partners after it), or call `par_bridge()` on the stream where output order is free'

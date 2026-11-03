@@ -7,7 +7,7 @@ import { type Event, getEventsSince, subscribe, writeSnapshot } from '@parcel/wa
 import { main } from '@rasm/mcp/node';
 import { registerTool } from '@rasm/mcp/tool';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, type Cause, Config, Deferred, Duration, Effect, Equal, Fiber, FileSystem, Function, flow, HashMap, HashSet, Layer, Match, Option, Order, PlatformError, Predicate, Queue, RcMap, Record, Schema, SchemaTransformation, Scope, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, type Cause, Config, Deferred, Duration, Effect, Equal, Fiber, FileSystem, Function, flow, HashMap, HashSet, Layer, Match, Option, Order, PlatformError, Predicate, Queue, RcMap, Record, Result, Schema, SchemaTransformation, Scope, Stream, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { ChildProcess } from 'effect/process';
 import { escape, minimatch } from 'minimatch';
@@ -36,6 +36,7 @@ import {
     InitializedNotification,
     InitializeRequest,
     type Location,
+    LocationLink,
     LSPErrorCodes,
     MarkupKind,
     type MessageConnection,
@@ -130,7 +131,7 @@ const watch = (root: string, ignore: string[], snapshot: string) => {
 };
 
 const listen = (connection: MessageConnection, settings: Option.Option<Schema.Json>, listening: Deferred.Deferred<void>) => {
-    const setting = (section: string | undefined) => (section?.split('.') ?? []).reduce((value, key) => Option.flatMap(value, (owner) => Option.fromNullishOr(Predicate.hasProperty(owner, key) ? owner[key] : undefined)), settings);
+    const setting = (section: string | undefined) => (section?.split('.') ?? []).reduce((value, key) => Option.flatMap(value, flow(Option.liftPredicate(Schema.is(Schema.JsonObject)), Option.flatMap(Record.get(key)))), settings);
     return Stream.callback<(current: typeof INITIAL) => typeof INITIAL>((queue) => {
         connection.onRequest(ConfigurationRequest.type, ({ items }) => items.map(flow(Struct.get('section'), setting, Option.getOrNull)));
         connection.onRequest(RegistrationRequest.type, ({ registrations }) => {
@@ -215,13 +216,16 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
         config.startupTimeout,
     );
     const sync = typeof capabilities.textDocumentSync === 'number' ? { openClose: capabilities.textDocumentSync !== TextDocumentSyncKind.None, change: capabilities.textDocumentSync } : (capabilities.textDocumentSync ?? {});
-    const declared = Object.entries({
-        [DidOpenTextDocumentNotification.method]: sync.openClose === true && {},
-        [DidCloseTextDocumentNotification.method]: sync.openClose === true && {},
-        [DidChangeTextDocumentNotification.method]: sync.change !== undefined && sync.change !== TextDocumentSyncKind.None && { syncKind: sync.change },
-        [DidSaveTextDocumentNotification.method]: sync.save === true ? {} : sync.save,
-        [DocumentDiagnosticRequest.method]: capabilities.diagnosticProvider,
-    }).flatMap(([method, registerOptions]) => (Predicate.isObject(registerOptions) ? [[method, { id: method, method, registerOptions }] as const] : []));
+    const declared = Array.filterMap(
+        Object.entries({
+            [DidOpenTextDocumentNotification.method]: sync.openClose === true && {},
+            [DidCloseTextDocumentNotification.method]: sync.openClose === true && {},
+            [DidChangeTextDocumentNotification.method]: sync.change !== undefined && sync.change !== TextDocumentSyncKind.None && { syncKind: sync.change },
+            [DidSaveTextDocumentNotification.method]: sync.save === true ? {} : sync.save,
+            [DocumentDiagnosticRequest.method]: capabilities.diagnosticProvider,
+        }),
+        ([method, registerOptions]) => (Predicate.isObject(registerOptions) ? Result.succeed([method, { id: method, method, registerOptions }] as const) : Result.failVoid),
+    );
     yield* SubscriptionRef.update(state, (current) => ({ ...current, registrations: HashMap.setMany(current.registrations, declared) }));
     yield* notify(InitializedNotification.type, {});
     yield* Option.match(config.settings, { onNone: () => Effect.void, onSome: (settings) => notify(DidChangeConfigurationNotification.type, { settings }) });
@@ -344,7 +348,7 @@ const initialize = Effect.fn('initialize')(function* () {
         return { server, item: yield* server.open(pathToFileURL(resolve(root, file)).href, language.languageId) };
     });
     const location = (uri: string, { start: { line, character } }: Range) => `${URL.parse(uri)?.protocol === 'file:' ? relative(root, fileURLToPath(uri)) : uri}:${line + 1}:${character + 1}`;
-    const locations = (targets: Definition | DefinitionLink[] | Location[] | null) => ({ lines: Array.ensure<Location | DefinitionLink>(targets ?? []).map((target) => ('targetUri' in target ? location(target.targetUri, target.targetSelectionRange) : location(target.uri, target.range))) });
+    const locations = (targets: Definition | DefinitionLink[] | Location[] | null) => ({ lines: Array.ensure<Location | DefinitionLink>(targets ?? []).map((target) => (LocationLink.is(target) ? location(target.targetUri, target.targetSelectionRange) : location(target.uri, target.range))) });
     const point = (item: TextDocumentItem, { file, ...position }: typeof Position.Type) => ({ textDocument: { uri: item.uri }, position });
     const flattened = (message: Diagnostic['message']) => (typeof message === 'string' ? message : message.value).replaceAll('\n', ' ');
     const severities = new Map(Record.collect(DiagnosticSeverity, (name, value) => [value, name.toLowerCase()] as const));
@@ -355,7 +359,10 @@ const initialize = Effect.fn('initialize')(function* () {
                 Effect.fnUntraced(function* ({ file }) {
                     const { server, item } = yield* serve(file);
                     const diagnostics = Array.dedupe(yield* server.diagnose(item));
-                    const related = diagnostics.flatMap(({ relatedInformation }) => relatedInformation ?? []).flatMap(({ location: { uri, range }, message }) => (uri === item.uri ? [{ range, message }] : []));
+                    const related = Array.filterMap(
+                        diagnostics.flatMap(({ relatedInformation }) => relatedInformation ?? []),
+                        ({ location: { uri, range }, message }) => (uri === item.uri ? Result.succeed({ range, message }) : Result.failVoid),
+                    );
                     return {
                         lines: Array.sortWith(
                             diagnostics.filter(({ range, message }) => !related.some(Equal.equals({ range, message }))),

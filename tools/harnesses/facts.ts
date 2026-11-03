@@ -1,4 +1,4 @@
-import { ranked } from '@rasm/search/ranked';
+import { rank } from '@rasm/search/rank';
 import { Array, Effect, FileSystem, Option, Schema, String } from 'effect';
 import { Answer, Completion, type Crash, type Hang } from '#/results';
 
@@ -59,7 +59,7 @@ const answerOf = (row: { readonly completion: typeof Completion.Type; readonly c
 const statements = Effect.fn('statements')(function* (files: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
     const lines = Array.flatMap(yield* Effect.forEach(files, (file) => fs.readFileString(file)), (text) => Array.fromIterable(String.linesIterator(text)).filter((line) => line.trim() !== ''));
-    return (question: string) => ranked(question, lines);
+    return (question: string) => rank(question, lines);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

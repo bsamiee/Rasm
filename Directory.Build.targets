@@ -2,7 +2,6 @@
     <PropertyGroup Label="Test Platform" Condition="'$(IsTestingPlatformApplication)' == 'true'">
         <IsTestProject>true</IsTestProject>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-        <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --coverlet --coverlet-output-format cobertura</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
     <ItemGroup Label="Test Analyzers" Condition="'$(ProjectRole)' == 'tests'">
@@ -25,6 +24,10 @@
         <Using Include="Xunit" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'xunit.v3.mtp-v2')) or @(PackageReference->AnyHaveMetadataValue('Identity', 'xunit.v3.assert'))" />
         <Using Include="CsCheck" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'CsCheck'))" />
         <Using Include="Grasshopper2.Types.Numeric" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'Grasshopper2'))" />
+    </ItemGroup>
+
+    <ItemGroup Label="Analyzer Severity">
+        <EditorConfigFiles Include="$(MSBuildThisFileDirectory).config/analyzers.globalconfig" />
     </ItemGroup>
 
     <ItemGroup Label="Banned Symbols">

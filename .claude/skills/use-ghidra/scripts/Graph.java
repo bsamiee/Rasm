@@ -1,5 +1,4 @@
 import ghidra.app.script.GhidraScript;
-import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.Reference;
 
@@ -21,13 +20,6 @@ public class Graph extends GhidraScript {
 
     private static String node(Function function) {
         return function.getEntryPoint() + " " + function.getName(true);
-    }
-
-    private static String referrer(Function function, Address from) {
-        return Optional.ofNullable(
-                        function.getProgram().getFunctionManager().getFunctionContaining(from))
-                .map(Graph::node)
-                .orElse("-");
     }
 
     // --- [RUN]
@@ -73,9 +65,13 @@ public class Graph extends GhidraScript {
                                                                         .formatted(
                                                                                 node(function),
                                                                                 from,
-                                                                                referrer(
-                                                                                        function,
-                                                                                        from))))
+                                                                                Optional.ofNullable(
+                                                                                                function.getProgram()
+                                                                                                        .getFunctionManager()
+                                                                                                        .getFunctionContaining(
+                                                                                                                from))
+                                                                                        .map(Graph::node)
+                                                                                        .orElse("-"))))
                                         .toList()));
         println(Report.write(out, currentProgram, sections, ""));
     }

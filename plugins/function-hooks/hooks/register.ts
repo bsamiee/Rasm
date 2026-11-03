@@ -1,15 +1,27 @@
 import type { Register } from 'claude-code';
 import { given, some } from '../composition.ts';
-import { commandDecision, unrun, WORKTREE } from '../policies/policies.ts';
+import { commandDecision, type Request, type System, unrun, WORKTREE } from '../policies/policies.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ISOLATED = /isolation\s*:\s*['"`]worktree['"`]/u;
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const requested = (e: { readonly tool: 'Monitor' } | { readonly tool: 'Bash'; readonly run_in_background?: boolean; readonly timeout?: number }): Request => {
+    if (e.tool === 'Monitor') {
+        return { kind: 'monitor' };
+    }
+    return e.run_in_background === true ? { kind: 'background' } : { kind: 'foreground', timeout: given(e.timeout) };
+};
+
+const resolved = ({ exitCode, stdout, stderr }: { readonly exitCode: number; readonly stdout: string; readonly stderr: string }): Promise<string> => (exitCode === 0 ? Promise.resolve(stdout.trim()) : Promise.reject(new Error(`mise which ast-grep exited ${exitCode}. ${stderr.trim()}`)));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const register: Register = (on, options) => {
     const project = String(options.project);
+    const scanners = new Map<string, string>();
     on('tool.call', { tool: 'EnterWorktree' }, () => ({ deny: `EnterWorktree ${WORKTREE}` }));
     on('tool.call', { tool: 'Agent', isolation: 'worktree' }, () => ({ deny: `Agent with isolation worktree ${WORKTREE}` }));
     on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (ISOLATED.test(e.scriptPath === undefined ? (e.script ?? '') : await $.fs.read(e.scriptPath)) ? { deny: `Workflow agent with isolation worktree ${WORKTREE}` } : next(e)));
@@ -17,13 +29,11 @@ const register: Register = (on, options) => {
         if (e.command === undefined) {
             return next(e);
         }
+        const scanner = scanners.get($.plugin.root) ?? (await resolved(await $.process.run(['mise', 'which', 'ast-grep'], { cwd: $.plugin.root })));
+        scanners.set($.plugin.root, scanner);
         const [repo, cwd, home] = await Promise.all([$.session.repo(), $.session.cwd(), $.env.get('HOME')]);
-        const decision = await commandDecision(
-            { run: (argv, init) => $.process.run(argv, init), exists: (path) => $.fs.exists(path), plugin: $.plugin.root, root: given(repo?.root), cwd, home: given(home) },
-            e.command,
-            project,
-            some(e.tool === 'Bash' ? { background: e.run_in_background === true, timeout: given(e.timeout) } : { background: true, timeout: some(e.timeout_ms) }),
-        );
+        const system: System = { run: (argv, init) => $.process.run(argv, init), exists: (path) => $.fs.exists(path), read: (path) => $.fs.read(path), scanner, plugin: $.plugin.root, root: given(repo?.root), cwd, home: given(home) };
+        const decision = await commandDecision(system, e.command, project, some(requested(e)));
         if (decision.kind === 'deny') {
             return { deny: decision.reason };
         }

@@ -5,6 +5,7 @@
 - Processes inherit mise's activated environment from their launch shell and call tools by name
 - `[tools]` rows name a registry short name or a backend (`github:`, `pypi:`, `npm:`, `cargo:`), `[tool_alias]` names a backend spec holding a URL
 - `cargo:` rows take a crate the registry lacks, a `cargo-binstall` row fetches its release binary before a source build
+- `dotnet:<id>` rows install a .NET tool package's command, `dotnet dnx` resolves the feed on each launch and keeps a CLI parent process beside the tool
 - `http:<tool>` rows install a release source archive for a tool with no registry entry and no release asset
 - `http:` rows reading a releases API set `version_order = "semver"`, mise takes the last entry of a listing ordered newest first
 - `registry_floating = true` reads current mise and aqua registries, snapshots baked into the mise binary answer when no cached copy loads
@@ -26,6 +27,8 @@
 - Rows render in file order, later rows read a shared value from one earlier `[env]` row as `{{ env.<NAME> }}`
 - `exec(command=...)` templates fail every mise call on a host without their command on PATH
 - `[env]` holds values shells and repository programs read, a value one daemon alone reads sits in its `[daemons]` row `env`
+- `RASM_CACHE_HOME` joins `xdg_cache_home` and a `config_root` hash, each checkout gets its own cache folder outside the tree
+- Cache rows and tool files derive from `RASM_CACHE_HOME` in their own expansion syntax, Nx `options.env` expands nothing
 
 ## [03]-[SERVICES]
 
@@ -38,7 +41,7 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - Daemon names fold into exported variable names, a name another program reads as its own variable (`BLENDER_PORT`) takes a longer name
 - `retry = true` restarts a failed process on the supervisor interval, a process exiting 0 stays stopped
 - `boot_start = true` rows start when supervisor starts in boot mode, and restart selection reads the flag
-- `COLIMA_HOME` and `DOCKER_CONFIG` sit outside `.cache`, the VM disk and CLI plugin links outlive `rasm:clean`
+- `COLIMA_HOME` and `DOCKER_CONFIG` sit under `xdg_data_home`, the VM disk and CLI plugin links outlive `rasm:clean`
 - Readiness checks without `timeout` wait while the process runs, `docker` row's timeout fails a start when VM boots with its engine down
 - `docker` readiness runs `colima status` on macOS, a stop after `docker version` passes and before Colima persists its runtime orphans the VM
 - `docker` row takes no `boot_start`, and nothing stops the engine on idle

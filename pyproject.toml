@@ -316,12 +316,12 @@ workspace = [
 ]
 dev       = [
     # --- [CHECKERS]
-    "deptry",                                                                     # Import-to-requirement checker over runtime code rasm:lint runs
-    "mypy",                                                                       # Type checker rasm:typecheck runs
-    "refurb",                                                                     # Modernization checker over a mypy build rasm:lint runs
+    "deptry",                                                                     # Import-to-requirement checker over runtime code rasm:check runs
+    "mypy",                                                                       # Type checker rasm:check runs
+    "refurb",                                                                     # Modernization checker over a mypy build rasm:check runs
     "ruff",                                                                       # Linter, formatter, and import graph source of Nx Python project edges
-    "ty",                                                                         # Type checker rasm:typecheck runs
-    "yamllint",                                                                   # YAML linter rasm:lint runs
+    "ty",                                                                         # Type checker rasm:check runs
+    "yamllint",                                                                   # YAML linter rasm:check runs
 
     # --- [TESTING]
     "anyio",                                                                      # Structured concurrency over asyncio and trio, a required pytest plugin
@@ -470,7 +470,7 @@ HDF5_DIR = "$CONDA_PREFIX"
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
-cache-dir      = ".cache/ruff"
+cache-dir      = "$RASM_CACHE_HOME/ruff"
 preview        = true
 target-version = "py315"
 line-length    = 200
@@ -555,6 +555,7 @@ pylint                    = { allow-dunder-method-names = ["__get_pydantic_core_
     "banned-api",                                                                             # Blender's bundled Python holds the standard library alone, `json` in place of msgspec
     "blind-except",                                                                           # Each case records whatever its original raised as its result
     "exec-builtin",                                                                           # Cases run host statements a case file supplies
+    "private-member-access",                                                                  # Blender names the manifest file and lists appended draw functions on private members alone
     "return-in-generator",                                                                    # Timer passes advance case steps, and `yield from` returns each step's result
     "suspicious-eval-usage",                                                                  # Cases evaluate host expressions a case file supplies
 ]
@@ -675,7 +676,7 @@ rules    = { unsupported-dynamic-base = "ignore" }                              
 [tool.mypy]
 files                   = [".", ".claude"]
 mypy_path               = ["libs/python"]
-cache_dir               = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
+cache_dir               = "$RASM_CACHE_HOME/mypy"
 strict                  = true
 pretty                  = true
 warn_unreachable        = true
@@ -761,7 +762,7 @@ disable    = [
 
 [tool.pytest]
 strict                   = true
-cache_dir                = ".cache/pytest"
+cache_dir                = "$RASM_CACHE_HOME/pytest"
 testpaths                = ["tests/python"]
 pythonpath               = ["."]
 python_files             = ["test_*.py", "*_test.py", "bench_*.py"]

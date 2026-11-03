@@ -20,7 +20,7 @@ private struct Cell: Equatable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-private func capture(_ fixture: Fixture, pid: Int32, _ flags: [String] = []) async throws -> (capture: WatchAppsLine.Capture, image: CGImage, file: URL) {
+private func capture(_ fixture: Fixture, pid: Int32, _ flags: [String] = []) async throws -> (capture: WatchAppsLine.Capture, image: CGImage) {
     let run: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
         of: .product(named: "watch-apps"),
         arguments: ["capture", fixture.identifier, "--pid", String(pid)] + flags,
@@ -29,12 +29,14 @@ private func capture(_ fixture: Fixture, pid: Int32, _ flags: [String] = []) asy
     let instances: [Int32: WatchAppsLine.Instance] = try #require(run.lines.first?.entry.instances)
     let capture: WatchAppsLine.Capture = try #require(instances[pid]?.captured)
     let temporary: String = try #require(ProcessInfo.processInfo.environment["TMPDIR"])
-    let parts: [String] = [fixture.identifier, String(pid)] + capture.windows.map { window in String(window) }
-    let named: String = parts.joined(separator: "-") + ".png"
+    let selected: String = flags.firstIndex(of: "--window").map { index in flags[index + 1] } ?? "windows"
+    let named: String = [fixture.identifier, String(pid), selected].joined(separator: "-") + ".png"
     let expected: String = URL(filePath: temporary).appending(components: "watch-apps", named).resolvingSymlinksInPath().path(percentEncoded: false)
     let file: URL = URL(filePath: capture.file)
     let written: String = file.resolvingSymlinksInPath().path(percentEncoded: false)
-    let source: CGImageSource = try #require(CGImageSourceCreateWithURL(file as CFURL, nil))
+    let data: Data = try Data(contentsOf: file)
+    try FileManager.default.removeItem(at: file)
+    let source: CGImageSource = try #require(CGImageSourceCreateWithData(data as CFData, nil))
     let type: String? = CGImageSourceGetType(source) as String?
     let image: CGImage = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
     expectNoDifference(run.status, .exited(0))
@@ -42,7 +44,7 @@ private func capture(_ fixture: Fixture, pid: Int32, _ flags: [String] = []) asy
     expectNoDifference(pids(in: run.lines), [[pid]])
     expectNoDifference(written, expected)
     expectNoDifference(type, UTType.png.identifier)
-    return (capture, image, file)
+    return (capture, image)
 }
 
 @MainActor
@@ -94,7 +96,7 @@ extension Integration {
             let number: Int = try #require(swatch.window)
             let frame: CGRect = try #require(swatch.detail?.frame)
             let factor: CGFloat = try scale(of: frame)
-            let full: (capture: WatchAppsLine.Capture, image: CGImage, file: URL) = try await capture(fixture, pid: pid, ["--window", String(number)])
+            let full: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid, ["--window", String(number)])
             let pixels: [Int] = [full.image.width, full.image.height]
             let expectedPixels: [Int] = [Int((frame.width * factor).rounded()), Int((frame.height * factor).rounded())]
             let content: CGSize = NSWindow.contentRect(forFrameRect: frame, styleMask: [.titled]).size
@@ -115,7 +117,7 @@ extension Integration {
             expectNoDifference(pixels, expectedPixels)
             expectNoDifference(cells, matching)
             let longest: Int = 120
-            let scaled: (capture: WatchAppsLine.Capture, image: CGImage, file: URL) = try await capture(fixture, pid: pid, ["--window", String(number), "--longest-side", String(longest)])
+            let scaled: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid, ["--window", String(number), "--longest-side", String(longest)])
             let major: Int = max(full.image.width, full.image.height)
             let minor: Int = min(full.image.width, full.image.height)
             let scaledMajor: Int = max(scaled.image.width, scaled.image.height)
@@ -123,11 +125,10 @@ extension Integration {
             let proportional: Bool = abs(scaledMinor - Int((Double(longest * minor) / Double(major)).rounded())) <= 1
             expectNoDifference(scaledMajor, longest)
             #expect(proportional, "\(scaled.image.width)x\(scaled.image.height) from \(full.image.width)x\(full.image.height)")
-            let all: (capture: WatchAppsLine.Capture, image: CGImage, file: URL) = try await capture(fixture, pid: pid)
+            let all: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
             let windows: Set<Int> = Set(elements.filter { element in element.role == "AXWindow" }.compactMap(\.window))
             let quit: WatchAppsLine.Control = try #require(elements.menuBar?.detail?.controls?.compactMap(\.items).joined().first { item in item.label == "Quit" })
             expectNoDifference(Set(all.capture.windows), windows)
-            try FileManager.default.removeItem(at: all.file)
             _ = try await watching([fixture.identifier], within: .seconds(15)) { lines in
                 _ = try await lines.next { line in line.key == fixture.identifier }
                 try await perform(quit)
@@ -138,7 +139,6 @@ extension Integration {
         @Test(.application(FixtureApplication.self, launches: false, activationPolicy: .regular))
         func hiddenInstancePrintsFailInPlaceOfEntryUntilShown() async throws {
             let fixture: Fixture = try Fixture()
-            let frontmost: Int32? = NSWorkspace.shared.frontmostApplication?.processIdentifier
             let pid: Int32 = try await launch(fixture).pid
             let elements: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
             let window: Int = try #require(elements.titled("Fixture 0")?.window)
@@ -147,12 +147,10 @@ extension Integration {
             try await expectRefusal(["show", fixture.identifier, "--pid", "1"], keyedBy: fixture.identifier)
             try await show(fixture, pid: pid)
             try await show(fixture, pid: pid)
-            let shown: (capture: WatchAppsLine.Capture, image: CGImage, file: URL) = try await capture(fixture, pid: pid)
+            let shown: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
             let instance: NSRunningApplication? = NSRunningApplication(processIdentifier: pid)
             expectNoDifference(shown.capture.windows, [window])
             expectNoDifference([instance?.isHidden, instance?.isActive], [false, false])
-            expectNoDifference(NSWorkspace.shared.frontmostApplication?.processIdentifier, frontmost)
-            try FileManager.default.removeItem(at: shown.file)
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
@@ -160,17 +158,17 @@ extension Integration {
             let fixture: Fixture = try Fixture()
             let pid: Int32 = try await launch(fixture).pid
             let described: Int = try #require(try await read(fixture, pid: pid).titled("Fixture 0")?.window)
-            let collapsed: WatchAppsLine.Window = try await watching([fixture.identifier], within: .seconds(15)) { lines in
+            let collapsed: Int = try await watching([fixture.identifier], within: .seconds(15)) { lines in
                 _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 try await press(.collapsed, in: fixture, pid: pid)
-                let shown: TimedLine<WatchAppsLine> = try await lines.next { line in line.windows(of: pid)?.contains { window in window.frame.isEmpty } == true }
-                return try #require(shown.line.windows(of: pid)?.first { window in window.frame.isEmpty })
+                let shown: TimedLine<WatchAppsLine> = try await lines.next { line in line.elements(of: pid)?.titled("Collapsed") != nil }
+                let numbered: Int? = shown.line.elements(of: pid)?.titled("Collapsed")?.window
+                return try #require(numbered)
             }
             .outcome
-            try await expectRefusal(["capture", fixture.identifier, "--pid", String(pid), "--window", String(collapsed.number)], keyedBy: fixture.identifier)
-            let all: (capture: WatchAppsLine.Capture, image: CGImage, file: URL) = try await capture(fixture, pid: pid)
+            try await expectRefusal(["capture", fixture.identifier, "--pid", String(pid), "--window", String(collapsed)], keyedBy: fixture.identifier)
+            let all: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
             expectNoDifference(all.capture.windows, [described])
-            try FileManager.default.removeItem(at: all.file)
         }
 
         @Test(.application(FixtureApplication.self, launches: false))

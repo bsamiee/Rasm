@@ -1,7 +1,7 @@
 import { constants } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { State } from '@rasm/automation/applications';
-import { Array, Effect, FileSystem, Match, Option, Record, Result, Schema, Stream } from 'effect';
+import { Array, Effect, FileSystem, flow, Match, Option, Record, Result, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { HarnessError } from '#/error';
 import type { Crash, Dialog } from '#/results';
@@ -34,7 +34,6 @@ interface Spawned {
 
 const REPORTING = (['SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGFPE', 'SIGBUS', 'SIGSEGV', 'SIGSYS'] as const).map((name) => constants.signals[name]);
 const SIGNALS: Record.ReadonlyRecord<string, number> = constants.signals;
-const ALIVE: typeof State.Type = { _tag: 'Responding', elements: [], windows: [] };
 const RUNNABLE = 'R';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -63,7 +62,7 @@ const decoded = (text: string): Effect.Effect<readonly Row[], HarnessError | Sch
         Match.value(line).pipe(
             Match.when(Schema.is(System), () => Effect.succeed([])),
             Match.when(Schema.is(Failure), (failed) => HarnessError.make({ reason: { _tag: 'Unavailable', because: Record.collect(failed, (key, { fail }) => `${key}: ${fail.reason}`).join(', ') }, subject: 'watch-apps' })),
-            Match.orElse((held) => Effect.succeed(listed(held))),
+            Match.orElse(flow(listed, Effect.succeed)),
         ),
     );
 const rows = (command: readonly string[]) => Effect.map(ChildProcess.make('watch-apps', command, { stdin: 'ignore', stderr: 'inherit' }), (handle) => handle.stdout.pipe(Stream.decodeText, Stream.splitLines, Stream.mapEffect(decoded), Stream.flattenIterable));
@@ -100,7 +99,8 @@ const spawned = Effect.fn('spawned')(function* (identifier: string, spec: Spawne
             }),
         }),
     );
-    return { identifier, pid: handle.pid, state: ALIVE, launched: true, rows: Stream.fromEffect(Effect.map(exited, (state): Row => ({ identifier, pid: handle.pid, state }))) };
+    const alive: typeof State.Type = { _tag: 'Responding', elements: [], windows: [] };
+    return { identifier, pid: handle.pid, state: alive, launched: true, rows: Stream.fromEffect(Effect.map(exited, (state): Row => ({ identifier, pid: handle.pid, state }))) };
 });
 const read = (names: Array.NonEmptyReadonlyArray<string>) => Effect.scoped(Effect.flatMap(rows(['read', ...names]), Stream.runCollect));
 const watch = (names: Array.NonEmptyReadonlyArray<string>, pid: number) => Stream.filter(Stream.unwrap(rows(['watch', ...names])), (row) => row.identifier !== names[0] || row.pid === pid);
@@ -113,7 +113,7 @@ const busy = (pid: number) => Effect.map(lines('ps', ['-o', 'stat=', '-p', Strin
 // --- [DIALOGS]
 const pressing = (element: Element): readonly Control[] => (element.detail?.controls ?? []).filter(({ actions }) => actions.includes('AXPress'));
 const pressed = (element: Element, label: string): Option.Option<Control> => Array.findFirst(pressing(element), (control) => control.label === label);
-const perform = (pid: number, element: Control['id']) => Effect.scoped(Effect.flatMap(rows(['perform', element, 'AXPress']), Stream.runDrain)).pipe(Effect.catchTag('SchemaError', (error) => HarnessError.make({ reason: { _tag: 'Unavailable', because: error.message }, subject: `process ${pid} press` })));
+const perform = (element: Control['id']) => Effect.scoped(Effect.flatMap(rows(['perform', element, 'AXPress']), Stream.runDrain));
 const dialogOf = (element: Element, pid: number): typeof Dialog.Type => ({
     ...(element.title === undefined ? {} : { title: element.title }),
     text: element.detail?.text ?? [],
@@ -156,4 +156,4 @@ const described = (state: typeof State.Type): string =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { busy, type Control, crashed, described, dialogOf, type Element, type Exited, Launch, perform, pressed, type Row, read, sampled, settled, shown, spawned, type Spawned, watch };
+export { busy, type Control, crashed, described, dialogOf, type Element, type Exited, Launch, perform, pressed, type Row, read, type Spawned, sampled, settled, shown, spawned, watch };

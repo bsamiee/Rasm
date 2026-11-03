@@ -1,6 +1,6 @@
 import { Schema, Struct } from 'effect';
 import { answers, Name, Reads } from '#/cases';
-import { common, hostCase, outcome, record } from '#/results';
+import { Common, hostCase, outcome, record } from '#/results';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -108,7 +108,7 @@ const Sarif = Schema.fromJsonString(
 
 // --- [OUTCOMES]
 const fields = {
-    console: common.console,
+    console: Common.fields.console,
     document: Schema.optionalKey(
         Schema.Struct({
             serial: Schema.Int,
@@ -126,7 +126,7 @@ const fields = {
     saved: Schema.optionalKey(Schema.Struct({ before: Schema.String, after: Schema.String }).annotate({ description: '.3dm files of the case document before and after the case' })),
     macros: Schema.optionalKey(Schema.Array(Schema.Struct({ text: Schema.String, completed: Schema.Boolean })).annotate({ description: 'RunScript answer per command macro' })),
     commands: Schema.optionalKey(Schema.Array(Schema.Struct({ name: Schema.String, plugin: Schema.optionalKey(Schema.String), result: Schema.String, document: Schema.Int })).annotate({ description: 'Every command that ended while the case ran' })),
-    prompts: Schema.optionalKey(Schema.Array(Schema.Struct({ text: Schema.String, default: Schema.String, options: Schema.Array(Schema.String) })).annotate({ description: 'Command prompts shown while the case ran' })),
+    prompts: Schema.optionalKey(Schema.Array(Schema.Struct({ text: Schema.String, default: Schema.optionalKey(Schema.String), options: Schema.Array(Schema.String) })).annotate({ description: 'Command prompts shown while the case ran' })),
     diagnostics: Schema.optionalKey(Schema.Array(Schema.Struct({ source: Schema.String, kind: Schema.String, message: Schema.String })).annotate({ description: 'Exception reports, RhinoCode logger warnings, and Grasshopper 2 logger entries' })),
 };
 const Outcome = outcome(fields);
@@ -134,4 +134,4 @@ const Recorded = record(Outcome);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Closed, Engine, fields, HostCase, Info, Member, Opened, Outcome, Placed, Recorded, REFUSED, Request, Rows, Sarif, Session, Source, Survey, Template, Tolerance };
+export { Closed, Engine, fields, HostCase, Info, Member, Opened, Outcome, Placed, REFUSED, Recorded, Request, Rows, Sarif, Session, Source, Survey, Template, Tolerance };

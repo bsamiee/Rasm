@@ -176,7 +176,7 @@ Each source writes its log to one place:
 |  [04]   | Crash, Blender    | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR` |
 
 Log reads follow host rules:
-- Blender Python reads Python variables (`PYTHONUNBUFFERED`, `PYTHONPYCACHEPREFIX`) under `--python-use-system-env` alone, prints reaching the log per line and bytecode `.cache/pycache`
+- Blender Python reads Python variables (`PYTHONUNBUFFERED`, `PYTHONPYCACHEPREFIX`) under `--python-use-system-env` alone, prints reaching the log per line and bytecode `$PYTHONPYCACHEPREFIX`
 - `--log "<categories>"` selects log categories, and `--log-level trace` prints every level
 - `--log-level trace --log "context"` prints each context member an operator read, tagged with the calling script line
 - Crash reports read before the next run starts, concurrent Blenders sharing one file
@@ -187,6 +187,6 @@ Log reads follow host rules:
 Blender reads each `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES` variable, then `BLENDER_USER_RESOURCES` naming an existing folder as user base. Lookups neither answers fail with no profile fallback. `python -m eng.python.blender run` runs from the repository root, creating a fresh `.artifacts/blender/evaluate/<name>/` folder as `BLENDER_USER_RESOURCES` and `TMPDIR` before starting Blender with factory settings:
 - `python -m eng.python.blender run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
-- `run` syncs `.cache/blender/scripts/modules` to the wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
+- `run` syncs `$RASM_CACHE_HOME/blender/scripts/modules` to the wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
 - `watch-apps launch --new` starts macOS GUI runs hidden, and `run` returns once the runner's quit call ends that instance
 - Crash reports sit in the folder's root, and output sits in its `blender.log`

@@ -4,7 +4,7 @@
 name                 = "rasm-weather"
 version.workspace    = true
 edition.workspace    = true
-description          = "Weather a site receives: EPW and GRIB2 series, ASHRAE design conditions, climate summaries, degree days, running means, wind roses and profiles, psychrometrics and thermal comfort, Perez and CIE sky matrices over Reinhart patches"
+description          = "Weather a site receives: EPW and GRIB2 series resampled to any step, ASHRAE design conditions, climate summaries, degree days, running means, wind roses and profiles, psychrometrics and thermal comfort, Perez and CIE sky matrices over Reinhart patches"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["weather", "epw", "climate", "comfort", "sky"]
@@ -37,13 +37,14 @@ ndarray              = { workspace = true }
 ndarray-interp       = { workspace = true }
 statrs               = { workspace = true }
 uom                  = { workspace = true }
-eulumdat-daylight    = { workspace = true }
 grib                 = { workspace = true }
 solar-positioning    = { workspace = true }
 thermalcomfort       = { workspace = true }
 rasm-proximity       = { workspace = true }
+rasm-stats           = { workspace = true }
 rasm-site            = { workspace = true }
 rasm-solar           = { workspace = true }
+rasm-analysis        = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

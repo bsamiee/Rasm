@@ -1,7 +1,7 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Automation } from '@rasm/automation/automation';
-import { Array, Config, Console, DateTime, Duration, Effect, FileSystem, Layer, Match, Number, Option, Order, Path, Predicate, Record, Result, Schema, Stdio } from 'effect';
+import { Array, Config, Console, DateTime, Duration, Effect, FileSystem, Layer, Match, Number, Option, Order, Path, Predicate, Record, Result, Schema, Stdio, UndefinedOr } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
 import effect from 'effect/package.json' with { type: 'json' };
 import { type Batch, Call, expand, Probe, type Row, scriptOf } from '#/cases';
@@ -50,8 +50,6 @@ interface Verdict {
 const CASES = '.cases.json';
 const RESULTS = '.results.json';
 const PROOF = 'proof';
-const APPLICATIONS = 'applications';
-const FACTS = 'facts';
 const LABEL = npm.name.replaceAll(/\W+/gu, '-').replace(/^-/u, '');
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -59,7 +57,28 @@ const LABEL = npm.name.replaceAll(/\W+/gu, '-').replace(/^-/u, '');
 const Line = Schema.fromJsonString(Schema.Unknown);
 const Alerts = Schema.Array(Schema.Struct({ text: Schema.String }));
 const resultsOf = (host: AnyHost) => results(host.Engine, { state: Schema.optionalKey(Schema.Json.annotate({ description: 'Instance state at batch start' })), host: Schema.optionalKey(Schema.Json.annotate({ description: 'Install state deciding answers beside the version' })) }, Outcome);
-const Loaded = Schema.Struct({ Host: Schema.declare((value: unknown): value is AnyHost => Predicate.isObject(value) && Predicate.hasProperty(value, 'name') && Predicate.isString(value.name)) });
+const Callable = Schema.declare(Predicate.isFunction);
+const Declared = Schema.declare(Schema.isSchema);
+const Shape = Schema.Struct({
+    name: Schema.String,
+    Engine: Declared,
+    survey: Schema.Struct({ question: Schema.String, Schema: Declared, host: Callable }),
+    Case: Declared,
+    shown: Schema.Array(Schema.String),
+    engine: Callable,
+    precondition: Callable,
+    placed: Callable,
+    refusal: Callable,
+    installed: Schema.declare(Effect.isEffect),
+    launch: Callable,
+    opened: Callable,
+    send: Callable,
+    records: Callable,
+    quit: Callable,
+    digest: Callable,
+    compare: Schema.TaggedUnion({ Imported: {}, Hosted: { run: Callable } }),
+}).annotate({ description: 'Host value a host module exports' });
+const Loaded = Schema.Struct({ Host: Schema.declare((value: unknown): value is AnyHost => Schema.is(Shape)(value)) });
 const atelier = Layer.unwrap(Config.String('ATELIER_PATH').pipe(Effect.map(Automation.layer)));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -77,13 +96,6 @@ const productOf = (path: Path.Path, file: string) =>
         Array.findFirst(ancestors(path, path.dirname(file)), (folder) => path.basename(folder) === PROOF),
         { onNone: () => path.dirname(file), onSome: (proof) => path.dirname(proof) },
     );
-const researchOf = (path: Path.Path, name: string, product: string) => {
-    const segments = product.split(path.sep);
-    return Option.map(
-        Array.findFirstIndex(segments, (segment, index) => segment === APPLICATIONS && segments[index + 1] === name),
-        (index) => path.join(...segments.slice(0, index + 2), FACTS),
-    );
-};
 const casesUnder = Effect.fn('casesUnder')(function* (target: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { type } = yield* fs.stat(target);
@@ -93,7 +105,11 @@ const casesUnder = Effect.fn('casesUnder')(function* (target: string) {
 const targets = (paths: readonly string[]) => Effect.map(Effect.forEach(paths, casesUnder), (files) => Array.dedupe(files.flat()).toSorted());
 const factsOf = Effect.fn('factsOf')(function* (name: string, product: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const folder = researchOf(path, name, product);
+    const segments = product.split(path.sep);
+    const folder = Option.map(
+        Array.findFirstIndex(segments, (segment, index) => segment === 'applications' && segments[index + 1] === name),
+        (index) => path.join(segments.slice(0, index + 2).join(path.sep), 'facts'),
+    );
     const stated = yield* Option.match(folder, { onNone: () => Effect.succeed([]), onSome: (held) => Effect.map(fs.readDirectory(held), (files) => files.filter((file) => file.endsWith('.txt')).map((file) => path.join(held, file))) });
     return { index: Option.map(folder, (held) => path.join(held, `${name}-host.json`)), search: yield* statements(stated) };
 });
@@ -106,12 +122,6 @@ const expressionOf = (batch: typeof Batch.Type, row: Row) =>
         Match.orElse(() => scriptOf(batch, row)),
     );
 const argsOf = (row: Row) => (Schema.is(Probe)(row) ? [] : (row.args ?? []));
-const tagOf = (row: Row) =>
-    Match.value(row).pipe(
-        Match.when(Schema.is(Probe), () => 'Probe' as const),
-        Match.when(Schema.is(Call), () => 'Call' as const),
-        Match.orElse(() => 'Run' as const),
-    );
 const prepare = (host: AnyHost, product: string, captures: string, batch: typeof Batch.Type, Precondition: Decoding<unknown>, engine: unknown) =>
     Effect.fn('prepare')(function* (row: Row, index: number) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -119,12 +129,17 @@ const prepare = (host: AnyHost, product: string, captures: string, batch: typeof
         yield* fs.makeDirectory(folder, { recursive: true });
         const decoded = yield* Schema.decodeEffect(Precondition)(merged(batch.precondition ?? {}, row.precondition ?? {}));
         const { precondition, copies } = yield* host.placed(decoded, folder, product);
-        const loaded = yield* Option.match(scriptOf(batch, row), {
-            onNone: () => Effect.succeedNone,
-            onSome: (script) => Effect.asSome(prepared(path.join(product, script), Schema.is(Call)(row) ? Option.fromUndefinedOr(row.lines) : Option.none())),
-        });
+        const keyworded = UndefinedOr.match({ onUndefined: () => ({}), onDefined: (held: NonNullable<typeof Call.Type.keywords>) => ({ keywords: held }) });
+        const located = (file: string | null) => Option.getOrNull(Option.map(Option.fromNullOr(file), (held) => path.join(product, held)));
+        const kind = Match.value(row).pipe(
+            Match.when(Schema.is(Probe), ({ evaluate }) => ({ _tag: 'Probe' as const, evaluate })),
+            Match.when(Schema.is(Call), ({ call, args, keywords }) => ({ _tag: 'Call' as const, call, args: args.map((arg) => bury(arg)), ...keyworded(keywords) })),
+            Match.orElse(({ args = [], keywords }) => ({ _tag: 'Run' as const, args: args.map((arg) => bury(arg)), ...keyworded(keywords) })),
+        );
+        const lines = Option.flatMap(Option.liftPredicate(row, Schema.is(Call)), ({ lines: held }) => Option.fromUndefinedOr(held));
+        const loaded = yield* Effect.transposeOption(Option.map(scriptOf(batch, row), (script) => prepared(path.join(product, script), lines)));
         const source = Option.map(loaded, ({ source: held }) => held);
-        yield* Schema.is(Probe)(row) || Schema.is(Call)(row) || Option.isSome(source) ? Effect.void : HarnessError.make({ reason: { _tag: 'Unavailable', because: 'no script for the run case or batch' }, subject: row.name });
+        yield* kind._tag === 'Run' && Option.isNone(source) ? HarnessError.make({ reason: { _tag: 'Unavailable', because: 'no script for the run case or batch' }, subject: row.name }) : Effect.void;
         const answers = Record.filter(
             {
                 dialogs: row.dialogs,
@@ -133,17 +148,13 @@ const prepare = (host: AnyHost, product: string, captures: string, batch: typeof
                 prompts: row.prompts,
                 presses: row.presses,
                 commands: row.commands,
-                files: row.files?.map((file) => Option.getOrNull(Option.map(Option.fromNullOr(file), (held) => path.join(product, held)))),
-                plugin: batch.plugin === undefined ? undefined : path.join(product, batch.plugin),
-                keywords: Schema.is(Probe)(row) ? undefined : row.keywords,
+                files: UndefinedOr.map(row.files, (files) => files.map(located)),
+                plugin: UndefinedOr.map(batch.plugin, (plugin) => path.join(product, plugin)),
                 source: Option.getOrUndefined(source),
-                evaluate: Schema.is(Probe)(row) ? row.evaluate : undefined,
-                call: Schema.is(Call)(row) ? row.call : undefined,
-                args: Schema.is(Probe)(row) ? undefined : argsOf(row).map((arg) => bury(arg)),
             },
             Predicate.isNotUndefined,
         );
-        const hosted = yield* Schema.decodeEffect(host.Case)({ _tag: tagOf(row), name: row.name, precondition, read: { ...batch.read, ...row.read }, folder, interact: (row.presses ?? []).length > 0, ...answers });
+        const hosted = yield* Schema.decodeEffect(host.Case)({ ...kind, name: row.name, precondition, read: { ...batch.read, ...row.read }, folder, interact: (row.presses ?? []).length > 0, ...answers });
         return yield* Option.match(
             host.refusal(
                 engine,
@@ -157,19 +168,18 @@ const prepare = (host: AnyHost, product: string, captures: string, batch: typeof
         );
     });
 const planning = (host: AnyHost, Facts: Facts, indexed: readonly Fact[], asking: Asking, product: string, captures: string, batch: typeof Batch.Type, rows: readonly Row[]) => {
-    const failed = (row: Row) => (error: HarnessError | Schema.SchemaError) => Effect.map(Effect.orDie(Schema.decodeEffect(Outcome)({ name: row.name, completion: { _tag: 'Failed', reason: error.message } })), (held) => Result.fail(held));
+    const failed = (row: Row) => (error: HarnessError | Schema.SchemaError) => Effect.map(Effect.orDie(Schema.decodeEffect(Outcome)({ name: row.name, completion: { _tag: 'Failed', reason: error.message } })), Result.fail);
     const keyOf = (survey: unknown) => (row: Row) =>
         Option.map(expressionOf(batch, row), (expression) => ({ ...asking, question: row.name, expression, args: argsOf(row), precondition: merged(batch.precondition ?? {}, row.precondition ?? {}), ...Option.match(host.survey.host(survey), { onNone: () => ({}), onSome: (held) => ({ host: held }) }) }));
-    const planned = (survey: unknown) =>
-        Effect.gen(function* () {
-            const fs = yield* FileSystem.FileSystem;
-            yield* fs.remove(captures, { recursive: true, force: true });
-            const made = yield* Effect.forEach(rows, (row, index) => prepare(host, product, captures, batch, host.precondition(survey), asking.engine)(row, index).pipe(Effect.map(Result.succeed), Effect.catchTags({ HarnessError: failed(row), SchemaError: failed(row) })));
-            const answered = (row: Row) => Option.flatMap(keyOf(survey)(row), (key) => Option.orElse(Facts.known(indexed, key), () => Facts.faulted(indexed, key)));
-            const sendable = Array.getSuccesses(made);
-            const skipped = Array.getSomes(sendable.map((item) => Option.map(answered(item.row), ({ answer }) => ({ item, answer }))));
-            return { engine: asking.engine, sendable: sendable.filter((item) => !skipped.some((held) => held.item === item)), settled: Array.getFailures(made), skipped } satisfies Planned;
-        });
+    const planned = Effect.fnUntraced(function* (survey: unknown) {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.remove(captures, { recursive: true, force: true });
+        const made = yield* Effect.forEach(rows, (row, index) => prepare(host, product, captures, batch, host.precondition(survey), asking.engine)(row, index).pipe(Effect.map(Result.succeed), Effect.catchTags({ HarnessError: failed(row), SchemaError: failed(row) })));
+        const answered = (row: Row) => Option.flatMap(keyOf(survey)(row), (key) => Option.orElse(Facts.known(indexed, key), () => Facts.faulted(indexed, key)));
+        const sendable = Array.getSuccesses(made);
+        const skipped = Array.getSomes(sendable.map((item) => Option.map(answered(item.row), ({ answer }) => ({ item, answer }))));
+        return { engine: asking.engine, sendable: sendable.filter((item) => !skipped.some((held) => held.item === item)), settled: Array.getFailures(made), skipped } satisfies Planned;
+    });
     return { planned, keyOf };
 };
 
@@ -179,7 +189,7 @@ const shownWith = (row: typeof Outcome.Type, value: Schema.Json): Schema.Json =>
         Option.filter(Schema.decodeUnknownOption(Alerts)(row.alerts), (alerts) => alerts.length > 0),
         { onNone: () => value, onSome: (alerts) => ({ value, alerts: alerts.map(({ text }) => text) }) },
     );
-const revived = (state: typeof JsonObject.Type) => Record.map(state, (held) => revive(held));
+const revived = Record.map((held: Schema.Json) => revive(held));
 const locator =
     (evidence: Evidence) =>
     ({ kind, path }: Reference): unknown =>
@@ -220,9 +230,9 @@ const comparing = (host: AnyHost, hosted: Option.Option<Hosted>, module: string,
     Match.value(host.compare).pipe(
         Match.when({ _tag: 'Imported' }, () => compare(module, pairs, unproven)),
         Match.when({ _tag: 'Hosted' }, ({ run }) =>
-            Effect.flatMap(
-                Effect.fromOption(hosted, () => uninstalled(module)),
-                ({ chosen, items, batch }) => Effect.map(run(chosen, Array.getSomes(pairs.map(callOf(items, module))), scratch, limit, batch), (rebuilt) => compared(module, pairs, new Map(Array.getSomes(rebuilt.map(replyOf))), unproven)),
+            Effect.fromOption(hosted, () => uninstalled(module)).pipe(
+                Effect.flatMap(({ chosen, items, batch }) => run(chosen, Array.getSomes(pairs.map(callOf(items, module))), scratch, limit, batch)),
+                Effect.map((rebuilt) => compared(module, pairs, new Map(Array.getSomes(rebuilt.map(replyOf))), unproven)),
             ),
         ),
         Match.exhaustive,
@@ -233,7 +243,7 @@ const order = (rows: readonly Row[]) => Order.mapInput(Number.Order, ({ name }: 
 const summary = (host: AnyHost) =>
     Effect.fn('summary')(function* (row: typeof Outcome.Type) {
         const shown = {
-            ...Record.filter({ answered: row.answered, leaked: row.leaked, ...Record.fromEntries(host.shown.map((key) => [key, row[key]] as const)) }, (items) => Array.isArray(items) && items.length > 0),
+            ...Record.filter({ answered: row.answered, leaked: row.leaked, ...Record.fromIterableWith(host.shown, (key) => [key, row[key]] as const) }, (items) => Array.isArray(items) && items.length > 0),
             ...Record.filter({ crashed: row.crashed, hung: row.hung, dialog: row.dialog }, Predicate.isNotUndefined),
         };
         const completion = Completion.match(row.completion, {
@@ -255,7 +265,7 @@ const proved = Effect.fn('proved')(function* (host: AnyHost, chosen: Installed, 
     const { batch, rows: every } = yield* expand(product, file);
     yield* Schema.decodeEffect(Schema.Array(Schema.Literals(every.map(({ name }) => name))))(only);
     const rows = every.filter(({ name }) => only.length === 0 || only.includes(name));
-    const engine = yield* Effect.fromResult(Result.mapError(host.engine(Array.dedupe(Array.getSomes(rows.map((row) => scriptOf(batch, row))))), (because) => HarnessError.make({ reason: { _tag: 'Unavailable', because }, subject: file })));
+    const engine = yield* Effect.fromResult(host.engine(Array.dedupe(Array.getSomes(rows.map((row) => scriptOf(batch, row))))));
     const asking: Asking = { identifier: chosen.identifier, version: chosen.version, engine };
     const surveyed = { ...asking, question: host.survey.question, expression: host.survey.question };
     const known = Option.flatMap(Facts.known(indexed, surveyed), ({ answer }) => ('value' in answer ? Schema.decodeOption(host.survey.Schema)(answer.value) : Option.none()));
@@ -285,9 +295,9 @@ const proved = Effect.fn('proved')(function* (host: AnyHost, chosen: Installed, 
                 ),
         );
     const { pairs, unproven } = pairsOf(batch, rows, evidence);
-    const section = yield* Option.match(Option.fromUndefinedOr(batch.module), {
-        onNone: () => Effect.succeedNone,
-        onSome: (module) => Effect.asSome(comparing(host, Option.some({ chosen, items: [...plan.sendable, ...plan.skipped.map(({ item }) => item)], batch }), path.join(product, module), pairs, unproven, scratch, limit)),
+    const section = yield* UndefinedOr.match(batch.module, {
+        onUndefined: () => Effect.succeedNone,
+        onDefined: (module) => Effect.asSome(comparing(host, Option.some({ chosen, items: [...plan.sendable, ...plan.skipped.map(({ item }) => item)], batch }), path.join(product, module), pairs, unproven, scratch, limit)),
     });
     const header = Option.getOrUndefined(done.header);
     const hosting = Option.match(host.survey.host(done.survey), { onNone: () => ({}), onSome: (held) => ({ host: held }) });
@@ -404,6 +414,8 @@ const checked = (name: string) =>
             yield* judged(verdicts.flat(), name);
         }),
     );
-const harness = (name: string) => Command.make('harness').pipe(Command.withSubcommands([prove(name), checked(name)]));
-
-Effect.flatMap(Stdio.Stdio, ({ args }) => Effect.flatMap(args, ([name = '', ...rest]) => Command.runWith(harness(name), { version: effect.version })(rest))).pipe(Effect.provide(Layer.provideMerge(atelier, layer)), runMain);
+Effect.gen(function* () {
+    const args = yield* (yield* Stdio.Stdio).args;
+    const name = yield* Effect.fromOption(Array.head(args), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'first argument names the host' }, subject: LABEL }));
+    return yield* Command.runWith(Command.make('harness').pipe(Command.withSubcommands([prove(name), checked(name)])), { version: effect.version })(Array.drop(args, 1));
+}).pipe(Effect.provide(Layer.provideMerge(atelier, layer)), runMain);

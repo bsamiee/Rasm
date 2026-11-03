@@ -42,7 +42,7 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 - Keys: Renames replace the `FUN_<hex>` name, the entry address stays the key
 - Analysis: `Apply Data Archives` applies `mac_osx.gdt` to a Mach-O at import, libc and CoreFoundation prototypes need no header
 - Analysis: `Objective-C Message Analyzer` recurses with no cancellation check past `-analysisTimeoutPerFile`, imports skip it for `Stubs.java`
-- Memory: Every process caps its heap at `GHIDRA_HEADLESS_MAXMEM`, the quarter of RAM `mise.toml` sets, and holds it until exit
+- Memory: Every process caps its heap at the install's `MAXMEM_DEFAULT` and holds it until exit
 - Memory: Decompiles spawn up to min(cores + 1, 10) native `decompile` processes outside the heap, `-max-cpu <n>` caps one run at n + 1
 - Time: Imports, analysis, script runs, and `Serve.java` take Bash `run_in_background: true`
 - Bundle: `-scriptPath` compiles each listed directory as one bundle at the JDK `JAVA_HOME` names, subdirectories become packages

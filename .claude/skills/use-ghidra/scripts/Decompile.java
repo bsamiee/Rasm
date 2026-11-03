@@ -47,10 +47,6 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Decompile extends GhidraScript {
-    // --- [CACHE]
-
-    private final Map<Function, List<Function>> callers = new ConcurrentHashMap<>();
-
     // --- [ROLES]
 
     @FunctionalInterface
@@ -133,12 +129,24 @@ public class Decompile extends GhidraScript {
 
         default Stream<String> lines(Neighbors callers) {
             return switch (this) {
-                case Decompiled(Function function, Role role, String code, _, _) ->
-                        Stream.concat(
-                                Stream.of(
-                                        Report.subdivider(function.getName(true)),
-                                        header(function, role, callers.of(function))),
-                                code.lines());
+                case Decompiled(Function function, Role role, String code, _, _) -> {
+                    List<Function> neighbors = callers.of(function);
+                    String names =
+                            neighbors.stream()
+                                    .map(caller -> caller.getName(true))
+                                    .collect(Collectors.joining(", "));
+                    yield Stream.concat(
+                            Stream.of(
+                                    Report.subdivider(function.getName(true)),
+                                    "// %s size=%d %s callers=%d%s"
+                                            .formatted(
+                                                    function.getEntryPoint(),
+                                                    function.getBody().getNumAddresses(),
+                                                    role.text(),
+                                                    neighbors.size(),
+                                                    names.isEmpty() ? "" : ": " + names)),
+                            code.lines());
+                }
                 case Stub(Function function) ->
                         Stream.of(
                                 Report.subdivider(function.getName(true)),
@@ -190,25 +198,7 @@ public class Decompile extends GhidraScript {
 
     record Stub(Function function) implements Block {}
 
-    private static String header(Function function, Role role, List<Function> callers) {
-        String names =
-                callers.stream()
-                        .map(caller -> caller.getName(true))
-                        .collect(Collectors.joining(", "));
-        return "// %s size=%d %s callers=%d%s"
-                .formatted(
-                        function.getEntryPoint(),
-                        function.getBody().getNumAddresses(),
-                        role.text(),
-                        callers.size(),
-                        names.isEmpty() ? "" : ": " + names);
-    }
-
     // --- [SELECTION]
-
-    private List<Function> callersOf(Function function) {
-        return callers.computeIfAbsent(function, each -> Functions.callers(each, monitor).toList());
-    }
 
     private static SequencedMap<Function, Role> expand(
             SequencedMap<Function, Role> selection,
@@ -247,6 +237,11 @@ public class Decompile extends GhidraScript {
                         getScriptArgs(),
                         EnumSet.allOf(Arguments.Setting.class),
                         currentProgram);
+        Map<Function, List<Function>> callers = new ConcurrentHashMap<>();
+        Neighbors callersOf =
+                function ->
+                        callers.computeIfAbsent(
+                                function, each -> Functions.callers(each, monitor).toList());
         SequencedMap<Function, Role> seeded =
                 request.seeds().stream()
                         .collect(
@@ -265,7 +260,7 @@ public class Decompile extends GhidraScript {
                                 1,
                                 request.settings().get(Arguments.Setting.CALLEES)),
                         request.seeds(),
-                        this::callersOf,
+                        callersOf,
                         Caller::new,
                         1,
                         request.settings().get(Arguments.Setting.CALLERS));
@@ -319,7 +314,7 @@ public class Decompile extends GhidraScript {
                                 blocks.stream()
                                         .flatMap(block ->
                                                 block.lines(function ->
-                                                        callersOf(function).stream()
+                                                        callersOf.of(function).stream()
                                                                 .filter(members::contains)
                                                                 .sorted(Functions.BY_ENTRY)
                                                                 .toList()))

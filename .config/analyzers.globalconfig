@@ -1,0 +1,145 @@
+is_global = true
+
+# --- [QUALITY_ANALYZERS] ----------------------------------------------------------------
+dotnet_diagnostic.CA1000.severity = none
+dotnet_diagnostic.CA1034.severity = none
+dotnet_diagnostic.CA1715.severity = none
+dotnet_diagnostic.CA1716.severity = none
+dotnet_diagnostic.CA1720.severity = none
+dotnet_diagnostic.CA1724.severity = none
+dotnet_diagnostic.MA0008.severity = none
+dotnet_diagnostic.MA0018.severity = none
+dotnet_diagnostic.MA0038.severity = none
+dotnet_diagnostic.MA0041.severity = none
+dotnet_diagnostic.MA0048.severity = none
+dotnet_diagnostic.MA0051.severity = none
+dotnet_diagnostic.MA0060.severity = none
+dotnet_diagnostic.MA0136.severity = none
+dotnet_diagnostic.MA0204.severity = none
+dotnet_diagnostic.CA2249.severity = none
+dotnet_diagnostic.CA1021.severity = error
+dotnet_diagnostic.CA1045.severity = error
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA1516.severity = error
+dotnet_code_quality.CA1003.api_surface = all
+
+# --- [MEZIANTOU_ANALYZERS] --------------------------------------------------------------
+dotnet_diagnostic.MA0009.severity = none
+dotnet_diagnostic.MA0127.severity = none
+dotnet_diagnostic.MA0032.severity = error
+dotnet_diagnostic.MA0121.severity = error
+dotnet_diagnostic.MA0141.severity = error
+dotnet_diagnostic.MA0142.severity = error
+dotnet_diagnostic.MA0148.severity = error
+dotnet_diagnostic.MA0149.severity = error
+dotnet_diagnostic.MA0170.severity = error
+dotnet_diagnostic.MA0171.severity = error
+dotnet_diagnostic.MA0172.severity = error
+dotnet_diagnostic.MA0186.severity = error
+dotnet_diagnostic.MA0175.severity = error
+dotnet_diagnostic.MA0217.severity = error
+dotnet_diagnostic.MA0227.severity = error
+dotnet_diagnostic.MA0239.severity = error
+dotnet_diagnostic.MA0107.severity = error
+dotnet_diagnostic.MA0161.severity = error
+dotnet_diagnostic.MA0162.severity = error
+dotnet_diagnostic.MA0180.severity = error
+dotnet_diagnostic.MA0080.severity = error
+dotnet_diagnostic.MA0167.severity = error
+dotnet_diagnostic.MA0168.severity = error
+dotnet_diagnostic.MA0191.severity = error
+dotnet_code_quality.CA2000.dispose_ownership_transfer_at_constructor = true
+dotnet_diagnostic.MA0221.severity = error
+dotnet_diagnostic.MA0222.severity = error
+dotnet_diagnostic.MA0223.severity = error
+dotnet_diagnostic.MA0224.severity = error
+dotnet_diagnostic.MA0225.severity = error
+dotnet_diagnostic.MA0226.severity = error
+dotnet_diagnostic.MA0228.severity = error
+dotnet_diagnostic.MA0229.severity = error
+dotnet_diagnostic.MA0230.severity = error
+dotnet_diagnostic.MA0231.severity = error
+dotnet_diagnostic.MA0232.severity = error
+dotnet_diagnostic.MA0233.severity = error
+dotnet_diagnostic.MA0234.severity = error
+dotnet_diagnostic.MA0235.severity = error
+dotnet_diagnostic.MA0236.severity = error
+dotnet_diagnostic.MA0237.severity = error
+dotnet_diagnostic.MA0238.severity = error
+dotnet_diagnostic.MA0210.severity = error
+MA0185.treat_opaque_runtime_types_as_culture_sensitive = true
+MA0053.public_class_should_be_sealed = true
+MA0053.class_with_virtual_member_should_be_sealed = true
+MA0053.exceptions_should_be_sealed = true
+
+# --- [ROSLYNATOR_ANALYZERS] -------------------------------------------------------------
+dotnet_diagnostic.RCS1002.severity = error
+dotnet_diagnostic.RCS1004.severity = error
+dotnet_diagnostic.RCS1014.severity = error
+dotnet_diagnostic.RCS1050.severity = error
+dotnet_diagnostic.RCS1052.severity = error
+dotnet_diagnostic.RCS1056.severity = none
+dotnet_diagnostic.RCS1161.severity = none
+dotnet_diagnostic.RCS1078.severity = error
+dotnet_diagnostic.RCS1079.severity = error
+dotnet_diagnostic.RCS1081.severity = error
+dotnet_diagnostic.RCS1162.severity = error
+dotnet_diagnostic.RCS1174.severity = error
+dotnet_diagnostic.RCS1198.severity = error
+dotnet_diagnostic.RCS1208.severity = error
+dotnet_diagnostic.RCS1231.severity = none
+dotnet_diagnostic.RCS1252.severity = error
+dotnet_diagnostic.RCS1253.severity = error
+dotnet_diagnostic.ROS0003.severity = error
+dotnet_diagnostic.RCS1001.severity = none
+dotnet_diagnostic.RCS1003.severity = none
+dotnet_diagnostic.RCS1021.severity = none
+dotnet_diagnostic.RCS1181.severity = none
+dotnet_diagnostic.RCS1217.severity = none
+dotnet_diagnostic.RCS1238.severity = none
+dotnet_diagnostic.RCS1241.severity = none
+roslynator_array_creation_type_style = implicit_when_type_is_obvious
+roslynator_empty_string_style = literal
+roslynator_enum_flag_value_style = shift_operator
+roslynator_infinite_loop_style = while
+roslynator_doc_comment_summary_style = single_line
+roslynator_object_creation_parentheses_style = omit
+
+# --- [IDE_QUALITY_RULES] ----------------------------------------------------------------
+dotnet_diagnostic.IDE0001.severity = error
+dotnet_diagnostic.IDE0002.severity = error
+dotnet_diagnostic.IDE0072.severity = none
+dotnet_diagnostic.IDE0079.severity = none
+
+# --- [MAPPERLY_ANALYZERS] ---------------------------------------------------------------
+dotnet_diagnostic.RMG009.severity = error
+dotnet_diagnostic.RMG010.severity = error
+dotnet_diagnostic.RMG011.severity = error
+dotnet_diagnostic.RMG015.severity = error
+dotnet_diagnostic.RMG033.severity = error
+dotnet_diagnostic.RMG083.severity = error
+dotnet_diagnostic.RMG088.severity = error
+dotnet_diagnostic.RMG089.severity = error
+dotnet_diagnostic.RMG090.severity = error
+dotnet_diagnostic.RMG096.severity = error
+
+# --- [LOGGING_ANALYZERS] ----------------------------------------------------------------
+dotnet_diagnostic.SYSLIB1006.severity = error
+dotnet_diagnostic.SYSLIB1027.severity = error
+
+# --- [MESSAGEPACK_ANALYZERS] ------------------------------------------------------------
+dotnet_diagnostic.MsgPack001.severity = error
+dotnet_diagnostic.MsgPack002.severity = error
+
+# --- [ERRORPRONE_ANALYZERS] -------------------------------------------------------------
+dotnet_diagnostic.EPC38.severity = error
+dotnet_diagnostic.EPC39.severity = error
+dotnet_diagnostic.EPC40.severity = error
+
+# --- [THREADING_ANALYZERS] --------------------------------------------------------------
+dotnet_diagnostic.VSTHRD010.severity = none
+
+# --- [WORKSPACE_SEVERITY_FLOOR] ---------------------------------------------------------
+dotnet_analyzer_diagnostic.severity = error
+dotnet_diagnostic.CS1591.severity = none
+dotnet_diagnostic.CS8524.severity = none

@@ -26,6 +26,6 @@ jdtls type-checks scripts a tool loads against that tool's jars on each edit:
 - Default `java.configuration.runtimes` row at `${JAVA_HOME}` sets project JRE and compliance in both clients
 - `jdtls` expands `${NAME}` in runtime and library paths from its own process environment, `mise exec` gives the agent server `mise.toml` values
 - `jdtls` launcher defaults put workspace data under `~/Library/Caches/jdtls` keyed on folder basename and OSGi configuration under `~/.eclipse`
-- `-data` and `--jvm-arg=-Dosgi.configuration.area=` move both under `.cache/jdtls`, and the tool's jars outside scripts folder keep resolving
-- VS Code jdtls imports every Eclipse `.project` under root, `java.import.exclusions` skips the agent server's under `.cache`
+- `-data` and `--jvm-arg=-Dosgi.configuration.area=` move both under `$RASM_CACHE_HOME/jdtls`, and the tool's jars outside scripts folder keep resolving
+- VS Code jdtls imports every Eclipse `.project` under root outside `java.import.exclusions`
 - Maven and Gradle importers stay off, they find vendored builds alone (poms under `.cargo/rustc-source`)

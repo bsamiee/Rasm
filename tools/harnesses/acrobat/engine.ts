@@ -7,8 +7,6 @@ type Item = typeof HostCase.Type;
 type Members = Record<string, unknown>;
 type Callable = (...args: readonly unknown[]) => unknown;
 type Listed<T> = { -readonly [K in keyof T]-?: NonNullable<T[K]> extends readonly (infer A)[] ? A[] : never };
-type Answers = Listed<Pick<Item, 'confirms' | 'prompts' | 'files' | 'windows'>>;
-type Records = Listed<Pick<typeof Outcome.Encoded, 'alerts' | 'confirms' | 'prompts' | 'files' | 'windows' | 'console' | 'activations' | 'events' | 'opened' | 'leaked'>>;
 type Signature = (typeof Model.Type)['signatures'][string];
 interface Root extends Members {
     readonly app: Members;
@@ -47,8 +45,8 @@ interface Write {
 }
 interface Session {
     readonly item: Item;
-    readonly records: Records;
-    readonly answers: Answers;
+    readonly records: Listed<Pick<typeof Outcome.Encoded, 'alerts' | 'confirms' | 'prompts' | 'files' | 'windows' | 'console' | 'activations' | 'events' | 'opened' | 'leaked'>>;
+    readonly answers: Listed<Pick<Item, 'confirms' | 'prompts' | 'files' | 'windows'>>;
     readonly writes: Write[];
     readonly docs: Doc[];
     readonly saved: string[];
@@ -56,11 +54,21 @@ interface Session {
     readonly refused: string[];
 }
 interface Fault {
-    readonly name?: string;
-    readonly message?: string;
-    readonly extMessage?: string;
-    readonly lineNumber?: number;
-    readonly stack?: string;
+    readonly name: string;
+    readonly message: string;
+    readonly extMessage: string | undefined;
+    readonly lineNumber: number | undefined;
+    readonly stack: string | undefined;
+}
+interface Holder {
+    readonly events: unknown[];
+    readonly scope: Members;
+    readonly target: unknown;
+    thrown: unknown;
+}
+interface Reads {
+    readonly read: Record<string, Schema.Json>;
+    readonly failed: Record<string, string>;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -68,14 +76,23 @@ interface Fault {
 const engine = function (this: unknown, request: typeof Request.Type): string {
     const NUMBERS: Members = { undefined, NaN: Number.NaN, Infinity: Number.POSITIVE_INFINITY, '-Infinity': Number.NEGATIVE_INFINITY, '-0': -0 };
     const DATED = 'date:';
+    const TAGGED = '[object ';
+    const SPREAD = '[*]';
     const VALUED = ['Object', 'Array', 'Date', 'Error', 'Function', 'Boolean', 'Number', 'String', 'RegExp'];
+    const SCALARS = ['string', 'integer', 'number', 'boolean'];
     const BUTTONS = { ok: 1, cancel: 2, no: 3, yes: 4 } as const;
     const OK_CANCEL = 1;
-    const SIGNED = {
-        App: ['alert', 'response', 'browseForDoc', 'browseForMultipleDocs', 'execDialog', 'openDoc'],
-        Doc: ['closeDoc', 'saveAs', 'insertPages', 'replacePages', 'importDataObject', 'importIcon', 'importAnFDF', 'importAnXFDF', 'importTextData', 'importXFAData', 'exportDataObject', 'exportAsFDF', 'exportAsXFDF', 'exportAsText', 'exportXFAData'],
-        Util: ['readFileIntoStream'],
-    };
+    const CANCELLED: null = null;
+    const REFUSED = 'Refused';
+    const ACTION = 'Action';
+    const SURVEY_SIZE = 20;
+    const SURVEY_RECT = [0, SURVEY_SIZE, SURVEY_SIZE, 0];
+    const SURVEY_POINT = [SURVEY_SIZE / 2, SURVEY_SIZE / 2];
+    const SIGNED: readonly (readonly [string, readonly string[]])[] = [
+        ['App', ['alert', 'response', 'browseForDoc', 'browseForMultipleDocs', 'execDialog', 'openDoc']],
+        ['Doc', ['closeDoc', 'saveAs', 'insertPages', 'replacePages', 'importDataObject', 'importIcon', 'importAnFDF', 'importAnXFDF', 'importTextData', 'importXFAData', 'exportDataObject', 'exportAsFDF', 'exportAsXFDF', 'exportAsText', 'exportXFAData']],
+        ['Util', ['readFileIntoStream']],
+    ];
     const PICKERS = ['importDataObject', 'importIcon', 'importAnFDF', 'importAnXFDF', 'importTextData', 'importXFAData', 'exportDataObject', 'readFileIntoStream'];
     const ACTIVATING: Record<string, { readonly names: readonly string[]; readonly prefixes: readonly string[] }> = {
         App: { names: ['launchURL', 'beep', 'goBack', 'goForward', 'addMenuItem', 'addSubMenu', 'addToolButton', 'hideMenuItem', 'hideToolbarButton', 'removeToolButton'], prefixes: ['mail'] },
@@ -86,14 +103,27 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
     const HELP = '====> ';
     // @effect-diagnostics-next-line globalDate:off
     const now = () => Date.now();
-    const pathy = (name: string) => name.slice(-PATH.length) === PATH;
+    const has = <T>(list: readonly T[], item: T) => list.some((held) => held === item);
+    const starts = (text: string, prefix: string) => text.lastIndexOf(prefix, 0) === 0;
+    const ends = (text: string, suffix: string) => text.length >= suffix.length && text.indexOf(suffix, text.length - suffix.length) === text.length - suffix.length;
+    const pathy = (name: string) => ends(name, PATH);
     const activating = (kind: string, member: string) => {
         const listed = ACTIVATING[kind];
-        return listed !== undefined && (listed.names.indexOf(member) >= 0 || listed.prefixes.some((prefix) => member.indexOf(prefix) === 0));
+        return listed !== undefined && (has(listed.names, member) || listed.prefixes.some((prefix) => starts(member, prefix)));
     };
     const isMembers = (value: unknown): value is Members => value !== null && typeof value === 'object';
     const isCallable = (value: unknown): value is Callable => typeof value === 'function';
-    const kindOf = (value: unknown) => Object.prototype.toString.call(value).slice(8, -1);
+    const kindOf = (value: unknown) => Object.prototype.toString.call(value).slice(TAGGED.length, -1);
+    const isDate = (value: unknown): value is Date => kindOf(value) === 'Date';
+    const isDoc = (value: unknown): value is Doc => isMembers(value) && kindOf(value) === 'Doc';
+    const isMemberList = (value: unknown): value is readonly Members[] => Array.isArray(value) && value.every(isMembers);
+    const shaped = <T>(value: unknown, is: (held: unknown) => held is T, what: string): T => {
+        if (is(value)) {
+            return value;
+        }
+        throw new Error(`${what} is ${kindOf(value)}`);
+    };
+    const callable = (target: Members, name: string) => shaped(target[name], isCallable, name);
     const enumerated = (target: Members) => {
         const names: string[] = [];
         // biome-ignore lint/suspicious/noForIn: native Acrobat objects enumerate their prototype members through for-in alone
@@ -110,13 +140,8 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         });
         return made;
     };
-    const counted = <T>(count: number, each: (index: number) => T): T[] => {
-        const made: T[] = [];
-        for (let index = 0; index < count; index += 1) {
-            made.push(each(index));
-        }
-        return made;
-    };
+    const counted = <T>(count: number, each: (index: number) => T): T[] => (count > 0 ? counted(count - 1, each).concat([each(count - 1)]) : []);
+    const indexed = (text: string, at: number, index: number) => `${text.slice(0, at)}[${index}]${text.slice(at + SPREAD.length)}`;
     const compile = (scope: Members, body: string) => {
         const names = Object.keys(scope);
         // biome-ignore lint/nursery/noImpliedEval: case data and originals compile inside the host
@@ -127,7 +152,17 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 names.map((name) => scope[name]),
             );
     };
-    const root = compile({}, 'return this')(undefined) as Root;
+    const faultOf = (error: unknown): Fault => {
+        const held = isMembers(error) ? error : { message: String(error) };
+        return {
+            name: typeof held.name === 'string' ? held.name : 'Error',
+            message: typeof held.message === 'string' ? held.message : '',
+            extMessage: typeof held.extMessage === 'string' ? held.extMessage : undefined,
+            lineNumber: typeof held.lineNumber === 'number' ? held.lineNumber : undefined,
+            stack: typeof held.stack === 'string' ? held.stack : undefined,
+        };
+    };
+    const root = shaped(compile({}, 'return this')(undefined), (value): value is Root => isMembers(value) && isMembers(value.app) && isMembers(value.global) && isMembers(value.util) && isMembers(value.console), 'this');
     const { app, util, acrohelp } = root;
     const shared = root.global;
     const base = ((): number => {
@@ -135,12 +170,13 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             compile({}, 'throw new Error("")')(undefined);
             return 0;
         } catch (error) {
-            return (isMembers(error) && typeof error.lineNumber === 'number' ? error.lineNumber : 1) - 1;
+            return (faultOf(error).lineNumber ?? 1) - 1;
         }
     })();
-    const documents = String((app.getPath as Callable)('user', 'documents'));
-    const volume = documents.indexOf(request.home) > 0 ? documents.slice(0, documents.indexOf(request.home)) : '';
-    const posix = (path: string) => (volume !== '' && path.indexOf(`${volume}/`) === 0 ? path.slice(volume.length) : path);
+    const documents = String(callable(app, 'getPath')('user', 'documents'));
+    const home = documents.indexOf(request.home);
+    const volume = home > 0 ? documents.slice(0, home) : '';
+    const posix = (path: string) => (volume !== '' && starts(path, `${volume}/`) ? path.slice(volume.length) : path);
     const numbered = (value: number): Schema.Json => {
         if (Number.isNaN(value)) {
             return { $: 'NaN' };
@@ -153,12 +189,11 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
     const named = (value: Members) => {
         try {
             return typeof value.name === 'string' ? `/${value.name}` : '';
-        } catch (_) {
+        } catch {
             return '';
         }
     };
-    const encoded = (value: unknown, seen: readonly unknown[] = []): Schema.Json => {
-        const kind = kindOf(value);
+    const scalar = (value: unknown): Schema.Json => {
         if (value === undefined) {
             return { $: 'undefined' };
         }
@@ -168,32 +203,38 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         if (value === null || typeof value === 'string' || typeof value === 'boolean') {
             return value;
         }
-        if (kind === 'Date') {
-            const time = (value as Date).getTime();
-            return { $: `${DATED}${Number.isNaN(time) ? 'NaN' : (value as Date).toISOString()}` };
+        return typeof value === 'function' ? '<function>' : String(value);
+    };
+    const described = (value: Members, inner: readonly unknown[]): Schema.Json => {
+        const kind = kindOf(value);
+        if (kind === 'Object') {
+            return keyed(Object.keys(value), (key) => encoded(value[key], inner));
         }
-        if (!isMembers(value) || seen.indexOf(value) >= 0) {
-            return typeof value === 'function' ? '<function>' : String(value);
-        }
-        const inner = seen.concat([value]);
-        if (Array.isArray(value)) {
-            return value.map((item) => encoded(item, inner));
-        }
-        if (VALUED.indexOf(kind) >= 0) {
-            return kind === 'Object' ? keyed(Object.keys(value), (key) => encoded(value[key], inner)) : String(value);
+        if (has(VALUED, kind)) {
+            return String(callable(value, 'toString').call(value));
         }
         if (kind === 'Annot' && isCallable(value.getProps)) {
-            const props = value.getProps() as Members;
+            const props = shaped(value.getProps(), isMembers, 'Annot.getProps');
             return { $: `object:Annot${named(value)}`, ...keyed(Object.keys(props), (key) => encoded(props[key], inner)) };
         }
-        return { $: `object:${kind}${kind === 'Doc' ? `/${(value as Doc).path}` : named(value)}` };
+        return { $: `object:${kind}${isDoc(value) ? `/${value.path}` : named(value)}` };
+    };
+    const encoded = (value: unknown, seen: readonly unknown[] = []): Schema.Json => {
+        if (isDate(value)) {
+            return { $: `${DATED}${Number.isNaN(value.getTime()) ? 'NaN' : value.toISOString()}` };
+        }
+        if (!isMembers(value) || has(seen, value)) {
+            return scalar(value);
+        }
+        const inner = seen.concat([value]);
+        return Array.isArray(value) ? value.map((item) => encoded(item, inner)) : described(value, inner);
     };
     const tagged = (tag: string): unknown => {
         if (tag in NUMBERS) {
             return NUMBERS[tag];
         }
         // @effect-diagnostics-next-line globalDate:off
-        return tag.indexOf(DATED) === 0 ? new Date(tag.slice(DATED.length)) : { $: tag };
+        return starts(tag, DATED) ? new Date(tag.slice(DATED.length)) : { $: tag };
     };
     const revived = (value: unknown): unknown => {
         if (Array.isArray(value)) {
@@ -206,11 +247,11 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         return typeof value.$ === 'string' && names.length === 1 ? tagged(value.$) : keyed(names, (key) => revived(value[key]));
     };
     const thrown = (error: unknown, offset: number) => {
-        const fault: Fault = isMembers(error) ? error : { message: String(error) };
-        const message = fault.name === 'HelpError' ? String(fault.extMessage) : `${fault.name ?? 'Error'}: ${fault.message ?? ''}`;
-        const frames = String(fault.stack ?? '')
+        const fault = faultOf(error);
+        const message = fault.name === 'HelpError' ? String(fault.extMessage) : `${fault.name}: ${fault.message}`;
+        const frames = (fault.stack ?? '')
             .split('\n')
-            .filter((line) => line.indexOf('@') >= 0)
+            .filter((line) => line.split('@').length > 1)
             .map((line) => ({ name: line.slice(0, line.indexOf('@')), line: line.slice(line.lastIndexOf(':') + 1) }));
         const ending = frames.map(({ name }) => name).indexOf('anonymous');
         const stack = frames.slice(0, ending + 1).map(({ line }) => ({ line: Number(line) - offset }));
@@ -221,45 +262,120 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             ...(ending < 0 ? {} : { stack }),
         };
     };
+    const raised = (name: string, message: string, cause: unknown) => {
+        const error = new Error(message);
+        error.name = name;
+        error.cause = cause;
+        return error;
+    };
     const recorded = (session: Session, member: string): undefined => {
         session.records.activations.push(member);
     };
-    const refuse = (session: Session, reason: string) => {
+    const refuse: (session: Session, reason: string) => never = (session, reason) => {
         session.refused.push(reason);
-        throw { refused: reason };
+        throw raised(REFUSED, reason, undefined);
     };
     const signaturesOf = (targets: Record<string, Members>): Record<string, Signature> => {
         const made: Record<string, Signature> = {};
-        Object.keys(SIGNED).forEach((kind) =>
-            SIGNED[kind as keyof typeof SIGNED].forEach((member) => {
+        SIGNED.forEach(([kind, members]) => {
+            const target = targets[kind] ?? {};
+            members.forEach((member) => {
+                const held = target[member];
+                if (!isCallable(held)) {
+                    return;
+                }
                 try {
-                    (targets[kind]?.[member] as Callable)(acrohelp);
+                    held(acrohelp);
                 } catch (error) {
-                    const fault: Fault = isMembers(error) ? error : {};
+                    const fault = faultOf(error);
                     if (fault.name === 'HelpError') {
                         made[`${kind}.${member}`] = String(fault.extMessage)
                             .split('\n')
-                            .filter((line) => line.indexOf(HELP) === 0)
-                            .map((line) => {
-                                const [name = '', type = ''] = line.slice(HELP.length).replace('[', '').replace(']', '').split(':');
-                                return { name: name.trim(), type: type.trim(), optional: line.charAt(HELP.length) === '[' };
-                            });
+                            .filter((line) => starts(line, HELP))
+                            .map((line) => ({ parts: line.slice(HELP.length).replace('[', '').replace(']', '').split(':'), optional: line.charAt(HELP.length) === '[' }))
+                            .map(({ parts: [name = '', type = ''], optional }) => ({ name: name.trim(), type: type.trim(), optional }));
                     }
                 }
-            }),
-        );
+            });
+        });
         return made;
     };
     const argued = (signature: Signature, args: readonly unknown[]) => {
+        const names = signature.map(({ name }) => name);
         const [first] = args;
-        const object = args.length === 1 && isMembers(first) && kindOf(first) === 'Object' && ['string', 'integer', 'number', 'boolean'].indexOf(signature[0]?.type ?? '') >= 0;
+        const [leading] = signature;
+        const object = args.length === 1 && isMembers(first) && kindOf(first) === 'Object' && leading !== undefined && has(SCALARS, leading.type);
         return {
-            values: keyed(
-                signature.map(({ name }) => name),
-                (name) => (object ? first[name] : args[signature.map((held) => held.name).indexOf(name)]),
-            ),
-            rebuilt: (name: string, value: unknown) => (object ? [{ ...first, [name]: value }] : counted(Math.max(args.length, signature.map((held) => held.name).indexOf(name) + 1), (index) => (signature[index]?.name === name ? value : args[index]))),
+            values: keyed(names, (name) => (object ? first[name] : args[names.indexOf(name)])),
+            rebuilt: (name: string, value: unknown) => (object ? [{ ...first, [name]: value }] : counted(Math.max(args.length, names.indexOf(name) + 1), (index) => (names[index] === name ? value : args[index]))),
         };
+    };
+    const choice = (type: unknown, agreed: boolean) => {
+        const [yes, no] = type === OK_CANCEL ? [BUTTONS.ok, BUTTONS.cancel] : [BUTTONS.yes, BUTTONS.no];
+        return agreed ? yes : no;
+    };
+    const submenu = (value: unknown): readonly unknown[] => {
+        if (Array.isArray(value)) {
+            return value;
+        }
+        return isMembers(value) ? [value] : [];
+    };
+    const chosen = (entries: readonly unknown[], answer: string | null): readonly unknown[] =>
+        entries.reduce<readonly unknown[]>((hits, entry) => {
+            if (!isMembers(entry)) {
+                return hits;
+            }
+            return entry.cName === answer ? hits.concat([entry.cReturn ?? entry.cName]) : hits.concat(chosen(submenu(entry.oSubMenu), answer));
+        }, []);
+    const press = (id: string, called: (name: string) => unknown, ended: string[]) => {
+        if (id === 'ok') {
+            if (called('validate') !== false) {
+                called('commit');
+                ended.push('ok');
+            }
+            return;
+        }
+        if (id === 'cancel') {
+            ended.push('cancel');
+            return;
+        }
+        called(id);
+    };
+    const simulated = (handlers: Members, fields: Members, presses: readonly string[]) => {
+        const values: Members = {};
+        const ended: string[] = [];
+        const dialog = {
+            load: (loaded: unknown) => {
+                const held = isMembers(loaded) ? loaded : {};
+                Object.keys(held).forEach((key) => {
+                    values[key] = held[key];
+                });
+            },
+            store: () => ({ ...values, ...keyed(Object.keys(fields), (key) => revived(fields[key])) }),
+            enable: () => undefined,
+            visible: () => undefined,
+            focus: () => undefined,
+            gotoPage: () => undefined,
+            end: (id: unknown) => {
+                ended.push(String(id ?? 'cancel'));
+            },
+        };
+        const called = (name: string) => {
+            const handler = handlers[name];
+            return isCallable(handler) ? handler.apply(handlers, [dialog]) : undefined;
+        };
+        const pressed: string[] = [];
+        called('initialize');
+        presses.forEach((id) => {
+            if (ended.length > 0) {
+                return;
+            }
+            pressed.push(id);
+            press(id, called, ended);
+        });
+        const result = ended[0] ?? 'cancel';
+        called('destroy');
+        return { pressed, result };
     };
     const answered = (session: Session, signatures: Record<string, Signature>, kind: string, member: string, held: Callable, target: Members) => {
         const { records, answers } = session;
@@ -268,8 +384,8 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         const next = <T>(list: T[]) => list.splice(0, 1)[0];
         const picker = (args: readonly unknown[]) => {
             const { values, rebuilt } = argued(signature, args);
-            const path = signature.map(({ name }) => name).filter(pathy)[0] ?? '';
-            if (values[path] !== undefined) {
+            const [path] = signature.map(({ name }) => name).filter(pathy);
+            if (path === undefined || values[path] !== undefined) {
                 return call(args);
             }
             records.files.push(`${kind}.${member}`);
@@ -279,25 +395,18 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         const table: Record<string, Callable> = {
             'App.alert': (...args) => {
                 const { cMsg, nType, cTitle, oCheckbox } = argued(signature, args).values;
-                const checkbox = isMembers(oCheckbox) ? oCheckbox : undefined;
-                records.alerts.push({ text: String(cMsg), ...(cTitle === undefined ? {} : { title: String(cTitle) }), ...(checkbox === undefined ? {} : { checkbox: String(checkbox.cMsg) }) });
-                if (checkbox !== undefined) {
-                    checkbox.bAfterValue = checkbox.bInitialValue === true;
-                }
+                const checkbox = isMembers(oCheckbox) ? oCheckbox : {};
+                records.alerts.push({ text: String(cMsg), ...(cTitle === undefined ? {} : { title: String(cTitle) }), ...(isMembers(oCheckbox) ? { checkbox: String(oCheckbox.cMsg) } : {}) });
+                checkbox.bAfterValue = checkbox.bInitialValue === true;
                 if (nType === undefined || nType === 0) {
                     return BUTTONS.ok;
                 }
                 records.confirms.push(String(cMsg));
-                const agreed = next(answers.confirms) === true;
-                if (nType === OK_CANCEL) {
-                    return agreed ? BUTTONS.ok : BUTTONS.cancel;
-                }
-                return agreed ? BUTTONS.yes : BUTTONS.no;
+                return choice(nType, next(answers.confirms) === true);
             },
             'App.response': (...args) => {
                 records.prompts.push(String(argued(signature, args).values.cQuestion));
-                const answer = next(answers.prompts);
-                return answer === undefined ? null : answer;
+                return next(answers.prompts) ?? CANCELLED;
             },
             'App.browseForDoc': (...args) => {
                 records.files.push(argued(signature, args).values.bSave === true ? 'App.browseForDoc save' : 'App.browseForDoc');
@@ -311,60 +420,24 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             },
             'App.popUpMenu': (...items) => {
                 records.prompts.push(JSON.stringify(encoded(items)));
-                return next(answers.prompts) ?? null;
+                return next(answers.prompts) ?? CANCELLED;
             },
             'App.popUpMenuEx': (...items) => {
                 records.prompts.push(JSON.stringify(encoded(items)));
                 const answer = next(answers.prompts);
-                const found = (list: readonly unknown[]): unknown =>
-                    list.map((entry) => (isMembers(entry) ? (entry.cName === answer ? (entry.cReturn ?? entry.cName) : found(Array.isArray(entry.oSubMenu) ? entry.oSubMenu : isMembers(entry.oSubMenu) ? [entry.oSubMenu] : [])) : null)).filter((hit) => hit !== null)[0] ?? null;
-                return answer === undefined ? null : found(items);
+                return answer === undefined ? CANCELLED : (chosen(items, answer)[0] ?? CANCELLED);
             },
             'App.execDialog': (...args) => {
                 const { monitor } = argued(signature, args).values;
                 const handlers = isMembers(monitor) ? monitor : {};
                 const answer = next(answers.windows) ?? {};
-                const values: Members = {};
-                const ended: string[] = [];
-                const dialog = {
-                    load: (loaded: unknown) =>
-                        Object.keys(isMembers(loaded) ? loaded : {}).forEach((key) => {
-                            values[key] = (loaded as Members)[key];
-                        }),
-                    store: () => ({ ...values, ...keyed(Object.keys(answer.fields ?? {}), (key) => revived(answer.fields?.[key])) }),
-                    enable: () => undefined,
-                    visible: () => undefined,
-                    focus: () => undefined,
-                    gotoPage: () => undefined,
-                    end: (id: unknown) => {
-                        ended.push(String(id ?? 'cancel'));
-                    },
-                };
-                const called = (name: string) => (isCallable(handlers[name]) ? (handlers[name] as Callable).apply(handlers, [dialog]) : undefined);
-                const pressed: string[] = [];
-                called('initialize');
-                (answer.presses ?? []).forEach((id) => {
-                    if (ended.length > 0) {
-                        return;
-                    }
-                    pressed.push(id);
-                    if (id === 'ok' && called('validate') !== false) {
-                        called('commit');
-                        ended.push('ok');
-                    } else if (id === 'cancel') {
-                        ended.push('cancel');
-                    } else if (id !== 'ok') {
-                        called(id);
-                    }
-                });
-                const result = ended[0] ?? 'cancel';
-                called('destroy');
+                const { pressed, result } = simulated(handlers, answer.fields ?? {}, answer.presses ?? []);
                 records.windows.push({ description: encoded(handlers.description), pressed, result });
                 return result;
             },
             'App.execMenuItem': (...args) => {
                 const [item] = args;
-                return request.modal.indexOf(String(item)) >= 0 ? recorded(session, `App.execMenuItem ${String(item)}`) : call(args);
+                return has(request.modal, String(item)) ? recorded(session, `App.execMenuItem ${String(item)}`) : call(args);
             },
             'App.setTimeOut': (...args) => {
                 const timer = call(args);
@@ -377,12 +450,14 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 return timer;
             },
             'Doc.closeDoc': (...args) => {
-                const doc = target as Doc;
-                if (argued(signature, args).values.bNoSave !== true && doc.dirty === true) {
-                    records.confirms.push(`Doc.closeDoc ${doc.path}`);
-                    return next(answers.confirms) === true ? (doc.saveAs(doc.path), call([true])) : call([true]);
+                if (!isDoc(target) || argued(signature, args).values.bNoSave === true || target.dirty !== true) {
+                    return call(args);
                 }
-                return call(args);
+                records.confirms.push(`Doc.closeDoc ${target.path}`);
+                if (next(answers.confirms) === true) {
+                    target.saveAs(target.path);
+                }
+                return call([true]);
             },
             'Doc.saveAs': (...args) => {
                 session.saved.push(posix(String(argued(signature, args).values.cPath)));
@@ -396,35 +471,45 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 records.console.push(String(args[0]));
             },
         };
-        return table[`${kind}.${member}`] ?? (PICKERS.indexOf(member) >= 0 ? (...args: readonly unknown[]) => picker(args) : undefined);
+        return table[`${kind}.${member}`] ?? (has(PICKERS, member) ? (...args: readonly unknown[]) => picker(args) : undefined);
     };
-    const scoped = (session: Session, signatures: Record<string, Signature>, target: Members, kind: string): Members => {
-        const guarded = (member: string, held: Callable) => {
-            const own = answered(session, signatures, kind, member, held, target);
-            const pathed = signatures[`${kind}.${member}`]?.some(({ name }) => pathy(name)) === true;
-            return (...args: readonly unknown[]) => {
-                if (args[0] === acrohelp) {
-                    return held.apply(target, [...args]);
-                }
-                if (activating(kind, member)) {
-                    return recorded(session, `${kind}.${member}`);
-                }
-                const outside = (value: unknown): readonly string[] =>
-                    typeof value === 'string' ? (value.indexOf('/') === 0 && posix(value).indexOf(`${session.item.precondition.sandbox}/`) !== 0 ? [value] : []) : isMembers(value) && kindOf(value) === 'Object' ? Object.keys(value).reduce<readonly string[]>((found, key) => found.concat(outside(value[key])), []) : [];
-                const stray = pathed ? outside({ ...args }) : [];
-                if (stray.length > 0) {
-                    refuse(session, `${kind}.${member} reaches ${stray.join(', ')} outside the case folder`);
-                }
-                return adopted(session, signatures, own === undefined ? held.apply(target, [...args]) : own(...args), true);
-            };
+    const strayed = (sandbox: string, value: unknown): readonly string[] => {
+        if (typeof value === 'string') {
+            return starts(value, '/') && !starts(posix(value), `${sandbox}/`) ? [value] : [];
+        }
+        if (isMembers(value) && kindOf(value) === 'Object') {
+            return Object.keys(value).reduce<readonly string[]>((found, key) => found.concat(strayed(sandbox, value[key])), []);
+        }
+        return [];
+    };
+    const vetted = (session: Session, member: string, pathed: boolean, args: readonly unknown[]) => {
+        const stray = pathed ? strayed(session.item.precondition.sandbox, { ...args }) : [];
+        if (stray.length > 0) {
+            refuse(session, `${member} reaches ${stray.join(', ')} outside the case folder`);
+        }
+    };
+    const guarded = (session: Session, signatures: Record<string, Signature>, target: Members, kind: string, member: string, held: Callable) => {
+        const own = answered(session, signatures, kind, member, held, target);
+        const pathed = (signatures[`${kind}.${member}`] ?? []).some(({ name }) => pathy(name));
+        return (...args: readonly unknown[]) => {
+            if (args[0] === acrohelp) {
+                return held.apply(target, [...args]);
+            }
+            if (activating(kind, member)) {
+                return recorded(session, `${kind}.${member}`);
+            }
+            vetted(session, `${kind}.${member}`, pathed, args);
+            return adopted(session, signatures, own === undefined ? held.apply(target, [...args]) : own(...args), true);
         };
-        return Object.defineProperties(
+    };
+    const scoped = (session: Session, signatures: Record<string, Signature>, target: Members, kind: string): Members =>
+        Object.defineProperties(
             {},
             keyed(enumerated(target), (key) => ({
                 enumerable: true,
                 get: () => {
                     const held = target[key];
-                    return isCallable(held) ? guarded(key, held) : adopted(session, signatures, held, false);
+                    return isCallable(held) ? guarded(session, signatures, target, kind, key, held) : adopted(session, signatures, held, false);
                 },
                 set: (value: unknown) => {
                     if (kind === 'FullScreen' && key === 'isFullScreen') {
@@ -439,35 +524,37 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 },
             })),
         );
-    };
     const adopted = (session: Session, signatures: Record<string, Signature>, value: unknown, made: boolean): unknown => {
-        const kind = kindOf(value);
         if (Array.isArray(value)) {
             return value.map((item) => adopted(session, signatures, item, made));
         }
-        if (kind === 'Doc' && made && session.docs.indexOf(value as Doc) < 0) {
-            session.docs.push(value as Doc);
+        if (isDoc(value)) {
+            if (made && !has(session.docs, value)) {
+                session.docs.push(value);
+            }
+            return scoped(session, signatures, value, 'Doc');
         }
-        return kind === 'Doc' || kind === 'FullScreen' ? scoped(session, signatures, value as Members, kind) : value;
+        return isMembers(value) && kindOf(value) === 'FullScreen' ? scoped(session, signatures, value, 'FullScreen') : value;
     };
     const spread = (expression: string, evaluate: (code: string) => unknown): unknown => {
-        const at = expression.indexOf('[*]');
+        const at = expression.indexOf(SPREAD);
         if (at < 0) {
             return evaluate(expression);
         }
         const list = evaluate(expression.slice(0, at));
         const count = isMembers(list) && typeof list.length === 'number' ? list.length : 0;
-        return counted(count, (index) => spread(`${expression.slice(0, at)}[${index}]${expression.slice(at + 3)}`, evaluate));
+        return counted(count, (index) => spread(indexed(expression, at, index), evaluate));
     };
-    const reads = (item: Item, evaluate: (code: string) => unknown) => {
+    const reads = (item: Item, evaluate: (code: string) => unknown): Reads => {
         const read: Record<string, Schema.Json> = {};
         const failed: Record<string, string> = {};
         Object.keys(item.read).forEach((key) => {
             try {
                 const value = spread(item.read[key] ?? 'undefined', evaluate);
-                if (key.indexOf('[*]') >= 0 && Array.isArray(value)) {
+                const at = key.indexOf(SPREAD);
+                if (at >= 0 && Array.isArray(value)) {
                     value.forEach((each, index) => {
-                        read[key.split('[*]').join(`[${index}]`)] = encoded(each);
+                        read[indexed(key, at, index)] = encoded(each);
                     });
                 } else {
                     read[key] = encoded(value);
@@ -479,7 +566,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         return { read, failed };
     };
     const state = (doc: Doc) => {
-        const tree = (mark: Members): Schema.Json => ({ name: String(mark.name), children: (Array.isArray(mark.children) ? mark.children : []).map((child: Members) => tree(child)) });
+        const tree = (mark: Members): Schema.Json => ({ name: String(mark.name), children: (Array.isArray(mark.children) ? mark.children : []).filter(isMembers).map(tree) });
         return {
             path: posix(doc.path),
             pages: counted(doc.numPages, (page) => ({ rotation: doc.getPageRotation(page), boxes: keyed(request.boxes, (box) => encoded(doc.getPageBox(box, page))) })),
@@ -493,63 +580,76 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             }),
             ocgs: (doc.getOCGs() ?? []).map((ocg) => ({ name: String(ocg.name), state: ocg.state === true })),
             bookmarks: tree(doc.bookmarkRoot),
-            dataObjects: (Array.isArray(doc.dataObjects) ? doc.dataObjects : []).map((data: Members) => String(data.name)),
+            dataObjects: (Array.isArray(doc.dataObjects) ? doc.dataObjects : []).filter(isMembers).map((data) => String(data.name)),
         };
+    };
+    const created = (document: Exclude<Item['precondition']['documents'][number], { readonly open: string }>) => {
+        const doc = shaped(callable(app, 'newDoc')(document.width, document.height), isDoc, 'app.newDoc');
+        counted(document.pages - 1, (page) => doc.newPage(page + 1, document.width, document.height));
+        if (document.rotation !== undefined) {
+            doc.setPageRotations(0, doc.numPages - 1, document.rotation);
+        }
+        request.boxes.forEach((box) => {
+            const rect = document.boxes?.[box];
+            if (rect !== undefined) {
+                doc.setPageBoxes(box, 0, doc.numPages - 1, rect);
+            }
+        });
+        return doc;
+    };
+    const furnished = (docs: readonly Doc[], precondition: Item['precondition']) => {
+        const [doc] = docs;
+        if (doc === undefined) {
+            return;
+        }
+        (precondition.fields ?? []).forEach(({ name, type, page, rect, properties = {} }) => {
+            const field = doc.addField(name, type, page, rect);
+            Object.keys(properties).forEach((key) => {
+                field[key] = revived(properties[key]);
+            });
+        });
+        (precondition.annots ?? []).forEach((properties) => doc.addAnnot(revived(properties)));
+        const { info, metadata } = precondition;
+        Object.keys(info ?? {}).forEach((key) => {
+            doc.info[key] = info?.[key];
+        });
+        if (metadata !== undefined) {
+            doc.metadata = metadata;
+        }
     };
     const opened = (session: Session) => {
         const { precondition } = session.item;
-        const held = (doc: Doc) => {
-            session.docs.push(doc);
-            return doc;
-        };
-        const docs = precondition.documents.map((document) => {
-            if ('open' in document) {
-                return held((app.openDoc as Callable)(document.open) as Doc);
+        const docs = precondition.documents.map((document) => ('open' in document ? shaped(callable(app, 'openDoc')(document.open), isDoc, 'app.openDoc') : created(document)));
+        docs.forEach((doc) => session.docs.push(doc));
+        furnished(docs, precondition);
+        const made = precondition.documents.reduce<readonly string[]>((files, document, index) => {
+            const doc = docs[index];
+            if ('open' in document || doc === undefined) {
+                return files;
             }
-            const doc = held((app.newDoc as Callable)(document.width, document.height) as Doc);
-            counted(document.pages - 1, (page) => doc.newPage(page + 1, document.width, document.height));
-            if (document.rotation !== undefined) {
-                doc.setPageRotations(0, doc.numPages - 1, document.rotation);
-            }
-            Object.keys(document.boxes ?? {}).forEach((box) => doc.setPageBoxes(box, 0, doc.numPages - 1, document.boxes?.[box as keyof typeof document.boxes] ?? []));
-            return doc;
-        });
-        const [first] = docs;
-        if (first !== undefined) {
-            (precondition.fields ?? []).forEach(({ name, type, page, rect, properties = {} }) => {
-                const field = first.addField(name, type, page, rect);
-                Object.keys(properties).forEach((key) => {
-                    field[key] = revived(properties[key]);
-                });
-            });
-            (precondition.annots ?? []).forEach((properties) => first.addAnnot(revived(properties)));
-            Object.keys(precondition.info ?? {}).forEach((key) => {
-                first.info[key] = precondition.info?.[key];
-            });
-            if (precondition.metadata !== undefined) {
-                first.metadata = precondition.metadata;
-            }
-        }
-        const made = precondition.documents.map((document, index) => ('open' in document ? '' : `${precondition.sandbox}/${index}.pdf`));
-        docs.forEach((doc, index) => {
-            if (made[index] !== '') {
-                doc.saveAs(made[index] ?? '');
-            }
-        });
+            const file = `${precondition.sandbox}/${index}.pdf`;
+            doc.saveAs(file);
+            return files.concat([file]);
+        }, []);
         docs.forEach((doc) => session.records.opened.push(state(doc)));
-        return { docs, made: made.filter((file) => file !== '') };
+        return { docs, made };
     };
-    const fired = (session: Session, scope: Members, target: unknown, doc: Doc | undefined, code: string, event: NonNullable<Item['precondition']['event']>) => {
-        const field = doc?.getField(event.field) ?? null;
-        if (doc === undefined || field === null) {
-            return refuse(session, `no field ${event.field} on the first document`);
+    const fired = (session: Session, scope: Members, target: unknown, docs: readonly Doc[], code: string, event: NonNullable<Item['precondition']['event']>) => {
+        const [doc] = docs;
+        if (doc === undefined) {
+            refuse(session, `no document holds field ${event.field}`);
+        }
+        const field = doc.getField(event.field);
+        if (field === null) {
+            refuse(session, `no field ${event.field} on the first document`);
         }
         compile(scope, code);
         const key = `rasm${now()}`;
-        const holder: Members = { events: [], scope, target, thrown: undefined };
+        const holder: Holder = { events: [], scope, target, thrown: undefined };
         doc[key] = holder;
         const names = Object.keys(scope);
-        (field.setAction as Callable)(
+        const setAction = callable(field, 'setAction');
+        setAction(
             event.trigger,
             `try { (function (${names.join(', ')}) {\n${code}\n}).apply(this.${key}.target, [${names.map((name) => `this.${key}.scope.${name}`).join(', ')}]); } catch (error) { this.${key}.thrown = error; }\nthis.${key}.events.push({ type: event.type, name: event.name, rc: event.rc, value: event.value, change: event.change, willCommit: event.willCommit });`,
         );
@@ -560,19 +660,27 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 field.value = revived(event.value);
             }
         } finally {
-            (field.setAction as Callable)(event.trigger, '');
+            setAction(event.trigger, '');
             delete doc[key];
         }
-        (holder.events as readonly unknown[]).forEach((each) => session.records.events.push(encoded(each)));
+        holder.events.forEach((each) => session.records.events.push(encoded(each)));
         if (holder.thrown !== undefined) {
-            throw { action: holder.thrown };
+            throw raised(ACTION, thrown(holder.thrown, 1).message, holder.thrown);
+        }
+    };
+    const closed = (doc: Doc): readonly string[] => {
+        try {
+            doc.closeDoc(true);
+            return [];
+        } catch (error) {
+            return [`close: ${thrown(error, base).message}`];
         }
     };
     const restored = (session: Session, globals: Members) => {
         const { records } = session;
         session.timers.forEach(([clear, timer]) => {
             try {
-                (app[clear] as Callable)(timer);
+                callable(app, clear)(timer);
             } catch (error) {
                 records.leaked.push(`App.${clear}: ${thrown(error, base).message}`);
             }
@@ -586,16 +694,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             }
             return { member, before: encoded(before), after };
         });
-        session.docs
-            .slice()
-            .reverse()
-            .forEach((doc) => {
-                try {
-                    doc.closeDoc(true);
-                } catch (error) {
-                    records.leaked.push(`close: ${thrown(error, base).message}`);
-                }
-            });
+        session.docs.reduceRight<readonly string[]>((leaked, doc) => leaked.concat(closed(doc)), []).forEach((line) => records.leaked.push(line));
         enumerated(shared)
             .filter((name) => !(name in globals) || shared[name] !== globals[name])
             .forEach((key) => {
@@ -609,6 +708,24 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             });
         return writes;
     };
+    const evaluated = (session: Session, scope: Members, target: unknown, docs: readonly Doc[], item: Item, evaluate: (code: string, statement?: boolean) => unknown): unknown => {
+        if (item._tag === 'Probe') {
+            return evaluate(item.evaluate);
+        }
+        if (item._tag === 'Run') {
+            const { event } = item.precondition;
+            return event === undefined ? evaluate(item.source.code, true) : fired(session, scope, target, docs, item.source.code, event);
+        }
+        const callee = evaluate(`${item.source?.code ?? ''}\nreturn (${item.call});`, true);
+        return isCallable(callee) ? callee.apply(target, item.args.map(revived)) : callee;
+    };
+    const caught = (error: unknown) => {
+        const fault = faultOf(error);
+        if (fault.name === REFUSED) {
+            return { completion: { _tag: 'Failed' as const, reason: fault.message } };
+        }
+        return fault.name === ACTION && isMembers(error) ? { completion: thrown(error.cause, 1) } : { completion: thrown(error, base) };
+    };
     const run = (signatures: Record<string, Signature>, item: Item) => {
         const session: Session = {
             item,
@@ -621,7 +738,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             refused: [],
         };
         const globals = keyed(enumerated(shared), (key) => shared[key]);
-        const held: { made: readonly string[]; before?: ReturnType<typeof reads>; after?: ReturnType<typeof reads> } = { made: [] };
+        const held: { made: readonly string[]; before?: Reads; after?: Reads } = { made: [] };
         const ended = (() => {
             try {
                 const { docs, made } = opened(session);
@@ -636,24 +753,11 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 const evaluate = (code: string, statement = false) => compile(scope, statement ? code : `return (${code});`)(target);
                 (item.precondition.steps ?? []).forEach((step) => evaluate(step, true));
                 held.before = reads(item, evaluate);
-                const event = item.precondition.event;
-                const result = (() => {
-                    if (item._tag === 'Probe') {
-                        return evaluate(item.evaluate);
-                    }
-                    if (item._tag === 'Run') {
-                        return event === undefined ? evaluate(item.source.code, true) : fired(session, scope, target, docs[0], item.source.code, event);
-                    }
-                    const callee = evaluate(`${item.source?.code ?? ''}\nreturn (${item.call});`, true);
-                    return isCallable(callee) ? callee.apply(target, item.args.map(revived)) : callee;
-                })();
+                const result = evaluated(session, scope, target, docs, item, evaluate);
                 held.after = reads(item, evaluate);
                 return { completion: { _tag: 'Ran' as const }, value: encoded(result) };
             } catch (error) {
-                if (isMembers(error) && typeof error.refused === 'string') {
-                    return { completion: { _tag: 'Failed' as const, reason: error.refused } };
-                }
-                return isMembers(error) && 'action' in error ? { completion: thrown(error.action, 1) } : { completion: thrown(error, base) };
+                return caught(error);
             }
         })();
         const writes = restored(session, globals);
@@ -671,20 +775,20 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 writes,
                 ...session.records,
             },
-            kept: held.made.filter((file) => session.saved.indexOf(file) < 0),
+            kept: held.made.filter((file) => !has(session.saved, file)),
         };
     };
     const viewer = () => ({
         type: String(app.viewerType),
         variation: String(app.viewerVariation),
         language: String(app.language),
-        plugIns: (app.plugIns as readonly Members[]).map((plugIn) => ({ name: String(plugIn.name), version: Number(plugIn.version), loaded: plugIn.loaded === true, certified: plugIn.certified === true })),
+        plugIns: shaped(app.plugIns, isMemberList, 'app.plugIns').map((plugIn) => ({ name: String(plugIn.name), version: Number(plugIn.version), loaded: plugIn.loaded === true, certified: plugIn.certified === true })),
     });
     const surveyed = () => {
-        const doc = (app.newDoc as Callable)() as Doc;
+        const doc = shaped(callable(app, 'newDoc')(), isDoc, 'app.newDoc');
         try {
-            const field = doc.addField('survey', 'text', 0, [0, 20, 20, 0]);
-            const annot = doc.addAnnot({ type: 'Text', page: 0, point: [10, 10] });
+            const field = doc.addField('survey', 'text', 0, SURVEY_RECT);
+            const annot = doc.addAnnot({ type: 'Text', page: 0, point: SURVEY_POINT });
             const kinds = [root, app, util, root.console, shared, doc, field, annot, doc.bookmarkRoot];
             return { members: keyed(kinds.map(kindOf), (kind) => enumerated(kinds[kinds.map(kindOf).indexOf(kind)] ?? {})), signatures: signaturesOf({ App: app, Doc: doc, Util: util }) };
         } finally {

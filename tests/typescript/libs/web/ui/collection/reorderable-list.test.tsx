@@ -1,4 +1,5 @@
 import { ReorderableList } from '@rasm/ui/collection/reorderable-list';
+import type { ComponentProps } from 'react';
 import { expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
@@ -7,7 +8,7 @@ import { Default, Single } from '#/libs/typescript/web/ui/.storybook/reorderable
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _sheets = async () => {
-    const onChange = vi.fn();
+    const onChange = vi.fn<NonNullable<ComponentProps<typeof Default.Component>['onChange']>>();
     const screen = await render(<Default.Component onChange={onChange} />);
     const select = (title: string) => screen.getByRole('row', { name: title }).getByText(title).click();
     const opened = (row: number) => screen.getByRole('button', { name: 'Move' }).nth(row).click();
@@ -30,7 +31,7 @@ const _sheets = async () => {
             .getByRole('button', { name: 'Move' })
             .elements()
             .map((button) => button.hasAttribute('disabled'));
-    const order = () => onChange.mock.lastCall?.[0].map(({ id }: { readonly id: string }) => id);
+    const order = () => onChange.mock.lastCall?.[0].map(({ id }) => id);
     return { screen, select, opened, move, drag, rows, disabled, order };
 };
 

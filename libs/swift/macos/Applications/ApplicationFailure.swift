@@ -14,7 +14,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
         case untrusted
         case unanswered(ElementAction?)
         case noProcess
-        case hidden
+        case hidden(Duration)
         case unreadable(FailedRead)
         case absent(String)
         case activating
@@ -41,7 +41,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .unanswered(.none): "\(subject) did not answer within messaging timeout"
             case .unanswered(.some): "\(subject) got no answer within messaging timeout, action can have run"
             case .noProcess: "Process \(subject) exited"
-            case .hidden: "Process \(subject) stays hidden, unhide refused"
+            case .hidden(let limit): "Process \(subject) stays hidden \(limit.formatted(.units(width: .wide))) after unhide"
             case .unreadable(let read):
                 "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \"\(label)\"" } ?? "") failed with AXError \(read.error.rawValue)"
             case .absent(let missing): "\(subject) has no \(missing)"

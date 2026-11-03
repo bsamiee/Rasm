@@ -1,11 +1,13 @@
 import { Array, Effect, Number, Option, Record, Schema, Struct } from 'effect';
 import { Buffer, BufferFlag, ClusterLevel, Direction, Feature, GlyphClass, GlyphFlag, otTagToLanguage, otTagToScript, shape } from 'harfbuzzjs';
+import { Settings } from '#/composition/settings';
 import type { Face } from '#/face';
 import { Tag, TagSettings } from '#/tags';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const DEFAULT_CLUSTER_LEVEL = 'MONOTONE_CHARACTERS' as const;
+const DIRECTIONS = { rtl: 'RTL', ltr: 'LTR' } as const satisfies Record<typeof Settings.Type.direction extends Option.Option<infer D> ? D : never, keyof typeof Direction>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -37,7 +39,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
             .annotate({ description: 'HarfBuzz buffer flags (BOT, EOT, PRODUCE_UNSAFE_TO_CONCAT), none when absent' })
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
     });
-    static readonly of = (face: Face, { text, features, language, script, direction, clusterLevel, flags }: typeof ShapedText.Run.Type) => {
+    static readonly of = (face: Face, { text, features, language, script, direction, clusterLevel, flags }: typeof ShapedText.Run.Type, settings = Settings.make({})) => {
         const em = (units: number) => units / face.unitsPerEm;
         const buffer = new Buffer();
         buffer.addText(text);
@@ -45,10 +47,10 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
         buffer.setFlags(Number.sumAll(Array.map(flags, (flag) => BufferFlag[flag])));
         Option.map(language, (tag) => buffer.setLanguage(otTagToLanguage(tag)));
         Option.map(script, (tag) => buffer.setScript(otTagToScript(tag)));
-        Option.map(direction, (key) => buffer.setDirection(Direction[key]));
+        Option.map(Option.orElse(direction, () => Option.map(settings.direction, (key) => DIRECTIONS[key])), (key) => buffer.setDirection(Direction[key]));
         buffer.guessSegmentProperties();
         const characters = buffer.getGlyphInfos();
-        shape(face.font, buffer, [...features]);
+        shape(face.font, buffer, [...features, ...Record.collect(settings.features, (tag, value) => new Feature(tag, value))]);
         const glyphs = buffer.getGlyphInfos();
         const unmapped = new Set(glyphs.filter(({ codepoint }) => codepoint === 0).map(Struct.get('cluster')));
         return ShapedText.make({

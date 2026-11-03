@@ -11,23 +11,26 @@ experimental                        = true
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
 _.path                                = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
+RASM_CACHE_HOME                       = "{{ xdg_cache_home }}/rasm/{{ config_root | hash(len=16) }}"
 DOTNET_NOLOGO                         = "1"
 DOTNET_ROLL_FORWARD                   = "Major"
-PYTHONPYCACHEPREFIX                   = "{{config_root}}/.cache/pycache"
+PYTHONPYCACHEPREFIX                   = "{{ env.RASM_CACHE_HOME }}/pycache"
 DYLD_FALLBACK_LIBRARY_PATH            = "{{config_root}}/.pixi/envs/default/lib:{{ env.HOME }}/lib:/usr/local/lib:/usr/lib"
-HYPOTHESIS_STORAGE_DIRECTORY          = "{{config_root}}/.cache/hypothesis"
+HYPOTHESIS_STORAGE_DIRECTORY          = "{{ env.RASM_CACHE_HOME }}/hypothesis"
 CARGO_LLVM_COV_DENY_WARNINGS          = "1"
 RUSTUP_TOOLCHAIN                      = false
 RUSTUP_AUTO_INSTALL                   = "0"
 PROJ_DATA                             = false
 PROJ_NETWORK                          = false
-TOMBI_CACHE_HOME                      = "{{config_root}}/.cache/tombi"
+TOMBI_CACHE_HOME                      = "{{ env.RASM_CACHE_HOME }}/tombi"
 YAMLLINT_CONFIG_FILE                  = "{{config_root}}/.config/yamllint.yaml"
-SWIFTPM_BUILD_DIR                     = "{{config_root}}/.cache/swiftpm/build"
+SWIFTPM_BUILD_DIR                     = "{{ env.RASM_CACHE_HOME }}/swiftpm/build"
 OMIT_DYNAMIC_TEST_SUPPORT             = "1"
-NX_WORKSPACE_DATA_DIRECTORY           = ".cache/nx/workspace-data"
+NX_CACHE_DIRECTORY                    = "{{ env.RASM_CACHE_HOME }}/nx/cache"
+NX_WORKSPACE_DATA_DIRECTORY           = "{{ env.RASM_CACHE_HOME }}/nx/workspace-data"
+NX_ISOLATE_PLUGINS                    = "false"
 NX_DEFAULT_OUTPUT_STYLE               = "static-failures-only"
-CLOUDFLARE_REGISTRY_PATH              = "{{config_root}}/.cache/cloudflare/registry"
+CLOUDFLARE_REGISTRY_PATH              = "{{ env.RASM_CACHE_HOME }}/cloudflare/registry"
 MINIFLARE_REGISTRY_PATH               = "{{ env.CLOUDFLARE_REGISTRY_PATH }}"
 STORYBOOK_DISABLE_TELEMETRY           = "1"
 PLAYWRIGHT_MCP_CONFIG                 = "{{config_root}}/.playwright/cli.config.json"
@@ -36,7 +39,7 @@ RHINO_MCP_URL                         = "http://127.0.0.1:{{ env.RHINO_MCP_PLATF
 BLENDER_PATH                          = "/Applications/Blender.app/Contents/MacOS/Blender"
 ATELIER_PATH                          = "/Applications/Atelier.app/Contents/MacOS/Atelier"
 BLENDER_MCP_URL                       = "http://127.0.0.1:{{ env.BLENDER_LAB_PORT }}/"
-PULUMI_HOME                           = "{{config_root}}/.cache/pulumi"
+PULUMI_HOME                           = "{{ env.RASM_CACHE_HOME }}/pulumi"
 PITCHFORK_SUPERVISOR_AUTO_START       = "{% if os() == 'macos' %}false{% else %}true{% endif %}"
 PITCHFORK_LOG_TIME_RETENTION          = "7d"
 COLIMA_HOME                           = "{{ xdg_data_home }}/rasm/colima"
@@ -45,8 +48,7 @@ DOCKER_HOST                           = "{% if os() == 'macos' %}unix://{{ env.C
 TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = "/var/run/docker.sock"
 GHIDRA_INSTALL_DIR                    = { value = '{{ tools["github:NationalSecurityAgency/ghidra"].path }}', tools = true }
 GHIDRA_PROJECT_DIR                    = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
-GHIDRA_JAVA_OPTIONS                   = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
-GHIDRA_HEADLESS_MAXMEM                = "{% if os() == 'macos' %}{{ (exec(command='/usr/sbin/sysctl -n hw.memsize') | int / 4194304) | round(method='floor') | int }}M{% endif %}"
+GHIDRA_JAVA_OPTIONS                   = "-Dapplication.settingsdir={{ env.RASM_CACHE_HOME }}/ghidra/settings -Dapplication.cachedir={{ env.RASM_CACHE_HOME }}/ghidra/cache -Dapplication.tempdir={{ env.RASM_CACHE_HOME }}/ghidra/tmp"
 
 # --- [TOOL_ALIAS] -----------------------------------------------------------------------
 [tool_alias]
@@ -54,64 +56,69 @@ blender-mcp = "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdire
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 [tools]
-python                           = ["3.15.0", "3.13"]
-java                             = "latest"
-node                             = "latest"
-pnpm                             = "latest"
-uv                               = "latest"
-pixi                             = "latest"
-cargo-binstall                   = "latest"
-"cargo:cargo-nextest"            = "latest"
-"cargo:cargo-llvm-cov"           = "latest"
-"cargo:cargo-edit"               = "latest"
-"cargo:cargo-dylint"             = "latest"
-cargo-insta                      = "latest"
-"cargo:cargo-modules"            = "latest"
-cmake                            = "latest"
-git-lfs                          = "latest"
-hk                               = "latest"
-actionlint                       = "latest"
-"npm:actions-up"                 = "latest"
-shellcheck                       = "latest"
-shfmt                            = "latest"
-yamlfmt                          = "latest"
-tombi                            = "latest"
-google-java-format               = "latest"
-swiftlint                        = { version = "latest", os = ["macos"] }
-periphery                        = { version = "latest", os = ["macos"] }
-"github:sparkle-project/Sparkle" = { version = "latest", os = ["macos"], asset_pattern = "Sparkle-*.tar.xz", bin_path = "bin" }
-"http:zxpsigncmd"                = { version = "4.1.3", os = ["macos"], url = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/master/ZXPSignCMD/{{ version }}/macOS/ZXPSignCmd" }
-"github:sbdchd/squawk"           = "latest"
-ripgrep                          = "latest"
-fd                               = "latest"
-jq                               = "latest"
-yq                               = "latest"
-doppler                          = "latest"
-pulumi                           = "latest"
-gh                               = "latest"
-pitchfork                        = "latest"
-colima                           = { version = "latest", os = ["macos"], postinstall = 'mkdir -p "$COLIMA_HOME"' }
-lima                             = { version = "latest", os = ["macos"] }
-docker-cli                       = { version = "latest", os = ["macos", "linux"] }
-"github:docker/buildx"           = { version = "latest", bin = "docker-buildx", os = ["macos", "linux"], postinstall = 'mkdir -p "$DOCKER_CONFIG/cli-plugins" && ln -sfn "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$DOCKER_CONFIG/cli-plugins/docker-buildx"' }
-ast-grep                         = "latest"
-tree-sitter                      = "latest"
-sd                               = "latest"
-difftastic                       = "latest"
-"github:duckdb/duckdb"           = "latest"
-hyperfine                        = "latest"
-resvg                            = "latest"
-imagemagick                      = "latest"
-"pypi:ast-grep/ast-grep-mcp"     = "latest"
-"pypi:tavily-cli"                = "latest"
-"pypi:mcp-for-blender"           = "latest"
-blender-mcp                      = "v1"
-"github:pmd/pmd"                 = { version = "latest", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
-"http:jdtls"                     = { version = "latest", url = 'https://download.eclipse.org/jdtls/milestones/{{ version }}/{{ exec(command="curl -fsSL https://download.eclipse.org/jdtls/milestones/" ~ version ~ "/latest.txt") }}', version_list_url = "https://download.eclipse.org/jdtls/milestones/", version_regex = 'milestones/(\d+\.\d+\.\d+)', version_order = "semver" }
-"http:xcode-build-server"        = { version = "latest", os = ["macos"], url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz", version_list_url = "https://api.github.com/repos/SolaWing/xcode-build-server/releases", version_json_path = ".[].tag_name", version_order = "semver" }
+python                               = ["3.15.0", "3.13"]
+java                                 = "latest"
+node                                 = "latest"
+pnpm                                 = "latest"
+uv                                   = "latest"
+pixi                                 = "latest"
+cargo-binstall                       = "latest"
+"cargo:cargo-nextest"                = "latest"
+"cargo:cargo-llvm-cov"               = "latest"
+"cargo:cargo-edit"                   = "latest"
+"cargo:cargo-dylint"                 = "latest"
+cargo-insta                          = "latest"
+"cargo:cargo-modules"                = "latest"
+cmake                                = "latest"
+git-lfs                              = "latest"
+hk                                   = "latest"
+actionlint                           = "latest"
+"npm:actions-up"                     = "latest"
+shellcheck                           = "latest"
+shfmt                                = "latest"
+yamlfmt                              = "latest"
+tombi                                = "latest"
+google-java-format                   = "latest"
+swiftlint                            = { version = "latest", os = ["macos"] }
+periphery                            = { version = "latest", os = ["macos"] }
+"github:sparkle-project/Sparkle"     = { version = "latest", os = ["macos"], asset_pattern = "Sparkle-*.tar.xz", bin_path = "bin" }
+"http:zxpsigncmd"                    = { version = "4.1.3", os = ["macos"], url = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/master/ZXPSignCMD/{{ version }}/macOS/ZXPSignCmd" }
+"dotnet:minver-cli"                  = "latest"
+"github:sbdchd/squawk"               = "latest"
+ripgrep                              = "latest"
+fd                                   = "latest"
+jq                                   = "latest"
+yq                                   = "latest"
+doppler                              = "latest"
+pulumi                               = "latest"
+gh                                   = "latest"
+pitchfork                            = "latest"
+colima                               = { version = "latest", os = ["macos"], postinstall = 'mkdir -p "$COLIMA_HOME"' }
+lima                                 = { version = "latest", os = ["macos"] }
+docker-cli                           = { version = "latest", os = ["macos", "linux"] }
+"github:docker/buildx"               = { version = "latest", bin = "docker-buildx", os = ["macos", "linux"], postinstall = 'mkdir -p "$DOCKER_CONFIG/cli-plugins" && ln -sfn "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$DOCKER_CONFIG/cli-plugins/docker-buildx"' }
+ast-grep                             = "latest"
+tree-sitter                          = "latest"
+sd                                   = "latest"
+difftastic                           = "latest"
+"github:duckdb/duckdb"               = "latest"
+hyperfine                            = "latest"
+resvg                                = "latest"
+imagemagick                          = "latest"
+"pypi:ast-grep/ast-grep-mcp"         = "latest"
+"pypi:tavily-cli"                    = "latest"
+"pypi:mcp-for-blender"               = "latest"
+blender-mcp                          = "v1"
+"dotnet:RoslynCodeLens.Mcp"          = "latest"
+"dotnet:NuGet.Mcp.Server"            = "latest"
+"dotnet:Microsoft.AITools.BinlogMcp" = "latest"
+"dotnet:ilspycmd"                    = "latest"
+"github:pmd/pmd"                     = { version = "latest", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
+"http:jdtls"                         = { version = "latest", url = 'https://download.eclipse.org/jdtls/milestones/{{ version }}/{{ exec(command="curl -fsSL https://download.eclipse.org/jdtls/milestones/" ~ version ~ "/latest.txt") }}', version_list_url = "https://download.eclipse.org/jdtls/milestones/", version_regex = 'milestones/(\d+\.\d+\.\d+)', version_order = "semver" }
+"http:xcode-build-server"            = { version = "latest", os = ["macos"], url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz", version_list_url = "https://api.github.com/repos/SolaWing/xcode-build-server/releases", version_json_path = ".[].tag_name", version_order = "semver" }
 
 [tools."http:rustc-source"]
-version          = "{{ exec(command='mise config get -f ' ~ ((config_root ~ '/rust-toolchain.toml') | quote) ~ ' toolchain.channel') | trim_start(pat='nightly-') }}"
+version          = "{{ read_toml(path='rust-toolchain.toml')['toolchain']['channel'] | trim_start(pat='nightly-') }}"
 url              = "https://static.rust-lang.org/dist/{{ version }}/rustc-nightly-src.tar.xz"
 strip_components = 1
 postinstall      = { run = 'ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/.cargo/rustc-source"', when = "always" }
@@ -125,6 +132,11 @@ bin_path         = "support"
 postinstall      = '''
 set -e
 mkdir -p "$GHIDRA_PROJECT_DIR"
+case "$(uname -s)" in
+    Darwin) ram=$(sysctl -n hw.memsize) ;;
+    *) ram=$(awk '/MemTotal/ {print $2 * 1024}' /proc/meminfo) ;;
+esac
+sd '^MAXMEM_DEFAULT=.*' "MAXMEM_DEFAULT=$((ram / 8388608))M" "$MISE_TOOL_INSTALL_PATH/support/analyzeHeadless"
 if [ "$(uname -sm)" = "Darwin arm64" ]; then
     decompiler="$MISE_TOOL_INSTALL_PATH/Ghidra/Features/Decompiler"
     make -C "$decompiler/src/decompile/cpp" -j "$(sysctl -n hw.ncpu)" ARCH_TYPE='-arch arm64' ghidra_opt
@@ -147,16 +159,16 @@ pitchfork = { program = "{{ mise_bin }}", args = ["exec", "--", "pitchfork", "su
 namespace = "rasm"
 
 [daemons]
-roslyn-codelens    = { run = "exec dotnet dnx RoslynCodeLens.Mcp Workspace.slnx --http --port $PORT", port = 7401, ready_port = 7401, proxy = false, retry = true, boot_start = true }
-nuget              = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- dotnet dnx NuGet.Mcp.Server", port = 7402, ready_port = 7402, proxy = false, retry = true, boot_start = true }
-binlog             = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- dotnet dnx Microsoft.AITools.BinlogMcp", env = { XDG_CACHE_HOME = "{{ dir }}/.cache" }, port = 7403, ready_port = 7403, proxy = false, retry = true, boot_start = true }
-ast-grep           = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- ast-grep-server --config sgconfig.yml", port = 7404, ready_port = 7404, proxy = false, retry = true, boot_start = true }
-rhino-mcp-platform = { run = 'exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"', env = { RHINO_MCP_DEFAULT_VERSION = "9" }, port = 7406, ready_port = 7406, proxy = false, retry = true, boot_start = true }
-blender-lab        = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- blender-mcp", env = { BLENDER_MCP_PORT = "9877" }, port = 7407, ready_port = 7407, proxy = false, retry = true, boot_start = true }
-mcp-for-blender    = { run = "exec doppler run --project agent-runtime --config dev --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 -- rasm-mcp-bridge --listen 127.0.0.1:$PORT -- mcp-for-blender", env = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, port = 7408, ready_port = 7408, proxy = false, retry = true, boot_start = true }
-atelier            = { run = "exec node apps/creative-cloud/atelier/main.ts --listen 127.0.0.1:$PORT", port = 7409, ready_port = 7409, proxy = false, retry = true, boot_start = true, watch = ["/Applications/Atelier.app/Contents/MacOS/Atelier"] }
-argus              = { run = "exec node plugins/argus/main.ts --listen 127.0.0.1:$PORT", port = 7410, ready_port = 7410, proxy = false, retry = true, boot_start = true }
-playwright-test    = { run = "exec playwright run-test-mcp-server --headless -c tests/typescript/playwright.config.ts --host 127.0.0.1 --port $PORT", port = 7412, ready_port = 7412, proxy = false, retry = true, boot_start = true }
+roslyn-codelens    = { run = "exec roslyn-codelens-mcp Workspace.slnx --http --port $PORT", env = { DOTNET_GCConserveMemory = "5" }, port = 7401, ready_port = 7401, retry = true, boot_start = true }
+nuget              = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- nuget-mcp-server", env = { DOTNET_GCConserveMemory = "5" }, port = 7402, ready_port = 7402, retry = true, boot_start = true }
+binlog             = { run = 'exec env XDG_CACHE_HOME="$RASM_CACHE_HOME" rasm-mcp-bridge --listen 127.0.0.1:$PORT -- binlog-mcp', env = { DOTNET_GCConserveMemory = "5" }, port = 7403, ready_port = 7403, retry = true, boot_start = true }
+ast-grep           = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- ast-grep-server --config sgconfig.yml", port = 7404, ready_port = 7404, retry = true, boot_start = true }
+rhino-mcp-platform = { run = 'exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"', env = { RHINO_MCP_DEFAULT_VERSION = "9" }, port = 7406, ready_port = 7406, retry = true, boot_start = true }
+blender-lab        = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- blender-mcp", env = { BLENDER_MCP_PORT = "9877" }, port = 7407, ready_port = 7407, retry = true, boot_start = true }
+mcp-for-blender    = { run = "exec doppler run --project agent-runtime --config dev --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 -- rasm-mcp-bridge --listen 127.0.0.1:$PORT -- mcp-for-blender", env = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, port = 7408, ready_port = 7408, retry = true, boot_start = true }
+atelier            = { run = "exec node apps/creative-cloud/atelier/main.ts --listen 127.0.0.1:$PORT", port = 7409, ready_port = 7409, retry = true, boot_start = true, watch = ["/Applications/Atelier.app/Contents/MacOS/Atelier"] }
+argus              = { run = "exec node plugins/argus/main.ts --listen 127.0.0.1:$PORT", port = 7410, ready_port = 7410, retry = true, boot_start = true }
+playwright-test    = { run = "exec playwright run-test-mcp-server --headless -c tests/typescript/playwright.config.ts --host 127.0.0.1 --port $PORT", port = 7412, ready_port = 7412, retry = true, boot_start = true }
 docker             = { run = '{% if os() == "macos" %}exec env -C "$COLIMA_HOME" colima start --foreground --activate=false --ssh-config=false --mount none --cpus 4 --memory 4{% else %}exec docker events{% endif %}', ready_cmd = { run = 'if [ "$(uname -s)" = Darwin ]; then colima status; else docker version; fi', timeout = "5m" }, stop_signal = { signal = "SIGTERM", timeout = "120s" } }
 
 # --- [TASKS] ----------------------------------------------------------------------------

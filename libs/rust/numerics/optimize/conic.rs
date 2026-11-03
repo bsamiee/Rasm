@@ -17,7 +17,10 @@ use crate::{Input, OptimizeError};
 pub enum Refusal {
     #[display(
         "holds {rows} matrix rows and {constants} constants where its cone takes {}",
-        fmt::from_fn(|formatter| expected.map_or_else(|| formatter.write_str("more than a usize counts"), |expected| write!(formatter, "{expected}")))
+        fmt::from_fn(|formatter| match expected {
+            Some(expected) => write!(formatter, "{expected}"),
+            None => formatter.write_str("more than a usize counts"),
+        })
     )]
     Dimension { rows: usize, constants: usize, expected: Option<usize> },
     #[display("holds a power outside its domain")]

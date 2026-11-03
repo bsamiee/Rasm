@@ -35,6 +35,7 @@ rule:
         - any:
             - has: {field: type, pattern: $TYPE}
             - has: {field: returns, pattern: $TYPE}
+        - has: {kind: arrow_expression_clause, has: {nthChild: 1, matches: copy}}
         - not: {inside: {stopBy: {kind: *owner-type}, kind: *owner-type, has: {field: name, pattern: $TYPE}}}
         - not:
             inside:
@@ -53,6 +54,5 @@ rule:
                     all:
                         - has: {field: type, pattern: $TYPE}
                         - not: {inside: {stopBy: end, kind: 'method_declaration, property_declaration', has: {field: name, pattern: $NAME}}}
-        - has: {kind: arrow_expression_clause, has: {nthChild: 1, matches: copy}}
 message: '`$NAME` builds `$TYPE` from members of its owner alone'
 note: 'Declare each member on one record and delete the copy, an attributed parameter record maps through Mapperly'

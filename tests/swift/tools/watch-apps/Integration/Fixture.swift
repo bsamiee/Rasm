@@ -235,5 +235,5 @@ func press(_ scenario: Scenario, in fixture: Fixture, pid: Int32) async throws {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(2)))
 struct Integration {}

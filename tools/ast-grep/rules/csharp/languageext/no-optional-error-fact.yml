@@ -45,18 +45,18 @@ rule:
     any:
         - kind: parameter
           all:
+            - inside: {kind: parameter_list, inside: {kind: record_declaration, matches: languageext-error-record, has: {field: name, pattern: $RECORD}}}
             - has: {field: type, matches: optional}
             - has: {field: name, pattern: $FACT}
             - not: {matches: package-fact}
-            - inside: {kind: parameter_list, inside: {kind: record_declaration, matches: languageext-error-record, has: {field: name, pattern: $RECORD}}}
         - kind: property_declaration
           all:
+            - inside: {matches: error-members}
             - has: {field: type, matches: optional}
             - has: {field: name, pattern: $FACT}
-            - inside: {matches: error-members}
         - kind: field_declaration
           all:
-            - has: {kind: variable_declaration, all: [{has: {field: type, matches: optional}}, {has: {kind: variable_declarator, has: {field: name, pattern: $FACT}}}]}
             - inside: {matches: error-members}
+            - has: {kind: variable_declaration, all: [{has: {field: type, matches: optional}}, {has: {kind: variable_declarator, has: {field: name, pattern: $FACT}}}]}
 message: 'Error record `$RECORD` holds optional field `$FACT` other than `Option<int> Index` or a forwarded `Option<Error>` cause'
 note: 'Fold the field into `Subject` or a `Reason` item of the one package error record'

@@ -53,13 +53,14 @@ extension SCContentFilter {
     }
 }
 
-extension SCScreenshotConfiguration {
-    public convenience init(file: URL, as type: UTType = .png) {
-        self.init()
-        let reference: UTTypeReference = type as UTTypeReference
-        defer { extendLifetime(reference) }
-        unsafe contentType = reference
-        fileURL = file
+extension SCScreenshotOutput {
+    public func write(to file: URL, as type: UTType = .png) throws(ApplicationFailure) {
+        guard let image: CGImage = sdrImage else { throw ApplicationFailure(subject: "ScreenCaptureKit capture", reason: .absent("SDR image")) }
+        do { try image.data(as: type).write(to: file) } catch let failure as ApplicationFailure {
+            throw failure
+        } catch {
+            throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error))
+        }
     }
 }
 

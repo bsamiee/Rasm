@@ -12,7 +12,7 @@ import WatchAppsWire
 
 extension Integration {
     struct Resolution {
-        @Test(.application(FixtureApplication.self, launches: false))
+        @Test(.application(FixtureApplication.self, launches: false, indexed: true))
         func displayNameResolvesToLinesKeyedByBundleID() async throws {
             let fixture: Fixture = try Fixture()
             try await spotlightIndexed(fixture.bundle)
@@ -30,11 +30,11 @@ extension Integration {
             expectNoDifference(Set(launched.lines.map(\.key)), [fixture.identifier])
         }
 
-        @Test(.application(FixtureApplication.self, named: "AppKitFixture shared \(UUID().uuidString.prefix(8))", launches: false), .timeLimit(.minutes(1)))
+        @Test(.application(FixtureApplication.self, named: "AppKitFixture shared \(UUID().uuidString.prefix(8))", launches: false, indexed: true))
         func sharedDisplayNameFailsListingEachBundleID() async throws {
             let first: Fixture = try Fixture()
             let test: Test = try #require(Test.current)
-            try await TestApplication.application(FixtureApplication.self, named: first.name, launches: false).provideScope(for: test, testCase: Test.Case.current) {
+            try await TestApplication.application(FixtureApplication.self, named: first.name, launches: false, indexed: true).provideScope(for: test, testCase: Test.Case.current) {
                 let second: Fixture = try Fixture()
                 try await spotlightIndexed(first.bundle)
                 try await spotlightIndexed(second.bundle)

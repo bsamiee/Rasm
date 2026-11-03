@@ -4,7 +4,7 @@
 name                 = "rasm-pdf"
 version.workspace    = true
 edition.workspace    = true
-description          = "PDF documents every Rasm app opens, authors, edits, reads and proofs on krilla, lopdf, pdf_oxide and hayro: drawing sets written from rasm-linework pages with layers, measure viewports, outlines, tags and PDF/A, UA and X standards, assembly, forms, redaction, revision overlays and PAdES signing, page walks for text, tables, images and paths, OCR, validation and tiled soft proofs"
+description          = "PDF documents every Rasm app opens, authors, edits, reads and proofs on krilla, lopdf, pdf_oxide and hayro: drawing sets written from rasm-linework pages with layers, measure viewports, outlines, tags and PDF/A, UA and X standards, page fields, assembly, forms, redaction, revision overlays and PAdES signing, page walks for text, tables, images and paths, OCR, validation and tiled soft proofs"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["pdf", "drawing", "pdfa", "accessibility", "print"]
@@ -30,6 +30,7 @@ derive_more          = { workspace = true }
 nutype               = { workspace = true }
 jiff                 = { workspace = true }
 xot                  = { workspace = true }
+secrecy              = { workspace = true }
 reqwest              = { workspace = true }
 uom                  = { workspace = true }
 color                = { workspace = true }
@@ -40,6 +41,7 @@ image-compare        = { workspace = true }
 tiff                 = { workspace = true }
 fontdb               = { workspace = true }
 kurbo                = { workspace = true }
+linesweeper          = { workspace = true }
 usvg                 = { workspace = true }
 hayro                = { workspace = true }
 hayro-svg            = { workspace = true }

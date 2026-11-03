@@ -1,5 +1,8 @@
 public import AppKit
 import AsyncAlgorithms
+import Processes
+import Results
+import System
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -47,15 +50,35 @@ extension NSWorkspace {
 }
 
 extension NSRunningApplication {
-    public func launchStates(notifications: Set<String>, polling interval: Duration) -> some AsyncSequence<InstanceState, Never> {
-        states(walking: \.requiresAnswer, notifications: notifications, polling: interval)
-            .reductions((state: InstanceState.running(.launching, usage: nil), ended: false)) { last, next in (next, !last.state.isLaunching) }
-            .prefix { held in !held.ended }
-            .map(\.state)
+    public func launchStates(notifications: Set<String>, polling interval: Duration) -> AsyncStream<InstanceState> {
+        AsyncStream { continuation in
+            let following: Task<Void, Never> = Task {
+                for await state: InstanceState in states(walking: \.requiresAnswer, notifications: notifications, polling: interval) {
+                    continuation.yield(state)
+                    guard state.isLaunching else { break }
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in following.cancel() }
+        }
     }
 
-    public func show() throws(ApplicationFailure) {
-        guard !unhide(), isHidden else { return }
-        throw ApplicationFailure(subject: String(processIdentifier), reason: isTerminated ? .noProcess : .hidden)
+    public func shown(within limit: Duration, clock: some Clock<Duration> = ContinuousClock()) async throws(ApplicationFailure) {
+        let (visibility, visible): (AsyncStream<Result<Bool, Errno>>, AsyncStream<Result<Bool, Errno>>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let observation: NSKeyValueObservation = observe(\.isHidden, options: [.initial, .new]) { instance, _ in
+            if !instance.isHidden { visible.yield(.success(true)) }
+        }
+        defer { observation.invalidate() }
+        _ = unhide()
+        let exits: some AsyncSequence<Result<Bool, Errno>, Never> & Sendable = termination(of: processIdentifier).map { exit in exit.map { _ in false } }
+        let process: pid_t = processIdentifier
+        try await withTimeout(limit, expired: ApplicationFailure(subject: String(process), reason: .hidden(limit)), clock: clock) { () async throws(ApplicationFailure) in
+            switch await merge(visibility, exits).first(where: { _ in true }) {
+                case .success(true): return
+                case .success(false): throw ApplicationFailure(.noSuchProcess, process: process)
+                case .failure(let error): throw ApplicationFailure(error, process: process)
+                case nil: throw ApplicationFailure(subject: "unhide of process \(process)", reason: .cancelled(CancellationError()))
+            }
+        }
     }
 }

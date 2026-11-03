@@ -4,7 +4,7 @@
 name                 = "rasm-analysis"
 version.workspace    = true
 edition.workspace    = true
-description          = "Analysis of measured and simulated data: weighted total-degree polynomial regression, nonlinear model fits over named bounded parameters with Gauss-Newton covariance, cubic smoothing splines over curves and grids, natural-neighbor interpolation of scattered data, bracketed Brent and companion-matrix polynomial roots, adaptive Gauss-Legendre quadrature"
+description          = "Analysis of measured and simulated data: regularized and robust polynomial, nonlinear and separable least squares with influence and covariance estimators, smoothing, monotone and periodic splines over grids, natural-neighbor, constrained and universal kriging interpolation of scattered data, scalar, polynomial and Newton-system roots with sensitivities, adaptive cubature and weighted Gauss rules"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["regression", "interpolation", "splines", "roots", "quadrature"]
@@ -24,13 +24,14 @@ bench   = false
 # --- [RUNTIME]
 [dependencies]
 rayon                              = { workspace = true }
-anyhow                             = { workspace = true }
 nonempty-collections               = { workspace = true }
 thiserror                          = { workspace = true }
 validated                          = { workspace = true }
 derive_more                        = { workspace = true }
 itertools                          = { workspace = true }
+serde                              = { workspace = true }
 nutype                             = { workspace = true }
+ordered-float                      = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 almost                             = { workspace = true }
@@ -41,6 +42,7 @@ nalgebra                           = { workspace = true }
 ndarray                            = { workspace = true }
 num-complex                        = { workspace = true }
 num-dual                           = { workspace = true }
+statrs                             = { workspace = true }
 argmin                             = { workspace = true }
 nlopt                              = { workspace = true }
 spade                              = { workspace = true }

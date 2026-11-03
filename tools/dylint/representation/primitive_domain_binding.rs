@@ -41,6 +41,21 @@ enum Unit {
     Hour,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, derive_more::Display, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
+enum Quantity {
+    Length,
+    Mass,
+    Angle,
+    Pressure,
+    Power,
+    Energy,
+    Frequency,
+    LinearNumberDensity,
+    Ratio,
+    ThermodynamicTemperature,
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -49,75 +64,81 @@ enum Domain {
     ByteSize { constructor: &'static str },
     Path { borrowed: bool },
     Calendar { civil: &'static str },
-    Quantity { quantity: &'static str, module: &'static str, unit: &'static str },
+    Quantity { quantity: Quantity, unit: &'static str, float: FloatTy },
 }
 
 impl Domain {
     fn of<'tcx>(cx: &LateContext<'tcx>, name: Symbol, held: Ty<'tcx>) -> Option<Self> {
         const EPOCH: &str = "epoch";
+        const RATE: &str = "per";
         const BYTE_SIZES: &[(&str, &str)] = &[("bytes", "b"), ("kb", "kb"), ("kib", "kib"), ("mb", "mb"), ("mib", "mib"), ("gb", "gb"), ("gib", "gib")];
-        const QUANTITIES: &[(&str, bool, &str, &str, &str)] = &[
-            ("mm", true, "Length", "length", "millimeter"),
-            ("km", true, "Length", "length", "kilometer"),
-            ("ft", true, "Length", "length", "foot"),
-            ("kg", true, "Mass", "mass", "kilogram"),
-            ("lbs", true, "Mass", "mass", "pound"),
-            ("deg", true, "Angle", "angle", "degree"),
-            ("rad", true, "Angle", "angle", "radian"),
-            ("kpa", true, "Pressure", "pressure", "kilopascal"),
-            ("mpa", true, "Pressure", "pressure", "megapascal"),
-            ("psi", true, "Pressure", "pressure", "pound_force_per_square_inch"),
-            ("kw", true, "Power", "power", "kilowatt"),
-            ("kwh", true, "Energy", "energy", "kilowatt_hour"),
-            ("hz", true, "Frequency", "frequency", "hertz"),
-            ("khz", true, "Frequency", "frequency", "kilohertz"),
-            ("mhz", true, "Frequency", "frequency", "megahertz"),
-            ("dpi", true, "LinearNumberDensity", "linear_number_density", "per_inch"),
-            ("ppi", true, "LinearNumberDensity", "linear_number_density", "per_inch"),
-            ("pct", true, "Ratio", "ratio", "percent"),
-            ("percent", false, "Ratio", "ratio", "percent"),
-            ("millimeters", false, "Length", "length", "millimeter"),
-            ("millimetres", false, "Length", "length", "millimeter"),
-            ("centimeters", false, "Length", "length", "centimeter"),
-            ("centimetres", false, "Length", "length", "centimeter"),
-            ("meters", false, "Length", "length", "meter"),
-            ("metres", false, "Length", "length", "meter"),
-            ("kilometers", false, "Length", "length", "kilometer"),
-            ("kilometres", false, "Length", "length", "kilometer"),
-            ("feet", false, "Length", "length", "foot"),
-            ("inches", false, "Length", "length", "inch"),
-            ("kilograms", false, "Mass", "mass", "kilogram"),
-            ("degrees", false, "Angle", "angle", "degree"),
-            ("radians", false, "Angle", "angle", "radian"),
-            ("pascals", false, "Pressure", "pressure", "pascal"),
-            ("watts", false, "Power", "power", "watt"),
-            ("kilowatts", false, "Power", "power", "kilowatt"),
-            ("joules", false, "Energy", "energy", "joule"),
-            ("celsius", false, "ThermodynamicTemperature", "thermodynamic_temperature", "degree_celsius"),
-            ("kelvin", false, "ThermodynamicTemperature", "thermodynamic_temperature", "kelvin"),
-            ("fahrenheit", false, "ThermodynamicTemperature", "thermodynamic_temperature", "degree_fahrenheit"),
-            ("hertz", false, "Frequency", "frequency", "hertz"),
+        const QUANTITIES: &[(&str, bool, Quantity, &str)] = &[
+            ("mm", true, Quantity::Length, "millimeter"),
+            ("cm", true, Quantity::Length, "centimeter"),
+            ("km", true, Quantity::Length, "kilometer"),
+            ("ft", true, Quantity::Length, "foot"),
+            ("kg", true, Quantity::Mass, "kilogram"),
+            ("lbs", true, Quantity::Mass, "pound"),
+            ("deg", true, Quantity::Angle, "degree"),
+            ("rad", true, Quantity::Angle, "radian"),
+            ("kpa", true, Quantity::Pressure, "kilopascal"),
+            ("mpa", true, Quantity::Pressure, "megapascal"),
+            ("psi", true, Quantity::Pressure, "pound_force_per_square_inch"),
+            ("kw", true, Quantity::Power, "kilowatt"),
+            ("kwh", true, Quantity::Energy, "kilowatt_hour"),
+            ("hz", true, Quantity::Frequency, "hertz"),
+            ("khz", true, Quantity::Frequency, "kilohertz"),
+            ("mhz", true, Quantity::Frequency, "megahertz"),
+            ("dpi", false, Quantity::LinearNumberDensity, "inch"),
+            ("ppi", false, Quantity::LinearNumberDensity, "inch"),
+            ("pct", true, Quantity::Ratio, "percent"),
+            ("percent", false, Quantity::Ratio, "percent"),
+            ("millimeters", false, Quantity::Length, "millimeter"),
+            ("millimetres", false, Quantity::Length, "millimeter"),
+            ("centimeters", false, Quantity::Length, "centimeter"),
+            ("centimetres", false, Quantity::Length, "centimeter"),
+            ("meters", false, Quantity::Length, "meter"),
+            ("metres", false, Quantity::Length, "meter"),
+            ("kilometers", false, Quantity::Length, "kilometer"),
+            ("kilometres", false, Quantity::Length, "kilometer"),
+            ("feet", false, Quantity::Length, "foot"),
+            ("inch", false, Quantity::Length, "inch"),
+            ("inches", false, Quantity::Length, "inch"),
+            ("kilograms", false, Quantity::Mass, "kilogram"),
+            ("degrees", false, Quantity::Angle, "degree"),
+            ("radians", false, Quantity::Angle, "radian"),
+            ("pascals", false, Quantity::Pressure, "pascal"),
+            ("watts", false, Quantity::Power, "watt"),
+            ("kilowatts", false, Quantity::Power, "kilowatt"),
+            ("joules", false, Quantity::Energy, "joule"),
+            ("celsius", false, Quantity::ThermodynamicTemperature, "degree_celsius"),
+            ("kelvin", false, Quantity::ThermodynamicTemperature, "kelvin"),
+            ("fahrenheit", false, Quantity::ThermodynamicTemperature, "degree_fahrenheit"),
+            ("hertz", false, Quantity::Frequency, "hertz"),
         ];
         let name = name.as_str().to_lowercase();
         let mut segments = name.rsplit('_');
         let last = segments.next()?;
+        let previous = segments.next();
         let float = if let ty::Float(float) = held.kind() { Some(*float) } else { None };
         let time = |clock, unit| held.is_numeric().then_some(Self::Time { clock, unit, float });
-        let unit = last.parse::<Unit>().ok();
-        match (segments.next(), last) {
+        let measured = |word: &str| QUANTITIES.iter().find(|&&(suffix, ..)| suffix == word);
+        let worded = |word: &str| word.parse::<Unit>().is_ok() || BYTE_SIZES.iter().any(|&(suffix, _)| suffix == word) || measured(word).is_some();
+        let stored = |quantity, unit| float.filter(|float| matches!(float, FloatTy::F32 | FloatTy::F64)).map(|float| Self::Quantity { quantity, unit, float });
+        let time_unit = last.parse::<Unit>().ok();
+        match (previous, last) {
+            (Some(RATE), _) => measured(last)
+                .filter(|&&(_, _, quantity, _)| quantity == Quantity::Length && !segments.next().is_some_and(worded))
+                .and_then(|&(_, _, _, unit)| stored(Quantity::LinearNumberDensity, unit)),
             (_, "timestamp") | (Some("since"), EPOCH) | (Some("created" | "updated" | "modified" | "expires" | "issued" | "started" | "finished" | "deleted"), "at") => time(Clock::Instant, None),
-            (previous, _) if unit.is_some() => time(if previous == Some(EPOCH) { Clock::Instant } else { Clock::Duration }, unit),
+            _ if time_unit.is_some() => time(if previous == Some(EPOCH) { Clock::Instant } else { Clock::Duration }, time_unit),
             (_, "timeout" | "interval" | "delay" | "ttl" | "duration" | "elapsed") => time(Clock::Duration, None),
             _ if let Some(&(_, constructor)) = BYTE_SIZES.iter().find(|&&(suffix, _)| suffix == last) => held.is_integral().then_some(Self::ByteSize { constructor }),
             (_, "path" | "dir" | "directory" | "file" | "folder") => is_text(cx, held).then_some(Self::Path { borrowed: held.is_ref() }),
             (_, "date") => is_text(cx, held).then_some(Self::Calendar { civil: "Date" }),
             (_, "time") => is_text(cx, held).then_some(Self::Calendar { civil: "Time" }),
             (_, "datetime") => is_text(cx, held).then_some(Self::Calendar { civil: "DateTime" }),
-            (previous, _) => QUANTITIES
-                .iter()
-                .find(|&&(suffix, prefixed, ..)| suffix == last && (previous.is_some() || !prefixed))
-                .filter(|_| held == cx.tcx.types.f64)
-                .map(|&(_, _, quantity, module, measure)| Self::Quantity { quantity, module, unit: measure }),
+            _ => measured(last).filter(|&&(_, prefixed, ..)| previous.is_some() || !prefixed).and_then(|&(_, _, quantity, unit)| stored(quantity, unit)),
         }
     }
 }
@@ -234,7 +255,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         .adt_def(item)
                         .all_fields()
                         .filter_map(|field| declaration(cx, tcx.local_def_id_to_hir_id(field.did.as_local()?), field.ident(tcx), type_of(field.did)))
-                        .filter(|&(.., domain, _)| !matches!(domain, Domain::Quantity { quantity: _, module: _, unit: _ }) || !serialized(item))
+                        .filter(|&(.., domain, _)| !matches!(domain, Domain::Quantity { quantity: _, unit: _, float: _ }) || !serialized(item))
                         .collect(),
                     DefKind::Fn | DefKind::AssocFn
                         if let declared = signature(tcx, item.to_def_id())
@@ -287,7 +308,18 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 Domain::Path { borrowed: _ } if constant => (format!("declare `{ident}` as `&std::path::Path` through `Path::new` under `#![feature(const_convert)]`"), None),
                 Domain::Path { borrowed } => (built(if borrowed { "&std::path::Path" } else { "std::path::PathBuf" }, None), None),
                 Domain::Calendar { civil } => (built(&format!("jiff::civil::{civil}"), None), None),
-                Domain::Quantity { quantity, module, unit } => (built(&format!("uom::si::f64::{quantity}"), Some(format!("{quantity}::new::<uom::si::{module}::{unit}>"))), None),
+                Domain::Quantity { quantity, unit, float } => {
+                    let declared = format!("uom::si::{}::{quantity}", float.name_str());
+                    let measure = format!("uom::si::{}::{}{unit}", <&str>::from(quantity), if quantity == Quantity::LinearNumberDensity { "per_" } else { "" });
+                    if constant {
+                        (
+                            format!("declare `{ident}` as `{declared}` through a `{quantity} {{ dimension: PhantomData, units: PhantomData, value }}` literal holding its value in base units"),
+                            Some(format!("`{quantity}::new::<{measure}>` builds it outside a const context")),
+                        )
+                    } else {
+                        (built(&declared, Some(format!("{quantity}::new::<{measure}>"))), None)
+                    }
+                }
             };
             let stated = match domain {
                 Domain::Time { clock: Clock::Instant, unit: _, float: _ } => "an instant",
@@ -295,7 +327,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 Domain::ByteSize { constructor: _ } => "a byte size",
                 Domain::Path { borrowed: _ } => "a path",
                 Domain::Calendar { civil: _ } => "a calendar value",
-                Domain::Quantity { quantity: _, module: _, unit: _ } => "a physical quantity",
+                Domain::Quantity { quantity: _, unit: _, float: _ } => "a physical quantity",
             };
             span_lint_hir_and_then(cx, PRIMITIVE_DOMAIN_BINDING, node, ident.span, format!("`{ident}` holds {stated} as `{held}`"), |diag| {
                 diag.help(help);

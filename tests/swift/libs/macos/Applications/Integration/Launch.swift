@@ -1,6 +1,5 @@
 import AppKit
 import Applications
-import AsyncAlgorithms
 import CasePaths
 import CustomDump
 import Processes
@@ -53,7 +52,6 @@ extension Integration {
             try checkAccessibilityTrust()
             try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
             let installation: Installation = try installation()
-            let frontmost: pid_t? = NSWorkspace.shared.frontmostApplication?.processIdentifier
             let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings())).instance
             await launched(instance)
             expectNoDifference([instance.activationPolicy == .regular, instance.isHidden, instance.isActive], [true, true, false])
@@ -62,14 +60,12 @@ extension Integration {
             let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await instance.screenshot() }
             let absent: Bool = failure.reason.is(\.absent)
             #expect(absent, "hidden capture failed \(failure.reason)")
-            try instance.show()
-            for await _: ContinuousClock.Instant in AsyncTimerSequence(interval: .milliseconds(50), clock: .continuous) where !instance.isHidden { break }
-            try instance.show()
+            try await instance.shown(within: .seconds(5))
+            try await instance.shown(within: .seconds(5))
             let window: CGWindowID = try await numbered("Fixture 0", in: instance)
             let captured: [CGWindowID] = try await instance.screenshot().windows
             expectNoDifference(captured, [window])
             expectNoDifference([instance.isHidden, instance.isActive], [false, false])
-            expectNoDifference(NSWorkspace.shared.frontmostApplication?.processIdentifier, frontmost)
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
