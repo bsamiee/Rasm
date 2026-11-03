@@ -43,7 +43,8 @@ const JUSTIFICATIONS = {
     ARABIC_JUSTIFICATION: { insertion: 'stretched', fractional: false },
     NASKH_JUSTIFICATION: { insertion: 'stretched', fractional: false },
 } as const satisfies Record<Members<typeof ParagraphJustificationOptions>, { readonly insertion: 'tatweel' | 'stretched'; readonly fractional: boolean }>;
-const KASHIDA_LENGTHS = Settings.fields.kashida.schema.fields.length.schema.literals;
+const LONGEST_KASHIDA_WIDTH = 3;
+const KASHIDA_WIDTH = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: LONGEST_KASHIDA_WIDTH })).annotate({ description: 'None, short, medium, long, read as the elongation degree' });
 const FEATURE_FLAGS = { otfTitling: 'titl', otfContextualAlternate: 'calt', otfDiscretionaryLigature: 'dlig', otfStylisticAlternate: 'salt', otfJustificationAlternate: 'jalt' } as const;
 const CAPITALIZATIONS = {
     CAP_TO_SMALL_CAP: ['c2sc', 'smcp'],
@@ -87,18 +88,24 @@ const numberingSystem = Schema.Struct({ digitsType: Schema.Literals(Struct.keys(
 const kashida = Schema.Struct({
     kashidas: Schema.Literals(['DEFAULT_KASHIDAS', 'KASHIDAS_OFF'] satisfies Members<typeof KashidasOptions>[]),
     paragraphJustification: Schema.optionalKey(Schema.Literals(Struct.keys(JUSTIFICATIONS))),
-    paragraphKashidaWidth: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: KASHIDA_LENGTHS.length - 1 })),
+    paragraphKashidaWidth: KASHIDA_WIDTH,
     otfJustificationAlternate: Schema.Boolean,
 }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.kashida.schema), {
-        decode: SchemaGetter.transform(({ kashidas, paragraphJustification = 'DEFAULT_JUSTIFICATION', paragraphKashidaWidth, otfJustificationAlternate: alternates }) => {
+        decode: SchemaGetter.transform(({ kashidas, paragraphJustification = 'DEFAULT_JUSTIFICATION', paragraphKashidaWidth: degree, otfJustificationAlternate: alternates }) => {
             const { insertion, fractional } = JUSTIFICATIONS[paragraphJustification];
-            return { insertion: kashidas === 'KASHIDAS_OFF' ? ('none' as const) : insertion, length: Array.getUnsafe(KASHIDA_LENGTHS, paragraphKashidaWidth), fractional, alternates };
+            return { insertion: kashidas === 'KASHIDAS_OFF' ? ('none' as const) : insertion, degree, fractional, alternates };
         }),
-        encode: SchemaGetter.transform(({ insertion, length, fractional, alternates: otfJustificationAlternate }) => {
-            const shared = { paragraphKashidaWidth: KASHIDA_LENGTHS.indexOf(length), otfJustificationAlternate };
-            return insertion === 'none' ? { kashidas: 'KASHIDAS_OFF' as const, ...shared } : { kashidas: 'DEFAULT_KASHIDAS' as const, paragraphJustification: `NASKH_${insertion === 'tatweel' ? 'TATWEEL' : 'KASHIDA'}_JUSTIFICATION${fractional ? '_FRAC' : ''}` as const, ...shared };
-        }),
+        encode: SchemaGetter.transformEffect(({ insertion, degree, fractional, alternates: otfJustificationAlternate }) =>
+            pipe(
+                Option.liftPredicate(degree, Schema.is(KASHIDA_WIDTH)),
+                Effect.fromOption(() => new SchemaIssue.InvalidValue({ message: `No paragraphKashidaWidth for degree ${degree}` }, degree)),
+                Effect.map((paragraphKashidaWidth) => {
+                    const shared = { paragraphKashidaWidth, otfJustificationAlternate };
+                    return insertion === 'none' ? { kashidas: 'KASHIDAS_OFF' as const, ...shared } : { kashidas: 'DEFAULT_KASHIDAS' as const, paragraphJustification: `NASKH_${insertion === 'tatweel' ? 'TATWEEL' : 'KASHIDA'}_JUSTIFICATION${fractional ? '_FRAC' : ''}` as const, ...shared };
+                }),
+            ),
+        ),
     }),
 );
 const marks = Schema.Struct(Struct.Record(['x', 'y'], Scaled(thousandths))).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' }));
@@ -110,7 +117,12 @@ const features = Schema.Struct({
 }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.features.schema), {
         decode: SchemaGetter.transform(({ otfStylisticSets, capitalization, opentypeFeatures = [], ...flags }) =>
-            Array.dedupe([...STYLISTIC_TAGS.filter((_, bit) => Math.floor(otfStylisticSets / 2 ** bit) % 2 === 1), ...Object.values(Record.filter(FEATURE_FLAGS, (_, flag) => flags[flag])), ...CAPITALIZATIONS[capitalization], ...opentypeFeatures.flatMap(([tag, value]) => (value === 0 ? [] : [tag]))]),
+            Array.dedupe([
+                ...STYLISTIC_TAGS.filter((_, bit) => Math.floor(otfStylisticSets / 2 ** bit) % 2 === 1),
+                ...Object.values(Record.filter(FEATURE_FLAGS, (_, flag) => flags[flag])),
+                ...CAPITALIZATIONS[capitalization],
+                ...Array.getSomes(opentypeFeatures.map(([tag, value]) => Option.liftPredicate(tag, () => value !== 0))),
+            ]),
         ),
         encode: SchemaGetter.transform((tags) => {
             const capitalization = Option.getOrElse(
@@ -119,7 +131,7 @@ const features = Schema.Struct({
             );
             const memberTags: readonly string[] = [...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]];
             return {
-                otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.flatMap((tag, bit) => (tags.includes(tag) ? [2 ** bit] : []))),
+                otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (tags.includes(tag) ? 2 ** bit : 0))),
                 ...Record.map(FEATURE_FLAGS, (tag) => tags.includes(tag)),
                 capitalization,
                 opentypeFeatures: Array.map(Array.difference(tags, memberTags), (tag) => [tag, 1] as const),

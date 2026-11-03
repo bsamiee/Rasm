@@ -51,7 +51,7 @@ class Kerning extends Data.Class<{
         (face: Face, rules: typeof Kerning.Rules.Type, run: typeof ShapedText.Run.Type = ARABIC) =>
         (before: string, after: string) => {
             const { boundary, correction } = Kerning.ruleFor(rules, before, after);
-            const { ascender, descender } = face.metrics.extents.hhea;
+            const { ascender, descender } = face.metrics.extents.horizontal;
             const profile = (text: string) => Profile.of(face, ShapedText.of(face, { ...run, text }));
             const [preceding, following] = [profile(before), profile(after)];
             const bounded = Profile.withBoundary(preceding, { slant: boundary.slant * face.unitsPerEm, top: Option.getOrElse(boundary.top, () => ascender) * face.unitsPerEm, foot: Option.getOrElse(boundary.foot, () => descender) * face.unitsPerEm });

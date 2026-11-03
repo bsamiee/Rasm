@@ -1,4 +1,4 @@
-import { Array, Data, Option, Order, Struct } from 'effect';
+import { Array, Data, Option, Order, pipe, Struct } from 'effect';
 import type { SvgPathCommand } from 'harfbuzzjs';
 import type { Face } from '#/face';
 import type { ShapedText } from '#/shaped-text';
@@ -43,11 +43,10 @@ class Profile extends Data.Class<{
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const minClearance = (right: Iterable<readonly [number, number]>, left: Edge) =>
-    Array.head(
-        Array.sort(
-            [...right].flatMap(([height, x]) => Option.toArray(Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x))),
-            Order.Number,
-        ),
+    pipe(
+        Array.getSomes(Array.map([...right], ([height, x]) => Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x))),
+        Option.liftPredicate(Array.isReadonlyArrayNonEmpty),
+        Option.map(Array.min(Order.Number)),
     );
 const deviation = (curve: readonly Point[]) => {
     const wangDivisor = 8;

@@ -1,6 +1,10 @@
 import { Effect, Schema, Struct } from 'effect';
 import { Tag } from '#/tags';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const KASHIDA_DEGREES = 12;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Range = (value: number, description: string) => {
@@ -15,9 +19,9 @@ const Kashida = Schema.Struct({
     insertion: Schema.Literals(['none', 'tatweel', 'stretched'])
         .annotate({ description: 'Elongation by tatweel characters or stretched glyphs' })
         .pipe(Schema.withConstructorDefault(Effect.succeed('none'))),
-    length: Schema.Literals(['none', 'short', 'medium', 'long'])
-        .annotate({ description: 'Kashida width' })
-        .pipe(Schema.withConstructorDefault(Effect.succeed('none'))),
+    degree: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: KASHIDA_DEGREES }))
+        .annotate({ description: `Elongation degree i, each chosen place stretching by 0 or by [i, ${KASHIDA_DEGREES}] nuqta, 0 none` })
+        .pipe(Schema.withConstructorDefault(Effect.succeed(0))),
     fractional: Schema.Boolean.annotate({ description: 'Elongation below one tatweel width' }).pipe(Schema.withConstructorDefault(Effect.succeed(false))),
     alternates: Schema.Boolean.annotate({ description: 'Justification alternates before elongation' }).pipe(Schema.withConstructorDefault(Effect.succeed(false))),
 });
@@ -47,4 +51,4 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Settings };
+export { KASHIDA_DEGREES, Settings };
