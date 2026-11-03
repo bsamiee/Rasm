@@ -969,9 +969,6 @@ catalogs:
     sharp:
       specifier: 0.35.5
       version: 0.35.5
-    smol-toml:
-      specifier: 1.9.1
-      version: 1.9.1
     spectral.js:
       specifier: 3.0.0
       version: 3.0.0
@@ -2088,9 +2085,6 @@ importers:
       sharp:
         specifier: 'catalog:'
         version: 0.35.5(@types/node@26.6.6)
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.9.1
       spectral.js:
         specifier: 'catalog:'
         version: 3.0.0
@@ -2656,6 +2650,9 @@ importers:
 
   libs/typescript/graphics/typography:
     dependencies:
+      '@quran.ws/text':
+        specifier: 'catalog:'
+        version: 0.1.0
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
@@ -2671,6 +2668,9 @@ importers:
       icu:
         specifier: 'catalog:'
         version: 2.4.0
+      quran-meta:
+        specifier: 'catalog:'
+        version: 7.0.0
     devDependencies:
       '@types/fontkit':
         specifier: 'catalog:'
@@ -14360,10 +14360,6 @@ packages:
 
   smol-toml@1.9.0:
     resolution: {integrity: sha512-hpd+HLON7HdZXqYchMM/+LaTTbdK0AU3NngIJ4KVyWbY9bfQqdL9cD+4yf6dUoU2Ap4VsU0JkQi6FxAI1B2mXQ==}
-    engines: {node: '>= 18'}
-
-  smol-toml@1.9.1:
-    resolution: {integrity: sha512-j7WyPdf0CJoutMzMoPLF/bVXHtKZIT9Rb4eGeEbWw8X2t5oirjPgpL+OpaENZrILYaXqYwnVH+qgUwVbl+pUJQ==}
     engines: {node: '>= 18'}
 
   snappyjs@0.6.1:
@@ -29615,8 +29611,6 @@ snapshots:
   smob@1.6.2: {}
 
   smol-toml@1.9.0: {}
-
-  smol-toml@1.9.1: {}
 
   snappyjs@0.6.1: {}
 

@@ -8,6 +8,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
+        "./column": "./column.ts",
         "./face": "./face.ts",
         "./justification": "./justification.ts",
         "./kerning": "./kerning.ts",
@@ -17,14 +18,17 @@
         "./source": "./source.ts",
         "./symbols": "./symbols.ts",
         "./typography-error": "./typography-error.ts",
+        "./verse": "./verse.ts",
         "./word": "./word.ts"
     },
     "dependencies": {
+        "@quran.ws/text": "catalog:",
         "@rasm/search": "workspace:*",
         "effect": "catalog:",
         "fontkit": "catalog:",
         "harfbuzzjs": "catalog:",
-        "icu": "catalog:"
+        "icu": "catalog:",
+        "quran-meta": "catalog:"
     },
     "devDependencies": {
         "@types/fontkit": "catalog:",

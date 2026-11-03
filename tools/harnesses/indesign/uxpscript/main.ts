@@ -1,10 +1,10 @@
 import fs from 'adobe:fs';
-import indesign, { type Enumerator, type ScriptLanguage } from 'adobe:indesign';
+import indesign, { app, type Enumerator, type ScriptLanguage } from 'adobe:indesign';
 import uxp from 'adobe:uxp';
 import { thrown } from '@rasm/harnesses/error';
 import { Encoded, fields, type HostCase, HostOutcome, Recorded, Reply } from '@rasm/harnesses/indesign/contract';
 import { bury, JsonObject, revive, Tagged } from '@rasm/harnesses/values';
-import { Equal, Iterable, identity, Match, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
+import { Array, Equal, Function, Iterable, identity, Match, Option, Predicate, pipe, Record, Result, Schema, String as Text } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -59,13 +59,14 @@ const CONTAINERS = ['dialogColumns', 'dialogRows', 'borderPanels', 'enablingGrou
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Host = Schema.Struct({ script: Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }) });
+const Strings = Schema.Array(Schema.String);
+const Host = Schema.Struct({ script: Schema.Struct({ args: Strings, setResult: Schema.declare(Predicate.isFunction) }) });
+const EnumTag = Schema.Struct({ $: Schema.TemplateLiteral(['enum:', Schema.String]) });
 const same = Schema.toEquivalence(Schema.Json);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [VALUES]
-const { app } = indesign;
 const names = Object.getOwnPropertyNames(indesign).filter((name) => name !== 'app');
 const field = (target: unknown, key: PropertyKey): unknown => Reflect.get(new Object(target), key);
 const message = (error: unknown) => String(field(error, 'message') ?? error);
@@ -77,7 +78,7 @@ const invoked = (target: unknown, key: string, args: readonly unknown[]): unknow
     return Reflect.apply(method, target, args);
 };
 const items = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
-const strings = (value: unknown): readonly string[] => Option.getOrElse(Schema.decodeUnknownOption(Schema.Array(Schema.String))(value), () => []);
+const strings = (value: unknown): readonly string[] => Option.getOrElse(Schema.decodeUnknownOption(Strings)(value), () => []);
 const enumerator = (value: unknown): value is Enumerator => value instanceof indesign.Enumerator;
 const equal = (left: unknown, right: unknown) => enumerator(left) && enumerator(right) && left.equals(right);
 const members = (enumeration: unknown) => Object.getOwnPropertyNames(Object.getPrototypeOf(enumeration)).filter((key) => enumerator(field(enumeration, key)) && String(field(enumeration, key)) === key);
@@ -116,8 +117,8 @@ const codecOf = (enumerations: Batch['enumerations']): Codec => {
 };
 const compiled = (parameters: readonly string[], code: string) =>
     // biome-ignore lint/nursery/noImpliedEval: case data and originals compile inside the host
-    new Function(...parameters, code);
-const lines = (error: unknown) => Array.from(String(field(error, 'stack') ?? '').matchAll(STACK_LINE), (found) => Number(found.groups?.line));
+    new globalThis.Function(...parameters, code);
+const lines = (error: unknown) => Array.map(Array.fromIterable(String(field(error, 'stack') ?? '').matchAll(STACK_LINE)), (found) => Number(found.groups?.line));
 const HEAD = (() => {
     try {
         compiled([], 'return function () {throw new Error();\n};')()();
@@ -148,7 +149,7 @@ const keyOf = (list: unknown): Option.Option<string> =>
             }
         }),
     );
-const preferences = (target: unknown) => Object.keys(Object.getOwnPropertyDescriptors(Object.getPrototypeOf(target))).filter((name) => name !== 'parent' && name !== 'properties' && !Array.from<string>(LIVE).includes(name));
+const preferences = (target: unknown) => Object.keys(Object.getOwnPropertyDescriptors(Object.getPrototypeOf(target))).filter((name) => name !== 'parent' && name !== 'properties' && !Array.contains<string>(LIVE, name));
 const activeOf = () => Result.getSuccess(Result.try(() => app.activeDocument));
 const pinned = <A>(work: () => A): A => {
     const unit = app.scriptPreferences.measurementUnit;
@@ -162,10 +163,13 @@ const pinned = <A>(work: () => A): A => {
 const survey = () => {
     const settings = app.colorSettings;
     return {
-        enumerations: Object.fromEntries(names.filter((name) => Reflect.get(indesign, name) instanceof indesign.Enumeration).map((name) => [name, members(Reflect.get(indesign, name))])),
+        enumerations: Record.fromIterableWith(
+            names.filter((name) => Reflect.get(indesign, name) instanceof indesign.Enumeration),
+            (name) => [name, members(Reflect.get(indesign, name))],
+        ),
         cmyk: settings.workingSpaceCMYKList,
         rgb: settings.workingSpaceRGBList,
-        languages: Result.getOrThrow(Schema.decodeResult(Schema.Array(Schema.String))(app.languagesWithVendors.everyItem().name)),
+        languages: Result.getOrThrow(Schema.decodeResult(Strings)(app.languagesWithVendors.everyItem().name)),
         host: { locale: String(app.locale), featureSet: String(app.featureSet), dom: String(app.scriptPreferences.version) },
     };
 };
@@ -182,7 +186,9 @@ const scanned = () => {
                 if (owned(value)) {
                     const every = invoked(value, 'everyItem', []);
                     const closes = Predicate.isFunction(field(every, 'close')) || !Predicate.isFunction(field(every, 'remove'));
-                    Option.match(keyOf(value), { onNone: () => (closes ? undefined : found.unread.push(`${name}: items hold neither id nor name`)), onSome: (key) => (closes ? undefined : found.collections.push({ name, key })) });
+                    if (!closes) {
+                        Option.match(keyOf(value), { onNone: () => found.unread.push(`${name}: items hold neither id nor name`), onSome: (key) => found.collections.push({ name, key }) });
+                    }
                 } else if (Predicate.isObject(value) && !Array.isArray(value) && !('id' in value) && Predicate.isObject(field(value, 'properties'))) {
                     found.preferences.push(name);
                 }
@@ -193,32 +199,30 @@ const scanned = () => {
     return { ...found, preferences: [...found.preferences, 'scriptPreferences'] };
 };
 const bound = (value: Schema.Json) => Predicate.isObject(value) && !Array.isArray(value) && String(field(value, '$')).startsWith('object:/document');
-const snapshot = (found: ReturnType<typeof scanned>, { encoded }: Codec) =>
-    pinned(() => ({
-        preferences: found.preferences.map((name) => {
-            const target = field(app, name);
-            const saved = Object.entries(new Object(field(target, 'properties'))).filter(([key, value]) => key !== 'measurementUnit' && !bound(encoded(value)));
-            return { name, target, saved, encoded: new Map(saved.map(([key, value]) => [key, encoded(value)])) };
-        }),
-        collections: found.collections.map(({ name, key }) => ({ name, key, list: field(app, name), known: new Set(items(field(invoked(field(app, name), 'everyItem', []), key))) })),
-    }));
-const differences = (held: ReturnType<typeof snapshot>, { encoded }: Codec) =>
-    pinned(() => [
-        ...held.preferences.flatMap(({ name, target, saved, encoded: was }) => {
-            const current = field(target, 'properties');
-            return saved
-                .filter(([key]) => !(bound(encoded(field(current, key))) || Equal.equals(encoded(field(current, key)), was.get(key))))
-                .map(([key, before]) => ({ member: `${name}.${key}`, before, after: field(current, key), undo: () => (name === 'scriptPreferences' ? Reflect.set(new Object(target), key, before) : undefined) }));
-        }),
-        ...held.collections.flatMap(({ name, key, list, known }) =>
-            items(field(invoked(list, 'everyItem', []), key))
-                .filter((id) => !known.has(id))
-                .map((id) => {
-                    const item = invoked(list, key === 'id' ? 'itemByID' : 'itemByName', [id]);
-                    return { member: name, before: undefined, after: item, undo: () => invoked(item, 'remove', []) };
-                }),
-        ),
-    ]);
+const snapshot = (found: ReturnType<typeof scanned>, { encoded }: Codec) => ({
+    preferences: found.preferences.map((name) => {
+        const target = field(app, name);
+        const saved = Object.entries(new Object(field(target, 'properties'))).filter(([key, value]) => key !== 'measurementUnit' && !bound(encoded(value)));
+        return { name, target, saved, encoded: new Map(saved.map(([key, value]) => [key, encoded(value)])) };
+    }),
+    collections: found.collections.map(({ name, key }) => ({ name, key, list: field(app, name), known: new Set(items(field(invoked(field(app, name), 'everyItem', []), key))) })),
+});
+const differences = (held: ReturnType<typeof snapshot>, { encoded }: Codec) => [
+    ...held.preferences.flatMap(({ name, target, saved, encoded: was }) => {
+        const current = field(target, 'properties');
+        return saved
+            .filter(([key]) => !(bound(encoded(field(current, key))) || Equal.equals(encoded(field(current, key)), was.get(key))))
+            .map(([key, before]) => ({ member: `${name}.${key}`, before, after: field(current, key), undo: name === 'scriptPreferences' ? Reflect.set.bind(Reflect, new Object(target), key, before) : Function.constVoid }));
+    }),
+    ...held.collections.flatMap(({ name, key, list, known }) =>
+        items(field(invoked(list, 'everyItem', []), key))
+            .filter((id) => !known.has(id))
+            .map((id) => {
+                const item = invoked(list, key === 'id' ? 'itemByID' : 'itemByName', [id]);
+                return { member: name, before: undefined, after: item, undo: invoked.bind(undefined, item, 'remove', []) };
+            }),
+    ),
+];
 const restore = (held: ReturnType<typeof snapshot>, codec: Codec): readonly string[] =>
     pinned(() => [
         ...differences(held, codec).flatMap(({ member, undo }) => {
@@ -240,7 +244,7 @@ const reset = (owner: object, key: PropertyKey, was: PropertyDescriptor | undefi
     }
 };
 const globals = () => {
-    const owners: object[] = [globalThis, Object.prototype, Array.prototype, String.prototype, Number.prototype, Boolean.prototype, Function.prototype, Promise.prototype, Error.prototype];
+    const owners: object[] = [globalThis, Object.prototype, globalThis.Array.prototype, String.prototype, Number.prototype, Boolean.prototype, globalThis.Function.prototype, Promise.prototype, Error.prototype];
     const held = owners.map((owner) => ({ owner, descriptors: new Map(Reflect.ownKeys(owner).map((key) => [key, Object.getOwnPropertyDescriptor(owner, key)] as const)) }));
     return (): readonly string[] => held.flatMap(({ owner, descriptors }) => Reflect.ownKeys(owner).flatMap((key) => (unchanged(descriptors.get(key), Object.getOwnPropertyDescriptor(owner, key)) ? [] : reset(owner, key, descriptors.get(key)))));
 };
@@ -284,7 +288,11 @@ const dialogs = (session: Session): unknown[] => {
                 lastItem: () => listed.at(-1),
             });
         };
-        return Object.assign(made, { destroy: () => Object.assign(made, { isValid: false }) }, Object.fromEntries(CONTAINERS.map((child) => [child, collection(child)])));
+        return Object.assign(
+            made,
+            { destroy: () => Object.assign(made, { isValid: false }) },
+            Record.fromIterableWith(CONTAINERS, (child) => [child, collection(child)]),
+        );
     };
     return Object.assign(list, {
         add: (properties: Node = {}) => {
@@ -301,9 +309,9 @@ const dialogs = (session: Session): unknown[] => {
                             const kind = String(row.kind);
                             const index = counts.get(kind) ?? 0;
                             counts.set(kind, index + 1);
-                            const member = VALUED[kind];
-                            Option.map(Record.get(filled, `${kind}#${index}`), (value) => (member === undefined ? undefined : Reflect.set(row, member, value)));
-                            return session.codec.encoded({ kind, index, label: row.staticLabel, ...(member === undefined ? {} : { value: row[member] }) });
+                            const member = Record.get(VALUED, kind);
+                            Option.match(Option.all([member, Record.get(filled, `${kind}#${index}`)]), { onNone: Function.constVoid, onSome: ([held, value]) => Reflect.set(row, held, value) });
+                            return session.codec.encoded({ kind, index, label: row.staticLabel, ...Record.getSomes({ value: Option.map(member, (held) => row[held]) }) });
                         }),
                     });
                     return answer.answer ?? true;
@@ -421,7 +429,7 @@ const installed = (session: Session) => {
         },
         open: (file: unknown, showing: unknown, options: unknown) => {
             const opened: unknown = Reflect.apply(app.open, app, [file, showing ?? true, options]);
-            session.documents.push(...(Array.isArray(opened) ? opened : [opened]));
+            session.documents.push(...Array.ensure(opened));
             return opened;
         },
         ...(session.item.precondition.menus === true ? menus(session) : {}),
@@ -429,21 +437,23 @@ const installed = (session: Session) => {
     const lives = (key: PropertyKey): key is keyof typeof live => Predicate.isString(key) && Object.hasOwn(live, key);
     const owns = (key: PropertyKey): key is string => Predicate.isString(key) && Object.hasOwn(own, key);
     const fake = shadow(app, (key, value) =>
-        Match.value(key).pipe(
-            Match.when(lives, (held) => live[held]()),
-            Match.when(owns, (held) => own[held]),
-            Match.orElse(() => (Predicate.isFunction(value) ? value.bind(app) : value)),
+        Match.value({ key, value }).pipe(
+            Match.when({ key: lives }, ({ key: held }) => live[held]()),
+            Match.when({ key: owns }, ({ key: held }) => own[held]),
+            Match.when({ value: Predicate.isFunction }, ({ value: held }) => held.bind(app)),
+            Match.orElse(() => value),
         ),
     );
     const shadowed = shadow(indesign, (key, value) => (key === 'app' ? fake : value));
     const script = { args: session.item._tag === 'Probe' ? [] : session.item.args.map(String), setResult: (value: unknown) => Object.assign(session, { value: Option.some(value) }), executionContext: field(field(uxp, 'script'), 'executionContext') };
     const storage = field(uxp, 'storage');
     const files = shadow(new Object(field(storage, 'localFileSystem')), (member, value) => (member === 'getFileForOpening' || member === 'getFileForSaving' || member === 'getFolder' ? picked(session, String(member)) : value));
+    const stored = shadow(new Object(storage), (member, held) => (member === 'localFileSystem' ? files : held));
     const host = shadow(uxp, (key, value) =>
         Match.value(key).pipe(
             Match.when('script', () => script),
             Match.when('shell', () => ({ openPath: (path: string) => session.record.activations.push(`openPath ${path}`), openExternal: (url: string) => session.record.activations.push(`openExternal ${url}`) })),
-            Match.when('storage', () => shadow(new Object(storage), (member, held) => (member === 'localFileSystem' ? files : held))),
+            Match.when('storage', () => stored),
             Match.orElse(() => value),
         ),
     );
@@ -461,11 +471,16 @@ const given = (fake: unknown, expression: string, doc: unknown, made: Node, stat
 const assign = (fake: unknown, target: string, value: unknown, doc: unknown, made: Node) => {
     const at = target.indexOf('[*]');
     const count = at < 0 ? 1 : Number(field(given(fake, target.slice(0, at), doc, made), 'length'));
-    Array.from({ length: count }, (_, index) => target.replaceAll('[*]', `[${index}]`)).forEach((path) => Reflect.set(new Object(given(fake, path.slice(0, path.lastIndexOf('.')), doc, made)), path.slice(path.lastIndexOf('.') + 1), value));
+    Array.fromIterable(
+        Iterable.take(
+            Iterable.makeBy((index) => target.replaceAll('[*]', `[${index}]`)),
+            count,
+        ),
+    ).forEach((path) => Reflect.set(new Object(given(fake, path.slice(0, path.lastIndexOf('.')), doc, made)), Array.lastNonEmpty(Text.split(path, '.')), value));
 };
 const differing = (codec: Codec, target: unknown, wanted: Schema.Json, path: string): readonly string[] => {
     const holds = Match.value(wanted).pipe(
-        Match.when(Schema.is(Schema.Struct({ $: Schema.TemplateLiteral(['enum:', Schema.String]) })), (tag) => equal(target, codec.revived(tag))),
+        Match.when(Schema.is(EnumTag), (tag) => equal(target, codec.revived(tag))),
         Match.when(Schema.is(Tagged), () => same(codec.encoded(target), wanted)),
         Match.when(Schema.is(JsonObject), () => true),
         Match.when(Predicate.isString, (name) => same(codec.encoded(target), wanted) || field(target, 'name') === name),
@@ -490,9 +505,9 @@ const opened = (session: Session): readonly unknown[] => {
         }
         return doc;
     });
-    const missing = fonts.flatMap((name) => {
+    const missing = Array.filterMap(fonts, (name) => {
         const font = app.fonts.itemByName(name);
-        return font.isValid && indesign.FontStatus.INSTALLED.equals(font.status) ? [] : [`${name} ${font.isValid ? String(font.status) : 'absent'}`];
+        return font.isValid && indesign.FontStatus.INSTALLED.equals(font.status) ? Result.failVoid : Result.succeed(`${name} ${font.isValid ? String(font.status) : 'absent'}`);
     });
     if (missing.length > 0) {
         throw new Error(`fonts not installed: ${missing.join(', ')}`);
@@ -530,15 +545,8 @@ const reads = (session: Session, fake: unknown, docs: readonly unknown[], made: 
         Reflect.set(new Object(held), 'zeroPoint', [0, 0]);
     });
     try {
-        const evaluate = (expression: string) => given(fake, expression, doc, made);
-        const rows = Record.collect(session.item.read, (key, expression) => {
-            try {
-                return { state: { [key]: evaluate(expression) }, failed: {} };
-            } catch (error) {
-                return { state: {}, failed: { [key]: message(error) } };
-            }
-        });
-        return { state: session.codec.record(Object.assign({}, ...rows.map((row) => row.state))), failed: Record.map(Object.assign({}, ...rows.map((row) => row.failed)), String) };
+        const [read, failed] = Record.partition(session.item.read, (expression) => Result.try({ try: () => given(fake, expression, doc, made), catch: message }));
+        return { state: session.codec.record(read), failed };
     } finally {
         frames.forEach(([held, origin, zero]) => {
             Object.assign(new Object(field(held, 'viewPreferences')), { rulerOrigin: origin });
@@ -612,7 +620,7 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
     };
     const unit = app.scriptPreferences.measurementUnit;
     const active = Option.map(activeOf(), ({ id }) => id);
-    const held = snapshot(found, codec);
+    const held = pinned(() => snapshot(found, codec));
     const unglobal = globals();
     const leaked: string[] = [];
     const made: Node = {};
@@ -631,15 +639,16 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
             prepare(shadows.fake, docs[0], session, made);
             const before = reads(session, shadows.fake, docs, made);
             const inner: { done?: ReturnType<typeof ran>; after?: ReturnType<typeof reads> } = {};
-            const rolled = Result.try(() =>
-                app.doScript(
+            const rolled = Result.try(
+                app.doScript.bind(
+                    app,
                     () => {
                         exported(session, docs, 'before');
                         const history = docs.map((doc) => strings(field(doc, 'undoHistory')));
                         inner.done = ran(session, shadows, docs, made);
                         session.record.undo = docs.flatMap((doc, index) => (field(doc, 'isValid') === true ? strings(field(doc, 'undoHistory')).slice(0, strings(field(doc, 'undoHistory')).length - (history[index]?.length ?? 0)) : []));
                         inner.after = reads(session, shadows.fake, docs, made);
-                        session.record.writes = differences(held, codec).map(({ member, before: previous, after: now }) => (previous === undefined ? { member, after: codec.encoded(now) } : { member, before: codec.encoded(previous), after: codec.encoded(now) }));
+                        session.record.writes = pinned(() => differences(held, codec)).map(({ member, before: previous, after: now }) => (previous === undefined ? { member, after: codec.encoded(now) } : { member, before: codec.encoded(previous), after: codec.encoded(now) }));
                         exported(session, docs, 'after');
                         throw new Error('rollback');
                     },
@@ -649,10 +658,7 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
                     item.name,
                 ),
             );
-            const { done, after } = Option.getOrThrowWith(
-                Option.zipWith(Option.fromUndefinedOr(inner.done), Option.fromUndefinedOr(inner.after), (finished, read) => ({ done: finished, after: read })),
-                () => Result.match(rolled, { onFailure: identity, onSuccess: () => new Error('case did not finish') }),
-            );
+            const { done, after } = Option.getOrThrowWith(Option.all({ done: Option.fromUndefinedOr(inner.done), after: Option.fromUndefinedOr(inner.after) }), () => Result.match(rolled, { onFailure: identity, onSuccess: () => new Error('case did not finish') }));
             return { ...done, before: before.state, beforeFailed: before.failed, read: after.state, readFailed: after.failed };
         } catch (error) {
             return { completion: { _tag: 'Failed', reason: message(error) } };
@@ -689,7 +695,7 @@ const respond = ({ script: host }: typeof Host.Type) => {
             const header = {
                 application: app.name,
                 version: app.version,
-                state: { modal: app.modalState, cmyk: settings.workingSpaceCMYK, rgb: settings.workingSpaceRGB, defaults: coder.record(Object.fromEntries(found.preferences.map((name) => [name, field(field(app, name), 'properties')]))), unread: found.unread },
+                state: { modal: app.modalState, cmyk: settings.workingSpaceCMYK, rgb: settings.workingSpaceRGB, defaults: coder.record(Record.fromIterableWith(found.preferences, (name) => [name, field(field(app, name), 'properties')])), unread: found.unread },
                 ...(batch.survey ? { survey: survey() } : {}),
             };
             const appended = (line: string) => fs.writeFileSync(batch.records, `${String(fs.readFileSync(batch.records, { encoding: 'utf-8' }))}${line}\n`);

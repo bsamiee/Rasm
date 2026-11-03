@@ -1,21 +1,31 @@
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import type { State } from '@rasm/automation/applications';
-import { Array, ByteSize, DateTime, Duration, Effect, FileSystem, type LogLevel, Option, Path, Schema, String, UndefinedOr } from 'effect';
+import { Array, ByteSize, DateTime, Duration, Effect, FileSystem, type LogLevel, Option, Path, Predicate, Record, Schema, String, Struct, UndefinedOr } from 'effect';
+import type { ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/error';
 import { printed } from '#/instance';
-import { Kind, Run, tagOf } from '#/log';
+import { type Kind, type Messages, messageOf, record, tagOf } from '#/log';
 import type { Halted } from '#/results';
-import type { Host, Instance, Live, Services } from '#/session';
+import type { Host, Instance } from '#/session';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Text = (contents: string, instance: Instance) => string;
+type Lifetime = Pick<Instance, 'pid' | 'started' | 'ended'> & { readonly chosen: Pick<Instance['chosen'], 'app'> };
+type Facts = Omit<(typeof Messages)['report linked']['Encoded'], 'kind' | 'file' | 'pid' | 'started' | 'case'>;
+type Text = (contents: string, instance: Instance) => Option.Option<Facts>;
+type Diagnosis = (contents: string, instance: Pick<Lifetime, 'pid'>) => Option.Option<Facts>;
 interface Rule {
     readonly kind: typeof Kind.Type;
     readonly pattern: string;
     readonly root: string;
     readonly text?: Text;
+}
+interface Linked {
+    readonly kind: typeof Kind.Type;
+    readonly at: DateTime.Utc;
+    readonly file: Option.Option<string>;
+    readonly facts: Facts;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -27,10 +37,15 @@ const FIELD = /^(?<key>[A-Z][\w/ ]*?):\s+(?<value>.*\S)/gmu;
 const SINCE = new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'UTC' });
 const ENTRY = /^(?=Adobe InDesign Protective Shutdown Log$)/mu;
 const SESSION = /^Session started up at (?<time>\d{2}:\d{2}) on \w+, (?<date>.+)$/mu;
-const LOADED = /^.*\tLoaded\n/gmu;
+const TABLE = /^Registered plugins:\n.*\n-+\n(?:.*\t.*\n)*/gmu;
 const BREAKS = /\r\n?/gu;
 const STAMP = /_(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})_(?<hour>\d{2})-(?<minute>\d{2})-(?<second>\d{2})_/u;
-const UNSAMPLED = 'not sampling';
+const BODY = /^\{\n[\s\S]*?^\}$/mu;
+const HEAVIEST = /^Heaviest stack for the (?:main thread of the )?target process:\n(?<block>(?:.+\n)+)/mu;
+const STACKED = /^\s*\*?\d+\s+(?<symbol>.+?)(?: \+ \d+)?(?: \((?<image>[^()]+?) \+ \d+\))?(?: \[0x[\da-f]+\])?$/u;
+const FAILING = /\b(?:error|exception|fatal|traceback)\b/iu;
+const TRACED = /^Traceback \(most recent call last\):$/u;
+const UNREADABLE = /[\0�]/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -45,13 +60,15 @@ const Ips = Schema.fromJsonString(
         threads: Schema.optionalKey(Schema.Array(Schema.Struct({ frames: Schema.Array(Schema.Struct({ imageIndex: Schema.Int, imageOffset: Schema.Int, symbol: Schema.optionalKey(Schema.String) })) }))),
         usedImages: Schema.optionalKey(Schema.Array(Schema.Struct({ name: Schema.optionalKey(Schema.String) }))),
     }),
-).annotate({ description: 'ReportCrash, ExcUserFault and JetsamEvent report body after its header line' });
+).annotate({ description: 'ReportCrash, ExcUserFault, JetsamEvent and Adobe crash reporter report body, the pretty-printed object after the header line' });
 const Diagnosed = Schema.Struct({
     PID: Schema.FiniteFromString,
     Path: Schema.String,
+    Event: Schema.String,
     'Date/Time': Schema.DateTimeUtcFromString,
     'End time': Schema.DateTimeUtcFromString,
     'Time Since Fork': Schema.optionalKey(Schema.TemplateLiteralParser([Schema.Finite, 's'])),
+    Duration: Schema.optionalKey(Schema.TemplateLiteralParser([Schema.Finite, 's'])),
 }).annotate({ description: 'Header fields of a spindump hang, cpu resource or disk writes report' });
 const Stamp = Schema.Struct({
     year: Schema.FiniteFromString,
@@ -65,31 +82,32 @@ const Stamp = Schema.Struct({
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [LINKS]
-const lifetime = ({ started, ended }: Instance) => ({
-    launch: { minimum: DateTime.subtractDuration(started, CLOCKS), maximum: DateTime.addDuration(started, LAUNCH) },
+const lifetime = ({ started, ended }: Lifetime) => ({
+    launch: { minimum: DateTime.subtractDuration(started, CLOCKS), maximum: DateTime.min(DateTime.addDuration(started, LAUNCH), ended) },
     alive: { minimum: DateTime.subtractDuration(started, CLOCKS), maximum: DateTime.addDuration(ended, CLOCKS) },
 });
 const local = (at: DateTime.DateTime.Input) => Option.map(DateTime.makeZoned(at, { timeZone: DateTime.zoneMakeLocal(), adjustForTimeZone: true }), DateTime.toUtc);
-const ipsOf = (report: string) => Schema.decodeOption(Ips)(report.slice(report.indexOf('\n') + 1));
-const launchedAs = (instance: Instance) => (report: string) => {
+const ipsOf = (report: string) => Option.flatMap(Option.fromNullishOr(BODY.exec(report)?.[0]), Schema.decodeOption(Ips));
+const fieldsOf = (report: string) =>
+    Schema.decodeUnknownOption(Diagnosed)(
+        Object.fromEntries(
+            Array.dedupeWith(
+                Array.fromIterable(report.matchAll(FIELD)).map(({ groups }) => [groups?.key ?? '', groups?.value ?? ''] as const),
+                ([left], [right]) => left === right,
+            ),
+        ),
+    );
+const launchedAs = (instance: Lifetime) => (report: string) => {
     const { launch, alive } = lifetime(instance);
     return Option.exists(
         ipsOf(report),
-        ({ pid, procLaunch, date, processes = [] }) =>
-            (pid === instance.pid && Option.exists(Option.fromUndefinedOr(procLaunch), (at) => DateTime.between(at, launch))) || (Option.exists(Option.fromUndefinedOr(date), (at) => DateTime.between(at, alive)) && processes.some((held) => held.pid === instance.pid && held.reason !== undefined)),
+        ({ pid, procLaunch, date, processes = [] }) => (pid === instance.pid && Option.exists(Option.fromUndefinedOr(procLaunch), DateTime.between(launch))) || (Option.exists(Option.fromUndefinedOr(date), DateTime.between(alive)) && processes.some((held) => held.pid === instance.pid && held.reason !== undefined)),
     );
 };
-const diagnosed = (instance: Instance) => (report: string) => {
+const diagnosed = (instance: Lifetime) => (report: string) => {
     const { launch, alive } = lifetime(instance);
     return Option.exists(
-        Schema.decodeUnknownOption(Diagnosed)(
-            Object.fromEntries(
-                Array.dedupeWith(
-                    Array.fromIterable(report.matchAll(FIELD)).map(({ groups }) => [groups?.key ?? '', groups?.value ?? ''] as const),
-                    ([left], [right]) => left === right,
-                ),
-            ),
-        ),
+        fieldsOf(report),
         (fields) =>
             fields.PID === instance.pid &&
             fields.Path.startsWith(instance.chosen.app) &&
@@ -99,106 +117,172 @@ const diagnosed = (instance: Instance) => (report: string) => {
             }),
     );
 };
-const diagnostics = Effect.fn('diagnostics')(function* (suffixes: readonly string[], owned: (instance: Instance) => (report: string) => boolean, instance: Instance) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const files = (yield* Effect.forEach(FOLDERS, (folder) => fs.glob(path.join(folder, `*{${suffixes.join(',')}}`)))).flat();
-    const { minimum } = lifetime(instance).alive;
-    const recent = ({ mtime }: FileSystem.File.Info) => Option.exists(Option.map(mtime, DateTime.fromDateUnsafe), (at) => DateTime.isGreaterThanOrEqualTo(at, minimum));
-    const fresh = yield* Effect.filter(files, (file) => Effect.map(fs.stat(file), recent), { concurrency: 'unbounded' });
-    return yield* Effect.filter(fresh, (file) => Effect.map(fs.readFileString(file), owned(instance)), { concurrency: 'unbounded' });
-});
-const spun = Effect.fn('spun')(function* (instance: Instance) {
-    const [fs, path, { folder }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Run]);
-    const file = path.join(folder, `${instance.pid}.spin.log`);
-    const shown = yield* printed('log', ['show', '--style', 'compact', '--predicate', 'subsystem == "com.apple.spindump" OR subsystem == "com.apple.libquit"', '--start', `${SINCE.format(DateTime.toDateUtc(instance.started))}+0000`]);
-    const lines = Array.fromIterable(String.linesIterator(shown)).filter((line) => line.includes(`[${instance.pid}]`) && !line.includes(UNSAMPLED));
-    return yield* Array.match(lines, { onEmpty: () => Effect.succeed([]), onNonEmpty: (held) => Effect.as(fs.writeFileString(file, `${held.join('\n')}\n`), [file]) });
-});
-const crashed = Effect.fn('crashed')(function* (exit: typeof State.cases.Exited.Type) {
-    const fs = yield* FileSystem.FileSystem;
-    const report = Option.map(Option.fromUndefinedOr(exit.report), ({ url }) => fileURLToPath(url));
-    const ips = yield* Option.match(report, { onNone: () => Effect.succeedNone, onSome: (file) => Effect.map(Effect.option(fs.readFileString(file)), Option.flatMap(ipsOf)) });
-    const thread = Option.flatMap(ips, ({ faultingThread, threads }) => Array.get(threads ?? [], faultingThread ?? 0));
-    return {
-        _tag: 'Crashed',
-        ...(exit.status === undefined ? {} : { status: exit.status }),
-        ...(exit.signal === undefined ? {} : { signal: exit.signal }),
-        ...Option.match(report, { onNone: () => ({}), onSome: (held) => ({ report: held }) }),
-        ...Option.match(
-            Option.flatMap(ips, ({ exception }) => Option.fromUndefinedOr(exception)),
-            { onNone: () => ({}), onSome: ({ type, signal }) => ({ type: [type, signal].filter((part) => part !== undefined).join(' ') }) },
-        ),
-        ...Option.match(
-            Option.zipWith(thread, ips, ({ frames }, { usedImages }) => frames.map(({ imageIndex, imageOffset, symbol }) => `${usedImages?.[imageIndex]?.name ?? imageIndex} ${symbol ?? `+${imageOffset}`}`)),
-            { onNone: () => ({}), onSome: (frames) => ({ frames }) },
-        ),
-    } satisfies typeof Halted.cases.Crashed.Type;
-});
 
 // --- [TEXT]
-const whole: Text = (contents) => contents.replaceAll(BREAKS, '\n');
-const entries: Text = (contents, instance) => {
+const lined =
+    (kept: (contents: string, instance: Instance) => readonly string[]): Text =>
+    (contents, instance) =>
+        Option.map(Option.liftPredicate(kept(contents, instance), Array.isReadonlyArrayNonEmpty), (lines) => ({ lines }));
+const whole = (contents: string) => contents.replaceAll(BREAKS, '\n').split('\n').filter(String.isNonEmpty);
+const framed =
+    (images: NonNullable<(typeof Ips.Type)['usedImages']>) =>
+    ({ imageIndex, imageOffset, symbol }: NonNullable<(typeof Ips.Type)['threads']>[number]['frames'][number]) =>
+        `${images[imageIndex]?.name ?? imageIndex} ${symbol ?? `+${imageOffset}`}`;
+const faulted: Diagnosis = (contents, { pid }) =>
+    Option.flatMap(ipsOf(contents), ({ exception, faultingThread, threads, usedImages, processes = [] }) => {
+        const named = Record.getSomes({
+            exception: Option.map(Option.fromUndefinedOr(exception), ({ type, signal }) => [type, signal].filter(Predicate.isNotUndefined).join(' ')),
+            reason: Option.flatMap(
+                Array.findFirst(processes, (held) => held.pid === pid),
+                ({ reason }) => Option.fromUndefinedOr(reason),
+            ),
+        });
+        const frames = Option.map(Array.get(threads ?? [], faultingThread ?? 0), (thread) => thread.frames.map(framed(usedImages ?? [])));
+        return Option.liftPredicate({ ...named, ...Record.getSomes({ frames }) } satisfies Facts, (held) => Struct.keys(held).length > 0);
+    });
+const hung: Diagnosis = (contents) => {
+    const fields = fieldsOf(contents);
+    const event = Option.map(fields, Struct.get('Event'));
+    const duration = Option.flatMap(
+        Option.filter(fields, ({ Event }) => Event === 'hang'),
+        ({ Duration: held }) => Option.map(Option.fromUndefinedOr(held), ([seconds]) => seconds),
+    );
+    const frames = Option.map(Option.fromNullishOr(HEAVIEST.exec(contents)?.groups?.block), (block) => Array.reverse(Array.getSomes(block.split('\n').map((line) => Option.fromNullishOr(STACKED.exec(line)?.groups)))).map(({ image, symbol = '' }) => (image === undefined ? symbol : `${image} ${symbol}`)));
+    return Option.liftPredicate({ ...Record.getSomes({ event }), ...Record.getSomes({ duration }), ...Record.getSomes({ frames }) } satisfies Facts, (held) => Struct.keys(held).length > 0);
+};
+const failing = (contents: string) => {
+    const lines = whole(contents);
+    const [, kept] = Array.mapAccum(lines, false, (tracing, line) => {
+        const opened = TRACED.test(line);
+        return [opened || (tracing && line.startsWith(' ')), opened || tracing || FAILING.test(line)] as const;
+    });
+    return lines.filter((_, index) => kept[index] === true);
+};
+const entries = (contents: string, instance: Instance) => {
     const { launch } = lifetime(instance);
     const ours = (entry: string) =>
         Option.exists(
             Option.flatMap(Option.fromNullishOr(SESSION.exec(entry)?.groups), ({ time, date }) => local(`${date} ${time}`)),
-            (at) => DateTime.between(at, { ...launch, minimum: DateTime.startOf(instance.started, 'minute') }),
+            DateTime.between({ ...launch, minimum: DateTime.startOf(instance.started, 'minute') }),
         );
-    return whole(contents, instance).split(ENTRY).filter(ours).join('').replaceAll(LOADED, '');
+    return whole(contents.replaceAll(BREAKS, '\n').split(ENTRY).filter(ours).join('').replaceAll(TABLE, ''));
 };
+
+// --- [LOCATORS]
+const dated = ({ birthtime, mtime }: FileSystem.File.Info, ended: DateTime.Utc) =>
+    Option.match(
+        Option.orElse(birthtime, () => mtime),
+        { onNone: () => ended, onSome: DateTime.fromDateUnsafe },
+    );
+const opened =
+    (kind: typeof Kind.Type, at: DateTime.Utc, file: string) =>
+    (facts: Facts): Linked => ({ kind, at, file: Option.some(file), facts });
+const examined = Effect.fn('examined')(function* (file: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const info = yield* fs.stat(file).pipe(
+        Effect.asSome,
+        Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeedNone),
+        Effect.mapError(HarnessError.refused(file)),
+    );
+    return Option.map(info, (held) => ({ file, info: held }));
+});
+const read = Effect.fn('read')(function* <A extends { readonly file: string }>(held: A) {
+    const fs = yield* FileSystem.FileSystem;
+    const contents = yield* Effect.option(fs.readFileString(held.file));
+    return { ...held, contents: Option.filter(contents, (text) => text !== '' && !UNREADABLE.test(text)) };
+});
+const factsOf = <I>(text: ((contents: string, instance: I) => Option.Option<Facts>) | undefined, contents: Option.Option<string>, instance: I) => Option.match(Option.all({ text: Option.fromUndefinedOr(text), contents }), { onNone: () => Option.some<Facts>({}), onSome: (held) => held.text(held.contents, instance) });
+const diagnostics = Effect.fn('diagnostics')(function* (pattern: string, owned: (instance: Lifetime) => (report: string) => boolean, facts: Diagnosis, instance: Lifetime, kind: typeof Kind.Type) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const patterns = FOLDERS.map((folder) => path.join(folder, pattern));
+    const globbed = yield* Effect.forEach(patterns, (glob) => Effect.mapError(fs.glob(glob), HarnessError.refused(glob)));
+    const { minimum } = lifetime(instance).alive;
+    const found = Array.getSomes(yield* Effect.forEach(globbed.flat(), examined, { concurrency: 'unbounded' }));
+    const reports = yield* Effect.forEach(
+        found.filter(({ info }) => DateTime.isGreaterThanOrEqualTo(dated(info, instance.ended), minimum)),
+        read,
+        { concurrency: 'unbounded' },
+    );
+    const ours = reports.filter(({ contents }) => Option.exists(contents, owned(instance)));
+    return Array.getSomes(ours.map(({ file, info, contents }) => Option.map(factsOf(facts, contents, instance), opened(kind, dated(info, instance.ended), file))));
+});
+const spun = Effect.fn('spun')(function* (instance: Lifetime, kind: typeof Kind.Type) {
+    const window = { start: `${SINCE.format(DateTime.toDateUtc(instance.started))}+0000`, end: `${SINCE.format(DateTime.toDateUtc(DateTime.addDuration(instance.ended, CLOCKS)))}+0000` };
+    const shown = yield* printed('log', ['show', '--style', 'compact', '--predicate', 'subsystem == "com.apple.spindump" OR subsystem == "com.apple.libquit"', '--start', window.start, '--end', window.end]);
+    const kept = Array.fromIterable(String.linesIterator(shown)).filter((line) => line.includes(`[${instance.pid}]`) && !line.includes('not sampling'));
+    return Array.match(kept, { onEmpty: () => [], onNonEmpty: (lines): readonly Linked[] => [{ kind, at: instance.ended, file: Option.none(), facts: { lines } }] });
+});
+const crashed = Effect.fn('crashed')(function* (pid: number, exit: typeof State.cases.Exited.Type) {
+    const report = Option.map(Option.fromUndefinedOr(exit.report), ({ url }) => fileURLToPath(url));
+    const held = yield* Effect.transposeOption(Option.map(report, (file) => read({ file })));
+    const facts = Option.flatMap(Option.flatMap(held, Struct.get('contents')), (contents) => faulted(contents, { pid }));
+    return {
+        _tag: 'Crashed',
+        ...Struct.pick(exit, ['status', 'signal']),
+        ...Record.getSomes({ report, exception: Option.flatMap(facts, ({ exception }) => Option.fromUndefinedOr(exception)) }),
+        ...Record.getSomes({ frames: Option.flatMap(facts, ({ frames }) => Option.fromUndefinedOr(frames)) }),
+    } satisfies typeof Halted.cases.Crashed.Type;
+});
 
 // --- [TABLES] --------------------------------------------------------------------------
 
-const KINDS: { readonly [K in typeof Kind.Type]: { readonly level: LogLevel.Severity; readonly system?: (instance: Instance) => Effect.Effect<readonly string[], Error, Services>; readonly text?: Text } } = {
-    crash: { level: 'Warn', system: (instance) => diagnostics(['.ips'], launchedAs, instance), text: whole },
-    hang: { level: 'Warn', system: (instance) => diagnostics(['.hang', '.diag'], diagnosed, instance), text: whole },
-    spin: { level: 'Warn', system: spun, text: whole },
-    shutdown: { level: 'Warn', text: entries },
+const KINDS: { readonly [K in typeof Kind.Type]: { readonly level: LogLevel.Severity; readonly system?: (instance: Lifetime, kind: typeof Kind.Type) => Effect.Effect<readonly Linked[], Error, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>; readonly text?: Text } } = {
+    crash: { level: 'Warn', system: (instance, kind) => diagnostics('*.ips', launchedAs, faulted, instance, kind), text: faulted },
+    hang: { level: 'Warn', system: (instance, kind) => diagnostics('*.{hang,diag}', diagnosed, hung, instance, kind), text: hung },
+    spin: { level: 'Warn', system: spun },
+    shutdown: { level: 'Warn', text: lined(entries) },
     recovery: { level: 'Warn' },
-    host: { level: 'Info', text: whole },
+    host: { level: 'Info' },
 };
+const LOCATORS = Array.getSomes(Record.collect(KINDS, (kind, row) => Option.map(Option.fromUndefinedOr(row.system), (locate) => [kind, locate] as const)));
 
 // --- [LOCATING] ------------------------------------------------------------------------
 
-const located = Effect.fn('located')(function* (host: Pick<Host, 'logs'>, instance: Instance) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+const system = (instance: Lifetime) =>
+    Effect.map(
+        Effect.forEach(LOCATORS, ([kind, locate]) => locate(instance, kind), { concurrency: 'unbounded' }),
+        Array.flatten,
+    );
+const linking = (instance: Instance, name: string, { birthtime, mtime, size }: FileSystem.File.Info) => {
     const { launch, alive } = lifetime(instance);
-    const systems = Array.getSomes(Kind.literals.map((kind) => Option.map(Option.fromUndefinedOr(KINDS[kind].system), (system) => [kind, system] as const)));
-    const links = (file: string) =>
-        Effect.mapBoth(fs.stat(file), {
-            onFailure: HarnessError.refused(file),
-            onSuccess: ({ birthtime, mtime, size }) =>
-                ByteSize.toNumberUnsafe(size) > 0 &&
-                Option.match(Option.flatMap(Schema.decodeUnknownOption(Stamp)(STAMP.exec(path.basename(file))?.groups), local), {
-                    onSome: (at) => DateTime.between(at, launch),
-                    onNone: () => Option.exists(Option.map(birthtime, DateTime.fromDateUnsafe), (at) => DateTime.between(at, launch)) || Option.exists(Option.map(mtime, DateTime.fromDateUnsafe), (at) => DateTime.between(at, alive)),
-                }),
-        });
-    const rules = yield* host.logs?.(instance) ?? Effect.succeed([]);
-    const [found, matched] = yield* Effect.all(
-        [
-            Effect.forEach(
-                systems,
-                ([kind, system]) =>
-                    Effect.map(
-                        system(instance),
-                        Array.map((file) => ({ kind, file, text: KINDS[kind].text })),
-                    ),
-                { concurrency: 'unbounded' },
-            ),
-            Effect.forEach(rules, ({ kind, pattern, root, text = KINDS[kind].text }) => Effect.mapBoth(fs.glob(pattern, { root }), { onFailure: HarnessError.refused(pattern), onSuccess: Array.map((file) => ({ kind, file: path.join(root, file), text })) }), { concurrency: 'unbounded' }),
-        ],
+    const born = Option.map(birthtime, DateTime.fromDateUnsafe);
+    const changed = Option.map(mtime, DateTime.fromDateUnsafe);
+    return (
+        ByteSize.toNumberUnsafe(size) > 0 &&
+        Option.match(Option.flatMap(Schema.decodeUnknownOption(Stamp)(STAMP.exec(name)?.groups), local), {
+            onSome: DateTime.between(launch),
+            onNone: () => Option.exists(born, DateTime.between(launch)) || Option.exists(changed, DateTime.between(alive)),
+        })
+    );
+};
+const ruled = Effect.fn('ruled')(function* (instance: Instance, { kind, pattern, root, text = KINDS[kind].text }: Rule) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const files = yield* Effect.mapError(fs.glob(pattern, { root }), HarnessError.refused(path.join(root, pattern)));
+    const found = Array.getSomes(
+        yield* Effect.forEach(
+            files.map((file) => path.join(root, file)),
+            examined,
+            { concurrency: 'unbounded' },
+        ),
+    );
+    const kept = yield* Effect.forEach(
+        found.filter(({ file, info }) => linking(instance, path.basename(file), info)),
+        read,
         { concurrency: 'unbounded' },
     );
-    return [...found.flat(), ...(yield* Effect.filter(matched.flat(), ({ file }) => links(file), { concurrency: 'unbounded' }))];
+    return Array.getSomes(kept.map(({ file, info, contents }) => Option.map(factsOf(text, contents, instance), opened(kind, dated(info, instance.ended), file))));
 });
-const linked = (host: Pick<Host, 'logs'>, live: Pick<Live, 'pid' | 'started' | 'chosen'>) =>
-    DateTime.now.pipe(
-        Effect.flatMap((ended) => located(host, { ...live, ended })),
-        Effect.flatMap(Effect.forEach(({ kind, file }) => Effect.annotateLogs(Effect.logWithLevel(KINDS[kind].level)('report linked'), { kind, file }), { discard: true })),
-        Effect.catch((error) => Effect.annotateLogs(Effect.logWarning('report failed'), { tag: tagOf(error), error: error.message })),
+const located = Effect.fn('located')(function* (host: Pick<Host, 'logs'>, instance: Instance) {
+    const rules = yield* host.logs?.(instance) ?? Effect.succeed([]);
+    const [found, matched] = yield* Effect.all([system(instance), Effect.forEach(rules, (rule) => ruled(instance, rule), { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
+    return [...found, ...matched.flat()];
+});
+const linked = (host: Pick<Host, 'logs'>, instance: Instance) =>
+    located(host, instance).pipe(
+        Effect.flatMap(Effect.forEach(({ kind, file, facts }) => record(KINDS[kind].level, 'report linked', { kind, ...Record.getSomes({ file }), ...facts }), { discard: true })),
+        Effect.catch((error) => record('Error', 'failed', { tag: tagOf(error), error: messageOf(error) })),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { crashed, linked, local, located, type Rule, type Text };
+export { crashed, failing, KINDS, type Linked, lifetime, lined, linked, local, type Rule, system, whole };

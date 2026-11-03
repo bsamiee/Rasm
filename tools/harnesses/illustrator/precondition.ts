@@ -1,7 +1,7 @@
 import { Array, Effect, Match, Option, pipe, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { Expression } from '#/cases';
-import { Placed, type Survey } from '#/illustrator/contract';
-import { Application, Enumerated, enumerators, many, member, Open, placings } from '#/precondition';
+import { Added, Placed, type Survey } from '#/illustrator/contract';
+import { Application, additions, Enumerated, enumerators, many, member, Open, placings } from '#/precondition';
 import { JsonObject } from '#/values';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -10,13 +10,13 @@ type Kind = Schema.Top & Schema.Decoder<Schema.Json>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const QUIET = 'DONTDISPLAYALERTS';
 const WRITES = { resolution: 'doc.rasterEffectSettings.resolution', language: 'doc.characterStyles[0].characterAttributes.language' } as const;
 const NAMED = ['typename', 'title'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Parsed = Schema.Struct({ $: Enumerated.parts });
+const Finites = Schema.Array(Schema.Finite);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ const kind = (value: Schema.Json, listed: (enumeration: string) => Kind, open: K
         onSome: ({ $: [, enumeration] }) => listed(enumeration),
         onNone: () =>
             Match.value(value).pipe(
-                Match.when(Schema.is(Schema.Array(Schema.Finite)), () => Schema.Array(Schema.Finite)),
+                Match.when(Schema.is(Finites), () => Finites),
                 Match.when(Schema.is(Schema.Finite), () => Schema.Finite),
                 Match.when(Schema.is(Schema.Boolean), () => Schema.Boolean),
                 Match.when(Schema.is(Schema.String), () => Schema.String),
@@ -34,6 +34,7 @@ const kind = (value: Schema.Json, listed: (enumeration: string) => Kind, open: K
             ),
     });
 const precondition = (survey: typeof Survey.Type) => {
+    const quiet = 'DONTDISPLAYALERTS';
     const checked = enumerators(survey.enumerations);
     const Properties = JsonObject.check(checked());
     const listed = (enumeration: string) => member(enumeration, survey.enumerations[enumeration] ?? []);
@@ -61,13 +62,13 @@ const precondition = (survey: typeof Survey.Type) => {
         ...Struct.omit(Placed.fields, ['documents']),
         coordinates: listed('CoordinateSystem'),
         interaction: listed('UserInteractionLevel')
-            .annotate({ description: `UserInteractionLevel the case runs under, ${QUIET} when absent` })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed(QUIET))),
+            .annotate({ description: `UserInteractionLevel the case runs under, ${quiet} when absent` })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed(quiet))),
         colorSettings: Schema.optionalKey(Schema.Union(survey.application.colorSettingsList.map((file) => renamed(Schema.Literal(decodeURI(file).replace(/^.*\/|\.csf$/gu, '')), file))).annotate({ description: 'Color settings file name app.colorSettingsList holds' })),
         sends: Schema.optionalKey(Schema.Array(Schema.Literals(survey.methods)).annotate({ description: 'Application methods app.reflect lists, sent to the host in place of recording them' })),
         plugins: Schema.optionalKey(Schema.Array(Schema.Literals(survey.host.plugins)).annotate({ description: 'Plug-ins the instance must map from outside its application bundle' })),
         set: Schema.optionalKey(Schema.Array(Schema.Tuple([Expression, Schema.Json.check(checked())]))),
-        add: Schema.optionalKey(Schema.Array(Placed.fields.add.schema.value.mapFields((fields) => ({ ...fields, properties: Schema.optionalKey(Properties) })))),
+        add: additions(Added.mapFields(Struct.assign({ properties: Schema.optionalKey(Properties) }))),
     };
     const kept = <R extends { readonly plugins?: unknown; readonly colorSettings?: Schema.Json }>({ plugins: _, colorSettings, ...held }: R) => ({ ...held, ...(colorSettings === undefined ? {} : { colorSettings: String(colorSettings) }) });
     const created = ({ intent, resolution, language, profile, ...given }: typeof Document.Type) => {

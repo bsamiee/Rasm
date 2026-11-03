@@ -1,21 +1,25 @@
 import { constants } from 'node:os';
 import { State } from '@rasm/automation/applications';
-import { Array, ByteSize, Data, DateTime, Duration, Effect, Equivalence, FileSystem, flow, identity, Match, Option, Path, Record, Result, Schema, Stream } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { Array, ByteSize, Data, DateTime, Duration, Effect, Equivalence, FileSystem, identity, Match, Option, Path, PubSub, Record, Result, Schema, Sink, Stream, Struct } from 'effect';
+import { ChildProcess } from 'effect/process';
 import { HarnessError } from '#/error';
 import type { Halted } from '#/results';
 import type { Installed } from '#/session';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Element = (typeof State.cases.Responding.Type)['elements'][number];
-type Chosen = Pick<Installed, 'identifier' | 'app' | 'watched'>;
+type Next = (typeof State.Type)['next'];
+type Answer = Extract<NonNullable<Next>, { readonly answer: unknown }>['answer'];
+type Chosen = Pick<Installed, 'identifier' | 'name' | 'app' | 'helpers'>;
+interface Asked {
+    readonly answer: Answer;
+    readonly dialog: typeof Halted.cases.Dialog.Type;
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REPORTING = (['SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGFPE', 'SIGBUS', 'SIGSEGV', 'SIGSYS'] as const).map((name) => constants.signals[name]);
 const SIGNALS: Record.ReadonlyRecord<string, number> = constants.signals;
-const RUNNABLE = 'R';
 const MAIN_THREAD = /^\s*\d+ Thread_\S+\s+DispatchQueue_1: com\.apple\.main-thread\b/u;
 const FRAME = /^(?<depth>[ +!:|]*)\d+ (?<symbol>.+?) {2}(?:\(in (?<image>[^)]+)\)|\[)/u;
 const SPACES = /\s+/u;
@@ -26,8 +30,10 @@ const LABELLED = Array.makeEquivalence(Equivalence.String);
 const Interrupted = Schema.Struct({ message: Schema.TemplateLiteralParser(["Process interrupted due to receipt of signal: '", Schema.String, "'"]) });
 const Instances = Schema.Record(Schema.String, Schema.Record(Schema.String, State));
 const Failure = Schema.Record(Schema.String, Schema.Struct({ fail: Schema.Struct({ reason: Schema.String }) }));
+const Shown = Schema.Record(Schema.String, Schema.Struct({ fail: Schema.Struct({ reason: Schema.Literal('visibility') }) })).annotate({ description: 'Hide watch-apps could not hold, the next state line stating it through hidden' });
 const System = Schema.Struct({ system: Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical']) }) });
 const Line = Schema.fromJsonString(Schema.toCodecJson(Schema.Union([Instances, Failure, System])));
+const Choice = Schema.Literals(['accept', 'discard', 'cancel']).annotate({ description: 'Answer control watch-apps marks on a dialog, a case press naming any other text names a button label' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -54,7 +60,7 @@ const plist = Effect.fn('plist')(function* <S extends Schema.Top>(app: string, s
 });
 const sampled = (pid: number, file: string) => Effect.as(checked('sample', [String(pid), '1', '-file', file]), file);
 const stalled = Effect.fn('stalled')(function* (sample: string) {
-    const lines = (yield* (yield* FileSystem.FileSystem).readFileString(sample)).split('\n');
+    const lines = (yield* FileSystem.FileSystem.use((fs) => fs.readFileString(sample))).split('\n');
     const block = Array.takeWhile(
         Array.drop(
             Array.dropWhile(lines, (line) => !MAIN_THREAD.test(line)),
@@ -66,11 +72,6 @@ const stalled = Effect.fn('stalled')(function* (sample: string) {
     const heaviest = Array.takeWhile(frames, ({ depth = '' }, at) => Option.match(Array.get(frames, at - 1), { onNone: () => true, onSome: (above) => depth.length > (above.depth ?? '').length }));
     return Array.reverse(heaviest).map(({ image, symbol = '' }) => (image === undefined ? symbol : `${image} ${symbol}`));
 });
-const busy = (pid: number) =>
-    Effect.map(
-        ChildProcessSpawner.ChildProcessSpawner.use((spawner) => spawner.lines(ChildProcess.make('ps', ['-o', 'stat=', '-p', String(pid)]))),
-        (lines) => (lines.some((line) => line.startsWith(RUNNABLE)) ? ('busy' as const) : ('blocked' as const)),
-    );
 
 // --- [FILES]
 const watched = (path: string) => Stream.unwrap(Effect.map(FileSystem.FileSystem, (fs) => Stream.prepend(Stream.as(fs.watch(path), undefined), [undefined])));
@@ -86,25 +87,36 @@ const appeared = Effect.fn('appeared')(function* (file: string) {
 });
 
 // --- [ROWS]
-const listed = (line: typeof Instances.Type) => Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state }))).flat();
-const decoded = (text: string) =>
-    Effect.flatMap(Schema.decodeEffect(Line)(text), (line) =>
-        Match.value(line).pipe(
-            Match.when(Schema.is(System), ({ system }) => Effect.as(Effect.annotateLogs(Effect.logWithLevel(system.memory === 'normal' && (system.thermal === 'nominal' || system.thermal === 'fair') ? 'Info' : 'Warn')('system pressure'), system), [])),
-            Match.when(Schema.is(Failure), (failed) => HarnessError.unavailable('watch-apps')(Record.collect(failed, (key, { fail }) => `${key}: ${fail.reason}`).join(', '))),
-            Match.orElse(flow(listed, Effect.succeed)),
+const listed = (line: typeof Instances.Type, at: DateTime.Utc) => Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state, at }))).flat();
+const stamped = (line: typeof Instances.Type) => Effect.map(DateTime.now, (at) => listed(line, at));
+const decoded = Schema.decodeEffect(Line);
+const routed = Match.type<typeof Line.Type>().pipe(
+    Match.when(Schema.is(System), ({ system }) => Effect.as(Effect.annotateLogs(Effect.logWithLevel(system.memory === 'normal' && (system.thermal === 'nominal' || system.thermal === 'fair') ? 'Info' : 'Warn')('system pressure'), system), [])),
+    Match.when(Schema.is(Shown), () => Effect.succeed([])),
+    Match.when(Schema.is(Failure), (failed) => HarnessError.unavailable('watch-apps')(Record.collect(failed, (key, { fail }) => `${key}: ${fail.reason}`).join(', '))),
+    Match.orElse((instances) => Effect.succeed([instances])),
+);
+const answerOf = Match.type<Next>().pipe(
+    Match.when({ answer: Match.defined }, ({ answer }) => answer),
+    Match.option,
+);
+const lines = (command: readonly string[]) =>
+    Effect.map(ChildProcess.make('watch-apps', command, { stdin: 'ignore', stderr: 'inherit' }), (handle) => ({
+        pid: handle.pid,
+        lines: handle.stdout.pipe(
+            Stream.decodeText,
+            Stream.splitLines,
+            Stream.mapEffect((text) => Effect.flatMap(decoded(text), routed)),
+            Stream.flattenIterable,
         ),
-    );
-const rows = (command: readonly string[]) => Effect.map(ChildProcess.make('watch-apps', command, { stdin: 'ignore', stderr: 'inherit' }), (handle) => handle.stdout.pipe(Stream.decodeText, Stream.splitLines, Stream.mapEffect(decoded), Stream.flattenIterable));
-const pressing = (element: Element) => (element.detail?.controls ?? []).filter(({ actions }) => actions.includes('AXPress'));
-const labels = (element: Element) => Array.getSomes(pressing(element).map(({ label }) => Option.fromUndefinedOr(label)));
+    }));
+const drained = (command: readonly string[]) => Effect.scoped(Effect.flatMap(lines(command), ({ lines: held }) => Stream.runDrain(held)));
 
 // --- [INSTANCES] -----------------------------------------------------------------------
 
-const Row = Object.assign(Schema.Struct({ identifier: Schema.String, pid: Schema.Int, state: State }), {
-    read: (names: Array.NonEmptyReadonlyArray<string>) => Effect.scoped(Effect.flatMap(rows(['read', ...names]), Stream.runCollect)),
-    perform: (id: string) => Effect.scoped(Effect.flatMap(rows(['perform', id, 'AXPress']), Stream.runDrain)),
-    settled: (state: typeof State.Type): state is typeof State.cases.Exited.Type => State.guards.Exited(state) && (state.status !== undefined || state.report !== undefined || state.reportFailure !== undefined || (state.signal !== undefined && !REPORTING.includes(state.signal))),
+const Row = Object.assign(Schema.Struct({ identifier: Schema.String, pid: Schema.Int, state: State, at: Schema.DateTimeUtc.annotate({ description: 'Instant the line holding the state arrived' }) }), {
+    perform: (id: string) => drained(['perform', id, 'AXPress']),
+    settled: (state: typeof State.Type): state is typeof State.cases.Exited.Type => State.isAnyOf(['Exited'])(state) && (state.status !== undefined || state.report !== undefined || state.reportFailure !== undefined || (state.signal !== undefined && !REPORTING.includes(state.signal))),
     described: (state: typeof State.Type): string =>
         State.match(state, {
             Launching: () => 'launching',
@@ -114,12 +126,43 @@ const Row = Object.assign(Schema.Struct({ identifier: Schema.String, pid: Schema
             Failed: ({ reason }) => `status failed: ${reason}`,
             Exited: ({ signal, status, report, reportFailure }) => `exited with ${signal === undefined ? `status ${status ?? 'unread'}` : `signal ${signal}`}${report === undefined ? '' : `, report ${report.url.href}`}${reportFailure === undefined ? '' : `, ${reportFailure}`}`,
         }),
-    pressed: (element: Element, label: string) => Array.findFirst(pressing(element), (control) => control.label === label),
-    dialog: (element: Element): typeof Halted.cases.Dialog.Type => ({ _tag: 'Dialog', ...(element.title === undefined ? {} : { title: element.title }), text: element.detail?.text ?? [], buttons: labels(element) }),
     shown: (dialog: Pick<typeof Halted.cases.Dialog.Type, 'title' | 'text' | 'buttons'>, pid: number): string => `instance ${pid} shows ${dialog.title ?? 'a dialog'}${dialog.text.length === 0 ? '' : ` "${dialog.text.join(' ')}"`}${dialog.buttons.length === 0 ? '' : ` with ${dialog.buttons.join(', ')}`}, left running`,
 });
-const launching = Effect.fn('Launched.start')(function* (spec: Launched, chosen: Chosen) {
-    const watching = yield* rows(['watch', ...chosen.watched]);
+class Progress extends Data.Class<{ readonly title: string; readonly buttons: readonly string[] }> {
+    static readonly asked = (passing: readonly Progress[], state: typeof State.Type): Option.Option<Asked> => {
+        const answer = answerOf(state.next);
+        const id = Option.map(answer, Struct.get('id'));
+        const element = Array.findFirst(State.isAnyOf(['Responding'])(state) ? state.elements : [], (held) => Option.contains(id, held.id));
+        const title = Option.flatMap(element, (held) => Option.fromUndefinedOr(held.title));
+        const text = Option.match(element, { onNone: () => [], onSome: ({ detail }) => detail?.text ?? [] });
+        const buttons = Option.match(answer, { onNone: () => [], onSome: (held) => held.buttons.map(Struct.get('label')) });
+        const progressing = passing.some((named) => [...Option.toArray(title), ...text].includes(named.title) && LABELLED(named.buttons, buttons));
+        return Option.map(
+            Option.filter(answer, () => !progressing),
+            (held) => ({ answer: held, dialog: { _tag: 'Dialog', ...Record.getSomes({ title }), text, buttons } }),
+        );
+    };
+    static readonly pressed = (answer: Answer, press: string) =>
+        Option.map(
+            Option.orElse(
+                Option.flatMap(Schema.decodeUnknownOption(Choice)(press), (role) => Option.fromUndefinedOr(answer[role])),
+                () =>
+                    Option.map(
+                        Array.findFirst(answer.buttons, ({ label }) => label === press),
+                        Struct.get('id'),
+                    ),
+            ),
+            (id) => ({ press, id }),
+        );
+    static readonly shown = (passing: readonly Progress[], row: typeof Row.Type) => Option.map(Progress.asked(passing, row.state), ({ dialog }) => Row.shown(dialog, row.pid));
+}
+const launching = Effect.fn('launching')(function* (spec: Launched, chosen: Chosen, passing: readonly Progress[]) {
+    const refused = HarnessError.unavailable(chosen.name);
+    const rowsOf = <E, R>(held: Stream.Stream<typeof Instances.Type, E, R>) => Stream.flattenIterable(Stream.mapEffect(held, stamped));
+    const watch = yield* lines(['watch', chosen.app, ...chosen.helpers]);
+    const [first, rest] = yield* Stream.peel(watch.lines, Sink.find(Record.has(chosen.identifier)));
+    const running = yield* stamped(yield* Effect.fromOption(first, () => refused(`watch ${chosen.app} ended before its first line`)));
+    yield* Array.match(Array.getSomes(running.map((row) => Progress.shown(passing, row))), { onEmpty: () => Effect.void, onNonEmpty: (held) => refused(held.join('; ')) });
     const flags = [
         ...((spec.fresh ?? true) ? ['--new'] : []),
         ...(spec.documents ?? []).map((file) => `--document=${file}`),
@@ -127,17 +170,24 @@ const launching = Effect.fn('Launched.start')(function* (spec: Launched, chosen:
         ...Record.collect(spec.defaults ?? {}, (key, value) => [`--arguments=-${key}`, `--arguments=${value}`]).flat(),
         ...Record.collect(spec.environment ?? {}, (name, value) => `--environment=${name}=${value}`),
     ];
-    const states = yield* Effect.scoped(Effect.flatMap(rows(['launch', chosen.app, ...flags]), (launch) => Stream.runCollect(Stream.takeUntil(launch, ({ state }) => !State.guards.Launching(state) && (!State.guards.Exited(state) || Row.settled(state))))));
-    const last = yield* Option.match(
-        Option.filter(Array.last(states), ({ state }) => !State.guards.Launching(state)),
-        {
-            onNone: () => HarnessError.unavailable(chosen.app)(`launch ended at ${states.map(({ pid, state }) => `${pid} ${state._tag}`).join(', ') || 'no state'}`),
-            onSome: Effect.succeed,
-        },
+    const subscribed = yield* PubSub.subscribe(yield* Stream.toPubSubTake(rowsOf(rest), { capacity: 'unbounded' }));
+    const launched = yield* Effect.scoped(Effect.flatMap(lines(['launch', chosen.app, ...flags]), ({ lines: held }) => Stream.runCollect(rowsOf(held))));
+    const last = Array.last(launched);
+    const created = Array.findLast(launched, ({ identifier, state }) => identifier === chosen.identifier && State.isAnyOf(['Launching', 'Responding', 'Unresponsive'])(state) && state.created === true);
+    const quitting = Option.match(created, { onNone: () => Effect.void, onSome: ({ pid }) => Effect.orDie(drained(['quit', '--pid', `${pid}`])) });
+    const ended = Option.filter(last, ({ identifier, state }) => identifier === chosen.identifier && !State.isAnyOf(['Launching'])(state));
+    const settled = yield* Effect.onError(
+        Effect.fromOption(ended, () => refused(`launch ended ${Option.match(last, { onNone: () => 'with no state', onSome: ({ identifier, pid, state }) => `at ${identifier} ${pid} ${Row.described(state)}` })}${Option.match(created, { onNone: () => '', onSome: ({ pid }) => `, created instance ${pid} quit` })}`)),
+        () => quitting,
     );
-    return { ...last, rows: Stream.filter(watching, (row) => row.identifier !== chosen.identifier || (row.pid === last.pid && !State.guards.Launching(row.state))) };
+    return {
+        ...settled,
+        shared: running.filter(({ pid, state }) => pid !== settled.pid && !State.isAnyOf(['Exited'])(state)).map(({ pid }) => pid),
+        watch: Option.some(watch.pid),
+        rows: Stream.filter(Stream.flattenTake(Stream.fromSubscription(subscribed)), (row) => row.identifier !== chosen.identifier || (row.pid === settled.pid && DateTime.isGreaterThan(row.at, settled.at))),
+    };
 });
-const spawning = Effect.fn('Spawned.start')(function* (spec: Spawned, chosen: Chosen) {
+const spawning = Effect.fn('spawning')(function* (spec: Spawned, chosen: Chosen) {
     const handle = yield* ChildProcess.make(spec.command, spec.arguments, { stdin: 'ignore', stdout: 'ignore', stderr: 'inherit', env: spec.environment, extendEnv: true });
     const exited = Effect.map(
         Effect.result(handle.exitCode),
@@ -145,19 +195,13 @@ const spawning = Effect.fn('Spawned.start')(function* (spec: Spawned, chosen: Ch
             onSuccess: (status): typeof State.cases.Exited.Type => ({ _tag: 'Exited', status }),
             onFailure: (error): typeof State.cases.Exited.Type => ({
                 _tag: 'Exited',
-                ...Option.match(
-                    Option.flatMap(Schema.decodeUnknownOption(Interrupted)(error.cause), ({ message: [, name] }) => Record.get(SIGNALS, name)),
-                    { onNone: () => ({}), onSome: (signal) => ({ signal }) },
-                ),
+                ...Record.getSomes({ signal: Option.flatMap(Schema.decodeUnknownOption(Interrupted)(error.cause), ({ message: [, name] }) => Record.get(SIGNALS, name)) }),
             }),
         }),
     );
-    const alive: typeof State.Type = { _tag: 'Responding', elements: [], windows: [], answering: false };
-    return { identifier: chosen.identifier, pid: handle.pid, state: alive, rows: Stream.fromEffect(Effect.map(exited, (state) => ({ identifier: chosen.identifier, pid: handle.pid, state }))) };
+    const alive: typeof State.Type = { _tag: 'Responding', elements: [], windows: [], answering: false, created: true };
+    return { identifier: chosen.identifier, pid: handle.pid, state: alive, at: yield* DateTime.now, shared: [], watch: Option.none<number>(), rows: Stream.fromEffect(Effect.zipWith(exited, DateTime.now, (state, at) => ({ identifier: chosen.identifier, pid: handle.pid, state, at }))) };
 });
-class Progress extends Data.Class<{ readonly title: string; readonly buttons: readonly string[] }> {
-    static readonly requiring = (passing: readonly Progress[]) => (element: Element) => element.requiresAnswer && !passing.some((named) => [element.title, ...(element.detail?.text ?? [])].includes(named.title) && LABELLED(named.buttons, labels(element)));
-}
 class Launched extends Data.TaggedClass('Launched')<{
     readonly fresh?: boolean;
     readonly documents?: readonly string[];
@@ -165,7 +209,7 @@ class Launched extends Data.TaggedClass('Launched')<{
     readonly defaults?: Record.ReadonlyRecord<string, string>;
     readonly environment?: Record.ReadonlyRecord<string, string>;
 }> {
-    readonly start = (chosen: Chosen) => launching(this, chosen);
+    readonly start = (chosen: Chosen, passing: readonly Progress[]) => launching(this, chosen, passing);
 }
 class Spawned extends Data.TaggedClass('Spawned')<{ readonly command: string; readonly arguments: readonly string[]; readonly environment: Record.ReadonlyRecord<string, string> }> {
     readonly start = (chosen: Chosen) => spawning(this, chosen);
@@ -173,4 +217,4 @@ class Spawned extends Data.TaggedClass('Spawned')<{ readonly command: string; re
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { appeared, busy, checked, Launched, output, Progress, plist, printed, Row, Spawned, sampled, stalled, starts, watched };
+export { type Asked, appeared, checked, Launched, output, Progress, plist, printed, Row, Spawned, System, sampled, stalled, starts, watched };

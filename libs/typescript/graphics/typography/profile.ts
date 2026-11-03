@@ -14,6 +14,7 @@ interface Point {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ORIGIN: Point = { x: 0, y: 0 };
+const BY_FIT = Order.Struct({ gap: Order.Number, shift: Order.flip(Order.mapInput(Order.Number, Math.abs)) });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -22,18 +23,52 @@ class Profile extends Data.Class<{
     readonly right: Edge;
     readonly advance: number;
 }> {
-    static readonly outline = (commands: readonly SvgPathCommand[]): readonly Segment[] =>
-        Array.mapAccum(commands, { cursor: ORIGIN, start: ORIGIN }, ({ cursor, start }, { type, values }) => {
+    static readonly outline = (commands: readonly SvgPathCommand[]): readonly (readonly Segment[])[] => {
+        const [, drawn] = Array.mapAccum(commands, { cursor: ORIGIN, start: ORIGIN, contour: 0 }, ({ cursor, start, contour }, { type, values }) => {
             const points = Array.chunksOf(values, 2).map(([x = 0, y = 0]) => ({ x, y }));
             const end = Option.getOrElse(Array.last(points), () => start);
-            return [{ cursor: end, start: type === 'M' ? end : start }, type === 'M' ? [] : Array.window([cursor, ...flattened([cursor, ...Array.dropRight(points, 1), end])], 2)];
-        })[1].flat();
-    static readonly of = (shaped: ShapedText, unitsPerEm: number, outline: (glyph: number) => readonly Segment[]) => {
-        const [, placed] = Array.mapAccum(shaped.glyphs, ORIGIN, ({ x, y }, { glyph, xAdvance, yAdvance, xOffset, yOffset }) => [{ x: x + xAdvance, y: y + yAdvance }, outline(glyph).map((segment) => moved(segment, { x: (x + xOffset) * unitsPerEm, y: (y + yOffset) * unitsPerEm }))] as const);
+            const moving = type === 'M';
+            const next = moving ? contour + 1 : contour;
+            return [
+                { cursor: end, start: moving ? end : start, contour: next },
+                { contour: next, segments: moving ? [] : Array.window([cursor, ...flattened([cursor, ...Array.dropRight(points, 1), end])], 2) },
+            ];
+        });
+        return [...Map.groupBy(drawn, Struct.get('contour')).values()].map((strokes) => strokes.flatMap(Struct.get('segments')));
+    };
+    static readonly of = (shaped: ShapedText, unitsPerEm: number, outline: (glyph: number) => ReturnType<typeof Profile.outline>) => {
+        const [, placed] = Array.mapAccum(
+            shaped.glyphs,
+            ORIGIN,
+            ({ x, y }, { glyph, xAdvance, yAdvance, xOffset, yOffset, scale }) =>
+                [
+                    { x: x + xAdvance, y: y + yAdvance },
+                    outline(glyph)
+                        .flat()
+                        .map((segment) => moved(segment, { x: (x + xOffset) * unitsPerEm, y: (y + yOffset) * unitsPerEm }, scale)),
+                ] as const,
+        );
         const bands = [...Map.groupBy(placed.flat().flatMap(crossings), Struct.get('band'))];
         return new Profile({ left: new Map(bands.map(([band, rows]) => [band, Math.min(...rows.map(Struct.get('left')))])), right: new Map(bands.map(([band, rows]) => [band, Math.max(...rows.map(Struct.get('right')))])), advance: shaped.advance * unitsPerEm });
     };
-    static readonly gap = (before: Profile, after: Profile) => Option.map(minClearance(before.right, after.left), (clearance) => before.advance + clearance);
+    static readonly gap = (before: Profile, after: Profile, rise = 0, limit = Number.POSITIVE_INFINITY) => {
+        const right = Array.fromIterable(before.right);
+        return pipe(
+            Array.getSomes(
+                Array.range(-rise, rise).map((shift) =>
+                    Option.map(
+                        minClearance(
+                            right.map(([height, x]) => [height + shift, x] as const),
+                            after.left,
+                        ),
+                        (clearance) => ({ gap: Math.min(before.advance + clearance, limit), shift }),
+                    ),
+                ),
+            ),
+            Option.liftPredicate(Array.isArrayNonEmpty),
+            Option.map(Array.max(BY_FIT)),
+        );
+    };
 
     bounded({ slant, top, foot }: { readonly slant: number; readonly top: number; readonly foot: number }) {
         const line = Array.range(Math.floor(foot), Math.ceil(top))
@@ -48,9 +83,9 @@ class Profile extends Data.Class<{
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const moved = ([from, to]: Segment, by: Point): Segment => [
-    { x: from.x + by.x, y: from.y + by.y },
-    { x: to.x + by.x, y: to.y + by.y },
+const moved = ([from, to]: Segment, by: Point, scale: number): Segment => [
+    { x: from.x * scale + by.x, y: from.y + by.y },
+    { x: to.x * scale + by.x, y: to.y + by.y },
 ];
 const minClearance = (right: Iterable<readonly [number, number]>, left: Edge) => pipe(Array.getSomes(Array.map(Array.fromIterable(right), ([height, x]) => Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x))), Option.liftPredicate(Array.isArrayNonEmpty), Option.map(Array.min(Order.Number)));
 const deviation = (curve: readonly Point[]) => {

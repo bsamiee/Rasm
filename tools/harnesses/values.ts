@@ -17,6 +17,7 @@ const REFERENCE = new RegExp(`^(?<kind>${KINDS.join('|')}):(?<path>.+)$`, 'u');
 const Kinds = Schema.Literals(KINDS);
 const Tagged = Schema.Struct({ $: Schema.String });
 const JsonObject = Schema.Record(Schema.String, Schema.Json);
+const members = <F extends Schema.Struct.Fields>(required: F) => Schema.StructWithRest(Schema.Struct(required), [JsonObject]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -73,4 +74,4 @@ const bury = (value: unknown, named: (held: object) => Option.Option<string> = O
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { bury, JsonObject, revive, Tagged };
+export { bury, JsonObject, members, revive, Tagged };

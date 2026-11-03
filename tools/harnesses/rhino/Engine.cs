@@ -382,7 +382,7 @@ internal sealed class Recorder(Journal journal) {
 
     private void Unhandled(object? sender, UnhandledExceptionEventArgs args) {
         Recording held = state.Value;
-        _ = held.Running.Iter(name => journal.Write(new Finished(new Outcome(name, new Completion.Failed(args.IsTerminating ? "unhandled exception terminating the host" : "unhandled exception")) {
+        _ = held.Running.Iter(name => journal.Write(new Finished(new Outcome(name, new Completion.Failed("unhandled exception terminating the host")) {
             Commands = held.Commands.IsEmpty ? null : [.. held.Commands],
             Prompts = held.Prompts.IsEmpty ? null : [.. held.Prompts],
             Diagnostics = held.Diagnostics.IsEmpty ? null : [.. held.Diagnostics],

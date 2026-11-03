@@ -1,11 +1,13 @@
-import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, KashidasOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, Text, TextDefault } from 'adobe:indesign';
+import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
 import { Settings } from '@rasm/typography/settings';
-import { Array, Effect, identity, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
+import { Array, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
 import { Model } from '#/dom/model';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Members<E> = Extract<keyof E, Uppercase<string>>;
+type Sides = ReturnType<typeof sides>;
+type Placed = InDesignDOMObject<unknown> & Pick<TextDefault, 'pointSize' | 'paragraphDirection'>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -33,6 +35,19 @@ const NUMBERING = {
     KHMER_DIGITS: 'khmr',
     BURMESE_DIGITS: 'mymr',
 } as const satisfies Record<Members<typeof DigitsTypeOptions>, string | null>;
+const ALIGNMENTS = {
+    LEFT_ALIGN: { _tag: 'Aligned', edge: 'left' },
+    CENTER_ALIGN: { _tag: 'Aligned', edge: 'center' },
+    RIGHT_ALIGN: { _tag: 'Aligned', edge: 'right' },
+    LEFT_JUSTIFIED: { _tag: 'Justified', edge: 'left' },
+    CENTER_JUSTIFIED: { _tag: 'Justified', edge: 'center' },
+    RIGHT_JUSTIFIED: { _tag: 'Justified', edge: 'right' },
+    FULLY_JUSTIFIED: { _tag: 'Justified', edge: 'justified' },
+    TO_BINDING_SIDE: { _tag: 'Aligned', edge: 'spine' },
+    AWAY_FROM_BINDING_SIDE: { _tag: 'Aligned', edge: 'fore' },
+} as const satisfies Record<Members<typeof Justification>, { readonly _tag: Settings['alignment']['_tag']; readonly edge: keyof Sides }>;
+const SINGLE_WORDS = { LEFT_ALIGN: 'left', CENTER_ALIGN: 'center', RIGHT_ALIGN: 'right', FULLY_JUSTIFIED: 'justified' } as const satisfies Record<Members<typeof SingleWordJustification>, keyof Sides>;
+const SPINES = { LEFT_HAND: 'right', RIGHT_HAND: 'left', SINGLE_SIDED: 'left' } as const satisfies Record<Members<typeof PageSideOptions>, 'left' | 'right'>;
 const JUSTIFICATIONS = {
     NASKH_TATWEEL_JUSTIFICATION: { _tag: 'Tatweel', fractional: false },
     NASKH_TATWEEL_JUSTIFICATION_FRAC: { _tag: 'Tatweel', fractional: true },
@@ -59,9 +74,12 @@ const SPACING = Record.map({ word: 'WordSpacing', letter: 'LetterSpacing', glyph
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, (factor) => Schema.Finite.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.transform({ decode: (value: number) => value / factor, encode: (value: number) => value * factor }))));
+const scaled = (factor: number) => Schema.Finite.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.transform({ decode: (value: number) => value / factor, encode: (value: number) => value * factor })));
+const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, scaled);
+const ParagraphDirection = Schema.Literals(['LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] as const satisfies readonly Members<typeof ParagraphDirectionOptions>[]).transform(['LTR', 'RTL']);
+const Placement = Schema.Struct({ pointSize: Schema.Finite.check(Schema.isGreaterThan(0)), paragraphDirection: ParagraphDirection, side: Schema.optionalKey(Schema.Literals(Struct.keys(SPINES))) });
 const direction = Schema.Struct({
-    paragraphDirection: Schema.optionalKey(Schema.Literals(['LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] as const satisfies readonly Members<typeof ParagraphDirectionOptions>[]).transform(['LTR', 'RTL'])),
+    paragraphDirection: Schema.optionalKey(ParagraphDirection),
     characterDirection: Schema.optionalKey(Schema.Literals(['DEFAULT_DIRECTION', 'LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] satisfies Members<typeof CharacterDirectionOptions>[])),
 }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.direction.schema), {
@@ -69,13 +87,52 @@ const direction = Schema.Struct({
         encode: SchemaGetter.transform(Option.match({ onNone: () => ({ characterDirection: 'DEFAULT_DIRECTION' as const }), onSome: (paragraphDirection) => ({ paragraphDirection }) })),
     }),
 );
+const alignmentMembers = Schema.Struct({ justification: Schema.Literals(Struct.keys(ALIGNMENTS)), singleWordJustification: Schema.optionalKey(Schema.Literals(Struct.keys(SINGLE_WORDS))) });
+const alignment = (sided: Sides) =>
+    alignmentMembers.pipe(
+        Schema.decodeTo(Schema.toType(Settings.fields.alignment.schema), {
+            decode: SchemaGetter.transform(({ justification, singleWordJustification = 'FULLY_JUSTIFIED' }) => {
+                const row = ALIGNMENTS[justification];
+                return row._tag === 'Aligned' ? { _tag: row._tag, side: sided[row.edge] } : { _tag: row._tag, last: sided[row.edge], single: sided[SINGLE_WORDS[singleWordJustification]] };
+            }),
+            encode: SchemaGetter.transformEffect(
+                Effect.fnUntraced(function* (aligned: Settings['alignment']) {
+                    const side = aligned._tag === 'Aligned' ? aligned.side : aligned.last;
+                    const justification = yield* inverse(ALIGNMENTS, ({ _tag, edge }) => _tag === aligned._tag && sided[edge] === side, aligned, `No justification member for ${aligned._tag} ${side}`);
+                    if (aligned._tag === 'Aligned') {
+                        return { justification };
+                    }
+                    const { single } = aligned;
+                    return { justification, singleWordJustification: yield* inverse(SINGLE_WORDS, (edge) => sided[edge] === single, aligned, `No singleWordJustification member for ${single}`) };
+                }),
+            ),
+        }),
+    );
+const leading = (size: number) => {
+    const spaces = Struct.Record(['spaceBefore', 'spaceAfter'], scaled(size));
+    return Schema.Union([Schema.Struct({ leading: Schema.Literal('AUTO' satisfies Members<typeof Leading>), autoLeading: percent, ...spaces }), Schema.Struct({ leading: scaled(size), ...spaces })]).pipe(
+        Schema.decodeTo(Schema.toType(Settings.fields.leading.schema), {
+            decode: SchemaGetter.transform((line) => ({ height: line.leading === 'AUTO' ? { _tag: 'Auto' as const, ratio: line.autoLeading } : { _tag: 'Fixed' as const, em: line.leading }, before: line.spaceBefore, after: line.spaceAfter })),
+            encode: SchemaGetter.transformEffect(({ height, before: spaceBefore, after: spaceAfter }) =>
+                Effect.map(
+                    Match.valueTags(height, {
+                        Auto: ({ ratio }) => Effect.succeed({ leading: 'AUTO' as const, autoLeading: ratio }),
+                        Fixed: ({ em }) => Effect.succeed({ leading: em }),
+                        Extents: (extents) => Effect.fail(new SchemaIssue.InvalidValue({ message: `No leading member for ${extents._tag} ${extents.ratio}` }, extents)),
+                    }),
+                    (line) => ({ ...line, spaceBefore, spaceAfter }),
+                ),
+            ),
+        }),
+    );
+};
 const numberingSystem = Schema.Struct({ digitsType: Schema.Literals(Struct.keys(NUMBERING)) }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.numberingSystem.schema), {
         decode: SchemaGetter.transform(({ digitsType }) => Option.fromNullOr(NUMBERING[digitsType])),
         encode: SchemaGetter.transformEffect((system) =>
-            Effect.fromOption(
-                Array.findFirst(Struct.keys(NUMBERING), (digitsType) => (NUMBERING[digitsType] === Option.getOrNull(system) ? Option.some({ digitsType }) : Option.none())),
-                () => new SchemaIssue.InvalidValue({ message: `No digitsType member for ${Option.getOrNull(system)}` }, system),
+            Effect.map(
+                inverse(NUMBERING, (digits) => digits === Option.getOrNull(system), system, `No digitsType member for ${Option.getOrNull(system)}`),
+                (digitsType) => ({ digitsType }),
             ),
         ),
     }),
@@ -95,8 +152,7 @@ const kashida = Schema.Struct({
                 }
                 const width = Option.filter(Option.liftPredicate(elongation.lower, Schema.is(kashidaWidth)), (lower) => lower === elongation.upper);
                 const paragraphKashidaWidth = yield* Effect.fromOption(width, () => new SchemaIssue.InvalidValue({ message: `No paragraphKashidaWidth for [${elongation.lower}, ${elongation.upper}]` }, elongation));
-                const justification = Array.findFirst(Struct.keys(JUSTIFICATIONS), (member) => JUSTIFICATIONS[member]._tag === elongation._tag && JUSTIFICATIONS[member].fractional === elongation.fractional);
-                const paragraphJustification = yield* Effect.fromOption(justification, () => new SchemaIssue.InvalidValue({ message: `No paragraphJustification for ${elongation._tag}${elongation.fractional ? ' fractional' : ''}` }, elongation));
+                const paragraphJustification = yield* inverse(JUSTIFICATIONS, ({ _tag, fractional }) => _tag === elongation._tag && fractional === elongation.fractional, elongation, `No paragraphJustification for ${elongation._tag}${elongation.fractional ? ' fractional' : ''}`);
                 return { kashidas: 'DEFAULT_KASHIDAS' as const, paragraphJustification, paragraphKashidaWidth };
             }),
         ),
@@ -137,30 +193,57 @@ const spacing = Schema.Struct(Struct.Record(Array.flatMap(Object.values(SPACING)
                 Record.map((member) => members[member]),
             ),
         ),
-        encode: SchemaGetter.transform((values) => Record.collect(SPACING, (axis, bounds) => Record.mapEntries(bounds, (member, bound) => [member, values[axis][bound]])).reduce((all, each) => Record.union(all, each, identity))),
+        encode: SchemaGetter.transform((values) => Record.collect(SPACING, (axis, bounds) => Struct.renameKeys(values[axis], bounds)).reduce((all, each) => Record.union(all, each, identity))),
     }),
 );
 class HostSettings extends Schema.Class<HostSettings, { readonly brand: unique symbol }>('HostSettings')({ direction, numberingSystem, kashida, marks, features, spacing }) {
     static readonly stylisticSets = STYLISTIC_TAGS;
     static readonly kashidaWidths = KASHIDA_WIDTHS;
     static readonly Thousandths = thousandths;
-    static readonly Partial = HostSettings.mapFields(Struct.map(Schema.optionalKey));
-    static readonly read = (target: InDesignDOMObject<unknown>) => Model.use(({ picked }) => Model.read(HostSettings, `settings of ${target.toSpecifier()}`, () => Record.map(HostSettings.fields, (row) => picked(row, target)))).pipe(Effect.map(Settings.make));
+    static readonly read = (target: Placed) => Effect.flatMap(placement(target), (placed) => held(target, placed));
     static readonly write = Effect.fnUntraced(function* (target: Text | TextDefault, change: typeof Settings.Partial.Type) {
-        const merged = yield* Effect.flatMap(HostSettings.read(target), (settings) => Settings.merge(settings, change));
-        const { features: tags, ...sections } = yield* Schema.encodeEffect(HostSettings.Partial)(Struct.pick(merged, Struct.keys(change)));
-        const members: Record.ReadonlyRecord<string, unknown> = Object.fromEntries(Object.values(sections).flatMap(Object.entries));
-        return yield* Model.write(target, { ...retained(target, members), ...(tags === undefined ? {} : yield* featureMembers(target, tags)) });
+        const placed = yield* placement(target);
+        const merged = yield* Effect.flatMap(held(target, placed), (settings) => Settings.merge(settings, change));
+        const { trips, schema } = sections({ ...placed, paragraphDirection: Option.getOrElse(merged.direction, () => placed.paragraphDirection) });
+        const written = Struct.pick(merged, [...Struct.keys(change), ...('direction' in change ? (['alignment'] as const) : [])]);
+        const { features: tags, ...encoded } = yield* Schema.encodeEffect(schema.mapFields(Struct.map(Schema.optionalKey)))(written);
+        const members: Record.ReadonlyRecord<string, unknown> = Object.fromEntries(Object.values(encoded).flatMap(Object.entries));
+        return yield* Model.write(target, { ...retained(target, members, trips), ...(tags === undefined ? {} : yield* featureMembers(target, tags)) });
     });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const retained = (target: Text | TextDefault, members: Record.ReadonlyRecord<string, unknown>) =>
+const inverse = <K extends string, V>(table: { readonly [key in K]: V }, wanted: (row: V) => boolean, actual: unknown, message: string) =>
+    Effect.fromOption(
+        Array.findFirst(Struct.keys(table), (key) => wanted(table[key])),
+        () => new SchemaIssue.InvalidValue({ message }, actual),
+    );
+const sides = (paragraph: (typeof Placement.Type)['paragraphDirection'], spine: (typeof SPINES)[keyof typeof SPINES]) => {
+    const toward = (edge: 'left' | 'right'): Exclude<ReturnType<Settings['lineAlignment']>, 'center' | 'justified'> => ((edge === 'left') === (paragraph === 'LTR') ? 'start' : 'end');
+    return { left: toward('left'), center: 'center', right: toward('right'), justified: 'justified', spine: toward(spine), fore: toward(spine === 'left' ? 'right' : 'left') } as const;
+};
+const sections = ({ pointSize, paragraphDirection: paragraph, side = 'SINGLE_SIDED' }: typeof Placement.Type) => {
+    const sided = sides(paragraph, SPINES[side]);
+    const trips = { ...ROUND_TRIPS, justification: Record.map(ALIGNMENTS, ({ _tag, edge }) => `${_tag} ${sided[edge]}`) };
+    return { trips, schema: HostSettings.mapFields(Struct.assign({ alignment: alignment(sided), leading: leading(pointSize) })) };
+};
+const placement = Effect.fnUntraced(function* (target: Placed) {
+    const { text, frame } = yield* Model;
+    const page = () => Option.flatMap(text(target) ? Array.head(target.parentTextFrames) : Option.none(), (holder) => Option.fromNullishOr(frame(holder) ? holder.parentPage : holder.parent.parentPage));
+    return yield* Model.picked(Placement, target, () => Record.getSomes({ side: Option.map(page(), Struct.get('side')) }));
+});
+const held = Effect.fnUntraced(function* (target: Placed, placed: typeof Placement.Type) {
+    const { picked } = yield* Model;
+    const { schema } = sections(placed);
+    const pick = (row: Schema.Top) => picked(row, target);
+    return Settings.make(yield* Model.read(schema, `settings of ${target.toSpecifier()}`, () => Record.map(schema.fields, pick)));
+});
+const retained = (target: Text | TextDefault, members: Record.ReadonlyRecord<string, unknown>, trips: typeof ROUND_TRIPS) =>
     Record.map(members, (written, member) => {
-        const held = String(Reflect.get(target, member));
-        const same = Option.exists(Record.get(ROUND_TRIPS, member), (decoded) => Predicate.isString(written) && Option.exists(Record.get(decoded, held), (value) => Option.contains(Record.get(decoded, written), value)));
-        return same ? held : written;
+        const current = String(Reflect.get(target, member));
+        const decoded = Option.flatMap(Record.get(trips, member), Record.get(current));
+        return Predicate.isString(written) && Option.isSome(decoded) && Equal.equals(decoded, Option.flatMap(Record.get(trips, member), Record.get(written))) ? current : written;
     });
 const featureMembers = (target: Text | TextDefault, { capitalization, opentypeFeatures = [], ...flags }: typeof features.Encoded) =>
     Effect.map(

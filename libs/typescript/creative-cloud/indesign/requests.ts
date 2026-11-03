@@ -31,7 +31,7 @@ const Contents = Schema.Struct({ contents: Schema.Json });
 const Issues = Preflight.Result.value.fields.aggregatedResults;
 const Flat = Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))]);
 const Deltas = Schema.Struct({ kerning: HostSettings.Thousandths, tracking: HostSettings.Thousandths, baselineShift: Schema.Finite, marks: HostSettings.fields.marks });
-const Kerned = Schema.Array(Schema.Struct({ index: Schema.Int, kerning: HostSettings.Thousandths }));
+const Kerned = Schema.Array(Schema.Struct({ index: Schema.Int, length: Schema.Int, kerning: HostSettings.Thousandths, baselineShift: Schema.Finite }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -300,7 +300,7 @@ const textTarget = Effect.fnUntraced(function* (path: string) {
     return yield* text(target) || textDefault(target) ? Effect.succeed(target) : Unmatched.make({ subject: 'text', query: Option.some(path) });
 });
 const textRange = (target: import('adobe:indesign').Text | TextDefault) => Model.use(({ text }) => Effect.filterOrFail(Effect.succeed(target), text, () => Unmatched.make({ subject: 'text range', query: Option.some(target.toSpecifier()) })));
-const manualKerning = Model.use(({ app }) => Effect.try({ try: () => app.translateKeyString('$ID/Manual'), catch: HostError.refused('$ID/Manual') }));
+const kerningMethod = (method: 'Manual' | 'Metrics') => Model.use(({ app }) => Effect.try({ try: () => app.translateKeyString(`$ID/${method}`), catch: HostError.refused(`$ID/${method}`) }));
 const pointAfterBase = (text: import('adobe:indesign').Text) =>
     Effect.try({
         try: () => {
@@ -449,34 +449,72 @@ const requests = InDesign.Contract.of({
     }),
     adjust: Effect.fn('InDesign.Contract.adjust')(function* (payload: Adjust) {
         const { kerning = 0, tracking = 0, baselineShift = 0, marks = { x: 0, y: 0 } } = payload.deltas;
-        const [{ text }, target, manual, encoded] = yield* Effect.all([Model, textTarget(payload.target), manualKerning, Effect.orDie(Schema.encodeEffect(Deltas)({ kerning, tracking, baselineShift, marks }))]);
-        const amounts = Record.toEntries({ tracking: encoded.tracking, baselineShift: encoded.baselineShift, ...encoded.marks }).filter(([, amount]) => amount !== 0);
+        const [{ text }, target, manual, encoded] = yield* Effect.all([Model, textTarget(payload.target), kerningMethod('Manual'), Effect.orDie(Schema.encodeEffect(Deltas)({ kerning, tracking, baselineShift, marks }))]);
         const points: readonly InsertionPoint[] = kerning === 0 ? [] : [yield* Effect.flatMap(textRange(target), pointAfterBase)];
         const sums = yield* Effect.try({
-            try: () => Array.map(text(target) ? target.textStyleRanges.everyItem().getElements() : [target], (run) => [run, Record.fromIterableWith(amounts, ([member, amount]) => [member, run[member] + amount])] as const),
+            try: () =>
+                Array.map(
+                    text(target) ? target.textStyleRanges.everyItem().getElements() : [target],
+                    (run) => [run, Record.filterMap({ tracking: encoded.tracking, baselineShift: encoded.baselineShift * run.pointSize, ...encoded.marks }, (amount, member) => (amount === 0 ? Result.failVoid : Result.succeed(run[member] + amount)))] as const,
+                ),
             catch: HostError.refused(`style runs of ${target.toSpecifier()}`),
         });
         const kerned = yield* Effect.try({ try: () => Array.map(points, (point) => [point, { kerningValue: (point.kerningMethod === manual ? point.kerningValue : 0) + encoded.kerning }] as const), catch: HostError.refused(`kerning of ${target.toSpecifier()}`) });
         return yield* written(payload.label, target, Effect.forEach([...sums, ...kerned], ([run, values]) => Model.write(run, values)).pipe(Effect.map(flow(Array.flatten, Array.dedupe))));
     }),
     kerns: Effect.fn('InDesign.Contract.kerns')(function* (payload: Kerns) {
-        const [text, manual, rows] = yield* Effect.all([Effect.flatMap(textTarget(payload.target), textRange), manualKerning, Effect.orDie(Schema.encodeEffect(Kerned)(payload.kerns))]);
+        const [text, manual, metrics, rows] = yield* Effect.all([Effect.flatMap(textTarget(payload.target), textRange), kerningMethod('Manual'), kerningMethod('Metrics'), Effect.orDie(Schema.encodeEffect(Kerned)(payload.kerns))]);
         const refused = HostError.refused(`insertion points of ${text.toSpecifier()}`);
-        const methods = yield* Effect.try({ try: () => text.insertionPoints.everyItem().kerningMethod, catch: refused });
-        const outOfRange = rows.filter(({ index }) => index >= methods.length);
-        yield* Array.isReadonlyArrayEmpty(outOfRange) ? Effect.void : Unmatched.make({ subject: `insertion point in 0 to ${methods.length - 1}`, query: Option.some(outOfRange.map(({ index }) => index).join(', ')) });
-        const unkerned = yield* Effect.try({ try: () => rows.filter(({ index }) => methods[index] !== manual || text.insertionPoints.item(index).kerningValue === 0), catch: refused });
-        return yield* written(payload.label, text, Effect.forEach(unkerned, ({ index, kerning }) => Model.write(text.insertionPoints.item(index), { kerningValue: kerning }), { discard: true }).pipe(Effect.as(unkerned.length)));
+        const count = yield* Effect.try({ try: () => text.insertionPoints.length, catch: refused });
+        const outOfRange = [...Option.toArray(payload.restore), ...rows].filter(({ index, length }) => index + length >= count);
+        yield* Array.isReadonlyArrayEmpty(outOfRange) ? Effect.void : Unmatched.make({ subject: `run in characters 0 to ${count - 2}`, query: Option.some(outOfRange.map(({ index, length }) => `${index} to ${index + length - 1}`).join(', ')) });
+        const characters = ({ index, length }: { readonly index: number; readonly length: number }) => text.characters.itemByRange(index, index + length - 1);
+        const restored = Effect.forEach(
+            Option.toArray(payload.restore),
+            (run) =>
+                Effect.flatMap(
+                    Effect.try({ try: () => characters(run).getElements(), catch: refused }),
+                    Effect.forEach((each) => Model.write(each, { kerningMethod: metrics }), { discard: true }),
+                ),
+            { discard: true },
+        );
+        const kerned = Effect.try({
+            try: () => {
+                const methods = text.insertionPoints.everyItem().kerningMethod;
+                const kept = rows.filter(({ index }) => methods[index] !== manual || text.insertionPoints.item(index).kerningValue === 0);
+                const points = kept.filter(({ kerning }) => kerning !== 0).map(({ index, kerning }) => [text.insertionPoints.item(index), { kerningValue: kerning }] as const);
+                const shifted = kept
+                    .filter(({ baselineShift }) => baselineShift !== 0)
+                    .flatMap((row) =>
+                        characters(row)
+                            .getElements()
+                            .map((character) => [character, { baselineShift: row.baselineShift * character.pointSize }] as const),
+                    );
+                return { kept, members: [...points, ...shifted] };
+            },
+            catch: refused,
+        }).pipe(
+            Effect.flatMap(({ kept, members }) =>
+                Effect.as(
+                    Effect.forEach(members, ([target, values]) => Model.write(target, values), { discard: true }),
+                    kept.length,
+                ),
+            ),
+        );
+        return yield* written(payload.label, text, Effect.andThen(restored, kerned));
     }),
     runs: Effect.fn('InDesign.Contract.runs')(function* (payload: Runs) {
-        const [{ textContainer }, text] = yield* Effect.all([Model, Effect.flatMap(textTarget(payload.target), textRange)]);
-        const container = text.parent;
+        const [{ text, textContainer }, target] = yield* Effect.all([Model, textTarget(payload.target)]);
+        if (!text(target)) {
+            return yield* Effect.try({ try: () => ({ ...Model.referenceUnsafe(target), start: 0, length: 0, runs: [{ text: '', font: target.appliedFont.name, axes: target.designAxes }] }), catch: HostError.refused(`applied font of ${target.toSpecifier()}`) });
+        }
+        const container = target.parent;
         const whole = yield* textContainer(container) ? Effect.succeed(container.texts.item(0)) : Unmatched.make({ subject: 'text container', query: Option.some(payload.target) });
         const ranges = yield* Effect.try({
             try: () => Array.map(whole.textStyleRanges.everyItem().getElements(), (run) => ({ text: Predicate.isString(run.contents) ? run.contents : '\n'.repeat(run.length), font: run.appliedFont.name, axes: run.designAxes })),
             catch: HostError.refused(`style ranges of ${whole.toSpecifier()}`),
         });
-        return { ...(yield* Model.reference(container)), start: text.index, length: text.length, runs: ranges };
+        return { ...(yield* Model.reference(container)), start: target.index, length: target.length, runs: ranges };
     }),
     typeset: Effect.fn('InDesign.Contract.typeset')(function* (payload: Typeset) {
         const target = yield* textTarget(payload.target);

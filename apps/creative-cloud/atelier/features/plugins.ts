@@ -66,6 +66,30 @@ const lowered = Effect.fnUntraced(function* (code: string, target: JscTarget, aw
     return { source, relined };
 });
 const library = (installation: Installation) => Array.findFirst([InDesign, Photoshop, Illustrator, AfterEffects] as const, ({ identifier }) => installation.identifier.startsWith(identifier));
+const opener = Effect.fnUntraced(function* (links: Effect.Success<typeof listening>, opened: Pick<ReturnType<Effect.Success<ReturnType<typeof routes>>['serving']>, 'serves'>, file: URL) {
+    const automation = yield* Automation;
+    const [rows, peers] = yield* Effect.all([automation.opening(file), links.peers]);
+    const candidates = rows.filter(
+        flow(
+            library,
+            Option.exists((found) => opened.serves({ library: found })),
+        ),
+    );
+    const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.make({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(rows, Struct.get('name')) }));
+    const [installation, launch] = yield* Option.match(
+        Array.findFirst(candidates, (row) => peers.some(Link.serves(row.url))),
+        {
+            onSome: (linked) => Effect.succeed([linked, Option.none()] as const),
+            onNone: () =>
+                automation.launch({ url: first.url }).pipe(
+                    Effect.tap(() => Stream.runHead(Stream.filter(links.changes, Array.some(Link.serves(first.url))))),
+                    Effect.timeoutOrElse({ duration: LINK_WAIT, orElse: () => Effect.fail(HostError.refused(`link from ${first.name} within ${Duration.format(LINK_WAIT)}`)()) }),
+                    Effect.map((instance) => [first, Option.some(instance)] as const),
+                ),
+        },
+    );
+    return { client: yield* links.call(installation.url), launched: launch };
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -73,28 +97,10 @@ const listening = Link.listen(Libraries, { path: link.path, middleware: Layer.em
 const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success<ReturnType<typeof routes>>, links: Effect.Success<typeof listening>) {
     const [automation, path] = yield* Effect.all([Automation, Path.Path]);
     const [opened, rendered] = [serving('open'), serving('render')];
-    const launched = (installation: Installation) =>
-        automation.launch({ url: installation.url }).pipe(
-            Effect.tap(() => Stream.runHead(Stream.filter(links.changes, Array.some(Link.serves(installation.url))))),
-            Effect.timeoutOrElse({ duration: LINK_WAIT, orElse: () => Effect.fail(HostError.refused(`link from ${installation.name} within ${Duration.format(LINK_WAIT)}`)()) }),
-        );
-    const opener = Effect.fnUntraced(function* (file: URL) {
-        const [rows, peers] = yield* Effect.all([automation.opening(file), links.peers]);
-        const candidates = rows.filter(
-            flow(
-                library,
-                Option.exists(({ Contract }) => Contract.requests.has(opened.tag)),
-            ),
-        );
-        const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.make({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(rows, Struct.get('name')) }));
-        const [installation, launch] = yield* Option.match(
-            Array.findFirst(candidates, (row) => peers.some(Link.serves(row.url))),
-            {
-                onSome: (linked) => Effect.succeed([linked, Option.none()] as const),
-                onNone: () => Effect.map(launched(first), (instance) => [first, Option.some(instance)] as const),
-            },
-        );
-        return { client: yield* links.call(installation.url), launched: launch };
+    const rendering = (client: Effect.Success<ReturnType<typeof links.call>>, payload: typeof Rendering.Type) => (file: URL) => client(rendered.tag, { ...payload, file });
+    const linkedScript = Effect.fnUntraced(function* (code: string, { library: { target, Contract }, client }: { readonly library: Option.Option.Value<ReturnType<typeof library>>; readonly client: Effect.Success<ReturnType<typeof links.call>> }) {
+        const { source, relined } = yield* lowered(code, target, Context.get(Contract.annotations, ExecuteScript.Awaits));
+        return yield* Effect.catchTag(client(script.tag, { code: source }), 'HostError', relined);
     });
     const replying = yield* Effect.sync(() => transformSync(`var runtime = ${String(runtime)};`, { jsc: { target: ExtensionManifest.target, parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } } }).code);
     const scripted = Effect.fnUntraced(function* (code: string, { pid }: { readonly pid: number }) {
@@ -122,21 +128,18 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
         ({ code }, chosen) =>
             Option.match(chosen.linked, {
                 onNone: () => scripted(code, chosen),
-                onSome: Effect.fnUntraced(function* ({ library: { target, Contract }, client }) {
-                    const { source, relined } = yield* lowered(code, target, Context.get(Contract.annotations, ExecuteScript.Awaits));
-                    return yield* Effect.catchTag(client(script.tag, { code: source }), 'HostError', relined);
-                }),
+                onSome: (linked) => linkedScript(code, linked),
             }),
     );
     yield* Route.register(opened.optional('linked application Launch Services picks for file'))(
         Tool.make(opened.tag, {
-            description: 'Opens document without dialogs and returns its reference. Skips the window where the application allows. Launches the picked application if none runs, awaiting its link. After Effects replaces its open project',
+            description: 'Opens document without dialogs and returns its reference, without window where application allows, launching the picked application when none runs and waiting for its link. After Effects replaces its open project',
             parameters: Opening,
             success: Opened,
         }),
         Effect.fnUntraced(function* ({ file }, chosen) {
             const url = yield* path.toFileUrl(file);
-            const opening = yield* Option.match(chosen, { onSome: ({ client }) => Effect.succeed({ client, launched: Option.none() }), onNone: () => opener(url) });
+            const opening = yield* Option.match(chosen, { onSome: ({ client }) => Effect.succeed({ client, launched: Option.none() }), onNone: () => opener(links, opened, url) });
             return { ...(yield* opening.client(opened.tag, { file: url })), launched: opening.launched };
         }),
     );
@@ -146,11 +149,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
             parameters: Rendering,
             success: Capture,
         }).annotate(Tool.Readonly, true),
-        (payload, { client }) =>
-            Effect.map(
-                Capture.written((file) => client(rendered.tag, { ...payload, file })),
-                Tuple.get(0),
-            ),
+        (payload, { client }) => Effect.map(Capture.written(rendering(client, payload)), Tuple.get(0)),
     );
     yield* registerRpcGroup(Libraries, {
         tools: {
@@ -160,8 +159,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
             find_change: { description: 'Finds or changes matches in one undo step and restores search preferences, values take change forms' },
             invoke: { description: 'Invokes menu action in one undo step, menu lists actions by id, name, and area' },
             adjust: { description: 'Adds kerning, tracking, baseline shift or mark offsets to target text, / for text defaults' },
-            kerns: { description: 'Writes pair kerns at insertion indexes or restores metrics kerning' },
-            typeset: { description: 'Reads or sets direction, digits, kashida, mark offsets, features and spacing of target text, / for text defaults' },
+            kerns: { description: 'Writes pair kerns and baseline shifts over character runs, restoring metrics kerning over a given run first' },
         },
         resources: {
             object_model: {

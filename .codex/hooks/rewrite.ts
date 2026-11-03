@@ -1,6 +1,6 @@
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Option } from '@rasm/function-hooks/composition';
-import { commandDecision, type System, unrun } from '@rasm/function-hooks/policies';
+import { Option } from '@rasm/function-hooks/monads';
+import { commandDecision, policyFailure, type System } from '@rasm/function-hooks/policies';
 import { Cause, Config, Console, Effect, FileSystem, Match, Path, Schema, Stdio, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 import manifest from '#/package.json' with { type: 'json' };
@@ -24,7 +24,7 @@ Effect.gen(function* () {
         run: (argv, init) => run(spawn(argv, init)),
         exists: (entry) => run(fs.exists(entry)),
         read: (entry) => run(fs.readFileString(entry)),
-        environment: (name) => run(Effect.map(Config.String(name).pipe(Config.withDefault(undefined)), Option.given)),
+        environment: (name) => run(Effect.map(Config.String(name).pipe(Config.withDefault(undefined)), Option.fromNullable)),
         scanner: 'ast-grep',
         plugin: path.join(root, 'plugins', 'function-hooks'),
         home: Option.some(home),
@@ -32,7 +32,7 @@ Effect.gen(function* () {
     const decision = yield* Stream.mkString(Stream.decodeText(stdio.stdin)).pipe(
         Effect.flatMap(Schema.decodeEffect(Input)),
         Effect.flatMap(({ cwd, tool_input: { command } }) => Effect.promise(() => commandDecision({ ...system, cwd, root: path.relative(root, cwd).startsWith('..') ? Option.none : Option.some(root) }, command, manifest.name, { kind: 'plain' }))),
-        Effect.catchCause((cause) => Effect.succeed({ kind: 'deny' as const, reason: unrun(String(Cause.squash(cause))) })),
+        Effect.catchCause((cause) => Effect.succeed({ kind: 'deny' as const, reason: policyFailure(String(Cause.squash(cause))) })),
     );
     yield* Match.value(decision).pipe(
         Match.discriminatorsExhaustive('kind')({

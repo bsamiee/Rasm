@@ -1,6 +1,6 @@
 import { Schema, Struct } from 'effect';
 import { answers, Name } from '#/cases';
-import { hostCase, Outcome } from '#/results';
+import { Failed, hostCase, Outcome } from '#/results';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -88,7 +88,7 @@ const State = Schema.Struct({
     plugIn: Schema.optionalKey(PlugInLoad.annotate({ description: 'Batch plug-in load' })),
     grasshopper: Schema.optionalKey(Grasshopper),
 });
-const Closed = Schema.fromJsonString(Schema.Struct({ ...State.fields, failed: Schema.optionalKey(Schema.String.annotate({ description: 'Batch failure before or around the cases' })) })).annotate({ description: 'Reply file the engine writes when the batch ends' });
+const Closed = Schema.fromJsonString(State.mapFields(Struct.assign({ failed: Schema.optionalKey(Failed.fields.failed) }))).annotate({ description: 'Reply file the engine writes when the batch ends' });
 const Info = Schema.Struct({ CFBundleIdentifier: Schema.String, CFBundleVersion: Schema.String, CFBundleName: Schema.String });
 const Sarif = Schema.fromJsonString(
     Schema.Struct({
@@ -111,30 +111,32 @@ const Sarif = Schema.fromJsonString(
 );
 
 // --- [OUTCOMES]
-const fields = {
-    ...Struct.pick(Outcome.common, ['console']),
-    document: Schema.optionalKey(
-        Schema.Struct({
-            serial: Schema.Int,
-            path: Schema.optionalKey(Schema.String),
-            template: Schema.optionalKey(Schema.String),
-            units: Schema.Struct({ model: Schema.String, page: Schema.String }),
-            tolerance: Schema.Struct({ absolute: Schema.Finite, angle: Schema.Finite, relative: Schema.Finite }),
-            active: Schema.Boolean,
-            modified: Schema.Boolean,
-            selected: Schema.Int,
-            view: Schema.optionalKey(Schema.Struct({ name: Schema.String, display: Schema.String, parallel: Schema.Boolean })),
-            undo: Schema.Array(Schema.String),
-        }).annotate({ description: 'Case document as the engine reports it after the case' }),
-    ),
-    saved: Schema.optionalKey(Schema.Struct({ before: Schema.String, after: Schema.String }).annotate({ description: '.3dm files of the case document before and after the case' })),
-    macros: Schema.optionalKey(Schema.Array(Schema.Struct({ text: Schema.String, completed: Schema.Boolean })).annotate({ description: 'RunScript answer per command macro' })),
-    commands: Schema.optionalKey(Schema.Array(Schema.Struct({ name: Schema.String, plugin: Schema.optionalKey(Schema.String), result: Schema.String, document: Schema.Int })).annotate({ description: 'Every command that ended while the case ran' })),
-    prompts: Schema.optionalKey(Schema.Array(Schema.Struct({ text: Schema.String, default: Schema.optionalKey(Schema.String), options: Schema.Array(Schema.String) })).annotate({ description: 'Command prompts shown while the case ran' })),
-    diagnostics: Schema.optionalKey(Schema.Array(Schema.Struct({ source: Schema.String, kind: Schema.String, message: Schema.String })).annotate({ description: 'Exception reports, RhinoCode logger warnings, and Grasshopper 2 logger entries' })),
-    unhandled: Schema.optionalKey(Schema.String.annotate({ description: 'Exception a host thread left unhandled while the case ran, in full, the runtime ending the instance after it' })),
-};
+const HostOutcome = Outcome.mapFields(
+    Struct.assign({
+        ...Struct.pick(Outcome.common, ['console']),
+        document: Schema.optionalKey(
+            Schema.Struct({
+                serial: Schema.Int,
+                path: Schema.optionalKey(Schema.String),
+                template: Schema.optionalKey(Schema.String),
+                units: Schema.Struct({ model: Schema.String, page: Schema.String }),
+                tolerance: Schema.Struct({ absolute: Schema.Finite, angle: Schema.Finite, relative: Schema.Finite }),
+                active: Schema.Boolean,
+                modified: Schema.Boolean,
+                selected: Schema.Int,
+                view: Schema.optionalKey(Schema.Struct({ name: Schema.String, display: Schema.String, parallel: Schema.Boolean })),
+                undo: Schema.Array(Schema.String),
+            }).annotate({ description: 'Case document as the engine reports it after the case' }),
+        ),
+        saved: Schema.optionalKey(Schema.Struct({ before: Schema.String, after: Schema.String }).annotate({ description: '.3dm files of the case document before and after the case' })),
+        macros: Schema.optionalKey(Schema.Array(Schema.Struct({ text: Schema.String, completed: Schema.Boolean })).annotate({ description: 'RunScript answer per command macro' })),
+        commands: Schema.optionalKey(Schema.Array(Schema.Struct({ name: Schema.String, plugin: Schema.optionalKey(Schema.String), result: Schema.String, document: Schema.Int })).annotate({ description: 'Every command that ended while the case ran' })),
+        prompts: Schema.optionalKey(Schema.Array(Schema.Struct({ text: Schema.String, default: Schema.optionalKey(Schema.String), options: Schema.Array(Schema.String) })).annotate({ description: 'Command prompts shown while the case ran' })),
+        diagnostics: Schema.optionalKey(Schema.Array(Schema.Struct({ source: Schema.String, kind: Schema.String, message: Schema.String })).annotate({ description: 'Exception reports, RhinoCode logger warnings, and Grasshopper 2 logger entries' })),
+        unhandled: Schema.optionalKey(Schema.String.annotate({ description: 'Exception a host thread left unhandled while the case ran, in full, the runtime ending the instance after it' })),
+    }),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Closed, culture, Engine, fields, HostCase, Info, Member, Opened, Placed, REFUSED, Request, Rows, Sarif, Session, Source, Survey, Template, Tolerance };
+export { Closed, culture, Engine, HostCase, HostOutcome, Info, Member, Opened, Placed, REFUSED, Request, Rows, Sarif, Session, Source, Survey, Template, Tolerance };

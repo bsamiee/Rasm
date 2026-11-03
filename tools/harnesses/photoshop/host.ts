@@ -1,10 +1,9 @@
 import type { Installation } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
 import { Effect, FileSystem, Option, Path, Schema } from 'effect';
-import jsesc from 'jsesc';
 import { crashes, REPORTER, uxp } from '#/adobe';
 import { checked, Launched, plist, printed } from '#/instance';
-import { Encoded, Engine, fields, HostCase, type Placed, type Quit, Reply, SURVEY, Survey } from '#/photoshop/contract';
+import { Encoded, Engine, HostCase, HostOutcome, type Placed, type Quit, Reply, SURVEY, Survey } from '#/photoshop/contract';
 import { precondition } from '#/photoshop/precondition';
 import { copied } from '#/precondition';
 import { type Batch, type Host as Harness, type Installed, installation, type Live } from '#/session';
@@ -54,9 +53,8 @@ const canonical = Effect.fn('canonical')(function* (file: string, bytes: Uint8Ar
 const executed = Effect.fn('executed')(function* (live: Live, argument: string) {
     const [automation, fs, path] = yield* Effect.all([Automation, FileSystem.FileSystem, Path.Path]);
     const file = path.join(live.scratch, 'harness.jsx');
-    yield* fs.writeFileString(file, yield* assembled(ENGINE));
-    const direct = `$.evalFile(new File(${jsesc(file, { quotes: 'double', wrap: true })}))`;
-    const { reply } = yield* automation.script({ pid: live.pid, direct, values: [argument] });
+    yield* fs.writeFileString(file, (yield* assembled(ENGINE)).code);
+    const { reply } = yield* automation.script({ pid: live.pid, direct: '$.evalFile(new File(arguments[1]))', values: [argument, file] });
     return reply;
 });
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
@@ -68,9 +66,10 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
 
 const Host = {
     Engine,
+    assembled: ENGINE,
     survey: { question: SURVEY, Schema: Survey },
     Case: HostCase,
-    fields,
+    Outcome: HostOutcome,
     engine,
     precondition,
     placed: copied,
@@ -80,7 +79,7 @@ const Host = {
     quit: (live) => Effect.asVoid(executed(live, JSON.stringify({ quit: true } satisfies typeof Quit.Type))),
     canonical,
     logs: (instance) => Effect.zipWith(plist(instance.chosen.app, Info), crashes(instance), ({ CFBundleDisplayName: folder }, found) => [uxp(folder), ...found]),
-} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type, typeof fields>;
+} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type>;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

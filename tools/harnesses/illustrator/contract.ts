@@ -1,8 +1,8 @@
 import { Record, Schema, Struct } from 'effect';
 import { answers, Expression } from '#/cases';
-import { Assignments, added, Copy, documents, Enumerated, Steps } from '#/precondition';
+import { Assignments, added, additions, Copy, documents, Enumerated, Steps } from '#/precondition';
 import { hostCase, Outcome, Records, recorded, reply } from '#/results';
-import { JsonObject } from '#/values';
+import { JsonObject, members } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -26,6 +26,10 @@ const Opened = Schema.Struct({
 const Preference = Schema.Union(Record.collect({ Boolean: Schema.Boolean, Integer: Schema.Int, Real: Schema.Finite, String: Schema.String } as const, (kind, value) => Schema.Struct({ key: Schema.NonEmptyString, kind: Schema.Literal(kind), value }))).annotate({
     description: 'app.preferences key and the value its set<kind>Preference writes',
 });
+const Added = added('pathItems', {
+    method: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'Factory the collection reflects, as rectangle or areaText, add when absent' })),
+    args: Schema.optionalKey(Schema.Array(Expression).annotate({ description: 'Factory arguments evaluated over doc and made' })),
+});
 const Placed = Schema.Struct({
     documents: documents(Schema.Union([Created, Opened])),
     coordinates: Enumerated.annotate({ description: 'CoordinateSystem every position and bounds read and write takes, the earlier value restored after the case' }),
@@ -34,10 +38,7 @@ const Placed = Schema.Struct({
     fonts: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'PostScript names app.textFonts must hold' })),
     preferences: Schema.optionalKey(Schema.Array(Preference).annotate({ description: 'app.preferences keys written before the case and restored after it' })),
     sends: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'Application methods the case sends to the host, every other one recorded as an activation, each paired state restored after it' })),
-    add: added('pathItems', {
-        method: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'Factory the collection reflects, as rectangle or areaText, add when absent' })),
-        args: Schema.optionalKey(Schema.Array(Expression).annotate({ description: 'Factory arguments evaluated over doc and made' })),
-    }),
+    add: additions(Added),
     select: Schema.optionalKey(Schema.Array(Expression).annotate({ description: 'Items the first document selects, a text range through its select member' })),
     set: Assignments,
     steps: Steps,
@@ -71,7 +72,7 @@ const Preset = Schema.Struct({
 });
 const Surveyed = {
     presets: Schema.Record(Schema.String, Preset).annotate({ description: 'app.startupPresetsList entry, localized, and its settings' }),
-    application: Schema.StructWithRest(Schema.Struct({ colorSettingsList: Schema.Array(Schema.String) }), [JsonObject]).annotate({ description: 'Readonly application members read whole' }),
+    application: members({ colorSettingsList: Schema.Array(Schema.String) }).annotate({ description: 'Readonly application members read whole' }),
     methods: Schema.Array(Schema.String).annotate({ description: 'Application methods app.reflect lists' }),
     options: JsonObject.annotate({ description: 'new OpenOptions read whole' }),
 };
@@ -87,12 +88,14 @@ const Write = Schema.TaggedUnion({
     Preference: { key: Schema.String, before: Schema.optionalKey(Schema.Json), after: Schema.Json },
     Pasteboard: { member: Schema.Literals(PASTEBOARD) },
 }).annotate({ description: 'Application member, preference key, or pasteboard the original changed, restored after the case' });
-const fields = {
-    ...Outcome.common,
-    logs: recorded(Schema.Struct({ file: Schema.String, line: Schema.String }).annotate({ description: 'Line written while the case ran to an AIGeneral, AIHangMonitor or UXP log no other process holds open' })),
-    writes: recorded(Write),
-};
+const HostOutcome = Outcome.mapFields(
+    Struct.assign({
+        ...Outcome.common,
+        logs: recorded(Schema.Struct({ file: Schema.String, line: Schema.String }).annotate({ description: 'Line written while the case ran to an AIGeneral, AIHangMonitor or UXP log no other process holds open' })),
+        writes: recorded(Write),
+    }),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Engine, fields, HostCase, Install, PASTEBOARD, Placed, Reply, Sent, Survey };
+export { Added, Engine, HostCase, HostOutcome, Install, PASTEBOARD, Placed, Reply, Sent, Survey };

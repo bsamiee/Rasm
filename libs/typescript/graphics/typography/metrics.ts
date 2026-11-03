@@ -1,6 +1,7 @@
 import { Array, Option, Predicate, Record, Schema, Struct } from 'effect';
 import type { Font as Sfnt } from 'fontkit';
 import { type Font, MetricsTag } from 'harfbuzzjs';
+import type { ShapedText } from '#/shaped-text';
 import type { Tables } from '#/tables';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -46,6 +47,13 @@ class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('
             ),
         });
     };
+
+    underlined({ ink }: Pick<ShapedText, 'ink'>) {
+        return Option.map(this.underline, (stroke) => Option.match(ink, { onNone: () => stroke, onSome: ({ minY }) => ({ ...stroke, position: Math.min(stroke.position, minY - stroke.thickness - stroke.thickness / 2) }) }));
+    }
+    scripted(position: 'superscript' | 'subscript', size: number) {
+        return Option.map(this[position], ({ size: scale, offset }) => ({ size: size * scale.y, shift: size * offset.y * (position === 'superscript' ? 1 : -1) }));
+    }
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

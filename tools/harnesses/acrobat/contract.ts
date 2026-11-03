@@ -46,10 +46,11 @@ const Staged = Schema.Struct({
     event: Schema.optionalKey(Event),
     steps: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'Statements run in order after the rows' })),
 });
-const Placed = Schema.Struct({
-    ...Staged.fields,
-    sandbox: Schema.String.annotate({ description: 'Case folder under the absolute-path read-write exception of the Acrobat sandbox entitlement, holding the document copies and every file the case writes until they move to the case folder' }),
-});
+const Placed = Staged.mapFields(
+    Struct.assign({
+        sandbox: Schema.String.annotate({ description: 'Case folder under the absolute-path read-write exception of the Acrobat sandbox entitlement, holding the document copies and every file the case writes until they move to the case folder' }),
+    }),
+);
 const HostCase = hostCase({ precondition: Placed, folder: Schema.String.annotate({ description: 'Case folder the sandbox files move to after the case' }), ...Struct.omit(answers, ['presses']) });
 const Parameter = Schema.Struct({ name: Schema.String, type: Schema.String, optional: Schema.Boolean });
 const Model = Schema.Struct({
@@ -71,17 +72,18 @@ const batch = {
     modal: Model.fields.modal,
 };
 const Request = Schema.TaggedUnion({ Survey: batch, Case: { ...batch, signatures: Model.fields.signatures, case: HostCase } });
-const fields = {
-    ...Outcome.common,
-    alerts: recorded(Schema.Struct({ text: Schema.String, title: Schema.optionalKey(Schema.String), checkbox: Schema.optionalKey(Schema.String) })),
-    confirms: recorded(Schema.String.annotate({ description: 'app.alert question or closeDoc save prompt the confirms answered' })),
-    prompts: recorded(Schema.String.annotate({ description: 'app.response question or popUpMenu items the prompts answered' })),
-    files: recorded(Schema.String.annotate({ description: 'Picker member each files answer went to' })),
-    windows: recorded(Schema.Json.annotate({ description: 'app.execDialog description, the item ids pressed, and the result' })),
-    events: recorded(Schema.Json.annotate({ description: 'Field event the attached source ran in: type, name, rc, value, change, willCommit' })),
-    opened: recorded(Schema.Json.annotate({ description: 'Case document starting state: path, page boxes and rotation, info, XMP, annotations, fields, OCGs, bookmarks, data objects' })),
-};
-const HostOutcome = Schema.Struct({ ...Outcome.fields, ...fields });
+const HostOutcome = Outcome.mapFields(
+    Struct.assign({
+        ...Outcome.common,
+        alerts: recorded(Schema.Struct({ text: Schema.String, title: Schema.optionalKey(Schema.String), checkbox: Schema.optionalKey(Schema.String) })),
+        confirms: recorded(Schema.String.annotate({ description: 'app.alert question or closeDoc save prompt the confirms answered' })),
+        prompts: recorded(Schema.String.annotate({ description: 'app.response question or popUpMenu items the prompts answered' })),
+        files: recorded(Schema.String.annotate({ description: 'Picker member each files answer went to' })),
+        windows: recorded(Schema.Json.annotate({ description: 'app.execDialog description, the item ids pressed, and the result' })),
+        events: recorded(Schema.Json.annotate({ description: 'Field event the attached source ran in: type, name, rc, value, change, willCommit' })),
+        opened: recorded(Schema.Json.annotate({ description: 'Case document starting state: path, page boxes and rotation, info, XMP, annotations, fields, OCGs, bookmarks, data objects' })),
+    }),
+);
 const Recorded = Records.line(HostOutcome);
 const Reason = Schema.Struct({ reason: Schema.String.annotate({ description: 'Failure around the case, or the syntax error the eval wrapper caught' }) });
 const replied = <A extends Schema.Top>(answer: A) => Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(answer, Reason))))).annotate({ description: 'URI-encoded JSON result the engine returns, ASCII through the Mac Roman reply' });
@@ -90,4 +92,4 @@ const Answered = replied(Schema.Struct({ outcome: HostOutcome, kept: Schema.Arra
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answered, BOXES, Engine, fields, HostCase, HostOutcome, Lockdown, Model, Page, Placed, Recorded, Request, Staged, Survey, Surveyed };
+export { Answered, BOXES, Engine, HostCase, HostOutcome, Lockdown, Model, Page, Placed, Recorded, Request, Staged, Survey, Surveyed };

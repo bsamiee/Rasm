@@ -332,6 +332,7 @@ const initialize = Effect.fn('initialize')(function* () {
             }, Effect.scoped),
         );
     const location = (uri: string, { start: { line, character } }: Range) => `${URL.parse(uri)?.protocol === 'file:' ? relative(root, fileURLToPath(uri)) : uri}:${line + 1}:${character + 1}`;
+    const point = (item: TextDocumentItem, given: typeof Position.Type) => ({ textDocument: { uri: item.uri }, position: Struct.omit(given, ['file']) });
     const locations = (targets: Definition | DefinitionLink[] | Location[] | null) => Array.ensure<Location | DefinitionLink>(targets ?? []).map((target) => (LocationLink.is(target) ? location(target.targetUri, target.targetSelectionRange) : location(target.uri, target.range)));
     const text = (content: Hover['contents'] | Diagnostic['message']) => Array.ensure(content).map((part) => (typeof part === 'string' ? part : part.value));
     const flattened = (message: Diagnostic['message']) => text(message).join('').replaceAll('\n', ' ');
@@ -356,9 +357,9 @@ const initialize = Effect.fn('initialize')(function* () {
     yield* Effect.all(
         [
             tool('diagnostics', 'Language server diagnostics as `path:line:column severity source(code): message` lines, related locations indented', File, (server, item) => Effect.map(server.diagnose(item), report(item))),
-            tool('definition', 'Symbol definition locations as `path:line:column` lines', Position, (server, item, { file, ...position }) => Effect.map(server.ask(DefinitionRequest.type, { textDocument: { uri: item.uri }, position }), locations)),
-            tool('references', 'Symbol reference and declaration locations as `path:line:column` lines', Position, (server, item, { file, ...position }) => Effect.map(server.ask(ReferencesRequest.type, { textDocument: { uri: item.uri }, position, context: { includeDeclaration: true } }), locations)),
-            tool('hover', 'Symbol type signature and documentation', Position, (server, item, { file, ...position }) => Effect.map(server.ask(HoverRequest.type, { textDocument: { uri: item.uri }, position }), (hover) => text(hover?.contents ?? []))),
+            tool('definition', 'Symbol definition locations as `path:line:column` lines', Position, (server, item, given) => Effect.map(server.ask(DefinitionRequest.type, point(item, given)), locations)),
+            tool('references', 'Symbol reference and declaration locations as `path:line:column` lines', Position, (server, item, given) => Effect.map(server.ask(ReferencesRequest.type, { ...point(item, given), context: { includeDeclaration: true } }), locations)),
+            tool('hover', 'Symbol type signature and documentation', Position, (server, item, given) => Effect.map(server.ask(HoverRequest.type, point(item, given)), (hover) => text(hover?.contents ?? []))),
         ],
         { discard: true },
     );

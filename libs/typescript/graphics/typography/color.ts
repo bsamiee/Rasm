@@ -1,4 +1,4 @@
-import { Option, Record, Schema, Struct } from 'effect';
+import { Record, Schema, Struct } from 'effect';
 import { ColorPaletteFlags, type Face } from 'harfbuzzjs';
 import type { Names } from '#/names';
 
@@ -17,10 +17,10 @@ class Color extends Schema.Class<Color, { readonly brand: unique symbol }>('Colo
 ) {
     static readonly of = ({ handle, names }: { readonly handle: Face; readonly names: Names }) =>
         Color.make({
-            palettes: handle.getColorPalettes().map(({ colors, nameId, flags }) => ({
-                name: Option.flatMap(Option.fromUndefinedOr(nameId), (id) => names.findById(id)),
-                colors: colors.map(({ nameId: label, ...channels }) => ({ ...channels, name: Option.flatMap(Option.fromUndefinedOr(label), (id) => names.findById(id)) })),
-                ...Record.map({ light: ColorPaletteFlags.USABLE_WITH_LIGHT_BACKGROUND, dark: ColorPaletteFlags.USABLE_WITH_DARK_BACKGROUND }, (flag) => (flags & flag) !== 0),
+            palettes: handle.getColorPalettes().map((palette) => ({
+                name: names.findById(palette.nameId),
+                colors: palette.colors.map(({ nameId, ...channels }) => ({ ...channels, name: names.findById(nameId) })),
+                ...Record.map({ light: ColorPaletteFlags.USABLE_WITH_LIGHT_BACKGROUND, dark: ColorPaletteFlags.USABLE_WITH_DARK_BACKGROUND }, (flag) => (palette.flags & flag) !== 0),
             })),
             layers: handle.hasColorLayers(),
             paint: handle.hasColorPaint(),

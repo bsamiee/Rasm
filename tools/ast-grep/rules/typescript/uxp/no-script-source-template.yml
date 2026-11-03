@@ -69,4 +69,4 @@ rule:
                         - has: {kind: pair, all: [{has: {field: key, regex: '^arguments$'}}, {has: {field: value, kind: object, has: {matches: encoded-entry}}}]}
             - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^@rasm/automation(/[\w-]+)?$'}}}}
 message: '`$CALLEE` runs a script source built from values'
-note: 'Pass a constant source or a `{ _tag: ''file'', url }` script file, each value in `withArguments` of `doScript` or `values` beside `direct`, read as `arguments[0]` in JavaScript or `item 1 of arguments` in AppleScript'
+note: 'Pass a constant source with each value in `withArguments` of `doScript` or `values` beside `direct`, read as `arguments[0]` in JavaScript or `item 1 of arguments` in AppleScript; an ExtendScript file the engine reads through `$.fileName` runs as the constant `$.evalFile(new File(arguments[1]))` with its path in `values`, a `{ _tag: ''file'' }` direct failing Photoshop `do javascript` with -1728'

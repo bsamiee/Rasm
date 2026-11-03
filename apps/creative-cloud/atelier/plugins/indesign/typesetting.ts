@@ -1,3 +1,4 @@
+import type { Text } from 'adobe:indesign';
 import { Adjust, Typeset } from '@rasm/automation/typesetting';
 import type { host } from '@rasm/indesign/host';
 import { Model } from '@rasm/indesign/model';
@@ -35,8 +36,9 @@ const picker = <A>(options: readonly (readonly [string, A])[]) => {
 
 const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(Model.selection, (item) => requests.typeset(Typeset.make({ target: item.toSpecifier(), settings })));
 const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof Steps.Type) => Adjust['deltas']>, multiple: number) {
-    const [{ app }, item, delta] = yield* Effect.all([Model, Model.selection, Effect.fromOption(deltas)]);
-    const steps = yield* Model.read(Steps, 'text preferences', () => ({ kerning: multiple * app.textPreferences.kerningKeyIncrement, baselineShift: multiple * app.textPreferences.baselineShiftKeyIncrement }));
+    const [{ app, owning }, item, delta] = yield* Effect.all([Model, Model.selection, Effect.fromOption(deltas)]);
+    const styled = yield* Effect.fromOption(Option.liftPredicate(item, owning<Pick<Text, 'textStyleRanges'>>('textStyleRanges')), () => new Cause.NoSuchElementError(`text style range in selection ${item.toSpecifier()}`));
+    const steps = yield* Model.read(Steps, 'text preferences', () => ({ kerning: multiple * app.textPreferences.kerningKeyIncrement, baselineShift: (multiple * app.textPreferences.baselineShiftKeyIncrement) / styled.textStyleRanges.firstItem().pointSize }));
     yield* requests.adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
     return Option.none();
 });

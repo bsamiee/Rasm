@@ -5,7 +5,8 @@ Goal: universal Perso-Arabic typesetting over any installed font as real InDesig
 ## [01]-[DECISIONS]
 
 Rules every package of the run follows:
-- InPage faces, data files, widgets, license and Windows calls supply no name, size, style, step or table to library code
+- Library code names no face and takes no name, size, style, step or table from InPage faces, data files, widgets, license or Windows calls
+- Proofs and host probes set text in faces under `assets/fonts`
 - InPage tuned values (kerning rule rows, thresholds, kashida ranks, speed flags) enter `proof/ab` adapters alone, libraries take caller rows
 - InDesign capability is Effect operations over host objects any UXP program calls, the `Typesetting` RPC group their transport
 - `@rasm/indesign` and `@rasm/automation` hold no MCP shape
@@ -106,11 +107,13 @@ Open capability of `@rasm/typography` in `justification.ts` and `settings.ts`, g
   - `distilled/internals/adobe-indesign-composers/Paragraph-Composer/justification.ts` `align`, `alignedOffset`, `lastLine`
   - `distilled/internals/adobe-indesign-composers/Justification-Panel/panel-observers.ts` `alignments`, `singleWordToTarget`
   - `facts/indesign-host.json` `enumerations` `Justification`, `SingleWordJustification`
-- `Settings.leading` sets line height as shaped extents times a caller ratio, paragraph space dropping at column and frame edges
+- `Settings.leading` height gains an `Extents` case, `Column.of` spacing baselines a ratio times ink depth above plus ink ascent below, marks included
+  - Auto and Fixed pitch measure from a `Settings.leading` anchor (baseline, em box top or em box center)
   - `distilled/internals/adobe-indesign-composers/Paragraph-Composer/line-breaking-2/line-states.ts` `leadingAnchors`, `nextLine`
   - `distilled/internals/adobe-indesign-composers/Paragraph-Composer/paragraph-composer-hl-composer/metrics.ts` `firstLineOffsetMetric`
   - `distilled/typesetting/id-extras-v-justify/column-justify.ts` `restoreColumn`
   - `facts/adobe-indesign.txt` `FONTS`
+  - `facts/indesign-host.json` `enumerations` `LeadingModel`
 - Verse sets each hemistich to width w, the widest hemistich at minimum stretch, in centered columns or staggered indents `(a, M − w − a)`
   - Parallel text cuts at segment boundaries, each row as tall as its tallest column
   - `distilled/right-to-left/hasaninscripts-convert-line-to-verse/styles.ts` `verseStyleSpecs`, `cycleStyle`
@@ -224,9 +227,10 @@ Open capability of `@rasm/indesign` in `dom/settings.ts`, app level:
   - `distilled/right-to-left/phinney-r2l/styles.ts` `ensureStyle`
   - `distilled/internals/adobe-indesign-composers/WorldReady/phase2-conversion.ts` `applyLeftToRight`
   - `facts/indesign-host.json` `enumerations` `Justification`
-- `HostSettings` maps `Settings.leading` to `leading` and `autoLeading`
+- `HostSettings` maps the `Settings.leading` anchor to `leadingModel`, and `Extents` height to each composed line's `leading` in points through `lines`
   - `distilled/right-to-left/hasaninscripts-convert-line-to-verse/styles.ts` `defaults`, `verseStyleSpecs`
   - `facts/adobe-indesign.txt` `DOM`, `FONTS`
+  - `facts/indesign-host.json` `enumerations` `LeadingModel`
 
 ## [11]-[INDESIGN_DOCUMENT]
 

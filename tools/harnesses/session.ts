@@ -2,15 +2,15 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { type Installation, State } from '@rasm/automation/applications';
 import type { Automation } from '@rasm/automation/automation';
-import { Array, ByteSize, Data, type DateTime, Deferred, Duration, Effect, Equal, FileSystem, HashMap, identity, Match, Number, Option, Order, Path, type PlatformError, Predicate, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, ByteSize, Data, DateTime, Deferred, Duration, Effect, Equal, FileSystem, HashMap, Match, Number, Option, Order, Path, type PlatformError, Predicate, Record, Ref, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import type { Row as Authored } from '#/cases';
 import { HarnessError } from '#/error';
-import { busy, type Launched, Progress, Row, type Spawned, stalled, starts, watched } from '#/instance';
-import { LAUNCHED, phase, Run, STATES, sample, stateOf, tagOf } from '#/log';
+import { type Asked, type Launched, Progress, Row, type Spawned, stalled, starts, watched } from '#/instance';
+import { Messages, phase, Run, record, STATES, sample, tagOf } from '#/log';
 import { crashed, linked, type Rule } from '#/report';
 import { Halted, type hostCase, Outcome, Records } from '#/results';
-import type { Mapped } from '#/source';
+import { assembled, type Mapped } from '#/source';
 import type { JsonObject } from '#/values';
 import npm from './package.json' with { type: 'json' };
 
@@ -19,26 +19,24 @@ import npm from './package.json' with { type: 'json' };
 type Any = Schema.Codec<unknown, unknown>;
 type Decoding<P> = Schema.Codec<P, unknown, never, unknown>;
 type Services = Automation | ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path | Run;
-type Instance = Pick<Live, 'pid' | 'started' | 'chosen'> & { readonly ended: DateTime.Utc };
+type Instance = Pick<Live, 'pid' | 'started' | 'chosen' | 'scratch'> & { readonly ended: DateTime.Utc; readonly owned: readonly string[] };
 type Entry = ReturnType<typeof Records.line<typeof Outcome>>['Type'];
 type Verdict = Data.TaggedEnum<{
     Halted: { readonly index: Option.Option<number>; readonly halted: typeof Halted.Type };
     Lost: { readonly index: Option.Option<number>; readonly error: Error };
 }>;
-type Sighting = typeof JsonObject.Type & { readonly state: 'Dialog' | 'Responding' };
+type Sighting = (typeof Messages)['window opened']['Encoded'];
+type Element = (typeof State.cases.Responding.Type)['elements'][number];
 interface Surveyed {
     readonly host: Schema.Json;
 }
 type Cased = ReturnType<typeof hostCase<{ readonly folder: typeof Schema.String }>>['Type'];
-interface Fields {
-    readonly [key: PropertyKey]: Schema.Top & Schema.Decoder<unknown>;
-}
 interface Installed {
     readonly identifier: string;
     readonly name: string;
     readonly app: string;
     readonly version: string;
-    readonly watched: Array.NonEmptyReadonlyArray<string>;
+    readonly helpers: readonly string[];
 }
 interface Header<S> {
     readonly application: string;
@@ -60,11 +58,11 @@ interface Note {
 }
 interface Seen {
     readonly state: typeof State.Type;
+    readonly since: Option.Option<DateTime.Utc>;
     readonly windows: ReadonlyMap<string, Sighting>;
 }
 interface Trace {
     readonly next: number;
-    readonly running: Option.Option<number>;
     readonly last: Option.Option<number>;
     readonly finished: HashMap.HashMap<number, typeof Outcome.Type>;
 }
@@ -75,6 +73,7 @@ interface Live {
     readonly chosen: Installed;
     readonly scratch: string;
     readonly passing: readonly Progress[];
+    readonly assembled: readonly Mapped[];
     readonly verdict: Deferred.Deferred<Verdict>;
     readonly notes: Ref.Ref<readonly Note[]>;
     readonly trace: Ref.Ref<Trace>;
@@ -101,12 +100,6 @@ interface Rebuilt<C> {
     readonly args: readonly Schema.Json[];
     readonly module: string;
 }
-interface Ran<S> {
-    readonly reply: Result.Result<Header<S>, Error>;
-    readonly trace: Trace;
-    readonly notes: readonly Note[];
-    readonly verdict: Option.Option<Verdict>;
-}
 interface Finished<S> {
     readonly header: Option.Option<Header<S>>;
     readonly shared: readonly number[];
@@ -114,17 +107,14 @@ interface Finished<S> {
     readonly answered: typeof Outcome.fields.answered.Type;
     readonly outcomes: readonly (typeof Outcome.Type)[];
 }
-interface Done<S, C extends Cased, E, P extends Plan<C, E>> extends Finished<S> {
-    readonly survey: S;
-    readonly opened: Option.Option<Schema.Json>;
-    readonly plan: P;
-}
-interface Host<S extends Surveyed = Surveyed, C extends Cased = Cased, E = unknown, P = unknown, F extends Fields = Fields> {
+interface Host<S extends Surveyed = Surveyed, C extends Cased = Cased, E = unknown, P = unknown> {
     readonly Engine: Schema.Codec<E, unknown>;
     readonly survey: { readonly question: string; readonly Schema: Schema.Codec<S, unknown> };
     readonly Case: Schema.Codec<C, unknown>;
-    readonly fields: F;
+    readonly Outcome: Schema.Codec<typeof Outcome.Type, unknown>;
     readonly progress?: readonly Progress[];
+    readonly assembled?: URL;
+    readonly bundle?: Effect.Effect<URL, HarnessError>;
     readonly installed: Effect.Effect<readonly Installed[], Error, Services>;
     readonly engine: (scripts: readonly string[]) => Result.Result<E, HarnessError>;
     readonly precondition: (survey: S) => Decoding<P>;
@@ -139,14 +129,14 @@ interface Host<S extends Surveyed = Surveyed, C extends Cased = Cased, E = unkno
     readonly rebuilt?: (call: Rebuilt<C>, folder: string) => Effect.Effect<{ readonly hosted: C; readonly map: readonly Mapped[] }, Error, Services>;
     readonly logs?: (instance: Instance) => Effect.Effect<readonly Rule[], Error, Services>;
 }
-type Session<S extends Surveyed, C extends Cased> = Pick<Host<S, C>, 'progress' | 'fields' | 'launch' | 'opened' | 'send' | 'quit' | 'canonical' | 'logs'>;
+type Planner<S, L> = (survey: S) => Effect.Effect<L, Error, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner | Run>;
+type Session<S extends Surveyed, C extends Cased> = Pick<Host<S, C>, 'progress' | 'assembled' | 'Outcome' | 'launch' | 'opened' | 'send' | 'quit' | 'canonical' | 'logs' | 'bundle'>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const VERSIONS = new Intl.Collator('en', { numeric: true });
 const LABEL = npm.name.replaceAll(/\W+/gu, '-').replace(/^-/u, '');
-const HALTED = { Crashed: 'Exited', Hung: 'Unresponsive', Dialog: 'Dialog' } as const satisfies { readonly [K in (typeof Halted.Type)['_tag']]: keyof typeof STATES };
-const UNLOGGED = new Set(['name', 'completion', 'before', 'opened', 'written', 'halted']);
+const ENGINE_LINE = / at line (?<line>\d+)$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -158,18 +148,18 @@ const newest = Order.flip(
         ({ version }: Installed) => version,
     ),
 );
-const idle: Trace = { next: 0, running: Option.none(), last: Option.none(), finished: HashMap.empty() };
+const idle: Trace = { next: 0, last: Option.none(), finished: HashMap.empty() };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [INSTALLATIONS]
-const inside = (outer: Installation, inner: Installation) => inner.url.href !== outer.url.href && inner.url.href.startsWith(outer.url.href);
+const inside = (inner: Installation, outer: Installation) => inner.url.href !== outer.url.href && inner.url.href.startsWith(outer.url.href);
 const installation = Effect.fn('installation')(function* (row: Installation, rows: readonly Installation[], extra: readonly string[]) {
     const path = yield* Path.Path;
     const app = yield* path.fromFileUrl(row.url);
     const version = yield* Effect.fromOption(row.version, () => HarnessError.unavailable(row.name)('Launch Services reports no version'));
-    const companions = Array.dedupe([...rows.filter((inner) => inside(row, inner)).map(({ identifier }) => identifier), ...extra]).filter((identifier) => identifier !== row.identifier);
-    return { identifier: row.identifier, name: row.name, app, version, watched: [row.identifier, ...companions] } satisfies Installed;
+    const helpers = Array.dedupe([...rows.filter((inner) => inside(inner, row)).map(({ identifier }) => identifier), ...extra]).filter((identifier) => identifier !== row.identifier);
+    return { identifier: row.identifier, name: row.name, app, version, helpers } satisfies Installed;
 });
 const installations = (rows: readonly Installed[], prefixes: readonly string[], subject: string) => {
     const hosts = Array.sort(rows, newest);
@@ -184,23 +174,34 @@ const caseOf = (batch: readonly Prepared<Cased>[], index: Option.Option<number>)
         ({ hosted }) => hosted.name,
     );
 const named = (batch: readonly Prepared<Cased>[], index: Option.Option<number>) => Record.getSomes({ case: caseOf(batch, index) });
-const flat = (halted: Option.Option<typeof Halted.Type>) => Option.match(halted, { onNone: () => ({}), onSome: (held) => ({ ...Struct.omit(held, ['_tag']), state: HALTED[held._tag] }) });
-const verdictTag = Verdict.$match({ Halted: ({ halted }) => halted._tag, Lost: ({ error }) => tagOf(error) });
-const verdictText = (limit: Duration.Duration, pid: number, batch: readonly Prepared<Cased>[]) => (verdict: Verdict) =>
-    [
-        ...Option.toArray(Option.map(caseOf(batch, verdict.index), (name) => `case ${name}`)),
-        Verdict.$match(verdict, {
-            Halted: ({ halted }) =>
-                Halted.match(halted, {
-                    Crashed: ({ status, signal, report }) => `instance ${pid} exited with ${signal === undefined ? `status ${status ?? 'unread'}` : `signal ${signal}`}${report === undefined ? '' : `, report ${report}`}`,
-                    Hung: ({ cpu, sample: file }) => `instance ${pid} hung ${cpu} past ${Duration.format(limit)}, sample ${file}, left running`,
-                    Dialog: (dialog) => Row.shown(dialog, pid),
-                }),
-            Lost: ({ error }) => error.message,
+const clean = ({ signal, report, status = 0 }: { readonly signal?: number; readonly report?: unknown; readonly status?: number }) => signal === undefined && report === undefined && status === 0;
+const flat = Option.match({ onNone: () => ({}), onSome: Struct.omit<typeof Halted.Type, readonly ['_tag']>(['_tag']) });
+const blameOf = (limit: Duration.Duration, pid: number, batch: readonly Prepared<Cased>[]) => (verdict: Verdict) => {
+    const { tag, text, halted } = Verdict.$match(verdict, {
+        Halted: ({ halted: held }) => ({
+            tag: held._tag,
+            text: Halted.match(held, {
+                Crashed: ({ status, signal, report }) => `instance ${pid} exited with ${signal === undefined ? `status ${status ?? 'unread'}` : `signal ${signal}`}${report === undefined ? '' : `, report ${report}`}`,
+                Hung: ({ process, sample: file }) => `instance ${pid} hung${process === undefined ? '' : ` ${process}`} past ${Duration.format(limit)}, sample ${file}, left running`,
+                Dialog: (dialog) => Row.shown(dialog, pid),
+            }),
+            halted: Option.some(held),
         }),
-    ].join(': ');
+        Lost: ({ error }) => ({ tag: tagOf(error), text: error.message, halted: Option.none<typeof Halted.Type>() }),
+    });
+    return { index: verdict.index, tag, halted, error: [...Option.toArray(Option.map(caseOf(batch, verdict.index), (name) => `case ${name}`)), text].join(': ') };
+};
 const ended = (live: Live, verdict: (trace: Trace) => Verdict) => Effect.flatMap(Ref.get(live.trace), (trace) => Effect.asVoid(Deferred.succeed(live.verdict, verdict(trace))));
-const lost = (live: Live) => (error: Error) => ended(live, ({ running }) => Verdict.Lost({ index: running, error }));
+const runningOf = ({ last, finished }: Trace) => Option.filter(last, (index) => !HashMap.has(finished, index));
+const lost = (live: Live) => (error: Error) => ended(live, (trace) => Verdict.Lost({ index: runningOf(trace), error }));
+const verdicted =
+    (live: Live, subject: string) =>
+    <A, R>(self: Effect.Effect<A, Error, R>) =>
+        self.pipe(
+            Effect.catch(lost(live)),
+            Effect.catchDefect((defect) => lost(live)(HarnessError.refused(subject)(defect))),
+        );
+const exitedWith = (live: Live) => (halted: typeof Halted.Type) => ended(live, ({ last }) => Verdict.Halted({ index: last, halted }));
 
 // --- [RECORDS]
 const filesIn = Effect.fn('filesIn')(function* (folder: string) {
@@ -211,297 +212,307 @@ const filesIn = Effect.fn('filesIn')(function* (folder: string) {
         isFile,
     );
 });
-const entriesOf = (Line: Schema.Codec<Entry, string, never, unknown>) =>
-    Effect.fn('entriesOf')(function* (file: string) {
-        const lines = (yield* (yield* FileSystem.FileSystem).readFileString(file)).split('\n').slice(0, -1);
-        return yield* Effect.forEach(
-            lines.filter((line) => line.trim() !== ''),
-            (line) => Schema.decodeEffect(Line)(line),
-        );
+const digest = (host: Pick<Host, 'canonical'>) =>
+    Effect.fnUntraced(function* (file: string) {
+        const bytes = yield* FileSystem.FileSystem.use((fs) => fs.readFile(file));
+        const parts: readonly (string | Uint8Array)[] = host.canonical === undefined ? [bytes] : yield* host.canonical(file, bytes);
+        return { file, size: bytes.byteLength, sha256: parts.reduce((hash, part) => hash.update(part), createHash('sha256')).digest('hex') } satisfies (typeof Outcome.fields.written.Type)[number];
     });
-const mapped =
-    (map: readonly Mapped[]) =>
-    (row: typeof Outcome.Type): typeof Outcome.Type => {
-        const at = (frame: { readonly line: number; readonly file?: string }) => (frame.file === undefined ? Option.getOrElse(Array.get(map, frame.line - 1), () => ({ line: frame.line })) : frame);
-        return row.completion._tag === 'Thrown'
-            ? { ...row, completion: { ...row.completion, ...(row.completion.line === undefined ? {} : at({ line: row.completion.line, ...(row.completion.file === undefined ? {} : { file: row.completion.file }) })), ...(row.completion.stack === undefined ? {} : { stack: row.completion.stack.map(at) }) } }
-            : row;
-    };
+const relocated = (engine: readonly Mapped[]) => (found: string, line: string) =>
+    Option.match(
+        Option.flatMap(Number.parse(line), (at) => Array.get(engine, at - 1)),
+        { onNone: () => found, onSome: (held) => ` at ${held.file}:${held.line}` },
+    );
+const mapped = (map: readonly Mapped[], engine: readonly Mapped[]) => (row: typeof Outcome.Type) => {
+    const at = (frame: { readonly line: number; readonly file?: string }) => (frame.file === undefined ? Option.getOrElse(Array.get(map, frame.line - 1), () => ({ line: frame.line })) : frame);
+    const located = (text: string) => text.replace(ENGINE_LINE, relocated(engine));
+    return Outcome.fields.completion.match(row.completion, {
+        Ran: () => row,
+        Exited: () => row,
+        Thrown: (thrown) => ({
+            ...row,
+            completion: {
+                ...thrown,
+                message: located(thrown.message),
+                ...(thrown.line === undefined ? {} : at({ line: thrown.line, ...Record.getSomes({ file: Option.fromUndefinedOr(thrown.file) }) })),
+                ...(thrown.stack === undefined ? {} : { stack: thrown.stack.map(at) }),
+            },
+        }),
+        Failed: ({ reason }) => ({ ...row, completion: { _tag: 'Failed' as const, reason: located(reason) } }),
+    });
+};
 const reported = (row: typeof Outcome.Type, tag: string = row.halted?._tag ?? row.completion._tag) => {
     const fields: Record.ReadonlyRecord<string, unknown> = row;
-    const passed = row.halted === undefined && (Outcome.fields.completion.guards.Ran(row.completion) || Outcome.fields.completion.guards.Exited(row.completion));
+    const unlogged = ['name', 'completion', 'before', 'opened', 'written', 'halted'];
+    const passed = row.halted === undefined && Outcome.fields.completion.isAnyOf(['Ran', 'Exited'])(row.completion);
     const facts = {
         case: row.name,
         completion: row.completion._tag,
         ...Outcome.fields.completion.match(row.completion, {
             Ran: () => ({}),
             Exited: () => ({}),
-            Thrown: ({ message, file, line, number, stack }) => ({ error: message, ...Record.filter({ file, line, number }, Predicate.isNotUndefined), ...(stack === undefined ? {} : { stack: stack.map((frame) => [frame.file, frame.line].filter(Predicate.isNotUndefined).join(':')) }) }),
+            Thrown: ({ message, file, line, number, stack }) => ({ error: message, ...Record.filter({ file, line, number }, Predicate.isNotUndefined), ...(stack === undefined ? {} : { stack: stack.map((frame) => [frame.file, frame.line].filter((part) => part !== undefined).join(':')) }) }),
             Failed: ({ reason }) => ({ error: reason }),
         }),
-        ...Record.filter(fields, (held, key) => !UNLOGGED.has(key) && held !== undefined && (key === 'value' || !(Predicate.isObject(held) && Object.keys(held).length === 0))),
+        ...Record.filter(fields, (held, key) => !unlogged.includes(key) && held !== undefined && (key === 'value' || !(Predicate.isObjectOrArray(held) && Object.keys(held).length === 0))),
         ...flat(Option.fromUndefinedOr(row.halted)),
+        ...(tag === row.completion._tag ? {} : { tag }),
     };
-    return passed ? Effect.annotateLogs(Effect.logInfo(`case ${row.completion._tag}`), facts) : Effect.annotateLogs(Effect.logError(`case ${row.completion._tag}`), { ...facts, tag });
+    return record(passed ? 'Info' : 'Error', 'case ended', facts);
 };
 const notRun = Effect.fnUntraced(function* (unsent: readonly Prepared<Cased>[], reason: string) {
     const outcomes = yield* Effect.forEach(unsent, ({ hosted }) => Effect.orDie(Schema.decodeEffect(Outcome)({ name: hosted.name, completion: { _tag: 'Failed', reason } })));
-    yield* Array.match(outcomes, { onEmpty: () => Effect.void, onNonEmpty: (held) => Effect.annotateLogs(Effect.logWarning('cases not run'), { cases: held.map(({ name }) => name), error: reason }) });
+    yield* Array.match(outcomes, { onEmpty: () => Effect.void, onNonEmpty: (held) => record('Warn', 'cases not run', { cases: held.map(({ name }) => name), error: reason }) });
     return outcomes;
 });
+const scriptOf = Match.typeTags<Cased, Option.Option<string>>()({ Probe: () => Option.none<string>(), Call: ({ source }) => Option.map(Option.fromUndefinedOr(source), ({ script }) => script), Run: ({ source }) => Option.some(source.script) });
 const called = ({ hosted, fn }: Prepared<Cased>) => ({
     _tag: hosted._tag,
-    ...Match.valueTags(hosted, {
-        Probe: ({ evaluate }) => ({ evaluate }),
-        Call: ({ call, args, source }) => ({ call, args, ...UndefinedOr.match(source, { onUndefined: () => ({}), onDefined: ({ script }) => ({ script }) }) }),
-        Run: ({ source, args }) => ({ script: source.script, args }),
-    }),
-    ...Record.getSomes({ fn }),
+    ...Record.getSomes({ fn, script: scriptOf(hosted) }),
+    ...Match.valueTags(hosted, { Probe: () => ({}), Call: ({ args }) => ({ args }), Run: ({ args }) => ({ args }) }),
 });
-const observe = Effect.fnUntraced(function* (live: Live, rows: readonly Entry[]) {
-    const batch = yield* Ref.get(live.batch);
+const observe = Effect.fnUntraced(function* (live: Live, records: string, Recorded: Schema.Codec<Entry, string>) {
+    const [batch, { next: from }, text] = yield* Effect.all([Ref.get(live.batch), Ref.get(live.trace), FileSystem.FileSystem.use((fs) => fs.readFileString(records))]);
+    const rows = yield* Effect.forEach(text.split('\n').slice(0, -1).filter(String.isNonEmpty).slice(from), (line) => Schema.decodeEffect(Recorded)(line));
+    const started = (index: number) => Option.match(Array.get(batch, index), { onNone: () => Effect.void, onSome: (item) => record('Info', 'case started', { case: item.hosted.name, call: called(item) }) });
     const step = (held: Trace, entry: Entry): readonly [Trace, Effect.Effect<void>] =>
         Match.valueTags(entry, {
-            Started: ({ index }) => [{ ...held, running: Option.some(index), last: Option.some(index) }, Option.match(Array.get(batch, index), { onNone: () => Effect.void, onSome: (item) => Effect.annotateLogs(Effect.logInfo('case started'), { case: item.hosted.name, call: called(item) }) })] as const,
+            Started: ({ index }) => [{ ...held, last: Option.some(index) }, started(index)] as const,
             Finished: ({ outcome }) => {
-                const row = Option.match(
-                    Option.flatMap(held.running, (at) => Array.get(batch, at)),
-                    { onNone: () => outcome, onSome: ({ map }) => mapped(map)(outcome) },
+                const map = Option.match(
+                    Option.flatMap(runningOf(held), (at) => Array.get(batch, at)),
+                    { onNone: () => [], onSome: (item) => item.map },
                 );
-                return [{ ...held, running: Option.none(), finished: Option.match(held.running, { onNone: () => held.finished, onSome: (at) => HashMap.set(held.finished, at, row) }) }, reported(row)] as const;
+                const row = mapped(map, live.assembled)(outcome);
+                return [{ ...held, finished: Option.match(runningOf(held), { onNone: () => held.finished, onSome: (at) => HashMap.set(held.finished, at, row) }) }, reported(row)] as const;
             },
         });
     const logs = yield* Ref.modify(live.trace, (trace) => {
-        const [next, steps] = Array.mapAccum(rows.slice(trace.next), trace, step);
-        return [steps, { ...next, next: Math.max(trace.next, rows.length) }] as const;
+        const [next, steps] = Array.mapAccum(rows.slice(trace.next - from), trace, step);
+        return [steps, { ...next, next: Math.max(trace.next, from + rows.length) }] as const;
     });
     yield* Effect.all(logs, { discard: true });
 });
 const writtenIn = Effect.fnUntraced(function* (host: Pick<Host, 'canonical'>, sendable: readonly Prepared<Cased>[]) {
-    const fs = yield* FileSystem.FileSystem;
-    const digest = Effect.fnUntraced(function* (file: string) {
-        const bytes = yield* fs.readFile(file);
-        const parts: readonly (string | Uint8Array)[] = host.canonical === undefined ? [bytes] : yield* host.canonical(file, bytes);
-        return { file, size: bytes.byteLength, sha256: parts.reduce((hash, part) => hash.update(part), createHash('sha256')).digest('hex') } satisfies (typeof Outcome.fields.written.Type)[number];
-    });
-    const copied = new Set((yield* Effect.forEach(Array.dedupe(sendable.flatMap(({ copies }) => copies)), digest)).map(({ sha256 }) => sha256));
-    const listed = ({ hosted }: Prepared<Cased>) =>
-        Effect.map(
-            Effect.flatMap(filesIn(hosted.folder), (files) => Effect.forEach(files, digest)),
-            (written) => [hosted.name, written.filter(({ sha256 }) => !copied.has(sha256))] as const,
-        );
-    return new Map(yield* Effect.forEach(sendable, listed));
+    const digesting = digest(host);
+    const copied = new Set((yield* Effect.forEach(Array.dedupe(sendable.flatMap(({ copies }) => copies)), digesting)).map(({ sha256 }) => sha256));
+    const fresh = ({ sha256 }: { readonly sha256: string }) => !copied.has(sha256);
+    const written = yield* Effect.forEach(sendable, ({ hosted }) => Effect.flatMap(filesIn(hosted.folder), Effect.forEach(digesting)));
+    return new Map(Array.zipWith(sendable, written, ({ hosted }, files) => [hosted.name, files.filter(fresh)] as const));
 });
+const instanceOf = Effect.fnUntraced(function* (host: Pick<Host, 'bundle'>, live: Live) {
+    const [now, batch, path] = yield* Effect.all([DateTime.now, Ref.get(live.batch), Path.Path]);
+    const bundle = yield* Effect.orDie(Effect.transposeOption(Option.fromUndefinedOr(host.bundle)));
+    return {
+        ...Struct.pick(live, ['pid', 'started', 'chosen', 'scratch']),
+        ended: now,
+        owned: [live.scratch, ...Option.toArray(Option.map(bundle, (url) => path.basename(fileURLToPath(url)))), ...batch.flatMap(({ hosted }) => [hosted.name, hosted.folder, ...Option.toArray(scriptOf(hosted))])],
+    } satisfies Instance;
+});
+const reportsOf = (host: Pick<Host, 'logs' | 'bundle'>, live: Live) => Effect.flatMap(instanceOf(host, live), (instance) => linked(host, instance));
 
 // --- [WATCHER]
-const processOf = (state: typeof State.Type) =>
+const usageOf = (state: typeof State.Type) =>
+    State.isAnyOf(['Unresponsive'])(state) ? { process: state.process, ...UndefinedOr.match(state.usage, { onUndefined: () => ({}), onDefined: ({ cpu, footprint, threads }) => ({ cpu: Duration.toSeconds(cpu), footprint: ByteSize.toNumberUnsafe(footprint), threads }) }) } : {};
+const factsOf = (state: typeof State.Type) =>
     State.match(state, {
         Launching: () => ({}),
         Responding: () => ({}),
-        Unresponsive: ({ process, usage, windows }) => ({
-            process,
-            ...UndefinedOr.match(usage, { onUndefined: () => ({}), onDefined: ({ cpu, footprint, threads }) => ({ cpu: Duration.toSeconds(cpu), footprint: ByteSize.toNumberUnsafe(footprint), threads }) }),
-            windows: windows.map(Struct.pick(['number', 'title'])),
-        }),
-        Failed: (failed) => Struct.omit(failed, ['_tag', 'next']),
-        Exited: ({ report, ...exit }) => ({ ...Struct.omit(exit, ['_tag', 'next']), ...UndefinedOr.match(report, { onUndefined: () => ({}), onDefined: ({ url, exception }) => ({ report: fileURLToPath(url), ...Record.filter({ exception }, Predicate.isNotUndefined) }) }) }),
+        Unresponsive: () => usageOf(state),
+        Failed: ({ reason }) => ({ reason }),
+        Exited: ({ report, ...exit }) => ({ ...Struct.omit(exit, ['_tag', 'next']), ...UndefinedOr.match(report, { onUndefined: () => ({}), onDefined: ({ url, exception }) => ({ report: fileURLToPath(url), ...Record.getSomes({ exception: Option.fromUndefinedOr(exception) }) }) }) }),
     });
-const keyOf = (element: (typeof State.cases.Responding.Type)['elements'][number]) => `${element.window ?? element.id}`;
-const windowsOf = (state: typeof State.Type, held: ReadonlyMap<string, Sighting>, passing: readonly Progress[], ours: boolean): ReadonlyMap<string, Sighting> =>
-    State.guards.Responding(state)
-        ? new Map<string, Sighting>([
-              ...state.elements
-                  .filter((element) => ours || element.requiresAnswer)
-                  .map(
-                      (element) =>
-                          [
-                              keyOf(element),
-                              {
-                                  ...(element.window === undefined ? { id: element.id } : { window: element.window }),
-                                  ...Struct.pick(element, ['role', 'subrole', 'title', 'edited', 'modal', 'identifier', 'requiresAnswer']),
-                                  ...UndefinedOr.match(element.document, { onUndefined: () => ({}), onDefined: (url) => ({ document: fileURLToPath(url) }) }),
-                                  ...UndefinedOr.match(element.detail, { onUndefined: () => ({}), onDefined: ({ text, controls }) => ({ text, controls: controls.map(Struct.pick(['label', 'role', 'value', 'enabled', 'attribute'])) }) }),
-                                  state: Progress.requiring(passing)(element) ? 'Dialog' : 'Responding',
-                              },
-                          ] as const,
-                  ),
-              ...state.windows.filter(({ title }) => ours && title !== undefined).map((window) => [`${window.number}`, { ...Struct.pick(window, ['number', 'title']), state: 'Responding' }] as const),
-          ])
-        : held;
-const sighted = (row: typeof Row.Type, before: Option.Option<Seen>, windows: ReadonlyMap<string, Sighting>, ours: boolean) => {
+const keyOf = (element: Element) => `${element.window ?? element.id}`;
+const capturedOf = Match.type<(typeof State.Type)['next']>().pipe(
+    Match.when({ capture: Match.defined }, ({ capture }) => capture.windows),
+    Match.orElse(() => []),
+);
+const sightingOf = (element: Element): Sighting => ({
+    ...(element.window === undefined ? { id: element.id } : { window: element.window }),
+    ...Struct.pick(element, ['role', 'subrole', 'title', 'edited', 'modal', 'identifier', 'requiresAnswer']),
+    ...UndefinedOr.match(element.document, { onUndefined: () => ({}), onDefined: (url) => ({ document: fileURLToPath(url) }) }),
+    ...UndefinedOr.match(element.detail, { onUndefined: () => ({}), onDefined: ({ text, controls }) => ({ text, controls: controls.map(Struct.pick(['label', 'role', 'value', 'enabled', 'attribute'])) }) }),
+});
+const windowsOf = (state: typeof State.Type, held: ReadonlyMap<string, Sighting>, ours: boolean): ReadonlyMap<string, Sighting> => {
+    const captured = ours ? capturedOf(state.next) : [];
+    const titled = (number: number) =>
+        Record.getSomes({
+            title: Option.flatMap(
+                Array.findFirst(State.isAnyOf(['Responding'])(state) ? state.windows : [], (window) => window.number === number),
+                ({ title }) => Option.fromUndefinedOr(title),
+            ),
+        });
+    return State.isAnyOf(['Responding'])(state) ? new Map<string, Sighting>([...state.elements.filter((element) => ours || element.requiresAnswer).map((element) => [keyOf(element), sightingOf(element)] as const), ...captured.map((number) => [`${number}`, { number, ...titled(number) }] as const)]) : held;
+};
+const seenOf = (prior: Option.Option<Seen>, row: typeof Row.Type, ours: boolean): Seen => ({
+    state: row.state,
+    since: State.isAnyOf(['Unresponsive'])(row.state) ? Option.orElseSome(Option.flatMap(prior, Struct.get('since')), () => row.at) : Option.none(),
+    windows: windowsOf(row.state, Option.match(prior, { onNone: () => new Map(), onSome: Struct.get('windows') }), ours),
+});
+const unchanged = Schema.toEquivalence(Messages.instance);
+const alike = Schema.toEquivalence(Messages['window changed']);
+const sighted = (row: typeof Row.Type, before: Option.Option<Seen>, seen: Seen, ours: boolean, asked: Option.Option<Asked>) => {
     const prior = Option.match(before, { onNone: () => new Map<string, Sighting>(), onSome: (held) => held.windows });
-    const shown = (state: typeof State.Type): Schema.Json =>
-        State.match(state, { Launching: () => ({}), Responding: () => ({}), Unresponsive: (held) => ({ process: held.process, titles: held.windows.map(({ title }) => title ?? null) }), Failed: ({ reason }) => ({ reason }), Exited: (exit) => ({ ...processOf(exit) }) });
-    const instance = (ours || State.guards.Exited(row.state)) && !Option.exists(before, (held) => held.state._tag === row.state._tag && same(shown(held.state), shown(row.state))) ? Effect.annotateLogs(Effect.logWithLevel(STATES[row.state._tag])(`instance ${row.state._tag}`), processOf(row.state)) : Effect.void;
-    const opened = Array.fromIterable(windows).filter(([key]) => !prior.has(key));
-    const changed = Array.fromIterable(windows).filter(([key, facts]) => Option.exists(Option.fromUndefinedOr(prior.get(key)), (held) => !same(held, facts)));
-    const closed = Array.fromIterable(prior).filter(([key]) => !windows.has(key));
+    const spell = Option.filter(Option.flatMap(before, Struct.get('since')), () => !State.isAnyOf(['Unresponsive'])(row.state));
+    const facts = { state: row.state._tag, ...factsOf(row.state), ...Record.getSomes({ duration: Option.map(spell, (since) => Duration.toSeconds(DateTime.distance(since, row.at))) }) };
+    const kept = Option.exists(before, (held) => held.state._tag === row.state._tag && (!State.isAnyOf(['Failed', 'Exited'])(row.state) || unchanged({ state: held.state._tag, ...factsOf(held.state) }, { state: row.state._tag, ...factsOf(row.state) })));
+    const dialog = Option.flatMap(asked, ({ answer }) =>
+        Option.map(
+            Array.findFirst(State.isAnyOf(['Responding'])(row.state) ? row.state.elements : [], ({ id }) => id === answer.id),
+            keyOf,
+        ),
+    );
+    const level = (key: string) => (Option.contains(dialog, key) ? 'Warn' : 'Info');
+    const opened = Array.fromIterable(seen.windows).filter(([key]) => !prior.has(key));
+    const changed = Array.fromIterable(seen.windows).filter(([key, held]) => Option.exists(Option.fromUndefinedOr(prior.get(key)), (was) => !alike(was, held)));
+    const closed = Array.fromIterable(prior).filter(([key]) => !seen.windows.has(key));
     return Effect.all(
         [
-            instance,
-            Effect.forEach(opened, ([, facts]) => Effect.annotateLogs(Effect.logWithLevel(STATES[facts.state])('window opened'), facts), { discard: true }),
-            Effect.forEach(changed, ([, facts]) => Effect.annotateLogs(Effect.logWithLevel(STATES[facts.state])('window changed'), facts), { discard: true }),
-            Effect.forEach(closed, ([, facts]) => Effect.annotateLogs(Effect.logInfo('window closed'), facts), { discard: true }),
+            (ours || (State.isAnyOf(['Exited'])(row.state) && !clean(row.state))) && !kept ? record(STATES[row.state._tag], 'instance', facts) : Effect.void,
+            Effect.forEach(opened, ([key, held]) => record(level(key), 'window opened', held), { discard: true }),
+            Effect.forEach(changed, ([key, held]) => record(level(key), 'window changed', held), { discard: true }),
+            Effect.forEach(closed, ([, held]) => record('Info', 'window closed', held), { discard: true }),
         ],
         { discard: true },
     );
 };
-const holding =
-    (passing: readonly Progress[]) =>
-    ({ pid, state }: typeof Row.Type): Option.Option<string> =>
-        State.match(state, {
-            Launching: () => Option.none(),
-            Responding: ({ elements }) => Option.map(Array.findFirst(elements, Progress.requiring(passing)), (element) => Row.shown(Row.dialog(element), pid)),
-            Unresponsive: () => Option.some(`instance ${pid} ${Row.described(state)}, left running`),
-            Failed: () => Option.none(),
-            Exited: () => Option.none(),
-        });
 const within = (live: Live) => Effect.provideService(Run.Instance, Option.some(live));
 const owned = (live: Live, row: typeof Row.Type) => row.identifier === live.chosen.identifier && row.pid === live.pid;
-const watcher = (host: Pick<Host, 'logs'>, live: Live, seen: Ref.Ref<HashMap.HashMap<number, Seen>>) =>
+const answering = (live: Live, ours: boolean) =>
+    Effect.fnUntraced(function* ({ answer, dialog }: Asked) {
+        const [trace, batch, notes] = yield* Effect.all([Ref.get(live.trace), Ref.get(live.batch), Ref.get(live.notes)]);
+        const running = runningOf(trace);
+        const used = notes.filter(({ index }) => Equal.equals(index, running)).length;
+        const control = running.pipe(
+            Option.filter(() => ours),
+            Option.flatMap((index) => Array.get(batch, index)),
+            Option.flatMap(({ presses }) => Array.get(presses, used)),
+            Option.flatMap((press) => Progress.pressed(answer, press)),
+        );
+        const answered = (press: string) => ({ ...Record.getSomes({ title: Option.fromUndefinedOr(dialog.title) }), text: dialog.text, pressed: press });
+        yield* Option.match(control, {
+            onNone: () => ended(live, (held) => Verdict.Halted({ index: runningOf(held), halted: dialog })),
+            onSome: ({ press, id }) => Effect.catch(Effect.andThen(Effect.all([Ref.update(live.notes, Array.append({ index: running, element: answer.id, answered: answered(press) })), record('Info', 'dialog answered', answered(press))]), Row.perform(id)), lost(live)),
+        });
+    });
+const watcher = (host: Pick<Host, 'logs' | 'bundle'>, live: Live, seen: Ref.Ref<HashMap.HashMap<number, Seen>>) =>
     Effect.fn('watcher')(
         function* (row: typeof Row.Type) {
             const ours = owned(live, row);
-            const [before, windows] = yield* Ref.modify(seen, (held) => {
-                const prior = HashMap.get(held, row.pid);
-                const next = windowsOf(row.state, Option.match(prior, { onNone: () => new Map(), onSome: ({ windows: kept }) => kept }), live.passing, ours);
-                return [[prior, next] as const, HashMap.set(held, row.pid, { state: row.state, windows: next })] as const;
+            const [before, held] = yield* Ref.modify(seen, (map) => {
+                const prior = HashMap.get(map, row.pid);
+                const next = seenOf(prior, row, ours);
+                return [[prior, next] as const, HashMap.set(map, row.pid, next)] as const;
             });
+            const asked = Progress.asked(live.passing, row.state);
             yield* ours ? SubscriptionRef.set(live.state, row.state) : Effect.void;
-            yield* sighted(row, before, windows, ours);
-            const answer = Effect.fnUntraced(function* (element: (typeof State.cases.Responding.Type)['elements'][number]) {
-                const [{ running }, batch, notes] = yield* Effect.all([Ref.get(live.trace), Ref.get(live.batch), Ref.get(live.notes)]);
-                const used = notes.filter(({ index }) => Equal.equals(index, running)).length;
-                const wanted = running.pipe(
-                    Option.filter(() => ours),
-                    Option.flatMap((index) => Array.get(batch, index)),
-                    Option.flatMap(({ presses }) => Array.get(presses, used)),
-                );
-                const control = Option.zipWith(
-                    wanted,
-                    Option.flatMap(wanted, (label) => Row.pressed(element, label)),
-                    (label, { id }) => ({ label, id }),
-                );
-                yield* Option.match(control, {
-                    onNone: () => ended(live, (trace) => Verdict.Halted({ index: trace.running, halted: Row.dialog(element) })),
-                    onSome: ({ label, id }) => {
-                        const answered = { ...(element.title === undefined ? {} : { title: element.title }), text: element.detail?.text ?? [], pressed: label };
-                        return Effect.catch(Effect.andThen(Effect.all([Ref.update(live.notes, Array.append({ index: running, element: element.id, answered })), Effect.annotateLogs(Effect.logInfo('dialog answered'), { dialog: answered, ...named(batch, running) })]), Row.perform(id)), lost(live));
-                    },
-                });
-            });
-            const noted = yield* Ref.get(live.notes);
+            yield* sighted(row, before, held, ours, asked);
+            const noted = (yield* Ref.get(live.notes)).map(Struct.get('element'));
+            yield* Option.match(
+                Option.filter(asked, ({ answer }) => !noted.includes(answer.id)),
+                { onNone: () => Effect.void, onSome: answering(live, ours) },
+            );
             yield* State.match(row.state, {
                 Launching: () => Effect.void,
-                Responding: ({ elements }) =>
-                    Effect.forEach(
-                        elements.filter((element) => Progress.requiring(live.passing)(element) && noted.every((note) => note.element !== element.id)),
-                        answer,
-                        { discard: true },
-                    ),
+                Responding: () => Effect.void,
                 Unresponsive: () => Effect.void,
                 Failed: ({ reason }) => (ours ? lost(live)(HarnessError.unavailable(`process ${row.pid}`)(reason)) : Effect.void),
-                Exited: (exit) =>
-                    ours && Row.settled(exit)
-                        ? Effect.andThen(
-                              Effect.flatMap(crashed(exit), (halted) => ended(live, ({ last }) => Verdict.Halted({ index: last, halted }))),
-                              linked(host, live),
-                          )
-                        : Effect.void,
+                Exited: (exit) => (ours && Row.settled(exit) ? Effect.uninterruptible(Effect.andThen(Effect.flatMap(crashed(live.pid, exit), exitedWith(live)), reportsOf(host, live))) : Effect.void),
             });
         },
-        (effect, row) =>
-            owned(live, row) ? Effect.flatMap(Effect.all([Ref.get(live.trace), Ref.get(live.batch)]), ([{ running }, batch]) => within(live)(Effect.annotateLogs(effect, named(batch, running)))) : Effect.annotateLogs(effect, { identifier: row.identifier, pid: row.pid, state: stateOf(row.state, live.passing) }),
+        (effect, row) => (owned(live, row) ? Effect.flatMap(Effect.all([Ref.get(live.trace), Ref.get(live.batch)]), ([trace, batch]) => within(live)(Effect.annotateLogs(effect, named(batch, runningOf(trace))))) : Effect.annotateLogs(effect, { bundle: row.identifier, pid: row.pid })),
     );
-const progress = Effect.fnUntraced(function* (live: Live, records: string, Recorded: Schema.Codec<Entry, string, never, unknown>, limit: Duration.Duration) {
+const progress = Effect.fnUntraced(function* (live: Live, records: string, Recorded: Schema.Codec<Entry, string>, limit: Duration.Duration) {
     yield* watched(records).pipe(
-        Stream.mapEffect(() => Effect.flatMap(entriesOf(Recorded)(records), (rows) => observe(live, rows))),
+        Stream.mapEffect(() => observe(live, records, Recorded)),
         Stream.debounce(limit),
         Stream.runHead,
     );
-    const [cpu, file] = yield* Effect.all([busy(live.pid), sample(live.pid)]);
+    const [file, state] = yield* Effect.all([sample(live.pid), SubscriptionRef.get(live.state)]);
     const frames = yield* stalled(file);
-    yield* ended(live, ({ running }) => Verdict.Halted({ index: running, halted: { _tag: 'Hung', cpu, sample: file, frames } }));
+    yield* ended(live, (trace) => Verdict.Halted({ index: runningOf(trace), halted: { _tag: 'Hung', ...usageOf(state), sample: file, frames } }));
 });
 
 // --- [SESSION]
-const acquired = Effect.fn('acquired')(function* (host: Pick<Host, 'progress' | 'launch' | 'logs'>, chosen: Installed, root: string, limit: Duration.Duration, windowed: boolean) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+const acquired = Effect.fn('acquired')(function* (host: Pick<Host, 'progress' | 'assembled' | 'launch' | 'logs' | 'bundle'>, chosen: Installed, root: string, limit: Duration.Duration, windowed: boolean) {
+    const fs = yield* FileSystem.FileSystem;
     const refused = HarnessError.unavailable(chosen.name);
     const passing = host.progress ?? [];
-    const dialog = (row: typeof Row.Type) => (State.guards.Unresponsive(row.state) ? Option.none<string>() : holding(passing)(row));
-    const { running, scratch, rows, instance } = yield* Effect.gen(function* () {
-        const before = yield* Row.read([path.resolve(chosen.app)]);
-        yield* Array.match(Array.getSomes(before.map(dialog)), { onEmpty: () => Effect.void, onNonEmpty: (held) => refused(held.join('; ')) });
-        const folder = yield* fs.makeTempDirectoryScoped({ directory: root, prefix: 'instance-' });
-        const spec = yield* host.launch(chosen, folder, windowed);
-        const { rows: watching, ...opened } = yield* spec.start(chosen);
-        yield* Option.match(dialog(opened), { onNone: () => Effect.void, onSome: refused });
-        yield* Row.settled(opened.state) ? refused(`instance ${opened.pid} ${Row.described(opened.state)}`) : Effect.void;
-        return { running: before, scratch: folder, rows: watching, instance: opened };
-    }).pipe(phase('launch'));
-    const shared = running.filter(({ pid, state }) => pid !== instance.pid && !State.guards.Exited(state)).map(({ pid }) => pid);
-    const launched = running.every(({ pid }) => pid !== instance.pid);
-    const started = yield* Effect.flatMap(starts(['-p', `${instance.pid}`]), (held) => Effect.fromOption(Option.fromUndefinedOr(held.get(instance.pid)), () => HarnessError.unavailable(`process ${instance.pid}`)('ps reports no start time')));
+    const scratch = yield* fs.makeTempDirectoryScoped({ directory: root, prefix: 'instance-' });
+    const spec = yield* host.launch(chosen, scratch, windowed);
+    const instance = yield* spec.start(chosen, passing);
+    yield* Row.settled(instance.state) ? refused(`instance ${instance.pid} ${Row.described(instance.state)}`) : Effect.void;
+    const starting = yield* starts(['-p', `${instance.pid}`]);
+    const started = yield* Effect.fromOption(Option.fromUndefinedOr(starting.get(instance.pid)), () => HarnessError.unavailable(`process ${instance.pid}`)('ps reports no start time'));
+    const engine = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(host.assembled), assembled));
+    const alive = Option.liftPredicate(instance.state, State.isAnyOf(['Launching', 'Responding', 'Unresponsive']));
     const live: Live = {
         pid: instance.pid,
         started,
-        launched,
+        launched: Option.exists(alive, ({ created }) => created === true),
         chosen,
         scratch,
         passing,
+        assembled: Option.match(engine, { onNone: () => [], onSome: ({ map }) => map }),
         verdict: yield* Deferred.make<Verdict>(),
         notes: yield* Ref.make<readonly Note[]>([]),
         trace: yield* Ref.make(idle),
         batch: yield* Ref.make<readonly Prepared<Cased>[]>([]),
         state: yield* SubscriptionRef.make<typeof State.Type>(instance.state),
     };
-    yield* within(live)(Effect.annotateLogs(Effect.logInfo(launched ? LAUNCHED : 'instance attached'), { shared, app: chosen.app, ...processOf(instance.state) }));
-    const seeded: Seen = { state: instance.state, windows: new Map() };
-    const seen = yield* Ref.make(HashMap.make([instance.pid, seeded]));
-    yield* Effect.forkScoped(Stream.runForEach(Stream.concat(Stream.make(instance), rows), watcher(host, live, seen)).pipe(Effect.andThen(refused(`instance ${instance.pid} watch ended`)), Effect.catch(lost(live))));
+    yield* within(live)(
+        record('Info', 'instance launched', {
+            app: chosen.app,
+            created: live.launched,
+            state: instance.state._tag,
+            ...Record.getSomes({ watch: instance.watch }),
+            ...Record.getSomes({ hidden: Option.flatMap(alive, ({ hidden }) => Option.fromUndefinedOr(hidden)) }),
+            ...Array.match(instance.shared, { onEmpty: () => ({}), onNonEmpty: (shared) => ({ shared }) }),
+        }),
+    );
+    const seen = yield* Ref.make(HashMap.set(HashMap.empty<number, Seen>(), instance.pid, { state: instance.state, since: Option.none(), windows: new Map() }));
+    const watching = watcher(host, live, seen);
+    yield* watching(Struct.pick(instance, ['identifier', 'pid', 'state', 'at']));
+    yield* instance.rows.pipe(Stream.runForEach(watching), Effect.andThen(refused(`instance ${instance.pid} watch ended`)), verdicted(live, `instance ${instance.pid} watch`), Effect.forkScoped);
     yield* Effect.raceFirst(
         SubscriptionRef.changes(live.state).pipe(
-            Stream.filter((state) => State.guards.Responding(state) && !state.answering),
+            Stream.filter((state) => State.isAnyOf(['Responding'])(state) && !state.answering),
             Stream.runHead,
         ),
-        Effect.flatMap(Deferred.await(live.verdict), (over) => refused(verdictText(limit, instance.pid, [])(over))),
+        Effect.flatMap(Deferred.await(live.verdict), (over) => refused(blameOf(limit, instance.pid, [])(over).error)),
     ).pipe(Effect.timeoutOrElse({ duration: limit, orElse: () => Effect.flatMap(Effect.all([sample(live.pid), SubscriptionRef.get(live.state)]), ([file, state]) => refused(`instance ${instance.pid} ${Row.described(state)} past ${Duration.format(limit)}, sample ${file}, left running`)) }), phase('ready'), within(live));
-    return { live, shared };
-});
+    return { live, shared: instance.shared };
+}, phase('launch'));
 const quitted = Effect.fn('quitted')(
-    function* (host: Pick<Host, 'quit' | 'logs'>, live: Live, limit: Duration.Duration) {
+    function* (host: Pick<Host, 'quit' | 'logs' | 'bundle'>, live: Live, limit: Duration.Duration) {
         const refused = yield* Ref.make(Option.none<Error>());
-        yield* Effect.logInfo('quit sent');
+        yield* record('Info', 'quit sent', {});
         yield* Effect.forkScoped(Effect.catch(host.quit(live), (error) => Ref.set(refused, Option.some(error))));
-        const [verdict, batch] = yield* Effect.all([Effect.timeoutOption(Deferred.await(live.verdict), limit), Ref.get(live.batch)]);
+        const verdict = yield* Effect.timeoutOption(Deferred.await(live.verdict), limit);
         const quit = Option.match(yield* Ref.get(refused), { onNone: () => 'quit sent', onSome: (error) => `quit refused: ${error.message}` });
-        const exited = Option.flatMap(verdict, (over) => (Verdict.$is('Halted')(over) && over.halted._tag === 'Crashed' ? Option.some(over.halted) : Option.none()));
-        const clean = Option.exists(exited, ({ signal, report, status }) => signal === undefined && report === undefined && (status ?? 0) === 0);
-        const left = Option.match(verdict, {
+        const exited = verdict.pipe(
+            Option.filter(Verdict.$is('Halted')),
+            Option.map(({ halted }) => halted),
+            Option.filter(Halted.isAnyOf(['Crashed'])),
+        );
+        const passed = Option.exists(exited, clean);
+        const blamed = Option.map(verdict, blameOf(limit, live.pid, []));
+        const left = Option.match(blamed, {
             onNone: () => Option.some(`${quit}, instance ${live.pid} running past ${Duration.format(limit)}, left running`),
-            onSome: (over) => Option.liftPredicate(`${quit}, ${verdictText(limit, live.pid, batch)(over)}`, () => !clean),
+            onSome: ({ error }) => Option.liftPredicate(`${quit}, ${error}`, () => !passed),
         });
         yield* Option.match(left, {
             onNone: () => Effect.void,
-            onSome: (error) =>
-                Effect.annotateLogs(Effect.logWarning('quit unclean'), {
-                    tag: Option.match(verdict, { onNone: () => 'Running', onSome: verdictTag }),
-                    error,
-                    ...named(
-                        batch,
-                        Option.flatMap(verdict, ({ index }) => index),
-                    ),
-                }),
+            onSome: (error) => record('Warn', 'failed', { tag: Option.match(blamed, { onNone: () => 'Running', onSome: Struct.get('tag') }), error }),
         });
-        yield* Option.isSome(exited) ? Effect.void : linked(host, live);
+        yield* Option.isSome(exited) ? Effect.void : reportsOf(host, live);
         return left;
     },
     Effect.scoped,
     phase('quit'),
 );
-const abandoned = (host: Pick<Host, 'quit' | 'logs'>, live: Live, limit: Duration.Duration) => Effect.flatMap(Deferred.isDone(live.verdict), (done) => (live.launched && !done ? Effect.asVoid(within(live)(quitted(host, live, limit))) : Effect.void));
-const openedIn = (host: Pick<Host, 'opened' | 'quit' | 'logs'>, live: Live, limit: Duration.Duration) =>
+const abandoned = (host: Pick<Host, 'quit' | 'logs' | 'bundle'>, live: Live, limit: Duration.Duration) => Effect.flatMap(Deferred.isDone(live.verdict), (done) => (live.launched && !done ? Effect.asVoid(within(live)(quitted(host, live, limit))) : Effect.void));
+const openedIn = (host: Pick<Host, 'opened' | 'quit' | 'logs' | 'bundle'>, live: Live, limit: Duration.Duration) =>
     host.opened === undefined
         ? Effect.succeedNone
         : Effect.asSome(host.opened(live)).pipe(
@@ -513,127 +524,128 @@ const openedIn = (host: Pick<Host, 'opened' | 'quit' | 'logs'>, live: Live, limi
               within(live),
               Effect.onError(() => abandoned(host, live, limit)),
           );
-const batchIn = Effect.fn('batchIn')(function* <S extends Surveyed, C extends Cased>(host: Pick<Host<S, C>, 'fields' | 'send'>, live: Live, batch: (records: string) => Batch<S, C>, sendable: readonly Prepared<C>[], limit: Duration.Duration) {
+const batchIn = Effect.fn('batchIn')(function* <S extends Surveyed, C extends Cased>(host: Pick<Host<S, C>, 'Outcome' | 'send'>, live: Live, batch: (records: string) => Batch<S, C>, sendable: readonly Prepared<C>[], limit: Duration.Duration) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const Recorded: Schema.Codec<Entry, string, never, unknown> = Records.line(Schema.Struct({ ...Outcome.fields, ...host.fields }));
+    const Recorded = Records.line(host.Outcome);
     const records = path.join(yield* fs.makeTempDirectoryScoped({ directory: live.scratch, prefix: 'batch-' }), 'records.jsonl');
     yield* fs.writeFileString(records, '');
     yield* Effect.all([Ref.set(live.batch, sendable), Ref.set(live.notes, []), Ref.set(live.trace, idle)]);
-    yield* Effect.forkScoped(Effect.catch(progress(live, records, Recorded, limit), lost(live)));
+    yield* Effect.forkScoped(verdicted(live, records)(progress(live, records, Recorded, limit)));
     const reply = yield* Effect.result(
         Effect.raceFirst(
             host.send(live, batch(records)),
-            Effect.flatMap(Deferred.await(live.verdict), (over) => HarnessError.unavailable(`process ${live.pid}`)(verdictText(limit, live.pid, sendable)(over))),
+            Effect.flatMap(Deferred.await(live.verdict), (over) => HarnessError.unavailable(`process ${live.pid}`)(blameOf(limit, live.pid, sendable)(over).error)),
         ),
     );
-    yield* Effect.flatMap(entriesOf(Recorded)(records), (rows) => observe(live, rows));
+    yield* observe(live, records, Recorded);
     const [trace, notes, verdict] = yield* Effect.all([Ref.get(live.trace), Ref.get(live.notes), Effect.flatMap(Deferred.poll(live.verdict), Effect.transposeOption)]);
-    return { reply, trace, notes, verdict } satisfies Ran<S>;
+    return { reply, trace, notes, verdict };
 }, Effect.scoped);
-const surveyIn = Effect.fn('surveyIn')(function* <S extends Surveyed, C extends Cased>(host: Pick<Host<S, C>, 'fields' | 'send'>, live: Live, opened: Option.Option<Schema.Json>, limit: Duration.Duration) {
-    const { reply } = yield* batchIn(host, live, (records) => ({ records, label: LABEL, survey: Option.none(), opened, cases: [] }), [], limit);
-    const header = yield* Effect.fromResult(reply);
-    return yield* Effect.fromOption(Option.fromUndefinedOr(header.survey), () => HarnessError.unavailable(`process ${live.pid}`)('survey reply holds no survey'));
-}, phase('survey'));
+const surveyIn = Effect.fn('surveyIn')(
+    function* <S extends Surveyed, C extends Cased>(host: Pick<Host<S, C>, 'Outcome' | 'send' | 'quit' | 'logs' | 'bundle'>, live: Live, opened: Option.Option<Schema.Json>, limit: Duration.Duration) {
+        const { reply } = yield* batchIn(host, live, (records) => ({ records, label: LABEL, survey: Option.none(), opened, cases: [] }), [], limit);
+        const header = yield* Effect.fromResult(reply);
+        return yield* Effect.fromOption(Option.fromUndefinedOr(header.survey), () => HarnessError.unavailable(`process ${live.pid}`)('survey reply holds no survey'));
+    },
+    phase('survey'),
+    (effect, host, live, _, limit) => within(live)(Effect.onError(effect, () => abandoned(host, live, limit))),
+);
 const finishedIn = Effect.fnUntraced(function* <S extends Surveyed, C extends Cased>(host: Session<S, C>, live: Live, survey: S, opened: Option.Option<Schema.Json>, rest: readonly Prepared<C>[], limit: Duration.Duration) {
-    const ran = yield* batchIn(host, live, (records) => ({ records, label: LABEL, survey: Option.some(survey), opened, cases: rest.map(({ hosted }) => hosted) }), rest, limit);
+    const cases = rest.map(({ hosted }) => hosted);
+    const ran = yield* batchIn(host, live, (records) => ({ records, label: LABEL, survey: Option.some(survey), opened, cases }), rest, limit);
     const { finished } = ran.trace;
-    const on = (index: number) => ran.notes.filter(({ index: at }) => Option.contains(at, index)).map(({ answered }) => answered);
-    const blamed = Option.firstSomeOf([
-        Option.map(ran.verdict, (over) => ({
-            index: over.index,
-            tag: verdictTag(over),
-            error: verdictText(limit, live.pid, rest)(over),
-            halted: Option.map(Option.liftPredicate(over, Verdict.$is('Halted')), ({ halted }) => halted),
-        })),
-        Option.map(Result.getFailure(ran.reply), (error) => ({ index: ran.trace.running, tag: tagOf(error), error: error.message, halted: Option.none<typeof Halted.Type>() })),
-    ]);
-    const stopped = Option.flatMap(blamed, ({ index }) => index);
-    const halting = Option.flatMap(blamed, ({ halted }) => halted);
+    const running = runningOf(ran.trace);
+    const replied = Option.map(Result.getFailure(ran.reply), (error) => Verdict.Lost({ index: running, error }));
+    const blamed = Option.map(Option.firstSomeOf([ran.verdict, replied]), blameOf(limit, live.pid, rest));
+    const stopped = Option.flatMap(blamed, Struct.get('index'));
+    const halting = Option.flatMap(blamed, Struct.get('halted'));
     const failing = Option.filter(stopped, (index) => !HashMap.has(finished, index));
-    const kept = Array.getSomes(rest.map((_, index) => Option.map(HashMap.get(finished, index), (row) => ({ ...row, answered: [...row.answered, ...on(index)], ...(Option.contains(stopped, index) ? Record.getSomes({ halted: halting }) : {}) }))));
-    const halts = yield* Effect.forEach(Option.toArray(Option.all({ index: failing, item: Option.flatMap(failing, (index) => Array.get(rest, index)), blame: blamed })), ({ index, item, blame }) =>
-        Effect.orDie(Schema.decodeEffect(Outcome)({ name: item.hosted.name, answered: on(index), completion: { _tag: 'Failed', reason: blame.error }, ...Record.getSomes({ halted: halting }) })).pipe(Effect.tap((row) => reported(row, blame.tag))),
-    );
+    const on = (index: number) => ran.notes.filter(({ index: at }) => Option.contains(at, index)).map(Struct.get('answered'));
+    const kept = Array.fromIterable(finished).map(([index, row]) => ({ ...row, answered: [...row.answered, ...on(index)], ...(Option.contains(stopped, index) ? Record.getSomes({ halted: halting }) : {}) }));
+    const halt = ({ index, item, blame }: { readonly index: number; readonly item: Prepared<C>; readonly blame: { readonly tag: string; readonly error: string } }) =>
+        Effect.orDie(Schema.decodeEffect(Outcome)({ name: item.hosted.name, answered: on(index), completion: { _tag: 'Failed', reason: blame.error }, ...Record.getSomes({ halted: halting }) })).pipe(Effect.tap((row) => reported(row, blame.tag)));
+    const halts = yield* Effect.transposeOption(Option.map(Option.all({ index: failing, item: Option.flatMap(failing, (index) => Array.get(rest, index)), blame: blamed }), halt));
     yield* Option.match(
         Option.filter(blamed, () => Option.isNone(failing)),
-        { onNone: () => Effect.void, onSome: ({ tag, error }) => Effect.annotateLogs(Effect.logError('batch failed'), { tag, error, ...named(rest, stopped), ...flat(halting) }) },
+        { onNone: () => Effect.void, onSome: ({ tag, error }) => record('Error', 'failed', { tag, error, ...named(rest, stopped), ...flat(halting) }) },
     );
     const skipped = yield* notRun(
-        rest.filter((_, index) => !(HashMap.has(finished, index) || Option.contains(halted, index))),
-        `not run, ${Option.match(blamed, { onNone: () => 'engine replied without recording the case', onSome: ({ error }) => error })}`,
+        rest.filter((_, index) => !(HashMap.has(finished, index) || Option.contains(failing, index))),
+        `not run, ${Option.match(blamed, { onNone: () => 'engine replied without recording the case', onSome: Struct.get('error') })}`,
     );
-    return { ran, failed: Option.map(blamed, ({ error }) => error), outcomes: [...kept, ...halts, ...skipped] };
+    return { ran, failed: Option.map(blamed, Struct.get('error')), outcomes: [...kept, ...Option.toArray(halts), ...skipped] };
 }, phase('batch'));
 const ranIn = Effect.fnUntraced(function* <S extends Surveyed, C extends Cased>(host: Session<S, C>, live: Live, survey: S, opened: Option.Option<Schema.Json>, rest: readonly Prepared<C>[], limit: Duration.Duration) {
     const { ran, failed, outcomes } = yield* within(live)(finishedIn(host, live, survey, opened, rest, limit));
     const left = yield* Option.isNone(failed) && live.launched ? within(live)(quitted(host, live, limit)) : Effect.succeedNone;
     return { header: Result.getSuccess(ran.reply), failed: Option.orElse(failed, () => left), answered: ran.notes.filter(({ index }) => Option.isNone(index)).map(({ answered }) => answered), outcomes };
 });
-const execute = Effect.fn('execute')(function* <S extends Surveyed, C extends Cased, L extends Plan<C, unknown>>(
-    host: Session<S, C>,
-    chosen: Installed,
-    scratch: string,
-    limit: Duration.Duration,
-    windowed: boolean,
-    known: Option.Option<S>,
-    planned: (survey: S) => Effect.Effect<L, Error, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner | Run>,
-) {
-    const idled: Finished<S> = { header: Option.none(), shared: [], failed: Option.none(), answered: [], outcomes: [] };
-    const draft = yield* Effect.transposeOption(Option.map(known, planned));
-    const waiting = Option.filter(
-        Option.zipWith(known, draft, (survey, plan): Done<S, C, unknown, L> => ({ ...idled, survey, opened: Option.none(), plan })),
-        ({ plan }) => plan.sendable.length === 0,
+const instanced = Effect.fn('instanced')(function* <S extends Surveyed, C extends Cased, L extends Plan<C, unknown>>(host: Session<S, C>, chosen: Installed, scratch: string, limit: Duration.Duration, mode: boolean, known: Option.Option<S>, draft: Option.Option<L>, planned: Planner<S, L>) {
+    const { live, shared } = yield* acquired(host, chosen, scratch, limit, mode);
+    const opened = yield* openedIn(host, live, limit);
+    const confirmed = Option.filter(known, (held) => Option.isNone(opened) || Option.containsWith(same)(opened, held.host));
+    const survey = yield* Option.match(confirmed, { onSome: Effect.succeed, onNone: () => surveyIn(host, live, opened, limit) });
+    const plan = yield* Option.match(
+        Option.filter(draft, () => Option.isSome(confirmed)),
+        { onSome: Effect.succeed, onNone: () => planned(survey) },
     );
-    const surveyed = (live: Live, opened: Option.Option<Schema.Json>) => Effect.onError(within(live)(surveyIn(host, live, opened, limit)), () => abandoned(host, live, limit));
-    const launched = Effect.fnUntraced(function* () {
-        const mode = Option.match(
-            Option.flatMap(draft, ({ sendable }) => Array.head(sendable)),
-            { onNone: () => windowed, onSome: (item) => item.windowed },
-        );
-        const { live, shared } = yield* acquired(host, chosen, scratch, limit, mode);
-        const opened = yield* openedIn(host, live, limit);
-        const confirmed = Option.filter(known, (held) => Option.match(opened, { onNone: () => true, onSome: (state) => same(held.host, state) }));
-        const survey = yield* Option.match(confirmed, { onSome: Effect.succeed, onNone: () => surveyed(live, opened) });
-        const plan = yield* Option.match(
-            Option.filter(draft, () => Option.isSome(confirmed)),
-            { onSome: Effect.succeed, onNone: () => planned(survey) },
-        );
-        const nearby = ({ windowed: held }: Prepared<C>) => held === mode;
-        const [near, far] = Array.partition(plan.sendable, Result.liftPredicate(nearby, identity));
-        const first: Finished<S> = { ...(yield* ranIn(host, live, survey, opened, near, limit)), shared };
-        const unrun = (failed: string) => Effect.map(notRun(far, `not run, ${failed}`), (outcomes): Finished<S> => ({ ...idled, outcomes }));
-        const relaunched = Effect.scoped(
-            Effect.gen(function* () {
-                const other = yield* acquired(host, chosen, scratch, limit, !mode);
-                return { ...(yield* ranIn(host, other.live, survey, yield* openedIn(host, other.live, limit), far, limit)), shared: other.shared } satisfies Finished<S>;
-            }),
-        );
-        const ran: readonly Finished<S>[] = [first, ...(far.length === 0 ? [] : [yield* Option.match(first.failed, { onSome: unrun, onNone: () => relaunched })])];
-        return {
+    const ran: Finished<S> = {
+        ...(yield* ranIn(
+            host,
+            live,
             survey,
             opened,
-            plan,
-            header: Option.firstSomeOf(ran.map(({ header }) => header)),
-            shared: Array.dedupe(ran.flatMap(({ shared: held }) => held)),
-            failed: Array.match(Array.getSomes(ran.map(({ failed }) => failed)), { onEmpty: Option.none, onNonEmpty: (held) => Option.some(held.join('; ')) }),
-            answered: ran.flatMap(({ answered }) => answered),
-            outcomes: ran.flatMap(({ outcomes }) => outcomes),
-        } satisfies Done<S, C, unknown, L>;
-    }, Effect.scoped);
-    const done = yield* Option.match(waiting, { onSome: Effect.succeed, onNone: launched });
-    const written = yield* writtenIn(host, done.plan.sendable);
-    return { ...done, outcomes: [...done.plan.settled, ...done.outcomes].map((row) => ({ ...row, written: written.get(row.name) ?? [] })) };
+            plan.sendable.filter((item) => item.windowed === mode),
+            limit,
+        )),
+        shared,
+    };
+    return { survey, opened, plan, ran };
+}, Effect.scoped);
+const execute = Effect.fn('execute')(function* <S extends Surveyed, C extends Cased, L extends Plan<C, unknown>>(host: Session<S, C>, chosen: Installed, scratch: string, limit: Duration.Duration, windowed: boolean, known: Option.Option<S>, planned: Planner<S, L>) {
+    const idled: Finished<S> = { header: Option.none(), shared: [], failed: Option.none(), answered: [], outcomes: [] };
+    const draft = yield* Effect.transposeOption(Option.map(known, planned));
+    const mode = Option.match(
+        Option.flatMap(draft, ({ sendable }) => Array.head(sendable)),
+        { onNone: () => windowed, onSome: Struct.get('windowed') },
+    );
+    const waiting = Option.filter(
+        Option.zipWith(known, draft, (survey, plan) => ({ survey, opened: Option.none<Schema.Json>(), plan, ran: idled })),
+        ({ plan }) => plan.sendable.length === 0,
+    );
+    const first = yield* Option.match(waiting, { onSome: Effect.succeed, onNone: () => instanced(host, chosen, scratch, limit, mode, known, draft, planned) });
+    const far: Plan<C, unknown> = { engine: first.plan.engine, sendable: first.plan.sendable.filter((item) => item.windowed !== mode), settled: [] };
+    const relaunched = Option.filter(
+        Option.liftPredicate(far, ({ sendable }) => sendable.length > 0),
+        () => Option.isNone(first.ran.failed),
+    );
+    const later = yield* Option.match(relaunched, {
+        onNone: () => Effect.succeed(idled),
+        onSome: (held) =>
+            Effect.map(
+                instanced(host, chosen, scratch, limit, !mode, Option.some(first.survey), Option.some(held), () => Effect.succeed(held)),
+                Struct.get('ran'),
+            ),
+    });
+    const skipped = yield* Option.match(first.ran.failed, { onNone: () => Effect.succeed([]), onSome: (failed) => notRun(far.sendable, `not run, ${failed}`) });
+    const ran = [first.ran, later, { ...idled, outcomes: skipped }];
+    const written = yield* writtenIn(host, first.plan.sendable);
+    return {
+        survey: first.survey,
+        opened: first.opened,
+        plan: first.plan,
+        header: Option.firstSomeOf(ran.map(Struct.get('header'))),
+        shared: Array.dedupe(ran.flatMap(Struct.get('shared'))),
+        failed: Option.liftPredicate(Array.getSomes(ran.map(Struct.get('failed'))).join('; '), String.isNonEmpty),
+        answered: ran.flatMap(Struct.get('answered')),
+        outcomes: [...first.plan.settled, ...ran.flatMap(Struct.get('outcomes'))].map((row) => ({ ...row, written: written.get(row.name) ?? [] })),
+    };
 });
 const rerun = Effect.fn('rerun')(function* <S extends Surveyed, C extends Cased>(host: Session<S, C>, rebuilt: NonNullable<Host<S, C>['rebuilt']>, chosen: Installed, scratch: string, limit: Duration.Duration, engine: unknown, calls: readonly Rebuilt<C>[]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const sendable = yield* Effect.forEach(calls, (call, index) => {
-        const folder = path.join(scratch, 'rebuilt', `${index}`);
-        return Effect.andThen(
-            fs.makeDirectory(folder, { recursive: true }),
-            Effect.map(rebuilt(call, folder), ({ hosted, map }): Prepared<C> => ({ hosted, fn: Option.some(call.fn), map, presses: [], copies: [], windowed: call.windowed })),
-        );
-    });
+    const folders = calls.map((_, index) => path.join(scratch, 'rebuilt', `${index}`));
+    const made = yield* Effect.forEach(Array.zip(calls, folders), ([call, folder]) => Effect.andThen(fs.makeDirectory(folder, { recursive: true }), rebuilt(call, folder)));
+    const sendable = Array.zipWith(calls, made, (call, { hosted, map }): Prepared<C> => ({ hosted, fn: Option.some(call.fn), map, presses: [], copies: [], windowed: call.windowed }));
     return (yield* execute(
         host,
         chosen,
@@ -647,4 +659,4 @@ const rerun = Effect.fn('rerun')(function* <S extends Surveyed, C extends Cased>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Any, type Batch, type Cased, type Decoding, type Done, type Entry, execute, type Fields, filesIn, type Header, type Host, type Installed, type Instance, inside, installation, installations, type Live, type Plan, type Prepared, type Rebuilt, rerun, type Services, type Session, type Surveyed };
+export { type Any, type Batch, type Cased, type Decoding, execute, filesIn, type Host, type Installed, type Instance, inside, installation, installations, type Live, type Plan, type Prepared, type Rebuilt, rerun, type Session, type Surveyed };

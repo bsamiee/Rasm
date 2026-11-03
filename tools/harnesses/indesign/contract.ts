@@ -1,6 +1,6 @@
 import { Schema, Struct } from 'effect';
 import { answers, Expression } from '#/cases';
-import { Assignments, added, Copy, documents, Enumerated, Steps } from '#/precondition';
+import { Assignments, added, additions, Copy, documents, Enumerated, Steps } from '#/precondition';
 import { hostCase, Outcome, Records, recorded, reply, Surveying } from '#/results';
 import { EXTENDSCRIPT } from '#/source';
 import { JsonObject } from '#/values';
@@ -17,13 +17,14 @@ const ENGINES = {
 const Engine = Schema.Literals(Struct.keys(ENGINES));
 const Units = Schema.Struct({ script: Enumerated, horizontal: Enumerated, vertical: Enumerated }).annotate({ description: 'MeasurementUnits enumerators for script reads and the document rulers' });
 const Opened = Schema.Union([Schema.Struct({ properties: JsonObject.annotate({ description: 'documents.add properties, {"$": "enum:<Enumeration>.<MEMBER>"} naming an enumerator, each read back after the open' }) }), Schema.Struct({ open: Copy })]);
+const Added = added('rectangles', {});
 const Placed = Schema.Struct({
     documents: documents(Opened),
     units: Units,
     fonts: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'PostScript names app.fonts must report installed, the case failing on each other status' })),
     idml: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Export each case document as <folder>/<index>.before.idml and .after.idml inside the rolled-back step' })),
     labels: Schema.optionalKey(Schema.Record(Schema.String, Schema.String).annotate({ description: 'insertLabel rows of the first document' })),
-    add: added('rectangles', {}),
+    add: additions(Added),
     select: Schema.optionalKey(Schema.Array(Expression).annotate({ description: 'Items app.select selects in the case window, an insertion point included' })),
     set: Assignments,
     steps: Steps,
@@ -63,10 +64,10 @@ const fields = {
     menus: recorded(Schema.Json),
     undo: recorded(Schema.String.annotate({ description: 'Undo step a case document recorded during the run, newest first' })),
 };
-const HostOutcome = Schema.Struct({ ...Outcome.fields, ...fields });
+const HostOutcome = Outcome.mapFields(Struct.assign(fields));
 const Recorded = Records.line(HostOutcome);
 const Encoded = Schema.fromJsonString(Batch);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ENGINES, Encoded, Engine, fields, HostCase, HostOutcome, Placed, Recorded, Reply, Survey };
+export { Added, ENGINES, Encoded, Engine, fields, HostCase, HostOutcome, Placed, Recorded, Reply, Survey };

@@ -1,6 +1,6 @@
 import { Schema, Struct } from 'effect';
 import { answers, Expression } from '#/cases';
-import { Assignments, added, Copy, documents, Enumerated, Steps } from '#/precondition';
+import { Assignments, added, additions, Copy, documents, Enumerated, Steps } from '#/precondition';
 import { hostCase, Outcome, Records, recorded, reply, Surveying } from '#/results';
 import { JsonObject } from '#/values';
 
@@ -31,7 +31,7 @@ const Placed = Schema.Struct({
     colorSettings: Schema.optionalKey(Schema.String.annotate({ description: 'app.colorSettings the case runs under, restored after it' })),
     features: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean).annotate({ description: 'app.featureEnabled answer each flag must give, the case failing on another' })),
     fonts: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'PostScript names app.fonts must hold, the case failing on a missing one' })),
-    add: added('artLayers', {}),
+    add: additions(added('artLayers', {})),
     set: Assignments,
     steps: Steps,
     select: Schema.optionalKey(
@@ -68,37 +68,39 @@ const State = Schema.Struct({
     defaults: JsonObject.annotate({ description: 'Application descriptor read whole at batch start, Action JSON' }),
 }).annotate({ description: 'Instance state at batch start' });
 const Reply = reply({ state: State, survey: Schema.optionalKey(Survey) });
-const fields = {
-    ...Outcome.common,
-    writes: recorded(
-        Schema.Struct({
-            target: Schema.optionalKey(Schema.String.annotate({ description: 'object:/document[@id=N] with /layer[@id=M], /<part>[n], or /json under it, or customOptions, the application when absent' })),
-            member: Schema.String,
-            before: Schema.optionalKey(Schema.Json),
-            after: Schema.Json,
-        }).annotate({ description: 'Descriptor key, custom options key, or held application member the original changed, Action JSON' }),
-    ),
-    history: recorded(Schema.String.annotate({ description: 'History state a case document added during the run, newest first' })),
-    opened: recorded(
-        Schema.Struct({
-            document: Schema.Json,
-            layers: Schema.Array(Schema.Json),
-            parts: Schema.Record(Schema.String, Schema.Json).annotate({ description: 'Guide, channel, and path descriptors by <part>[n], and the json tree with path data' }),
-        }).annotate({ description: 'Case document state the original started from, Action JSON' }),
-    ),
-    errors: recorded(
-        Schema.Struct({
-            version: Schema.String,
-            id: Schema.String,
-            code: Schema.String,
-            message: Schema.String,
-            frames: Schema.Array(Schema.String.annotate({ description: '<module> +0x<offset>' })),
-        }).annotate({ description: 'PSErrorLog.txt entry the instance wrote while the case ran' }),
-    ),
-};
+const HostOutcome = Outcome.mapFields(
+    Struct.assign({
+        ...Outcome.common,
+        writes: recorded(
+            Schema.Struct({
+                target: Schema.optionalKey(Schema.String.annotate({ description: 'object:/document[@id=N] with /layer[@id=M], /<part>[n], or /json under it, or customOptions, the application when absent' })),
+                member: Schema.String,
+                before: Schema.optionalKey(Schema.Json),
+                after: Schema.Json,
+            }).annotate({ description: 'Descriptor key, custom options key, or held application member the original changed, Action JSON' }),
+        ),
+        history: recorded(Schema.String.annotate({ description: 'History state a case document added during the run, newest first' })),
+        opened: recorded(
+            Schema.Struct({
+                document: Schema.Json,
+                layers: Schema.Array(Schema.Json),
+                parts: Schema.Record(Schema.String, Schema.Json).annotate({ description: 'Guide, channel, and path descriptors by <part>[n], and the json tree with path data' }),
+            }).annotate({ description: 'Case document state the original started from, Action JSON' }),
+        ),
+        errors: recorded(
+            Schema.Struct({
+                version: Schema.String,
+                id: Schema.String,
+                code: Schema.String,
+                message: Schema.String,
+                frames: Schema.Array(Schema.String.annotate({ description: '<module> +0x<offset>' })),
+            }).annotate({ description: 'PSErrorLog.txt entry the instance wrote while the case ran' }),
+        ),
+    }),
+);
 const Encoded = Schema.fromJsonString(Batch);
 const Quit = Schema.fromJsonString(Schema.Struct({ quit: Schema.Literal(true) })).annotate({ description: 'Batch end: the engine closes every document without saving and sends the quit event with DialogModes.NO' });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Created, Document, Encoded, Engine, fields, HostCase, Placed, Quit, Reply, SURVEY, Survey };
+export { Created, Document, Encoded, Engine, HostCase, HostOutcome, Placed, Quit, Reply, SURVEY, Survey };

@@ -253,7 +253,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         const frames = (fault.stack ?? '')
             .split('\n')
             .filter((line) => line.split('@').length > 1)
-            .map((line) => ({ name: line.slice(0, line.indexOf('@')), line: line.slice(line.lastIndexOf(':') + 1) }));
+            .map((line) => ({ name: line.slice(0, line.indexOf('@')), line: line.split(':').pop() }));
         const ending = frames.map(({ name }) => name).indexOf('anonymous');
         const stack = frames.slice(0, ending + 1).map(({ line }) => ({ line: Number(line) - offset }));
         return {
@@ -278,27 +278,29 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
     };
     const signaturesOf = (targets: Record<string, Members>): Record<string, Signature> => {
         const made: Record<string, Signature> = {};
-        SIGNED.forEach(([kind, members]) => {
+        const pairs = SIGNED.reduce<readonly { readonly kind: string; readonly member: string }[]>((all, [kind, members]) => all.concat(members.map((member) => ({ kind, member }))), []);
+        pairs.forEach(({ kind, member }) => {
             const target = targets[kind] ?? {};
-            members.forEach((member) => {
-                const held = target[member];
-                if (!isCallable(held)) {
+            const held = target[member];
+            if (!isCallable(held)) {
+                return;
+            }
+            try {
+                held.apply(target, [acrohelp]);
+            } catch (error) {
+                const fault = faultOf(error);
+                if (fault.name !== 'HelpError') {
                     return;
                 }
-                try {
-                    held.apply(target, [acrohelp]);
-                } catch (error) {
-                    const fault = faultOf(error);
-                    if (fault.name !== 'HelpError') {
-                        return;
-                    }
-                    made[`${kind}.${member}`] = String(fault.extMessage)
-                        .split('\n')
-                        .filter((line) => starts(line, HELP))
-                        .map((line) => ({ parts: line.slice(HELP.length).replace('[', '').replace(']', '').split(':'), optional: line.charAt(HELP.length) === '[' }))
-                        .map(({ parts: [name = '', type = ''], optional }) => ({ name: name.trim(), type: type.trim(), optional }));
-                }
-            });
+                made[`${kind}.${member}`] = String(fault.extMessage)
+                    .split('\n')
+                    .filter((line) => starts(line, HELP) && line.indexOf(':') > HELP.length)
+                    .map((line) => {
+                        const parameter = line.slice(HELP.length).replace('[', '').replace(']', '');
+                        const colon = parameter.indexOf(':');
+                        return { name: parameter.slice(0, colon).trim(), type: parameter.slice(colon + 1).trim(), optional: line.charAt(HELP.length) === '[' };
+                    });
+            }
         });
         return made;
     };

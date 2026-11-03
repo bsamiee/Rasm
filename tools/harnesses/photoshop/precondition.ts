@@ -4,7 +4,7 @@ import { Application, many, member, Open, placings } from '#/precondition';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Made = Schema.Struct({ ...Created.fields, mode: member('NewDocumentMode'), initialFill: member('DocumentFill'), bitsPerChannel: member('BitsPerChannelType') });
+const Made = Created.mapFields(Struct.assign({ mode: member('NewDocumentMode'), initialFill: member('DocumentFill'), bitsPerChannel: member('BitsPerChannelType') }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

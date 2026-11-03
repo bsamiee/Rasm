@@ -18,7 +18,7 @@ const answers = {
     confirms: Schema.optionalKey(Schema.Array(Schema.Boolean)),
     prompts: Schema.optionalKey(Schema.Array(Schema.NullOr(Schema.String))),
     files: Schema.optionalKey(Schema.Array(Schema.NullOr(Schema.String)).annotate({ description: 'Paths under the product folder each file or folder picker returns in order' })),
-    presses: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Button labels the watcher presses on each host dialog in order' })),
+    presses: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Answer the watcher gives each host dialog in order: accept, discard, cancel, or a button label' })),
 };
 const expected = {
     expect: Schema.optionalKey(Schema.Literals(['value', 'read', 'writes']).annotate({ description: 'Host answer compare checks: call value, read map, or rebuilt writes settled over before' })),
@@ -40,6 +40,7 @@ const Run = Schema.Struct({ ...shared, script: Schema.optionalKey(Schema.NonEmpt
 const Batch = Schema.Struct({
     script: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'Script path under the product folder for cases naming none' })),
     module: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'Rebuilt module path under the product folder compare imports or runs in the host' })),
+    limit: Schema.DurationFromString.pipe(Schema.withDecodingDefaultKey(Effect.succeed('2 minutes' as const))).annotate({ description: 'Bound on a launch, on a case writing no record before it records hung, and on the batch-end quit before the instance is reported left running' }),
     plugin: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'Plug-in binary under the product folder the host loads before the cases' })),
     precondition: Schema.optionalKey(Precondition),
     read: Schema.optionalKey(Reads),
@@ -77,4 +78,4 @@ const expand = Effect.fn('expand')(function* (product: string, file: string) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answers, Batch, Call, Expression, expand, Keywords, Name, Probe, Reads, type Row, Run, scriptOf, Vector };
+export { answers, Batch, Call, Expression, expand, Keywords, Name, Probe, Reads, type Row, scriptOf };

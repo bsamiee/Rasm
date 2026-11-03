@@ -1,7 +1,7 @@
 import { Schema, SchemaGetter, Struct } from 'effect';
 import { Expression } from '#/cases';
-import { Placed, type Survey } from '#/indesign/contract';
-import { Application, enumerators, many, member, merged, Open, placings } from '#/precondition';
+import { Added, Placed, type Survey } from '#/indesign/contract';
+import { Application, additions, enumerators, many, member, merged, Open, placings } from '#/precondition';
 import { JsonObject } from '#/values';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -25,7 +25,7 @@ const precondition = (survey: typeof Survey.Type) => {
         ...Struct.omit(Placed.fields, ['documents']),
         units: Units,
         set: Schema.optionalKey(Schema.Array(Schema.Tuple([Expression, Schema.Json.check(checked())]))),
-        add: Schema.optionalKey(Schema.Array(Placed.fields.add.schema.value.mapFields((fields) => ({ ...fields, properties: Schema.optionalKey(Properties) })))),
+        add: additions(Added.mapFields(Struct.assign({ properties: Schema.optionalKey(Properties) }))),
     };
     const documented = (row: typeof Document.Type, units: typeof Placed.Type.units) => ({
         properties: merged(row.properties ?? {}, {

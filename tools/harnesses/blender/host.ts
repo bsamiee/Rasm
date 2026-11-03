@@ -1,10 +1,11 @@
 import { Array, Deferred, Effect, FileSystem, Match, Option, Path, Schema, String, Struct } from 'effect';
-import { Encoded, Engine, fields, HostCase, type Placed, Reply, SURVEY, Survey, Written } from '#/blender/contract';
+import { Encoded, Engine, HostCase, HostOutcome, type Placed, Reply, SURVEY, Survey, Written } from '#/blender/contract';
 import { precondition } from '#/blender/precondition';
 import type { Row } from '#/cases';
 import { HarnessError } from '#/error';
 import { appeared, Launched, plist, printed, Spawned } from '#/instance';
 import { Run } from '#/log';
+import { failing, lined, whole } from '#/report';
 import type { Batch, Host as Harness, Installed, Live, Rebuilt } from '#/session';
 import { engineOf, prepared } from '#/source';
 import type { JsonObject } from '#/values';
@@ -37,7 +38,7 @@ const identify = Effect.fn('identify')(function* (app: string) {
         Option.map(Option.fromNullishOr(VERSION.exec(yield* printed(executable, ['--version']))?.groups), ({ release = '', cycle = '', hash = '' }) => `${release}${cycle === '' ? '' : `-${cycle.toLowerCase().replaceAll(' ', '-')}`}+${hash}`),
         () => HarnessError.unavailable(app)('printed no release and build hash'),
     );
-    return { identifier: CFBundleIdentifier, name: CFBundleName, app, version, watched: [CFBundleIdentifier] } satisfies Installed;
+    return { identifier: CFBundleIdentifier, name: CFBundleName, app, version, helpers: [] } satisfies Installed;
 });
 const installed = Effect.flatMap(printed('mdfind', ['kMDItemCFBundleIdentifier == "org.blenderfoundation.blender"']), (listed) => Effect.forEach(Array.fromIterable(String.linesIterator(listed)).filter(String.isNonEmpty), identify));
 
@@ -66,8 +67,8 @@ const rebuilt = Effect.fn('rebuilt')(function* ({ hosted, fn, args, module }: Re
 // --- [TRANSPORT]
 const stemmed = (scratch: string) => Effect.map(Effect.all([Run, Path.Path]), ([{ folder }, path]) => path.join(folder, path.basename(scratch)));
 const launch = Effect.fn('launch')(function* (chosen: Installed, scratch: string, shown: boolean) {
-    const [fs, path, { folder }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Run]);
-    const [profile, stem] = [path.join(scratch, 'profile'), yield* stemmed(scratch)];
+    const [fs, path, { folder }, stem] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Run, stemmed(scratch)]);
+    const profile = path.join(scratch, 'profile');
     yield* fs.makeDirectory(profile, { recursive: true });
     yield* fs.writeFileString(`${stem}${ERRORS}`, '');
     const { executable } = yield* bundle(chosen.app);
@@ -101,7 +102,7 @@ const Host = {
     Engine,
     survey: { question: SURVEY, Schema: Survey },
     Case: HostCase,
-    fields,
+    Outcome: HostOutcome,
     engine,
     precondition,
     placed,
@@ -110,14 +111,14 @@ const Host = {
     launch,
     opened,
     send,
-    logs: () =>
-        Effect.map(Run, ({ folder }) => [
-            { kind: 'host', pattern: `*{${LOG},${ERRORS}}`, root: folder },
-            { kind: 'crash', pattern: '*.crash.txt', root: folder },
+    logs: (instance) =>
+        Effect.map(Effect.all([Run, Path.Path]), ([{ folder }, path]) => [
+            { kind: 'host', pattern: `${path.basename(instance.scratch)}{${LOG},${ERRORS}}`, root: folder, text: lined(failing) },
+            { kind: 'crash', pattern: '*.crash.txt', root: folder, text: lined(whole) },
         ]),
     quit: (live) => Effect.flatMap(Effect.all([FileSystem.FileSystem, Path.Path]), ([fs, path]) => fs.writeFileString(path.join(live.scratch, QUIT), '')),
     rebuilt,
-} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type, typeof fields>;
+} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type>;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

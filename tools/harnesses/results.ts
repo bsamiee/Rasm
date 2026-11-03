@@ -13,11 +13,14 @@ const Halted = Schema.TaggedUnion({
         status: Schema.optionalKey(Schema.Int),
         signal: Schema.optionalKey(Schema.Int),
         report: Schema.optionalKey(Schema.String.annotate({ description: 'Crash report path ReportCrash wrote for the pid' })),
-        type: Schema.optionalKey(Schema.String.annotate({ description: 'Mach exception type and signal the report names' })),
+        exception: Schema.optionalKey(Schema.String.annotate({ description: 'Mach exception type and signal the report names' })),
         frames: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Faulting thread frames of the crash report' })),
     },
     Hung: {
-        cpu: Schema.Literals(['busy', 'blocked']),
+        process: Schema.optionalKey(Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread state watch-apps read when the instance stopped answering' })),
+        cpu: Schema.optionalKey(Schema.Finite.annotate({ description: 'CPU seconds when the instance stopped answering' })),
+        footprint: Schema.optionalKey(Schema.Finite.annotate({ description: 'Physical footprint bytes when the instance stopped answering' })),
+        threads: Schema.optionalKey(Schema.Int),
         sample: Schema.String.annotate({ description: 'sample report path of the instance' }),
         frames: recorded(Schema.String.annotate({ description: 'Main thread frame along the heaviest sample path, leaf first' })),
     },
@@ -47,7 +50,7 @@ const Outcome = Object.assign(
         leaked: recorded(Schema.String.annotate({ description: 'Host state the case changed that the engine could not restore' })),
         halted: Schema.optionalKey(Halted),
         written: recorded(Schema.Struct({ file: Schema.String, size: Schema.Int, sha256: Schema.String }).annotate({ description: 'File the case wrote into its folder' })),
-    }).annotate({ description: 'Outcome of any host, each host spreading its own recorded fields beside these' }),
+    }).annotate({ description: 'Outcome of any host, each host contract assigning its own recorded fields beside these' }),
     {
         common: {
             alerts: recorded(Schema.Struct({ text: Schema.String, title: Schema.optionalKey(Schema.String) })),
@@ -96,7 +99,7 @@ const reply = <F extends Schema.Struct.Fields>(fields: F) => {
         replied: (subject: string) => (answer: unknown) => Effect.filterOrElse(Schema.decodeUnknownEffect(codec)(answer), Schema.is(header), (held) => Effect.flatMap(Schema.decodeUnknownEffect(Failed)(held), ({ failed }) => HarnessError.unavailable(subject)(failed))),
     });
 };
-const results = (engine: Any, fields: Schema.Struct.Fields) =>
+const results = (engine: Any, outcome: Schema.Codec<typeof Outcome.Type, unknown>) =>
     Schema.fromJsonString(
         Schema.Struct({
             application: Schema.String.annotate({ description: 'Name the host reports' }),
@@ -105,7 +108,7 @@ const results = (engine: Any, fields: Schema.Struct.Fields) =>
             shared: recorded(Schema.Int).annotate({ description: 'Instances other processes ran before the run, left as they were' }),
             failed: Schema.optionalKey(Schema.String.annotate({ description: 'Why the run ended before every case ran, naming the instance left running' })),
             answered: Outcome.fields.answered.annotate({ description: 'Host dialogs the run expected and answered before the first case started' }),
-            cases: Schema.Array(Schema.Struct({ ...Outcome.fields, ...fields })),
+            cases: Schema.Array(outcome),
             compare: Schema.optionalKey(Compare),
         }),
         { space: 2 },
@@ -113,4 +116,4 @@ const results = (engine: Any, fields: Schema.Struct.Fields) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answer, Compare, deciding, Halted, hostCase, Outcome, Records, recorded, reply, results, Surveying };
+export { Answer, Compare, deciding, Failed, Halted, hostCase, Outcome, Records, recorded, reply, results, Surveying };

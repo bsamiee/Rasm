@@ -4,13 +4,12 @@ import type { AppleEventValue, Terms } from '@rasm/automation/apple-events';
 import { Automation } from '@rasm/automation/automation';
 import { transformSync } from '@swc/core';
 import { Array, Effect, FileSystem, flow, Option, Path, Record, Result, Schema, SchemaGetter, Stream, Struct, String as Text } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import jsesc from 'jsesc';
-import { Answered, BOXES, Engine, fields, HostCase, HostOutcome, Lockdown, Recorded, Request, type Staged, Survey, Surveyed } from '#/acrobat/contract';
+import { Answered, BOXES, Engine, HostCase, HostOutcome, Lockdown, Recorded, Request, type Staged, Survey, Surveyed } from '#/acrobat/contract';
 import { engine } from '#/acrobat/engine';
 import { precondition } from '#/acrobat/precondition';
 import { HarnessError } from '#/error';
-import { Launched } from '#/instance';
+import { Launched, printed } from '#/instance';
 import { copied } from '#/precondition';
 import { type Batch, type Decoding, filesIn, type Host as Harness, inside, installation, type Live } from '#/session';
 import { JsonObject } from '#/values';
@@ -18,14 +17,12 @@ import { JsonObject } from '#/values';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CODES = { suite: 'CARO', script: 'miscdosc', quit: 'aevtquit', menu: 'cmnu', item: 'cmen', title: 'ptit' } as const;
-const LOCKDOWN = '/Library/Application Support/Adobe/Acrobat/DC/Preferences/FeatureLockDown';
-const SANDBOX = { root: '/private/tmp/com.adobe.Acrobat.tmp.sbx', digits: 16 } as const;
 const ELLIPSIS = /(?:…|\.\.\.)$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Item = Schema.Struct({ seld: Schema.String }).annotate({ description: 'Menu item specifier, its name as the selector' });
-const Modal = Schema.String.pipe(Schema.decodeTo(Schema.Boolean, { decode: SchemaGetter.transform(flow(Text.match(ELLIPSIS), Option.isSome)), encode: SchemaGetter.forbiddenEncoding })).annotate({ description: 'Menu item title ending in an ellipsis, the item opening a dialog' });
+const Items = Schema.Array(Schema.Struct({ seld: Schema.String }).annotate({ description: 'Menu item specifier, its name as the selector' }));
+const Modals = Schema.Array(Schema.NullOr(Schema.String.pipe(Schema.decodeTo(Schema.Boolean, { decode: SchemaGetter.transform(flow(Text.match(ELLIPSIS), Option.isSome)), encode: SchemaGetter.forbiddenEncoding })).annotate({ description: 'Menu item title ending in an ellipsis, the item opening a dialog' })));
 const Objects = Schema.fromJsonString(Schema.Struct({ qpdf: Schema.Tuple([Schema.Unknown, Schema.Record(Schema.String, Schema.Json)]) })).annotate({ description: 'qpdf JSON v2 object table' });
 const Linked = Schema.Struct({ value: Schema.Struct({ '/Info': Schema.optionalKey(Schema.String), '/Root': Schema.optionalKey(Schema.String), '/Metadata': Schema.optionalKey(Schema.String) }) }).annotate({ description: 'Indirect references a dictionary holds' });
 const Dictionary = Schema.Struct({ value: JsonObject });
@@ -39,21 +36,25 @@ const installed = Effect.gen(function* () {
     const automation = yield* Automation;
     const rows = yield* automation.installed;
     const [read, unread] = yield* Effect.partition(
-        rows.filter((row) => row.scriptable && Option.isSome(row.scriptingDefinitionFile) && !rows.some((outer) => inside(outer, row))),
+        Array.differenceWith(inside)(
+            rows.filter((row) => row.scriptable && Option.isSome(row.scriptingDefinitionFile)),
+            rows,
+        ),
         (row) => Effect.mapBoth(automation.terms({ url: row.url }), { onSuccess: flow(Option.liftPredicate(declares), Option.as(row)), onFailure: HarnessError.refused(row.name) }),
         { concurrency: 'unbounded' },
     );
     return yield* Array.match(Array.getSomes(read), {
         onEmpty: () => Array.match(unread, { onEmpty: () => Effect.succeed([]), onNonEmpty: (held) => HarnessError.unavailable('scripting dictionaries')(held.map(Struct.get('message')).join('; ')) }),
-        onNonEmpty: (hosts) => Effect.forEach(hosts, (row) => installation(row, rows, [])),
+        onNonEmpty: Effect.forEach((row) => installation(row, rows, [])),
     });
 });
 const lockdown = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    return (yield* fs.exists(LOCKDOWN))
+    const file = '/Library/Application Support/Adobe/Acrobat/DC/Preferences/FeatureLockDown';
+    return (yield* fs.exists(file))
         ? {
               lockdown: createHash('sha256')
-                  .update(yield* fs.readFile(LOCKDOWN))
+                  .update(yield* fs.readFile(file))
                   .digest('hex'),
           }
         : {};
@@ -62,7 +63,8 @@ const lockdown = Effect.gen(function* () {
 // --- [CASES]
 const placed = Effect.fn('placed')(function* (decoded: typeof Staged.Type, folder: string, product: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const sandbox = path.join(SANDBOX.root, `rasm-${createHash('sha256').update(folder).digest('hex').slice(0, SANDBOX.digits)}`);
+    const digits = 16;
+    const sandbox = path.join('/private/tmp/com.adobe.Acrobat.tmp.sbx', `rasm-${createHash('sha256').update(folder).digest('hex').slice(0, digits)}`);
     yield* fs.remove(sandbox, { recursive: true, force: true });
     yield* fs.makeDirectory(sandbox, { recursive: true });
     const { precondition: copy, copies } = yield* copied(decoded, sandbox, product);
@@ -84,9 +86,12 @@ const collected = Effect.fn('collected')(function* (hosted: typeof HostCase.Type
 
 // --- [DIGESTS]
 const normalized = Effect.fn('normalized')(function* (file: string) {
-    const printed = yield* ChildProcessSpawner.ChildProcessSpawner.use((spawner) => spawner.string(ChildProcess.make('qpdf', ['--json-output', '--json-stream-data=inline', '--decode-level=generalized', file, '-'])));
-    const [, table] = (yield* Schema.decodeEffect(Objects)(printed)).qpdf;
-    const linked = (key: string, link: '/Info' | '/Root' | '/Metadata') => Option.flatMap(Schema.decodeUnknownOption(Linked)(table[key]), ({ value }) => Option.map(Option.fromUndefinedOr(value[link]), (held) => `obj:${held}`));
+    const [, table] = (yield* Effect.flatMap(printed('qpdf', ['--warning-exit-0', '--json-output', '--json-stream-data=inline', '--decode-level=generalized', file, '-']), Schema.decodeEffect(Objects))).qpdf;
+    const linked = (key: string, link: '/Info' | '/Root' | '/Metadata') =>
+        Schema.decodeUnknownOption(Linked)(table[key]).pipe(
+            Option.flatMapNullishOr(({ value }) => value[link]),
+            Option.map((held) => `obj:${held}`),
+        );
     const info = linked('trailer', '/Info');
     const metadata = Option.flatMap(linked('trailer', '/Root'), (catalog) => linked(catalog, '/Metadata'));
     const dropped: Record.ReadonlyRecord<string, readonly string[]> = { trailer: ['/ID'], ...Option.match(info, { onNone: () => ({}), onSome: (key) => ({ [key]: ['/CreationDate', '/ModDate'] }) }) };
@@ -103,7 +108,6 @@ const normalized = Effect.fn('normalized')(function* (file: string) {
 });
 
 // --- [TRANSPORT]
-const specifier = (want: string, form: 'property' | 'index', seld: AppleEventValue, from: Option.Option<AppleEventValue>): AppleEventValue => ({ _tag: 'specifier', want, form, seld, ...Option.match(from, { onNone: () => ({}), onSome: (held) => ({ from: held }) }) });
 const lowered = Effect.try({ try: () => transformSync(`var engine = ${engine.toString()};`, { jsc: { target: 'es5', parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } }, isModule: false }).code, catch: HarnessError.refused('engine lowering') });
 const based = () => ({ home: homedir(), boxes: BOXES });
 const got = Effect.fn('got')(function* <S extends Schema.Top & Schema.Decoder<unknown>>(pid: number, direct: AppleEventValue, schema: S) {
@@ -112,8 +116,9 @@ const got = Effect.fn('got')(function* <S extends Schema.Top & Schema.Decoder<un
     return yield* Schema.decodeEffect(Schema.NullOr(schema))(reply);
 });
 const menu = Effect.fn('menu')(function* (pid: number, index: number) {
+    const specifier = (want: string, form: 'property' | 'index', seld: AppleEventValue, from: Option.Option<AppleEventValue>): AppleEventValue => ({ _tag: 'specifier', want, form, seld, ...Record.getSomes({ from }) });
     const items = specifier(CODES.item, 'index', 'every', Option.some(specifier(CODES.menu, 'index', index, Option.none())));
-    const [named, modal] = yield* Effect.all([got(pid, items, Schema.Array(Item)), got(pid, specifier(CODES.title, 'property', { _tag: 'type', name: CODES.title }, Option.some(items)), Schema.Array(Schema.NullOr(Modal)))]);
+    const [named, modal] = yield* Effect.all([got(pid, items, Items), got(pid, specifier(CODES.title, 'property', { _tag: 'type', name: CODES.title }, Option.some(items)), Modals)]);
     return Option.map(
         Option.fromNullOr(named),
         Array.filterMap(({ seld }, at) => (modal?.[at] === true ? Result.succeed(seld) : Result.failVoid)),
@@ -158,7 +163,7 @@ const Host = {
     Engine,
     survey: { question: 'Member names per object kind, signatures of answered members, dialog menu items, viewer, and FeatureLockDown digest the installation declares', Schema: Survey },
     Case: HostCase,
-    fields,
+    Outcome: HostOutcome,
     engine: () => Result.succeed(Engine.literal),
     precondition,
     placed,
@@ -169,7 +174,7 @@ const Host = {
     send,
     quit: (live) => Effect.flatMap(Automation, (automation) => Effect.asVoid(automation.execute({ pid: live.pid, command: CODES.quit, arguments: { saving: { _tag: 'enumerator', name: 'no' } } }))),
     canonical: (file, bytes) => (file.endsWith('.pdf') ? Effect.map(normalized(file), (text) => [text]) : Effect.succeed([bytes])),
-} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Staged.Type, typeof fields>;
+} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Staged.Type>;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

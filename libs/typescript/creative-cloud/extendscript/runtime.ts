@@ -10,7 +10,7 @@ const runtime = () => {
     const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'object' && value !== null;
     const isList = (value: unknown): value is readonly unknown[] => Object.prototype.toString.call(value) === '[object Array]';
     const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> => isRecord(value) && Object.prototype.toString.call(value) === '[object Object]';
-    const finite = (value: unknown): number | undefined => (typeof value === 'number' && Math.abs(value) < Number.POSITIVE_INFINITY ? value : undefined);
+    const finite = (value: unknown): number | undefined => (typeof value === 'number' && isFinite(value) ? value : undefined);
     const message = (thrown: unknown): string => String(isRecord(thrown) ? thrown.message : thrown);
     const attempt = <A>(body: () => A): A | undefined => {
         try {

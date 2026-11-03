@@ -51,10 +51,10 @@ const answerOf = (row: typeof Outcome.Type): Option.Option<typeof Answer.Type> =
     const halted = Option.flatMap(
         Option.fromUndefinedOr(row.halted),
         Halted.match({
-            Crashed: ({ signal, status, type, report }) => Option.some({ thrown: `crashed ${[signal === undefined ? `status ${status}` : `signal ${signal}`, type, report].filter((part) => part !== undefined).join(' ')}` }),
-            Hung: ({ cpu, sample, frames }) =>
+            Crashed: ({ signal, status, exception, report }) => Option.some({ thrown: `crashed ${[signal === undefined ? `status ${status}` : `signal ${signal}`, exception, report].filter((part) => part !== undefined).join(' ')}` }),
+            Hung: ({ process, sample, frames }) =>
                 Option.liftPredicate(
-                    { thrown: `hung ${cpu} ${sample}` },
+                    { thrown: ['hung', process, sample].filter((part) => part !== undefined).join(' ') },
                     () =>
                         !Option.exists(
                             Array.findFirst(frames, (frame) => !RUNTIME.test(frame)),

@@ -1,5 +1,5 @@
 import { Array, Effect, Option, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
-import { BidiClass, JoiningGroup } from 'icu';
+import { JoiningGroup } from 'icu';
 import type { Face } from '#/face';
 import { Profile } from '#/profile';
 import { Settings } from '#/settings';
@@ -10,11 +10,6 @@ import { Word } from '#/word';
 
 const LONE_PUNCTUATION = /^\p{P}$/u;
 const SEPARATOR = /^[\p{Zs}\u{200C}]?$/u;
-const STRONG = new Map<BidiClass, Option.Option.Value<Settings['direction']>>([
-    [BidiClass.LeftToRight, 'LTR'],
-    [BidiClass.RightToLeft, 'RTL'],
-    [BidiClass.ArabicLetter, 'RTL'],
-]);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -25,21 +20,24 @@ const GroupName = Schema.String.annotate({ description: 'ICU joining group name'
     }),
 );
 const Boundary = Schema.Struct({
-    slant: Schema.Finite.annotate({ description: 'Em from foot to top, positive toward preceding run' }).pipe(Schema.withConstructorDefault(Effect.succeed(0))),
+    slant: Schema.Finite.annotate({ description: 'Em from foot to top, positive toward preceding run' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(0)), Schema.withConstructorDefault(Effect.succeed(0))),
     top: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Height in em, face ascender when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
     foot: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Height in em, face descender when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
 }).check(Schema.makeFilter(({ top, foot }) => !Option.exists(Option.all([top, foot]), ([upper, lower]) => upper <= lower), { description: 'top above foot' }));
 const Rule = Schema.Struct({
-    side: Schema.Literals(['following', 'preceding']).annotate({ description: 'Run the groups test, its first two letters when following, its last letter when preceding' }),
+    side: Schema.Literals(['following', 'preceding']).annotate({ description: 'Run the groups test, the first two letters of its word from the run when following, its last letter when preceding' }),
     groups: Schema.Array(GroupName),
-    boundary: Boundary.annotate({ description: 'Line moved to touch preceding run from gap side' }).pipe(Schema.withConstructorDefault(Effect.sync(() => Boundary.make({})))),
-    correction: Schema.Finite.annotate({ description: 'Added to gap, in em' }).pipe(Schema.withConstructorDefault(Effect.succeed(0))),
+    boundary: Boundary.annotate({ description: 'Line moved to touch preceding run from gap side' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.sync(() => Boundary.make({})))),
+    correction: Schema.Finite.annotate({ description: 'Added to gap, in em' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(0)), Schema.withConstructorDefault(Effect.succeed(0))),
 });
 const Fallback = Rule.mapFields(Struct.omit(['side', 'groups']));
 class Kerning extends Schema.Class<Kerning, { readonly brand: unique symbol }>('Kerning')(
     {
-        rows: Schema.Array(Rule).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
-        fallback: Fallback.pipe(Schema.withConstructorDefault(Effect.sync(() => Fallback.make({})))),
+        rows: Schema.Array(Rule).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
+        fallback: Fallback.pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.sync(() => Fallback.make({})))),
+        rise: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
+            .annotate({ description: 'Em the following run may shift up or down to nest closer, 0 keeping one baseline' })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed(0)), Schema.withConstructorDefault(Effect.succeed(0))),
     },
     { description: 'Gap rules by ICU joining group, first matching row wins, fallback otherwise' },
 ) {
@@ -48,25 +46,27 @@ class Kerning extends Schema.Class<Kerning, { readonly brand: unique symbol }>('
         const { ascender, descender } = face.metrics.extents.horizontal;
         const [outlines, profiles] = [new Map<number, ReturnType<typeof Profile.outline>>(), new Map<string, Profile>()];
         const outline = (glyph: number) => outlines.getOrInsertComputed(glyph, () => Profile.outline(face.font.glyphToJson(glyph)));
-        const direction = Option.orElse(settings.direction, () => Array.findFirst(Array.fromIterable(text), (character) => Option.fromUndefinedOr(STRONG.get(BidiClass.forChar(character.codePointAt(0) ?? 0)))));
+        const direction = Option.orElse(settings.direction, () => Word.direction(text));
         const profile = (span: string) => profiles.getOrInsertComputed(span, () => Profile.of(ShapedText.of(face, ShapedText.Run.make({ text: span, direction: LONE_PUNCTUATION.test(span) ? direction : Option.none() }), settings), unitsPerEm, outline));
-        const gap = (before: string, after: string) => {
-            const letters = { following: Array.take(Word.letters(after), 2), preceding: Array.takeRight(Word.letters(before), 1) };
-            const { boundary, correction } = Array.findFirst(this.rows, ({ side, groups }) => letters[side].some(({ group }) => groups.includes(group))).pipe(Option.getOrElse(() => this.fallback));
-            const preceding = profile(before);
-            const bounded = preceding.bounded({ slant: boundary.slant * unitsPerEm, top: Option.getOrElse(boundary.top, () => ascender) * unitsPerEm, foot: Option.getOrElse(boundary.foot, () => descender) * unitsPerEm });
-            return Option.match(Profile.gap(profile(after), bounded), { onNone: () => 0, onSome: (clearance) => Math.max(Math.min(clearance, preceding.advance) / unitsPerEm + correction, 0) });
-        };
-        const content = ({ start, end }: Word['joins'][number]) => text.slice(start, end);
         const spans = Word.of(text).flatMap(({ start, end, joins }) =>
             Array.window([start, ...joins.flatMap((join) => [join.start, join.end]), end], 2)
-                .map(([from, to]) => ({ start: from, end: to }))
-                .filter((span, at) => at % 2 === 1 || LONE_PUNCTUATION.test(content(span))),
+                .map(([from, to]) => ({ span: Word.Span.make({ start: from, end: to }), rest: Word.Span.make({ start: from, end }) }))
+                .filter(({ span }, at) => at % 2 === 1 || LONE_PUNCTUATION.test(span.slice(text))),
         );
+        const gap = (before: typeof Word.Span.Type, after: (typeof spans)[number]) => {
+            const letters = { following: Array.take(Word.letters(after.rest.slice(text)), 2), preceding: Array.takeRight(Word.letters(before.slice(text)), 1) };
+            const { boundary, correction } = Array.findFirst(this.rows, ({ side, groups }) => letters[side].some(({ group }) => groups.includes(group))).pipe(Option.getOrElse(() => this.fallback));
+            const preceding = profile(before.slice(text));
+            const bounded = preceding.bounded({ slant: boundary.slant * unitsPerEm, top: Option.getOrElse(boundary.top, () => ascender) * unitsPerEm, foot: Option.getOrElse(boundary.foot, () => descender) * unitsPerEm });
+            return Option.match(Profile.gap(profile(after.span.slice(text)), bounded, Math.round(this.rise * unitsPerEm), preceding.advance), {
+                onNone: () => ({ kerning: 0, baselineShift: 0 }),
+                onSome: ({ gap: clearance, shift }) => ({ kerning: -Math.max(clearance / unitsPerEm + correction, 0), baselineShift: shift / unitsPerEm }),
+            });
+        };
         return Array.window(spans, 2)
-            .filter(([before, after]) => !LONE_PUNCTUATION.test(content(after)) && SEPARATOR.test(text.slice(before.end, after.start)))
-            .map(([before, after]) => ({ index: after.start, kerning: -gap(content(before), content(after)) }))
-            .filter(({ kerning }) => kerning !== 0);
+            .filter(([before, after]) => !LONE_PUNCTUATION.test(after.span.slice(text)) && SEPARATOR.test(text.slice(before.span.end, after.span.start)))
+            .map(([before, after]) => ({ index: after.span.start, length: after.span.length, ...gap(before.span, after) }))
+            .filter(({ kerning, baselineShift }) => kerning !== 0 || baselineShift !== 0);
     }
 }
 

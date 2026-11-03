@@ -1,4 +1,4 @@
-import { Option, Schema } from 'effect';
+import { Formatter, Option, Schema } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ class HarnessError extends Schema.TaggedError<HarnessError, { readonly brand: un
 
     override get message(): string {
         return HarnessError.fields.reason.match(this.reason, {
-            Refused: () => `${this.subject}: ${thrown(this.cause)}`,
+            Refused: () => `${this.subject}: ${Formatter.format(this.cause)}`,
             Unavailable: ({ because }) => `${this.subject}: ${because}`,
             Disagreed: ({ mismatches }) => `${this.subject} disagrees with the host on ${mismatches} cases`,
         });

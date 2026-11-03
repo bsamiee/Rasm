@@ -39,6 +39,8 @@ utils:
         kind: identifier, shorthand_property_identifier
         pattern: $NAME
         not: {inside: {kind: 'variable_declarator, function_declaration', field: name}}
+    holds-reference:
+        any: [{matches: reference}, {has: {stopBy: end, matches: reference}}]
     entry:
         any:
             - has: {field: name, pattern: $ENTRY}
@@ -115,7 +117,8 @@ rule:
                     stopBy: end
                     all:
                         - has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, matches: typescript-function-boundary}}}, {inside: {stopBy: end, matches: holder}}]}
-                        - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, kind: 'variable_declarator, public_field_definition', pattern: $HOLDER}}}]}}
+                        - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, matches: holder}}}]}}
+                        - not: {has: {stopBy: end, matches: holder, has: {stopBy: end, matches: holds-reference, precedes: {stopBy: end, matches: holds-reference}}}}
 message: '`$NAME` has one reader'
 note: 'Move the declaration into its only reader as a local, inlined where the reader is a field initializer or the value is another name'
 labels:

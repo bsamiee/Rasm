@@ -369,7 +369,6 @@ catalog:
     '@nx/vitest': 24.0.3
     '@ast-grep/napi': 0.51.0 # Structural search and rewrite over syntax trees from Node
     '@ast-grep/lang-python': 0.0.6 # Python grammar `@ast-grep/napi` registers as a dynamic language
-    smol-toml: 1.9.1 # TOML parser for repository manifests
     minimatch: 11.0.3
     '@biomejs/biome': 2.6.4
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
