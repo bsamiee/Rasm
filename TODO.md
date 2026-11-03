@@ -45,7 +45,7 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 1. **TypeScript close:** the sweep audit (running) judges and reduces the sweep's growth and checks the tree to zero; then `typescript-tune` from `2a7c018e2`.
 2. **Push**, then the **InPage depth rerun** from `.artifacts/workflows/typescript-extension/inpage/depth-prompt-2.md` (one Fable agent), with its follow-up depth, clean prose and refinement of modified content.
 3. **Push**, then the extension phases 4 to 7 in [02], pushing before the first run.
-4. **Harnesses:** the run-log plan in `.artifacts/workflows/harnesses/LOGGING.md` landing (running), then the depth pass in `.artifacts/workflows/harnesses/depth-brief.md`; then the open host proofs.
+4. **Harnesses:** run logging landed (`1193208fe`); the depth pass in `.artifacts/workflows/harnesses/depth-brief.md` (running); then the open host proofs.
 5. **Font library:** `libs/python/typography` and the `foundry` CLI at `tools/foundry` (running) from `.artifacts/workflows/fonts/DECISION.md` and `ARCHITECTURE.md`, 2,650 to 4,000 lines rebuilt from the old tooling's functionality, never its code; each round pushed; then 2 to 3 rounds, each a fresh lead deepening it from `git diff` of the round before; then `python-tune` over it.
 6. **Rust, after the TypeScript extension:** three rows in RUST.md order and three depth runs at once, each landing freeing its slot; `rust-tune` every few landings.
 7. **Folder guidance:** once the TypeScript extension and the Rust queue settle.
