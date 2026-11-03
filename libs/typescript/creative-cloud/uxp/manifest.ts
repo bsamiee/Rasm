@@ -16,7 +16,7 @@ class Manifest extends Schema.Class<Manifest, { readonly brand: unique symbol }>
     manifestVersion: Schema.tag(VERSION),
     id: Schema.String,
     name: Schema.String,
-    version: Version,
+    version: Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,2}(?:-[\dA-Za-z-]+(?:\.[\dA-Za-z-]+)*)?(?:\+[\dA-Za-z-]+(?:\.[\dA-Za-z-]+)*)?$/u)).annotate({ description: 'major[.minor[.patch]][-prerelease][+build]' }),
     main: Schema.optionalKey(Schema.String),
     host: Schema.Struct({ app: Schema.Literals(['ID', 'PS', 'premierepro', 'ame', 'XD']), minVersion: Version, maxVersion: Schema.optionalKey(Version), data: Schema.optionalKey(Schema.Struct({ loadEvent: Schema.Literals(['use', 'startup']) })) }),
     icons: Schema.optionalKey(Schema.Array(Icon)),

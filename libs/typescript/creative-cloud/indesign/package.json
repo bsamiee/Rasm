@@ -10,9 +10,7 @@
     "exports": {
         "./contract": "./contract.ts",
         "./change": "./requests/change.ts",
-        "./font": "./requests/font.ts",
         "./host": "./host.ts",
-        "./inspect": "./requests/inspect.ts",
         "./model": "./dom/model.ts",
         "./settings": "./documents/settings.ts",
         "./transactions": "./dom/transactions.ts",

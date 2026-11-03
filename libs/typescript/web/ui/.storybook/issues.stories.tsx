@@ -9,7 +9,7 @@ const Identity = Schema.Struct({ name: Schema.NonEmptyString, entries: Schema.Ar
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const meta = preview.meta({ component: Issues.List, args: { issue: Option.getOrThrow(Result.getFailure(SchemaParser.decodeResult(Identity)({ name: '', entries: [{ title: '' }] }, { errors: 'all' }))) } });
+const meta = preview.meta({ component: Issues.List, args: { issue: SchemaParser.decodeResult(Identity)({ name: '', entries: [{ title: '' }] }, { errors: 'all' }).pipe(Result.getFailure, Option.getOrThrow) } });
 
 const Listed = meta.story();
 const Linked = meta.story({ args: { onField: fn() } });

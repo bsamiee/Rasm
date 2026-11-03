@@ -12,11 +12,7 @@ const commit = Effect.fnUntraced(function* <A, E, R>(label: string, body: Effect
     yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: HostError.refused(label) }).pipe(Effect.catch((error) => Deferred.fail(done, error)));
     return yield* Deferred.await(done).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), closed, { discard: true })));
 });
-const written = <W, E, R>(label: string, target: InDesignDOMObject<unknown>, body: Effect.Effect<W, E, R>) =>
-    commit(
-        label,
-        Effect.map(Effect.all([body, Model.reference(target)]), ([members, reference]) => ({ ...reference, written: members })),
-    );
+const written = <W, E, R>(label: string, target: InDesignDOMObject<unknown>, body: Effect.Effect<W, E, R>) => commit(label, Effect.all([body, Model.reference(target)]).pipe(Effect.map(([members, reference]) => ({ ...reference, written: members }))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

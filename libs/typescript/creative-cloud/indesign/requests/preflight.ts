@@ -2,7 +2,7 @@ import type { Document, PreflightProcess } from 'adobe:indesign';
 import { HostError } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Effect, flow, Option, Predicate, Record, Result, Schema, SchemaGetter, String } from 'effect';
-import { Issue, type Preflight, PreflightView } from '#/contract';
+import { Preflight } from '#/contract';
 import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -11,19 +11,19 @@ const Flat = Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.Stri
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const nested: (rows: readonly (typeof Flat.Type)[]) => readonly Issue[] = Array.match({
+const nested: (rows: readonly (typeof Flat.Type)[]) => readonly (typeof Preflight.Issue.Type)[] = Array.match({
     onEmpty: Array.empty,
     onNonEmpty: ([[depth, label, page, , details], ...rest]) => {
         const [under, after] = Array.span(rest, ([below]) => below > depth);
         return [{ label, ...Record.getSomes({ page: Option.liftPredicate(page, String.isNonEmpty) }), details: Record.fromEntries(details), rows: nested(under) }, ...nested(after)];
     },
 });
-const Aggregated = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Flat)]).pipe(Schema.decodeTo(Schema.Array(Issue), { decode: SchemaGetter.transform(([, , rows]) => nested(rows)), encode: SchemaGetter.forbiddenEncoding }));
+const Aggregated = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Flat)]).pipe(Schema.decodeTo(Schema.Array(Preflight.Issue), { decode: SchemaGetter.transform(([, , rows]) => nested(rows)), encode: SchemaGetter.forbiddenEncoding }));
 const aggregated = (process: PreflightProcess) => Result.try(() => process.aggregatedResults).pipe(Result.flatMap(Schema.decodeUnknownResult(Aggregated)));
 const preflightView = Model.view(
     (model) => model.preflightProcess,
     (process: PreflightProcess) =>
-        Model.read(PreflightView, process.toSpecifier(), () => ({
+        Model.read(Preflight.View, process.toSpecifier(), () => ({
             _tag: 'PreflightProcess',
             ...Model.referenceUnsafe(process),
             targetObject: process.targetObject,
@@ -66,7 +66,7 @@ const preflight = Effect.fn('preflight')(function* ({ document, profile }: Prefl
         onNone: () => Effect.succeed(open.filter((each) => !each.preflightOptions.preflightOff)),
         onSome: (specifier) =>
             Effect.map(
-                Effect.filterOrFail(Model.resolve(specifier), model.document, () => Unmatched.make({ subject: 'open document', query: Option.some(specifier.path), candidates: Array.map(open, (each) => each.toSpecifier()) })),
+                Effect.filterOrElse(Model.resolve(specifier), model.document, () => Effect.flatMap(specifier.path, (written) => Unmatched.make({ subject: 'open document', query: Option.some(written), candidates: Array.map(open, (each) => each.toSpecifier()) }))),
                 Array.of,
             ),
     });

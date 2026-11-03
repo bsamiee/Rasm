@@ -1,6 +1,6 @@
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Manifest } from '@rasm/uxp/manifest';
-import { Array, Cause, Config, Effect, FileSystem, Path, Schema, SchemaGetter, String } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Path, Schema, String } from 'effect';
 import { Argument, Command } from 'effect/cli';
 import { fromString, Plist } from '#/eng/typescript/parsed';
 import { run } from '#/eng/typescript/process';
@@ -15,24 +15,13 @@ const RULER = /[=]+/gu;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Listing = fromString('extension listing', (text) =>
-    text
-        .split(SECTION)
-        .filter(String.isNonEmpty)
-        .map((block) => String.split(block.trim(), '\n')),
-).pipe(
-    Schema.decodeTo(Schema.Array(Schema.TupleWithRest(Schema.Tuple([Schema.String, Schema.String, Schema.String]), [Schema.String]))),
-    Schema.decodeTo(Schema.Unknown, {
-        decode: SchemaGetter.transform((blocks) =>
-            blocks.flatMap(([, names, ruler, ...rows]) => {
-                const columns = Array.map(Array.fromIterable(ruler.matchAll(RULER)), ({ index, 0: span }) => [index, index + span.length] as const);
-                const cells = (row: string) => columns.map(([start, end]) => row.slice(start, end).trim());
-                return rows.map((row) => Object.fromEntries(Array.zip(cells(names), cells(row))));
-            }),
-        ),
-        encode: SchemaGetter.forbiddenEncoding,
+    Array.flatMap(text.split(SECTION).filter(String.isNonEmpty), (block) => {
+        const [, names = '', ruler = '', ...rows] = String.split(block.trim(), '\n');
+        const columns = Array.map(Array.fromIterable(ruler.matchAll(RULER)), ({ index, 0: span }) => [index, index + span.length] as const);
+        const cells = (row: string) => columns.map(([start, end]) => row.slice(start, end).trim());
+        return rows.map((row) => Object.fromEntries(Array.zip(cells(names), cells(row))));
     }),
-    Schema.decodeTo(Schema.Array(Schema.Struct({ 'Extension Name': Schema.String }))),
-);
+).pipe(Schema.decodeTo(Schema.Array(Schema.Struct({ 'Extension Name': Schema.String }))));
 const Bundle = Plist.pipe(Schema.decodeTo(Schema.Struct({ CFBundleShortVersionString: Schema.String, CFBundleExecutable: Schema.String })));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -66,7 +66,7 @@ const writeDocument = Effect.fn('writeDocument')(
             },
         })(portfolio);
         return yield* Match.value(draft).pipe(
-            Match.when({ stored: true }, ({ revision: stored }) => Effect.succeed(stored)),
+            Match.when({ stored: true }, ({ revision: stored }) => Effect.succeed(HttpApiSchema.withHeaders({ body: undefined, headers: { 'draft-etag': stored } }))),
             Match.when({ revision, unplaced: Schema.is(PlacementConflict.fields.placements) }, ({ unplaced }) => Effect.fail(PlacementConflict.make({ placements: unplaced }))),
             Match.orElse(({ revision: stored }) => Effect.fail(PreconditionFailed.make({ revision: stored }))),
         );
@@ -77,17 +77,13 @@ const writeDocument = Effect.fn('writeDocument')(
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const documentGroup = HttpApiBuilder.group(Api, 'documents', (handlers) => {
-    const etagged =
-        <A>(body: A) =>
-        (revision: number) =>
-            HttpApiSchema.withHeaders({ body, headers: { 'draft-etag': revision } });
-    return handlers.handleAll({
-        draft: () => Effect.map(readDocument('draft'), ({ data, revision }) => etagged(data)(revision)),
-        save: ({ payload, headers }) => Effect.map(writeDocument(payload, false, headers['if-match']), etagged(undefined)),
-        publish: ({ payload, headers }) => Effect.map(writeDocument(payload, true, headers['if-match']), etagged(undefined)),
-    });
-});
+const documentGroup = HttpApiBuilder.group(Api, 'documents', (handlers) =>
+    handlers.handleAll({
+        draft: () => Effect.map(readDocument('draft'), ({ data, revision }) => HttpApiSchema.withHeaders({ body: data, headers: { 'draft-etag': revision } })),
+        save: ({ payload, headers }) => writeDocument(payload, false, headers['if-match']),
+        publish: ({ payload, headers }) => writeDocument(payload, true, headers['if-match']),
+    }),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

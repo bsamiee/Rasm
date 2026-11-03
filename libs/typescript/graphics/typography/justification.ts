@@ -10,7 +10,6 @@ import { Word } from '#/word';
 
 type Run = typeof ShapedText.Run.Type;
 type Ratios = Justification['ratios'];
-type Span = Word['joins'][number];
 interface Measurement {
     readonly run: Run;
     readonly shaped: ShapedText;
@@ -41,30 +40,19 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         const space = 0x20;
         const advance = (point: number) => Option.map(Option.fromUndefinedOr(face.font.nominalGlyph(point)), (glyph) => face.font.glyphHAdvance(glyph) / face.unitsPerEm);
         const spaceAdvance = Option.getOrElse(advance(space), () => 0);
-        const units = Option.all({ nuqta: face.nuqta, tatweel: Option.filter(advance(TATWEEL), Number.isGreaterThan(0)) });
         const alternate = Option.filter(Record.get(settings.features, JUSTIFICATION_ALTERNATES), Number.isGreaterThan(0));
         const isWordSpace = (text: string, cluster: number) => WORD_SPACE.test(text.charAt(cluster));
         const isLetter = (text: string, { class: kind, xAdvance, cluster }: ShapedText['glyphs'][number]) => kind !== 'MARK' && xAdvance !== 0 && !SPACE_SEPARATOR.test(text.charAt(cluster));
         const spaced = (text: string, glyphs: ShapedText['glyphs']) => {
             const joined = inOneJoin(text);
-            const letters = Array.getSomes(
-                glyphs.map((each, at) =>
-                    Option.map(
-                        Option.liftPredicate(each, (glyph) => isLetter(text, glyph)),
-                        ({ cluster }) => ({ at, cluster }),
-                    ),
-                ),
-            );
-            return new Set(
-                Array.window(letters, 2)
-                    .filter(([before, after]) => !joined(before.cluster, after.cluster))
-                    .map(([before]) => before.at),
-            );
+            const letters = glyphs.flatMap((each, at) => (isLetter(text, each) ? [{ at, cluster: each.cluster }] : []));
+            return new Set(Array.window(letters, 2).flatMap(([before, after]) => (joined(before.cluster, after.cluster) ? [] : [before.at])));
         };
-        const measured = (run: Run, shaped = ShapedText.of(face, run, settings)): Measurement => {
-            const letters = shaped.glyphs.filter((each) => isLetter(run.text, each));
-            return { run, shaped, widths: { word: Number.sumAll(shaped.glyphs.filter(({ cluster }) => isWordSpace(run.text, cluster)).map(Struct.get('xAdvance'))), letter: spaced(run.text, shaped.glyphs).size * spaceAdvance, glyph: Number.sumAll(letters.map(Struct.get('xAdvance'))) } };
-        };
+        const measured = (run: Run, shaped = ShapedText.of(face, run, settings)): Measurement => ({
+            run,
+            shaped,
+            widths: { word: Number.sumAll(shaped.glyphs.filter(({ cluster }) => isWordSpace(run.text, cluster)).map(Struct.get('xAdvance'))), letter: spaced(run.text, shaped.glyphs).size * spaceAdvance, glyph: Number.sumAll(shaped.glyphs.filter((each) => isLetter(run.text, each)).map(Struct.get('xAdvance'))) },
+        });
         const addedWidths = ({ widths }: Measurement, ratios: Ratios): Ratios => Record.map(widths, (base, kind) => base * (ratios[kind] - IDENTITY[kind]));
         const remainder = (layout: Measurement, ratios: Ratios) => width - layout.shaped.advance - Number.sumAll(Object.values(addedWidths(layout, ratios)));
         const fitRatio = (kind: keyof Ratios, layout: Measurement, ratios: Ratios): Ratios => ({
@@ -74,7 +62,7 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         const natural = measured({
             ...source,
             text: settings.digits(source.text),
-            features: Option.match(alternate, { onNone: () => source.features, onSome: () => [new Feature(JUSTIFICATION_ALTERNATES, 0), ...source.features] }),
+            features: Option.isSome(alternate) ? [new Feature(JUSTIFICATION_ALTERNATES, 0), ...source.features] : source.features,
             flags: Array.union(source.flags, ['PRODUCE_SAFE_TO_INSERT_TATWEEL' as const]),
         });
         const wordRatios = fitRatio('word', natural, Record.map(spacing, Struct.get('desired')));
@@ -87,32 +75,23 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         const withStretchedAlternates = (layout: Measurement) => {
             const shapedClusters = new Set(layout.shaped.glyphs.map(Struct.get('cluster')));
             return kashidaClusters(layout.run.text, (cluster) => shapedClusters.has(cluster)).reduce((closest, cluster) => {
-                const glyphAt = ({ shaped }: Measurement) =>
-                    Option.map(
-                        Array.findFirst(shaped.glyphs, (glyph) => glyph.cluster === cluster),
-                        Struct.get('glyph'),
-                    );
+                const glyphAt = ({ shaped }: Measurement) => Option.map(Array.findFirst(shaped.glyphs, (glyph) => glyph.cluster === cluster), Struct.get('glyph'));
                 const probe = (value: number) => withFeature(closest, new Feature(JUSTIFICATION_ALTERNATES, value, cluster, cluster + 1));
                 const base = glyphAt(probe(0));
-                const alternates = Array.unfold(1, (value) =>
-                    Option.map(
-                        Option.liftPredicate(probe(value), (candidate) => !Equal.equals(glyphAt(candidate), base)),
-                        (candidate) => [candidate, value + 1] as const,
-                    ),
-                );
-                return alternates.reduce(closer, closest);
+                return Array.unfold(1, (value) => Option.liftPredicate([probe(value), value + 1] as const, ([candidate]) => !Equal.equals(glyphAt(candidate), base))).reduce(closer, closest);
             }, layout);
         };
-        const withTatweels = (layout: Measurement, { lower, upper, fractional }: Extract<Settings['kashida'], { readonly lower: number }>, { nuqta, tatweel }: Option.Option.Value<typeof units>): Measurement => {
+        const withTatweels = (layout: Measurement, { lower, upper, fractional }: Extract<Settings['kashida'], { readonly lower: number }>): Measurement => {
             const safeClusters = new Set(layout.shaped.glyphs.filter(({ flags }) => flags.includes('SAFE_TO_INSERT_TATWEEL')).map(Struct.get('cluster')));
             const clusters = kashidaClusters(layout.run.text, (cluster) => safeClusters.has(cluster));
-            const room = Math.max(0, remainder(layout, wordRatios)) / nuqta;
-            const places = room < lower ? 0 : Math.min(clusters.length, Math.floor(room / lower), Math.ceil(room / upper));
-            const elongation = Option.flatMap(Option.liftPredicate(places, Number.isGreaterThan(0)), (count) => {
+            const inserted = Option.gen(function* () {
+                const [nuqta, tatweel] = yield* Option.all([face.nuqta, Option.filter(advance(TATWEEL), Number.isGreaterThan(0))]);
+                const room = Math.max(0, remainder(layout, wordRatios)) / nuqta;
+                const count = yield* Option.liftPredicate(room < lower ? 0 : Math.min(clusters.length, Math.floor(room / lower), Math.ceil(room / upper)), Number.isGreaterThan(0));
                 const length = Number.clamp(room / count, { minimum: lower, maximum: upper }) * nuqta;
-                return Option.map(Option.liftPredicate(fractional ? Math.ceil(length / tatweel) : Math.floor(length / tatweel), Number.isGreaterThan(0)), (tatweels) => ({ clusters: Array.sort(Array.take(clusters, count), Order.Number), tatweels, scale: fractional ? length / (tatweels * tatweel) : 1 }));
-            });
-            const inserted = ({ clusters: chosen, tatweels, scale }: Option.Option.Value<typeof elongation>) => {
+                const tatweels = yield* Option.liftPredicate(fractional ? Math.ceil(length / tatweel) : Math.floor(length / tatweel), Number.isGreaterThan(0));
+                const chosen = Array.sort(Array.take(clusters, count), Order.Number);
+                const scale = fractional ? length / (tatweels * tatweel) : 1;
                 const shifted = (offset: number) => offset + tatweels * chosen.filter((cluster) => cluster < offset).length;
                 const run = {
                     ...layout.run,
@@ -123,14 +102,13 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
                 const stretched = new Set(chosen.flatMap((cluster) => Array.makeBy(tatweels, (index) => shifted(cluster) + index)));
                 const { glyphs, missing } = ShapedText.of(face, run, settings);
                 return measured(run, ShapedText.make({ glyphs: glyphs.map((each) => (stretched.has(each.cluster) ? { ...each, xAdvance: each.xAdvance * scale } : each)), missing }));
-            };
-            return Option.match(elongation, { onNone: () => layout, onSome: inserted });
+            });
+            return Option.getOrElse(inserted, () => layout);
         };
-        const tatweeled = (layout: Measurement, elongation: Parameters<typeof withTatweels>[1]) => Option.match(units, { onNone: () => layout, onSome: (measures) => withTatweels(layout, elongation, measures) });
         const elongated = Match.valueTags(kashida, {
             None: () => withAlternates,
-            Tatweel: (elongation) => tatweeled(withAlternates, elongation),
-            Stretched: (elongation) => tatweeled(withStretchedAlternates(withAlternates), elongation),
+            Tatweel: (elongation) => withTatweels(withAlternates, elongation),
+            Stretched: (elongation) => withTatweels(withStretchedAlternates(withAlternates), elongation),
         });
         const finalRatios = fitRatio('glyph', elongated, fitRatio('letter', elongated, wordRatios));
         const slots = spaced(elongated.run.text, elongated.shaped.glyphs);
@@ -156,13 +134,9 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
 const inOneJoin = (text: string) => {
     const joins = Word.of(text).flatMap(Struct.get('joins'));
     const joinAt = (cluster: number) => Array.findFirstIndex(joins, ({ start, end }) => start <= cluster && cluster < end);
-    return (before: number, after: number) =>
-        Option.getOrElse(
-            Option.zipWith(joinAt(before), joinAt(after), (left, right) => left === right),
-            () => false,
-        );
+    return (before: number, after: number) => Option.exists(joinAt(before), (join) => Option.contains(joinAt(after), join));
 };
-const kashidaCandidates = (text: string, { start, end }: Span) => {
+const kashidaCandidates = (text: string, { start, end }: Word['joins'][number]) => {
     const { NoJoiningGroup, Seen, Sad, Yeh, FarsiYeh, TehMarbuta, Heh, Dal, Alef, Tah, Lam, Kaf, Gaf, Beh, Reh, Waw, Ain, Qaf, Feh } = JoiningGroup;
     const among =
         (...groups: readonly JoiningGroup[]) =>
@@ -185,14 +159,11 @@ const kashidaCandidates = (text: string, { start, end }: Span) => {
     return Array.window(letters, 2).flatMap(([before, after], at) => {
         const next = Option.map(Array.get(letters, at + 2), Struct.get('group'));
         const row = Array.findFirst(rows, (each) => each.before(before.group) && each.after(after.group) && each.next(next));
-        return Option.toArray(Option.map(row, ({ rank }) => ({ cluster: start + after.offset, rank })));
+        return Option.toArray(row).map(({ rank }) => ({ cluster: start + after.offset, rank }));
     });
 };
-const kashidaClusters = (text: string, allowed: (cluster: number) => boolean = Function.constTrue) => {
-    const best = ({ joins }: Word) => {
-        const found = joins.flatMap((join) => kashidaCandidates(text, join)).filter(({ cluster }) => allowed(cluster));
-        return Option.toArray(Option.map(Option.liftPredicate(found, Array.isArrayNonEmpty), (some) => Array.min(some, BY_RANK)));
-    };
+const kashidaClusters = (text: string, allowed: (cluster: number) => boolean) => {
+    const best = ({ joins }: Word) => Array.take(Array.sort(joins.flatMap((join) => kashidaCandidates(text, join)).filter(({ cluster }) => allowed(cluster)), BY_RANK), 1);
     return Array.sort(Word.of(text).flatMap(best), BY_RANK).map(Struct.get('cluster'));
 };
 

@@ -21,18 +21,15 @@ const Member = Schema.Struct({
     members: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.String)),
 }).annotate({ identifier: 'Member' });
 const Described = Member.mapFields(Struct.pick(['name', 'description']));
-const Field = Member.pipe(Schema.fieldsAssign({ settable: Schema.Boolean, unavailable: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Reason reading or writing crashes the host' })) })).annotate({ identifier: 'Field' });
-const Method = Described.pipe(
-    Schema.fieldsAssign({
-        parameters: Schema.Array(Member.pipe(Schema.fieldsAssign({ optional: Schema.Boolean }))),
-        returns: Schema.OptionFromOptionalKey(Schema.Struct({ type: Schema.String, array: Member.fields.array })),
-    }),
-).annotate({ identifier: 'Method' });
+const Name = Schema.String.check(Schema.isPattern(/^(?![\s\S]*"\])/u)).annotate({ description: 'Name holding no closing quote and bracket' });
 class Reference extends Schema.Class<Reference, { readonly brand: unique symbol }>('Reference')({ type: Schema.String, specifier: Schema.String, name: Schema.OptionFromOptionalKey(Schema.String), valid: Schema.Boolean }) {
-    static readonly Identified = Schema.TemplateLiteral(['[@id=', Schema.Int, ']']);
-    static readonly Indexed = Schema.TemplateLiteral(['[', Schema.Int, ']']);
-    static readonly Named = Schema.TemplateLiteral(['[@name="', Schema.String, '"]']);
-    static readonly Selector = Schema.Union([Reference.Identified, Reference.Indexed, Reference.Named]);
+    static readonly Selector = Schema.Union([
+        Schema.TemplateLiteralParser(['[@id=', Schema.Int, ']']).pipe(Schema.decodeTo(Schema.TaggedStruct('Identified', { id: Schema.Int }), SchemaTransformation.transform({ decode: ([, id]) => ({ _tag: 'Identified', id }) as const, encode: ({ id }) => ['[@id=', id, ']'] as const }))),
+        Schema.TemplateLiteralParser(['[', Schema.Int, ']']).pipe(Schema.decodeTo(Schema.TaggedStruct('Indexed', { index: Schema.Int }), SchemaTransformation.transform({ decode: ([, index]) => ({ _tag: 'Indexed', index }) as const, encode: ({ index }) => ['[', index, ']'] as const }))),
+        Schema.TemplateLiteralParser(['[@name="', Name, '"]']).pipe(Schema.decodeTo(Schema.TaggedStruct('Named', { name: Name }), SchemaTransformation.transform({ decode: ([, name]) => ({ _tag: 'Named', name }) as const, encode: ({ name }) => ['[@name="', name, '"]'] as const }))),
+    ])
+        .annotate({ description: 'Specifier step selector by id, index, or name' })
+        .pipe(Schema.toTaggedUnion('_tag'));
     static readonly Written = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String).annotate({ description: 'Member names' }) }));
 }
 class ExecuteScript extends Schema.Class<ExecuteScript, { readonly brand: unique symbol }>('ExecuteScript')({ code: Schema.String.annotate({ description: 'Function expression the host evaluates and calls' }) }) {
@@ -65,11 +62,16 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
     }
 }
 class ObjectModel extends Schema.Class<ObjectModel, { readonly brand: unique symbol }>('ObjectModel')({ name: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Name in any case, absent lists every name' })) }) {
-    static readonly Field = Field;
-    static readonly Method = Method;
+    static readonly Field = Member.pipe(Schema.fieldsAssign({ settable: Schema.Boolean, unavailable: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Reason reading or writing crashes the host' })) })).annotate({ identifier: 'Field' });
+    static readonly Method = Described.pipe(
+        Schema.fieldsAssign({
+            parameters: Schema.Array(Member.pipe(Schema.fieldsAssign({ optional: Schema.Boolean, default: Schema.optionalKey(Schema.Json.annotate({ description: 'Value an omitted argument takes' })) }))),
+            returns: Schema.OptionFromOptionalKey(Schema.Struct({ type: Schema.String, array: Member.fields.array })),
+        }),
+    ).annotate({ identifier: 'Method' });
     static readonly Result = Schema.TaggedUnion({
         Index: { classes: Schema.Array(Schema.String), enumerations: Schema.Array(Schema.String) },
-        Class: { name: Schema.String, parents: Schema.Array(Schema.String).annotate({ description: 'Superclasses, nearest first' }), fields: Schema.Array(Field), methods: Schema.Array(Method) },
+        Class: { name: Schema.String, parents: Schema.Array(Schema.String).annotate({ description: 'Superclasses, nearest first' }), fields: Schema.Array(ObjectModel.Field), methods: Schema.Array(ObjectModel.Method) },
         Enumeration: { name: Schema.String, members: Schema.Array(Described) },
     });
 
@@ -88,7 +90,7 @@ class ObjectModel extends Schema.Class<ObjectModel, { readonly brand: unique sym
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class HostError extends Schema.TaggedError<HostError, { readonly brand: unique symbol }>()('HostError', {
-    reason: Schema.TaggedUnion({ Refused: {}, Thrown: { line: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Body line that threw' })) } }),
+    reason: Schema.TaggedUnion({ Refused: {}, Unavailable: {}, Cancelled: {}, Thrown: { line: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Body line that threw' })) } }),
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
 }) {
@@ -96,8 +98,8 @@ class HostError extends Schema.TaggedError<HostError, { readonly brand: unique s
     static readonly thrown = (subject: string, line: Option.Option<number>) => (cause: unknown) => HostError.make({ reason: { _tag: 'Thrown', line }, subject, cause });
 
     override get message(): string {
-        const said = Schema.is(Messaged)(this.cause) ? `: ${this.cause.message}` : '';
-        return HostError.fields.reason.match(this.reason, { Refused: () => `${this.subject} refused${said}`, Thrown: ({ line }) => Option.match(line, { onNone: () => this.subject, onSome: (at) => `line ${at}: ${this.subject}` }) });
+        const said = Schema.is(Messaged)(this.cause) ? [this.cause.message] : [];
+        return HostError.fields.reason.guards.Thrown(this.reason) ? [...Option.toArray(this.reason.line).map((at) => `line ${at}`), this.subject].join(': ') : [`${this.subject} ${String.toLowerCase(this.reason._tag)}`, ...said].join(': ');
     }
 }
 const IllegalArgument = Schema.declare(Cause.isIllegalArgumentError, {
@@ -108,7 +110,7 @@ const Failure = Schema.Union([Unmatched, HostError, IllegalArgument, Schema.Erro
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const named = (file: (typeof Schema.URLFromString)['Type']) => decodeURIComponent(file.pathname.slice(file.pathname.lastIndexOf('/') + 1));
+const named = (file: URL) => decodeURIComponent(file.pathname.slice(file.pathname.lastIndexOf('/') + 1));
 const request = <const Tag extends string, Payload extends Schema.Top & { readonly Result: Schema.Top }>(tag: Tag, payload: Payload) => Rpc.make<Tag, Payload, Payload['Result'], typeof Failure>(tag, { payload, success: payload.Result, error: Failure });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -13,10 +13,7 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/automat
         const client = yield* RpcClient.make(Contract);
         const held = Effect.fnUntraced(function* <A, E, R>(subject: string, changes: Stream.Stream<A, E, R>) {
             const [first, rest] = yield* Stream.peel(changes, Sink.head());
-            const latest = yield* Effect.flatMap(
-                Effect.fromOption(first, () => new Cause.NoSuchElementError(`${subject} ended before its first value`)),
-                SubscriptionRef.make,
-            );
+            const latest = yield* SubscriptionRef.make(yield* Effect.fromOption(first, () => new Cause.NoSuchElementError(`${subject} ended before its first value`)));
             return [latest, yield* Effect.forkScoped(Stream.runForEach(rest, (value) => SubscriptionRef.set(latest, value)))] as const;
         });
         const [[installations, discovering], [instances, tracking]] = yield* Effect.all([held('installations', client.installations()), held('instances', client.instances())]);
@@ -33,12 +30,9 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/automat
                 return Array.getSomes(Array.map(urls, (url) => Record.get(located, url.href)));
             }),
             script: Effect.fnUntraced(function* ({ pid, ...script }: { readonly pid: number } & Parameters<typeof Terms.script>[1]) {
-                const { url } = yield* Effect.flatMap(
-                    SubscriptionRef.get(instances),
-                    Unmatched.single('running instance', Option.some(String(pid)), (row) => [String(row.pid)]),
-                );
-                const terms = yield* client.terms({ url });
-                return yield* client.execute({ pid, ...(yield* Terms.script(terms, script)) });
+                const { url } = yield* Unmatched.single(yield* SubscriptionRef.get(instances), 'running instance', Option.some(String(pid)), (row) => [String(row.pid)]);
+                const execute = yield* Terms.script(yield* client.terms({ url }), script);
+                return yield* client.execute({ pid, ...execute });
             }),
         };
     }),

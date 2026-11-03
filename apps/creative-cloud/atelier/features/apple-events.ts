@@ -3,7 +3,7 @@ import { Automation } from '@rasm/automation/automation';
 import { Content } from '@rasm/mcp/content';
 import { Resource } from '@rasm/mcp/resource';
 import { Route } from '@rasm/mcp/route';
-import { Array, Effect, Option, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
+import { Array, Effect, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import type { routes } from '#/routes';
 
@@ -32,10 +32,12 @@ const dictionaries = Effect.fnUntraced(function* ({ dictionary }: Effect.Success
             ...dictionary.completion,
             kind: () => Effect.succeed([...Terms.Kind.literals]),
             name: (_, { application, kind }) =>
-                Option.match(Option.all([Option.fromUndefinedOr(application), Option.fromUndefinedOr(kind)]), {
-                    onNone: () => Effect.succeed([]),
-                    onSome: ([given, selected]) => Effect.map(Effect.flatMap(dictionary.named(given), automation.terms), (terms) => Array.map(terms[selected], Struct.get('name'))),
-                }),
+                application === undefined || kind === undefined
+                    ? Effect.succeed([])
+                    : dictionary.named(application).pipe(
+                          Effect.flatMap(automation.terms),
+                          Effect.map((terms) => Array.map(terms[kind], Struct.get('name'))),
+                      ),
         },
         content: (_, given, selected, term) => Effect.flatMap(dictionary.named(given), ({ url }) => automation.definition({ url, kind: selected, name: term })),
     });

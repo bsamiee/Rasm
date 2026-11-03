@@ -13,19 +13,8 @@ interface Fields {
 
 const Enumerated = Schema.Struct({ type: Schema.String, member: Schema.String });
 const Located = Schema.Struct({ specifier: Specifier.Path });
-const Codec: Schema.Codec<Value, Encoded> = Schema.Union([
-    Enumerated,
-    Located,
-    Schema.String,
-    Schema.Finite,
-    Schema.Boolean,
-    Schema.Null,
-    Schema.Array(Schema.suspend(() => Codec)),
-    Schema.Record(
-        Schema.String,
-        Schema.suspend(() => Codec),
-    ),
-]).annotate({ description: 'Enumerator or object name, {type, member} enumerator, {specifier} object, points or unit string measurement, record of nested preferences' });
+const Nested = Schema.suspend((): Schema.Codec<Value, Encoded> => Codec);
+const Codec: Schema.Codec<Value, Encoded> = Schema.Union([Enumerated, Located, Schema.String, Schema.Finite, Schema.Boolean, Schema.Null, Schema.Array(Nested), Schema.Record(Schema.String, Nested)]).annotate({ description: 'Enumerator or object name, {type, member} enumerator, {specifier} object, points or unit string measurement, record of nested preferences' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

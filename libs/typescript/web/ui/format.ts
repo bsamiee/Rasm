@@ -37,10 +37,7 @@ class Format extends Data.Class<{ readonly locales?: Intl.LocalesArgument; reado
     }
     bytes(size: ByteSize.ByteSize) {
         const shown = ByteSize.bytes(Number(ByteSize.toNumberUnsafe(size).toPrecision(this.byteDigits)));
-        const { symbol, format } = Option.getOrElse(
-            Array.findLast(this.#bytes, (unit) => ByteSize.toUnit(shown, unit.symbol) >= 1),
-            () => Array.headNonEmpty(this.#bytes),
-        );
+        const { symbol, format } = Array.findLast(this.#bytes, (unit) => ByteSize.toUnit(shown, unit.symbol) >= 1).pipe(Option.getOrElse(() => Array.headNonEmpty(this.#bytes)));
         return format.format(ByteSize.toUnit(size, symbol));
     }
     list(values: Iterable<string>, type: Intl.ListFormatType = 'conjunction') {
@@ -50,10 +47,7 @@ class Format extends Data.Class<{ readonly locales?: Intl.LocalesArgument; reado
         return DateTime.formatIntl(value, this.#date);
     }
     relative(offset: Duration.Duration) {
-        const [unit, amount] = Option.getOrElse(
-            Array.findFirst(relativeUnits, ([, to]) => Math.abs(to(offset)) >= 1),
-            () => Array.lastNonEmpty<(typeof relativeUnits)[number]>(relativeUnits),
-        );
+        const [unit, amount] = Array.findFirst(relativeUnits, ([, to]) => Math.abs(to(offset)) >= 1).pipe(Option.getOrElse(() => Array.lastNonEmpty<(typeof relativeUnits)[number]>(relativeUnits)));
         return this.#relative.format(Math.round(amount(offset)), unit);
     }
     duration(value: Duration.Duration) {

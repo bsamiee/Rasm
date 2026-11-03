@@ -23,7 +23,8 @@ const image = Effect.fnUntraced(function* (file: File, { minimumWidth, ratio, co
         Effect.fnUntraced(function* (width: number) {
             const resized = yield* bitmap(() => createImageBitmap(source, { resizeWidth: width, resizeQuality: 'high' }), unsupported);
             const canvas = new OffscreenCanvas(resized.width, resized.height);
-            (yield* Effect.mapError(Effect.fromNullishOr(canvas.getContext('bitmaprenderer')), unsupported)).transferFromImageBitmap(resized);
+            const context = yield* Effect.mapError(Effect.fromNullishOr(canvas.getContext('bitmaprenderer')), unsupported);
+            context.transferFromImageBitmap(resized);
             const blob = yield* Effect.tryPromise({ try: () => canvas.convertToBlob(encoding), catch: unsupported });
             return { width, file: new File([blob], `${width}`, { type: blob.type }) };
         }, Effect.scoped),
@@ -51,13 +52,13 @@ const video = Effect.fnUntraced(function* (file: File) {
         element.src = url;
     });
 }, Effect.scoped);
-const read = Effect.fn('read')((file: File, options: Options) =>
+const read = Effect.fn('Inspection.read')((file: File, options: Options) =>
     Match.value(file.type).pipe(
         Match.when(String.startsWith('image/'), () => image(file, options)),
         Match.when(String.startsWith('video/'), () => video(file)),
         Match.when('application/pdf', () =>
             Effect.tryPromise(() => import('#/pdf/document')).pipe(
-                Effect.flatMap(({ pdfPages }) => pdfPages(file, options)),
+                Effect.flatMap(({ PdfDocument }) => PdfDocument.pages(file, options)),
                 Effect.map((pages) => Pdf({ pages })),
             ),
         ),

@@ -22,11 +22,7 @@ const Choice = <T extends { readonly id: string; readonly label: string; readonl
         readonly onChange: (choice: T) => void;
         readonly radios: number;
     }) => {
-    const choose = (key: Key | null) =>
-        Option.map(
-            Array.findFirst(options, ({ id }) => id === key),
-            onChange,
-        );
+    const choose = (key: Key | null) => Array.findFirst(options, ({ id }) => id === key).pipe(Option.map(onChange));
     return options.length <= radios ? (
         <RadioGroup {...props} onChange={choose} orientation={orientation}>
             <Label>{label}</Label>
@@ -38,7 +34,7 @@ const Choice = <T extends { readonly id: string; readonly label: string; readonl
             <Field.Help description={description} />
         </RadioGroup>
     ) : (
-        <Select {...props} disabledKeys={options.filter(({ isDisabled = false }) => isDisabled).map(({ id }) => id)} onChange={choose}>
+        <Select {...props} onChange={choose}>
             <Label>{label}</Label>
             <Button>
                 <SelectValue />
@@ -48,7 +44,7 @@ const Choice = <T extends { readonly id: string; readonly label: string; readonl
             <Popover>
                 <ListBox items={options}>
                     {(option) => (
-                        <ListBoxItem id={option.id} textValue={option.label}>
+                        <ListBoxItem id={option.id} isDisabled={option.isDisabled ?? false} textValue={option.label}>
                             {option.label}
                         </ListBoxItem>
                     )}

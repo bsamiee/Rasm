@@ -40,12 +40,12 @@ const like = /[\\%_]/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Relation<const Declared extends Fields = Fields, const Options extends RelationOptions<Declared> = RelationOptions<Declared>> extends Data.Class<{
-    readonly schema: Schema.Struct<Declared>;
+class Relation<const F extends Fields = Fields, const O extends RelationOptions<F> = RelationOptions<F>> extends Data.Class<{
+    readonly schema: Schema.Struct<F>;
     readonly name: string;
     readonly renamedFrom: Option.Option<string>;
     readonly key: Array.NonEmptyReadonlyArray<string>;
-    readonly columns: { readonly [K in Field<Declared>]: Column };
+    readonly columns: { readonly [K in Field<F>]: Column };
     readonly indexes: readonly {
         readonly keys: Array.NonEmptyReadonlyArray<{ readonly column: string; readonly casefold: boolean }>;
         readonly unique: boolean;
@@ -60,7 +60,7 @@ class Relation<const Declared extends Fields = Fields, const Options extends Rel
     readonly tenant: Option.Option<{ readonly column: Column; readonly setting: string }>;
     readonly retired: { readonly columns: readonly string[]; readonly indexes: readonly (readonly string[])[] };
     readonly paths: readonly string[];
-    readonly queries: ReturnType<typeof queries<Declared, Options>>;
+    readonly queries: ReturnType<typeof queries<F, O>>;
 }> {
     static readonly make = <const F extends Fields, const O extends RelationOptions<F> = Record<never, never>>(name: string, fields: F, ...[options]: 'id' extends Present<F> ? readonly [options?: O] : readonly [options: O & { readonly key: Array.NonEmptyReadonlyArray<Present<F>> }]): Relation<F, O> => {
         const [schema, declared] = [Schema.Struct(fields), { name: String.camelToSnake(name), ...definition<F>(fields, options ?? {}) }];
@@ -83,21 +83,11 @@ class Relation<const Declared extends Fields = Fields, const Options extends Rel
     static readonly withTenant = <F extends Fields, O extends RelationOptions<F> & { readonly tenant: NonNullable<RelationOptions<F>['tenant']> }, A, E, R>(relation: Relation<F, O>, id: F[O['tenant']['column']]['Type'], effect: Effect.Effect<A, E, R>) =>
         Option.match(relation.tenant, {
             onNone: () => effect,
-            onSome: ({ column, setting }) =>
-                SqlClient.SqlClient.use((sql) => {
-                    const scope = SqlSchema.findOne({
-                        Request: Schema.String,
-                        Result: Schema.Struct({ prior: Schema.String }),
-                        execute: (value) => sql`WITH p AS MATERIALIZED (SELECT coalesce(current_setting(${setting}, true), '') AS prior) SELECT p.prior, set_config(${setting}, ${value}, true) FROM p`,
-                    });
-                    return sql.withTransaction(
-                        Effect.acquireUseRelease(
-                            Effect.flatMap(Schema.encodeEffect(column.schema)(id), (encoded) => scope(`${encoded}`)),
-                            () => effect,
-                            ({ prior }) => Effect.orDie(scope(prior)),
-                        ),
-                    );
-                }),
+            onSome: Effect.fnUntraced(function* ({ column, setting }: Option.Option.Value<Relation['tenant']>) {
+                const [sql, encoded] = yield* Effect.all([SqlClient.SqlClient, Schema.encodeEffect(column.schema)(id)]);
+                const scope = SqlSchema.findOne({ Request: Schema.String, Result: Schema.Struct({ prior: Schema.String }), execute: (value) => sql`WITH p AS MATERIALIZED (SELECT coalesce(current_setting(${setting}, true), '') AS prior) SELECT p.prior, set_config(${setting}, ${value}, true) FROM p` });
+                return yield* sql.withTransaction(Effect.acquireUseRelease(scope(`${encoded}`), () => effect, ({ prior }) => Effect.orDie(scope(prior))));
+            }),
         });
 }
 
@@ -141,24 +131,14 @@ const definition = <F extends Fields>(fields: F, options: RelationOptions<F>) =>
 // --- [QUERIES]
 const perform = (relation: Pick<Relation, 'name' | 'columns' | 'key'>) => (statement: (context: Fragments) => Effect.Effect<readonly unknown[], SqlError.SqlError, SqlClient.SqlClient>) => Effect.flatMap(Effect.all([SqlClient.SqlClient, Engine]), ([sql, engine]) => statement(Engine.fragments(sql, engine, relation)));
 const conditions = (context: Fragments, all: readonly Column[], where: { readonly [field: string]: string | { readonly not: string } | undefined }) =>
-    context.sql.and(
-        Array.getSomes(
-            Record.collect(where, (field, predicate) =>
-                Option.flatMap(Option.fromUndefinedOr(predicate), (rule) =>
-                    Option.map(
-                        Array.findFirst(all, (entry) => entry.field === field),
-                        (entry) => (typeof rule === 'string' ? context.matching(entry, rule) : context.sql`(${context.matching(entry, rule.not)}) IS NOT TRUE`),
-                    ),
-                ),
-            ),
-        ),
-    );
+    context.sql.and(all.flatMap((entry) => Array.fromNullishOr(where[entry.field]).map((rule) => (typeof rule === 'string' ? context.matching(entry, rule) : context.sql`(${context.matching(entry, rule.not)}) IS NOT TRUE`))));
 const selecting = (context: Fragments, filter: Statement.Fragment, ordering: (scope: Statement.Fragment) => Statement.Fragment, limit: Option.Option<number>, group: Option.Option<Column>) => {
     const { sql, owner, prefix, unqualified, reads, flags } = context;
     const outer = sql.literal('t.');
     const filtered = sql`SELECT ${reads(unqualified)} FROM ${owner} WHERE ${filter} ORDER BY ${ordering(prefix)}`;
+    const limited = Option.match(limit, { onNone: () => filtered, onSome: (count) => sql`${filtered} LIMIT ${count}` });
     return Option.match(Option.all({ count: limit, by: group }), {
-        onNone: () => Option.match(limit, { onNone: () => filtered, onSome: (count) => sql`${filtered} LIMIT ${count}` }),
+        onNone: () => limited,
         onSome: ({ count, by }) =>
             sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(flags.position)} <= ${count} ORDER BY ${sql.csv([sql`t.${sql(by.name)}`, ordering(outer)])}`,
     });
@@ -174,7 +154,7 @@ const queries = <F extends Fields, O extends RelationOptions<F>>(schema: Schema.
     const Rows = Schema.Array(Schema.Struct(Record.fromIterableWith(written, (entry) => [entry.field, wire(entry)])));
     const Selection = Schema.Struct(Record.fromIterableWith(all, (entry) => [entry.field, Schema.optionalKey(Schema.Union([list(entry), Schema.Struct({ not: list(entry) })]))]));
     const ordering = (context: Fragments, order: ReadonlyArray<string | { readonly descending: string }>) => (scope: Statement.Fragment) =>
-        context.sql.csv([...Array.getSomes(order.map((entry) => (typeof entry === 'string' ? Option.map(named(entry), ({ name }) => context.sql`${scope}${context.sql(name)}`) : Option.map(named(entry.descending), ({ name }) => context.sql`${scope}${context.sql(name)} DESC`)))), context.keys(scope)]);
+        context.sql.csv([...order.flatMap((entry) => Option.toArray(named(typeof entry === 'string' ? entry : entry.descending)).map(({ name }) => context.sql`${scope}${context.sql(name)}${context.sql.literal(typeof entry === 'string' ? '' : ' DESC')}`)), context.keys(scope)]);
     return {
         insert: SqlSchema.findNonEmpty({ Request: Schema.fromJsonString(Rows), Result: schema, execute: (body) => run(({ unqualified, reads, inserting }) => inserting(body, unqualified, reads(unqualified))) }),
         ensure: SqlSchema.findNonEmpty({ Request: Schema.fromJsonString(Rows), Result: schema, execute: (body) => run((context) => context.engine.ensure(context, body)) }),
@@ -184,17 +164,7 @@ const queries = <F extends Fields, O extends RelationOptions<F>>(schema: Schema.
                 kept: Schema.Array(Schema.String),
             }),
             Result: Schema.Struct({ row: schema, inserted: Schema.BooleanFromBit }),
-            execute: ({ rows, kept }) =>
-                run((context) =>
-                    Effect.map(
-                        context.engine.upsert(
-                            context,
-                            rows,
-                            written.filter(({ name, field }) => !(relation.key.includes(name) || kept.includes(field))),
-                        ),
-                        Array.map(({ [context.flags.inserted]: inserted, ...row }) => ({ row, inserted })),
-                    ),
-                ),
+            execute: ({ rows, kept }) => run((context) => context.engine.upsert(context, rows, written.filter(({ name, field }) => !(relation.key.includes(name) || kept.includes(field)))).pipe(Effect.map(Array.map(({ [context.flags.inserted]: inserted, ...row }) => ({ row, inserted }))))),
         }),
         select: SqlSchema.findAll({
             Request: Schema.Struct({ where: Selection, order: Schema.Array(Schema.Union([Schema.String, Schema.Struct({ descending: Schema.String })])), limit: Schema.Option(Schema.Natural), per: Schema.Option(Schema.String) }),
@@ -202,17 +172,11 @@ const queries = <F extends Fields, O extends RelationOptions<F>>(schema: Schema.
             execute: ({ where, order, limit, per }) => run((context) => selecting(context, conditions(context, all, where), ordering(context, order), limit, Option.flatMap(per, named))),
         }),
         remove: SqlSchema.findAll({ Request: Selection, Result: schema, execute: (where) => run((context) => context.sql`DELETE FROM ${context.owner} WHERE ${conditions(context, all, where)} RETURNING ${context.reads(context.unqualified)}`) }),
-        search: Option.map(Option.all({ searchable: relation.search, declared: Option.flatMapNullishOr(Option.fromUndefinedOr(options), Struct.get('search')) }), ({ searchable, declared }) =>
+        search: Option.map(Option.all({ searchable: relation.search, declared: Option.fromUndefinedOr(options?.search) }), ({ searchable, declared }) =>
             SqlSchema.findAll({
                 Request: Schema.Struct({ text: Schema.String, pattern: Schema.String, count: Schema.Natural, marks: Schema.Option(Schema.Struct({ open: Schema.String, close: Schema.String })) }),
-                Result: Schema.Struct({ row: schema, rank: Schema.Finite, highlight: Schema.OptionFromNullOr(Schema.fromJsonString(Schema.Record(Schema.Literals(Struct.get(declared, 'columns')), Schema.NullOr(Schema.String)))) }),
-                execute: ({ text, pattern, count, marks }) =>
-                    run((context) =>
-                        Effect.map(
-                            context.engine.search(context, searchable, text, pattern, marks, count),
-                            Array.map(({ [context.flags.rank]: rank, [context.flags.highlight]: highlight, ...row }) => ({ row, rank, highlight })),
-                        ),
-                    ),
+                Result: Schema.Struct({ row: schema, rank: Schema.Finite, highlight: Schema.OptionFromNullOr(Schema.fromJsonString(Schema.Record(Schema.Literals(declared.columns), Schema.NullOr(Schema.String)))) }),
+                execute: ({ text, pattern, count, marks }) => run((context) => context.engine.search(context, searchable, text, pattern, marks, count).pipe(Effect.map(Array.map(({ [context.flags.rank]: rank, [context.flags.highlight]: highlight, ...row }) => ({ row, rank, highlight }))))),
             }),
         ),
     };

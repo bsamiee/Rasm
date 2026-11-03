@@ -1,6 +1,6 @@
 import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, KashidasOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, Text, TextDefault } from 'adobe:indesign';
 import { Settings } from '@rasm/typography/settings';
-import { Array, Effect, identity, Number, Option, Predicate, pipe, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
+import { Array, Effect, identity, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
 import { Model } from '#/dom/model';
 import { Value } from '#/dom/value';
 import { write } from '#/requests/change';
@@ -11,8 +11,7 @@ type Members<E> = Extract<keyof E, Uppercase<string>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const STYLISTIC_SETS = 20;
-const STYLISTIC_TAGS = Array.makeBy(STYLISTIC_SETS, (index) => `ss${`${index + 1}`.padStart(2, '0')}`);
+const STYLISTIC_TAGS = Array.makeBy(20, (index) => `ss${`${index + 1}`.padStart(2, '0')}`);
 const NUMBERING = {
     DEFAULT_DIGITS: null,
     NATIVE_DIGITS: null,
@@ -58,11 +57,10 @@ const CAPITALIZATIONS = {
     LOWER_CASE: [],
 } as const satisfies Record<Members<typeof Capitalization>, readonly string[]>;
 const SPACING = Record.map({ word: 'WordSpacing', letter: 'LetterSpacing', glyph: 'GlyphScaling' } as const, (suffix) => Record.map({ min: 'minimum', desired: 'desired', max: 'maximum' } as const, (prefix) => `${prefix}${suffix}` as const));
-const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, (factor) => ({ decode: (value: number) => value / factor, encode: (value: number) => value * factor }));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Scaled = (scale: typeof thousandths) => Schema.Finite.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.transform(scale)));
+const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, (factor) => Schema.Finite.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.transform({ decode: (value: number) => value / factor, encode: (value: number) => value * factor }))));
 const direction = Schema.Struct({
     paragraphDirection: Schema.optionalKey(Schema.Literals(['LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] as const satisfies readonly Members<typeof ParagraphDirectionOptions>[]).transform(['LTR', 'RTL'])),
     characterDirection: Schema.optionalKey(Schema.Literals(['DEFAULT_DIRECTION', 'LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] satisfies Members<typeof CharacterDirectionOptions>[])),
@@ -75,15 +73,12 @@ const direction = Schema.Struct({
 const numberingSystem = Schema.Struct({ digitsType: Schema.Literals(Struct.keys(NUMBERING)) }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.numberingSystem.schema), {
         decode: SchemaGetter.transform(({ digitsType }) => Option.fromNullOr(NUMBERING[digitsType])),
-        encode: SchemaGetter.transformEffect((system) => {
-            const tag = Option.getOrNull(system);
-            return pipe(
-                Struct.keys(NUMBERING),
-                Array.findFirst((member) => NUMBERING[member] === tag),
-                Option.map((digitsType) => ({ digitsType })),
-                Effect.fromOption(() => new SchemaIssue.InvalidValue({ message: `No digitsType member for ${tag}` }, tag)),
-            );
-        }),
+        encode: SchemaGetter.transformEffect((system) =>
+            Effect.fromOption(
+                Array.findFirst(Struct.keys(NUMBERING), (digitsType) => (NUMBERING[digitsType] === Option.getOrNull(system) ? Option.some({ digitsType }) : Option.none())),
+                () => new SchemaIssue.InvalidValue({ message: `No digitsType member for ${Option.getOrNull(system)}` }, system),
+            ),
+        ),
     }),
 );
 const kashidaWidth = Schema.Literals(Object.values(KASHIDA_WIDTHS)).annotate({ description: 'Fixed elongation read as the point interval [width, width]' });
@@ -108,7 +103,7 @@ const kashida = Schema.Struct({
         ),
     }),
 );
-const marks = Schema.Struct(Struct.Record(['x', 'y'], Scaled(thousandths))).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' }));
+const marks = Schema.Struct(Struct.Record(['x', 'y'], thousandths)).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' }));
 const features = Schema.Struct({
     otfStylisticSets: Schema.Int,
     ...Record.map(FEATURE_FLAGS, () => Schema.Boolean),
@@ -135,32 +130,18 @@ const features = Schema.Struct({
         }),
     }),
 );
-const spacing = Schema.Struct(
-    Struct.Record(
-        Object.values(SPACING).flatMap((bounds) => Object.values(bounds)),
-        Scaled(percent),
-    ),
-).pipe(
+const spacing = Schema.Struct(Struct.Record(Array.flatMap(Record.values(SPACING), Record.values), percent)).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.spacing.schema), {
-        decode: SchemaGetter.transform((members) =>
-            Record.map(
-                SPACING,
-                Record.map((member) => members[member]),
-            ),
-        ),
+        decode: SchemaGetter.transform((members) => Record.map(SPACING, (bounds) => Record.map(bounds, (member) => members[member]))),
         encode: SchemaGetter.transform((values) => Record.collect(SPACING, (axis, bounds) => Record.mapEntries(bounds, (member, bound) => [member, values[axis][bound]])).reduce((all, each) => Record.union(all, each, identity))),
     }),
 );
 class HostSettings extends Schema.Class<HostSettings, { readonly brand: unique symbol }>('HostSettings')({ direction, numberingSystem, kashida, marks, features, spacing }) {
     static readonly stylisticSets = STYLISTIC_TAGS;
     static readonly kashidaWidths = KASHIDA_WIDTHS;
-    static readonly Thousandths = Scaled(thousandths);
+    static readonly Thousandths = thousandths;
     static readonly Partial = HostSettings.mapFields(Struct.map(Schema.optionalKey));
-    static readonly read = (target: InDesignDOMObject<unknown>) =>
-        Effect.map(
-            Model.read(HostSettings, `settings of ${target.toSpecifier()}`, () => Record.map(HostSettings.fields, (row) => Value.picked(row.from.fields)(target))),
-            Settings.make,
-        );
+    static readonly read = (target: InDesignDOMObject<unknown>) => Model.read(HostSettings, `settings of ${target.toSpecifier()}`, () => Record.map(HostSettings.fields, (row) => Value.picked(row.from.fields)(target))).pipe(Effect.map(Settings.make));
     static readonly write = Effect.fnUntraced(function* (target: Text | TextDefault, change: typeof Settings.Partial.Type) {
         const merged = yield* Effect.flatMap(HostSettings.read(target), (settings) => Settings.merge(settings, change));
         const { features: tags, ...sections } = yield* Schema.encodeEffect(HostSettings.Partial)(Struct.pick(merged, Struct.keys(change)));

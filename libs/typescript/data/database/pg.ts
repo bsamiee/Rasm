@@ -19,15 +19,17 @@ const parsers = Record.fromIterableWith(codecs, ({ oid, text }) => [`${oid}`, te
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const layer = (config: PgClient.PgPoolConfig) => {
-    const types = PgTypes.makeRegistry();
-    codecs.forEach(({ oid, binary }) => {
-        types.register(oid, { decode: binary, encode: (value: unknown) => PgTypes.encode(value, oid) });
-    });
-    return PgClient.layer({ ...config, types });
-};
-const pglite = (config: PgliteClient.PgliteClientConfig.Create) => PgliteClient.layer({ ...config, parsers: { ...config.parsers, ...parsers } });
+const Postgres = {
+    layer: (config: PgClient.PgPoolConfig) => {
+        const types = PgTypes.makeRegistry();
+        codecs.forEach(({ oid, binary }) => {
+            types.register(oid, { decode: binary, encode: (value: unknown) => PgTypes.encode(value, oid) });
+        });
+        return PgClient.layer({ ...config, types });
+    },
+    pglite: (config: PgliteClient.PgliteClientConfig.Create) => PgliteClient.layer({ ...config, parsers: { ...config.parsers, ...parsers } }),
+} as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { layer, pglite };
+export { Postgres };

@@ -216,6 +216,7 @@ class Font extends Schema.Class<Font, { readonly brand: unique symbol }>('Font')
     text: Schema.String.annotate({ description: 'Subset characters for unreadable font files' }),
     file: Schema.String,
 }) {
+    static readonly View = FontView;
     static readonly Result = Schema.Struct({
         view: FontView,
         source: Schema.OptionFromOptionalKey(Source.mapFields(Struct.omit(['data'])).mapFields(Struct.assign({ file: Schema.String.annotate({ description: 'Installed face file, or subset written to the requested file' }) }))),
@@ -240,6 +241,8 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
     document: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Open document, every document with live preflight when absent' })),
     profile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Profile name in any case, panel profile when absent' })),
 }) {
+    static readonly View = PreflightView;
+    static readonly Issue = Issue;
     static readonly Result = Schema.Array(Schema.Struct({ targetObject: Reference, appliedProfile: Reference, aggregatedResults: Schema.Array(Issue) }));
 }
 
@@ -250,7 +253,7 @@ class Inspect extends Schema.Class<Inspect, { readonly brand: unique symbol }>('
     fields: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.String).annotate({ description: 'Fields to read, collections of viewed objects or every field when absent' })),
     slice: Slice.Every,
 }) {
-    static readonly View = Schema.Union([ApplicationView, DocumentView, PageView, SpreadView, LayerView, StyleView, SwatchView, LinkView, StoryView, TextView, FontView, PreflightView]);
+    static readonly View = Schema.Union([ApplicationView, DocumentView, PageView, SpreadView, LayerView, StyleView, SwatchView, LinkView, StoryView, TextView, Font.View, Preflight.View]);
     static readonly Readings = Schema.Array(ObjectModel.Field.pipe(Schema.fieldsAssign({ value: Schema.Result(Schema.Json, Schema.Defect()) })));
     static readonly Object = Schema.TaggedStruct('Object', {
         ...Reference.fields,
@@ -309,6 +312,7 @@ class Invoke extends Schema.Class<Invoke, { readonly brand: unique symbol }>('In
     }
 }
 class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')({ area: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Area in any case' })) }) {
+    static readonly Invoke = Invoke;
     static readonly Result = Schema.Array(Action);
 }
 
@@ -320,7 +324,7 @@ class ScriptPreferences extends RpcMiddleware.Service<ScriptPreferences>()('@ras
 
 const InDesign = {
     identifier: 'com.adobe.InDesign',
-    Contract: Requests.add(request('inspect', Inspect), request('change', Change), request('call', Call), request('find_change', FindChange), request('font', Font), request('menu', Menu), request('invoke', Invoke), request('preflight', Preflight)).merge(Typesetting).middleware(ScriptPreferences),
+    Contract: Requests.add(request('inspect', Inspect), request('change', Change), request('call', Call), request('find_change', FindChange), request('font', Font), request('menu', Menu), request('invoke', Menu.Invoke), request('preflight', Preflight)).merge(Typesetting).middleware(ScriptPreferences),
     ScriptPreferences,
     manifest: { host: { app: 'ID', minVersion: '18.5.0' }, requiredPermissions: { localFileSystem: 'fullAccess', allowCodeGenerationFromStrings: true } },
     target: Manifest.target,
@@ -328,4 +332,4 @@ const InDesign = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ApplicationView, Call, Change, DocumentView, Extent, FindChange, Font, FontView, InDesign, Inspect, Invoke, Issue, LayerView, LinkView, Menu, PageView, ParagraphAttributes, Preflight, PreflightView, SpreadView, StoryView, StyleView, SwatchView, TextView };
+export { ApplicationView, Call, Change, DocumentView, Extent, FindChange, Font, InDesign, Inspect, LayerView, LinkView, Menu, PageView, ParagraphAttributes, Preflight, SpreadView, StoryView, StyleView, SwatchView, TextView };

@@ -1,49 +1,26 @@
-import type { Envelope, Reply } from '@rasm/cep/contract';
+import type { Envelope } from '@rasm/cep/contract';
+import { runtime } from '#/runtime';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Replied<Tag extends (typeof Reply.Encoded)['_tag']> = Extract<typeof Reply.Encoded, { readonly _tag: Tag }>;
 type Payload<Tag extends Envelope['tag']> = Extract<Envelope, { readonly tag: Tag }>['payload'];
 type Fields = Readonly<Record<string, unknown>>;
 interface Slot {
     readonly item: unknown;
     readonly refused: string | undefined;
 }
-interface Bindings {
-    readonly resolve: (specifier: string) => readonly Fields[];
-    readonly step: typeof step;
-    readonly indexed: typeof indexed;
-    readonly assign: typeof assign;
-    readonly file: typeof file;
-    readonly read: typeof read;
-    readonly keys: typeof keys;
-    readonly reflected: typeof reflected;
-    readonly illegal: typeof illegal;
-    readonly unmatched: typeof unmatched;
-}
 interface Host<Held> {
     readonly indexBase: number;
     readonly dialogs: { readonly suppress: () => Held; readonly restore: (held: Held) => void };
     readonly undoGroup?: { readonly begin: (label: string) => void; readonly end: () => void };
-    readonly specifier: (value: object, bindings: Bindings) => string | undefined;
-    readonly open: (payload: Payload<'open'>, bindings: Bindings) => object;
-    readonly render: (payload: Payload<'render'>, bindings: Bindings) => void;
+    readonly specifier: (value: object) => string | undefined;
+    readonly open: (payload: Payload<'open'>) => object;
+    readonly render: (payload: Payload<'render'>, resolve: (specifier: string) => readonly Fields[]) => void;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const isRecord = (value: unknown): value is Fields => typeof value === 'object' && value !== null;
-const isList = (value: unknown): value is readonly unknown[] => Object.prototype.toString.call(value) === '[object Array]';
-const isPlain = (value: unknown): value is Fields => isRecord(value) && Object.prototype.toString.call(value) === '[object Object]';
-const finite = (value: unknown): number | undefined => (typeof value === 'number' && Math.abs(value) < Number.POSITIVE_INFINITY ? value : undefined);
-const message = (thrown: unknown): string => String(isRecord(thrown) ? thrown.message : thrown);
-const attempt = <A>(body: () => A): A | undefined => {
-    try {
-        return body();
-    } catch {
-        return undefined;
-    }
-};
+const { isRecord, isList, isPlain, finite, message, attempt, keys, read, unmatched, illegal, escaped, reply } = runtime();
 const within = <Held, A>(enter: () => Held, leave: (held: Held) => void, body: () => A): A => {
     const held = enter();
     try {
@@ -52,18 +29,6 @@ const within = <Held, A>(enter: () => Held, leave: (held: Held) => void, body: (
         leave(held);
     }
 };
-const keys = (value: object): string[] => {
-    const found: string[] = [];
-    for (const key in value) {
-        if (Object.prototype.hasOwnProperty.call(value, key)) {
-            found.push(key);
-        }
-    }
-    return found;
-};
-const read = (value: unknown, key: string): unknown => attempt(() => (isRecord(value) ? value[key] : undefined));
-const unmatched = (subject: string, query: string, candidates: readonly string[]): Replied<'Unmatched'> => ({ _tag: 'Unmatched', subject, query, candidates });
-const illegal = (text: string): Replied<'IllegalArgument'> => ({ _tag: 'IllegalArgument', message: text });
 const reflected = (value: unknown): Reflection | undefined => {
     const isReflection = (each: unknown): each is Reflection => isRecord(each) && typeof each.name === 'string' && isList(each.properties) && isList(each.methods) && isList(each.staticProperties);
     return attempt(() => {
@@ -109,18 +74,6 @@ const file = (url: string): File => {
     const constructor: FileConstructor = $.global.File;
     return new constructor(located.slice(located.indexOf('/')));
 };
-const escaped = (text: string): string => {
-    const control = 0x20;
-    const hex = 16;
-    const digits = -4;
-    let out = '';
-    for (let at = 0; at < text.length; at += 1) {
-        const code = text.charCodeAt(at);
-        const character = text.charAt(at);
-        out += code < control || character === '"' || character === '\\' ? `\\u${`000${code.toString(hex)}`.slice(digits)}` : character;
-    }
-    return `"${out}"`;
-};
 const unescaped = (quoted: string): string => {
     const hex = 16;
     const digits = 4;
@@ -147,38 +100,6 @@ const step = (kind: string, selector?: readonly [key: string, value: string | nu
     }
     const [key, value] = selector;
     return `/${kind}[@${key}=${typeof value === 'number' ? value : escaped(value)}]`;
-};
-const encoded = (value: unknown, specifier: (value: Fields) => string | undefined): string => {
-    if (typeof value === 'string') {
-        return escaped(value);
-    }
-    if (typeof value === 'boolean' || finite(value) !== undefined) {
-        return String(value);
-    }
-    if (value === null || value === undefined || typeof value === 'number') {
-        return 'null';
-    }
-    if (isList(value) || isPlain(value)) {
-        return joined(value, specifier);
-    }
-    const at = isRecord(value) ? specifier(value) : undefined;
-    const name = read(value, 'name');
-    return at === undefined ? escaped(String(value)) : joined({ type: reflected(value)?.name ?? String(value), specifier: at, name: typeof name === 'string' ? name : undefined, valid: true }, specifier);
-};
-const joined = (value: Fields | readonly unknown[], specifier: (value: Fields) => string | undefined): string => {
-    const parts: string[] = [];
-    if (isList(value)) {
-        for (const item of value) {
-            parts.push(encoded(item, specifier));
-        }
-        return `[${parts.join(',')}]`;
-    }
-    for (const key of keys(value)) {
-        if (value[key] !== undefined) {
-            parts.push(`${escaped(key)}:${encoded(value[key], specifier)}`);
-        }
-    }
-    return `{${parts.join(',')}}`;
 };
 const slots = (collection: Fields, base: number): Slot[] => {
     const found: Slot[] = [];
@@ -278,7 +199,7 @@ const declaration = (reflection: Reflection) => {
     for (const info of reflection.methods) {
         const parameters: unknown[] = [];
         for (const argument of info.arguments) {
-            parameters.push(assign(described(argument), { optional: argument.defaultValue !== undefined }));
+            parameters.push(assign(described(argument), { optional: argument.defaultValue !== undefined, default: argument.defaultValue }));
         }
         methods.push({ name: info.name, description: info.description === '' ? undefined : info.description, parameters, returns: { type: info.dataType } });
     }
@@ -361,8 +282,6 @@ const handle =
     <Held>({ indexBase, dialogs, undoGroup, specifier, open, render }: Host<Held>) =>
     (request: Envelope): string => {
         const resolve = resolver(indexBase);
-        const bindings: Bindings = { resolve, step, indexed, assign, file, read, keys, reflected, illegal, unmatched };
-        const located = (value: Fields): string | undefined => specifier(value, bindings);
         const group = request.tag === 'execute_script' || request.tag === 'render' ? undoGroup : undefined;
         const answer = (): unknown => {
             switch (request.tag) {
@@ -384,28 +303,22 @@ const handle =
                     return { result: body() };
                 }
                 case 'open':
-                    return open(request.payload, bindings);
+                    return open(request.payload);
                 case 'render':
-                    return render(request.payload, bindings);
+                    return render(request.payload, resolve);
                 case 'object_model':
                     return model(indexBase, request.payload.name);
                 default:
                     return request satisfies never;
             }
         };
-        try {
-            const value = within(dialogs.suppress, dialogs.restore, () => (group === undefined ? answer() : within(() => group.begin(request.label), group.end, answer)));
-            return encoded({ _tag: 'Value' satisfies Replied<'Value'>['_tag'], value }, located);
-        } catch (thrown) {
-            if (isRecord(thrown) && (thrown._tag === 'Unmatched' || thrown._tag === 'IllegalArgument')) {
-                return encoded(thrown, located);
-            }
-            const evaluated = request.tag === 'execute_script' && read(thrown, 'source') === request.payload.code;
-            const failed: Replied<'Thrown'> = { _tag: 'Thrown', message: message(thrown) };
-            return encoded(assign(failed, { number: read(thrown, 'number'), line: evaluated ? read(thrown, 'line') : undefined }), located);
-        }
+        return reply(
+            () => within(dialogs.suppress, dialogs.restore, () => (group === undefined ? answer() : within(() => group.begin(request.label), group.end, answer))),
+            specifier,
+            (thrown) => request.tag === 'execute_script' && read(thrown, 'source') === request.payload.code,
+        );
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { handle };
+export { assign, file, handle, illegal, indexed, keys, read, reflected, step };

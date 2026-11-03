@@ -1,12 +1,25 @@
 import { load } from 'cheerio/slim';
-import { Cause, Context, Effect, Option, Record, Schema } from 'effect';
+import { Cause, Context, Duration, Effect, Exit, Layer, Option, Record, Schema } from 'effect';
 import { HttpServerResponse } from 'effect/http';
 import { renderToReadableStream } from 'react-dom/server';
 import type { Shell } from '#/page/shell';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Page extends Context.Service<Page, { readonly fetch: (request: Request) => Promise<Response> }>()('@rasm/hosting/page/render/Page') {
+class Page extends Context.Service<Page, { readonly template: Effect.Effect<string, Cause.UnknownError> }>()('@rasm/hosting/page/render/Page') {
+    static readonly layer = (assets: { readonly fetch: (request: Request) => Promise<Response> }) =>
+        Layer.effect(
+            Page,
+            Effect.tryPromise({ try: (signal) => assets.fetch(new Request('http://localhost/', { signal })), catch: failure('template fetch') }).pipe(
+                Effect.filterOrFail(
+                    ({ ok }) => ok,
+                    (response) => new Cause.UnknownError(response, `page template answered ${response.status}`),
+                ),
+                Effect.flatMap((response) => Effect.tryPromise({ try: () => response.text(), catch: failure('template read') })),
+                Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
+                Effect.bindTo('template'),
+            ),
+        );
     static readonly render = Effect.fn('Page.render')(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>, value: S['Type']) {
         const [page, context] = yield* Effect.all([Page, Effect.context<never>()]);
         const onError = (error: unknown) => Effect.logError(Cause.die(error)).pipe(Effect.runSyncWith(context));
@@ -17,25 +30,18 @@ class Page extends Context.Service<Page, { readonly fetch: (request: Request) =>
                     Effect.tap((stream) => Effect.promise(() => stream.allReady)),
                     Effect.flatMap((stream) => Effect.promise(() => new Response(stream).text())),
                 ),
-                Effect.tryPromise({ try: (signal) => page.fetch(new Request('http://localhost/', { signal })), catch: failure('template fetch') }).pipe(
-                    Effect.filterOrFail(
-                        ({ ok }) => ok,
-                        (response) => new Cause.UnknownError(response, `page template answered ${response.status}`),
-                    ),
-                    Effect.flatMap((response) => Effect.tryPromise({ try: () => response.text(), catch: failure('template read') })),
-                ),
+                page.template,
             ],
             { concurrency: 'unbounded' },
         );
         const { title, meta } = shell.head(value);
         const document = load(text);
-        const upsert = (selector: string, element: string) => {
-            const present = document(selector);
-            return present.length > 0 ? present : document(element).appendTo('head');
-        };
-        document(`#${shell.root}`).html(markup).after(document('<script>').attr({ id: shell.script.id, type: 'application/json' }).text(serialized));
-        Option.toArray(title).forEach((content) => upsert('title', '<title>').text(content));
-        Record.toEntries(meta).forEach(([attribute, values]) => Record.toEntries(Record.getSomes(values)).forEach(([key, content]) => upsert(`meta[${attribute}="${key}"]`, '<meta>').attr({ [attribute]: key, content })));
+        const upsert = (selector: string, element: string) => (document(selector).length > 0 ? document(selector) : document(element).appendTo('head'));
+        document(`#${shell.root}`)
+            .html(markup)
+            .after(document('<script>').attr({ id: shell.script.id, type: 'application/json' }).text(serialized));
+        upsert('title', '<title>').text((_, current) => Option.getOrElse(title, () => current));
+        Record.collect(meta, (attribute, values) => Record.collect(Record.getSomes(values), (key, content) => upsert(`meta[${attribute}="${key}"]`, '<meta>').attr({ [attribute]: key, content })));
         return HttpServerResponse.html(document.html());
     });
 }

@@ -1,5 +1,5 @@
 import { HostError } from '@rasm/automation/requests';
-import { Array, Cause, Clock, Console, Context, Duration, Effect, flow, Layer, Option, Path, Predicate, Record, Result, Schema, Sink, Stdio, Stream, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Clock, Console, Context, Deferred, Duration, Effect, Exit, flow, Layer, Option, Path, Predicate, Record, Result, Schema, Sink, Stdio, Stream, Struct } from 'effect';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -9,7 +9,6 @@ const IDENTIFIER = /^[$_\p{ID_Start}](?:[$\p{ID_Continue}]|\u200C|\u200D)*$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Described = Schema.Struct({ message: Schema.Unknown });
 const Script = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -45,9 +44,8 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof import('adobe:uxp'
             return prepare?.(error, frames) ?? [String(error), ...frames.map((frame) => `    at ${frame}`)].join('\n');
         };
         try {
-            const message = Option.match(Schema.decodeUnknownOption(Described)(cause), { onNone: () => String(cause), onSome: (described) => String(described.message) });
             const line = Predicate.hasProperty(cause, 'stack') && Predicate.isString(cause.stack) ? Array.head(lines) : Option.none();
-            return HostError.thrown(message, line)(cause);
+            return HostError.thrown(String(Predicate.hasProperty(cause, 'message') ? cause.message : cause), line)(cause);
         } finally {
             Error.prepareStackTrace = prepare;
         }
@@ -77,27 +75,26 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof import('adobe:uxp'
                 methods: Array.filterMap(descriptors, ([name, { value }]) => (Predicate.isFunction(value) && name !== 'constructor' ? Result.succeed(name) : Result.failVoid)),
             };
         };
-        const above = (each: unknown) => Option.liftPredicate(each, (parent): parent is object => Predicate.isObject(parent) && parent !== Object.prototype).pipe(Option.map((parent) => [declared(parent), Object.getPrototypeOf(parent)] as const));
+        const above = (each: unknown) => (Predicate.isObject(each) && each !== Object.prototype ? Option.some([declared(each), Object.getPrototypeOf(each)] as const) : Option.none());
         return Array.prepend(Array.unfold(Object.getPrototypeOf(prototype), above), declared(prototype));
     };
     static readonly script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
         const decoder = new TextDecoder();
         Effect.gen(function* () {
-            const [{ script }, serialization] = yield* Effect.all([Schema.decodeUnknownEffect(Script)(modules.uxp), RpcSerialization.RpcSerialization]);
-            const answered = (chunk: string | Uint8Array) => Effect.sync(() => script.setResult(Predicate.isString(chunk) ? chunk : decoder.decode(chunk)));
+            const [{ script }, context, done] = yield* Effect.all([Schema.decodeUnknownEffect(Script)(modules.uxp), Effect.context<Uxp>(), Deferred.make<void>()]);
+            const answered = (chunk: string | Uint8Array) => Effect.andThen(Effect.sync(() => script.setResult(Predicate.isString(chunk) ? chunk : decoder.decode(chunk))), Deferred.succeed(done, undefined));
+            const failed = Effect.fnUntraced(function* (cause: Cause.Cause<unknown>) {
+                yield* Uxp.logged(cause);
+                const defect = yield* Effect.orDie(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)));
+                const encoded = RpcSerialization.json.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect));
+                return yield* encoded === undefined ? Effect.void : answered(encoded);
+            });
             const stdio = Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(script.args), stdin: Stream.encodeText(Stream.fromIterable(script.args)), stdout: () => Sink.forEach(answered), stderr: () => Sink.forEach(Console.error) }));
-            return yield* Layer.launch(server).pipe(
-                Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide([stdio, RpcSerialization.layerJson]))),
-                Effect.catchCauseIf(
-                    Predicate.not(Cause.hasInterruptsOnly),
-                    Effect.fnUntraced(function* (cause: Cause.Cause<unknown>) {
-                        yield* Uxp.logged(cause);
-                        const defect = yield* Effect.orDie(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)));
-                        return yield* UndefinedOr.match(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect)), { onUndefined: () => Effect.void, onDefined: answered });
-                    }),
-                ),
-            );
-        }).pipe(Effect.provide([Uxp.layer(modules), RpcSerialization.layerJson]), Effect.tapCause(Uxp.logged), Effect.runSyncExit);
+            const exit = Effect.runSyncExitWith(context)(Layer.launch(server).pipe(Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide([stdio, RpcSerialization.layerJson]))), Effect.catchCauseIf(Predicate.not(Cause.hasInterruptsOnly), failed)));
+            const pending = Option.filter(Result.getSuccess(Exit.findDefect(exit)), Cause.isAsyncFiberError);
+            yield* Effect.sync(() => Option.getOrUndefined(pending)?.fiber.interruptUnsafe());
+            return yield* Option.isSome(pending) && !(yield* Deferred.isDone(done)) ? failed(Cause.die(pending.value)) : Effect.void;
+        }).pipe(Effect.provide(Uxp.layer(modules)), Effect.tapCause(Uxp.logged), Effect.runSyncExit);
     };
 }
 

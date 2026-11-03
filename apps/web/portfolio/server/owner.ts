@@ -18,15 +18,13 @@ const address = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'ac
 class OwnerAccount extends Context.Service<OwnerAccount, { readonly email: string }>()('@rasm/portfolio/server/owner/OwnerAccount') {
     static readonly layer = (email: string) => Layer.succeed(OwnerAccount, { email });
     static readonly session = Effect.gen(function* () {
-        const [{ email }, current] = yield* Effect.all([OwnerAccount, User.current(sites)]);
-        return yield* Option.match(current, {
-            onNone: () => Effect.succeed<typeof Session.Type>('signedOut'),
-            onSome: Effect.fnUntraced(function* (user) {
-                const enrolled = Option.map(Array.head(yield* Relation.select(owner, { email: [email] })), ({ userId }) => userId);
-                const ownerId = Option.isNone(enrolled) && Option.exists(user.email, (value) => address.compare(value, email) === 0) ? Option.some((yield* Relation.ensure(owner, [{ email, userId: user.id }]))[0].userId) : enrolled;
-                return Option.contains(ownerId, user.id) ? 'owner' : ('signedIn' satisfies typeof Session.Type);
-            }),
-        });
+        const [{ email }, user] = yield* Effect.all([OwnerAccount, User.current(sites)]);
+        if (Option.isNone(user)) {
+            return 'signedOut' satisfies typeof Session.Type;
+        }
+        const enrolled = Option.map(Array.head(yield* Relation.select(owner, { email: [email] })), ({ userId }) => userId);
+        const ownerId = Option.isNone(enrolled) && Option.exists(user.value.email, (value) => address.compare(value, email) === 0) ? Option.some((yield* Relation.ensure(owner, [{ email, userId: user.value.id }]))[0].userId) : enrolled;
+        return (Option.contains(ownerId, user.value.id) ? 'owner' : 'signedIn') satisfies typeof Session.Type;
     }).pipe(Effect.catchTag(['SqlError', 'SchemaError'], unavailable), Effect.withSpan('OwnerAccount.session'));
     static readonly authorize = Effect.filterOrFail(
         OwnerAccount.session,

@@ -21,6 +21,10 @@ interface Plain {
 }
 type AppleEventValue = null | boolean | number | string | readonly AppleEventValue[] | Described | Specified | typeof Leaf.Type | Plain;
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const LANGUAGE = 'doLg';
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Nested = Schema.suspend((): Schema.Codec<AppleEventValue> => AppleEventValue);
@@ -73,21 +77,13 @@ class Terms extends Schema.Class<Terms, { readonly brand: unique symbol }>('Term
     static readonly Kind = Kind;
 
     static readonly script = Effect.fnUntraced(function* ({ command }: Terms, { direct, values = [], language = 'JSLg' }: { readonly direct: AppleEventValue; readonly values?: readonly AppleEventValue[]; readonly language?: string }) {
-        const [events, languageCode, withArguments] = [['DjxM', 'dosc'], 'doLg', 'with arguments'] as const;
         const { name, parameters } = yield* Effect.fromOption(
-            Array.findFirst(events, (event) => Array.findFirst(command, ({ code }) => code.endsWith(event))),
+            Array.findFirst(['DjxM', 'dosc'], (event) => Array.findFirst(command, ({ code }) => code.endsWith(event))),
             () => Unmatched.make({ subject: 'script command', candidates: Array.map(command, Struct.get('name')) }),
         );
-        const passed = Array.isReadonlyArrayEmpty(values) ? Option.none() : Option.some(yield* Unmatched.single(parameters, `parameter of ${name}`, Option.some(withArguments), (parameter) => [parameter.name, parameter.code]));
-        const spoken = Array.findFirst(parameters, ({ code }) => code === languageCode);
-        return Execute.make({
-            command: name,
-            arguments: {
-                direct,
-                ...Option.match(passed, { onNone: () => ({}), onSome: ({ code }) => ({ [code]: values }) }),
-                ...Option.match(spoken, { onNone: () => ({}), onSome: ({ code }) => ({ [code]: { _tag: 'enumerator', name: language } as const }) }),
-            },
-        });
+        const passed = Array.isReadonlyArrayEmpty(values) ? {} : { [(yield* Unmatched.single(parameters, `parameter of ${name}`, Option.some('with arguments'), (parameter) => [parameter.name, parameter.code])).code]: values };
+        const spoken = Array.some(parameters, ({ code }) => code === LANGUAGE) ? { [LANGUAGE]: { _tag: 'enumerator', name: language } as const } : {};
+        return Execute.make({ command: name, arguments: { direct, ...passed, ...spoken } });
     });
 }
 

@@ -6,4 +6,4 @@ import { react, worker } from '../../../vite.shared.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default worker(import.meta.dirname, [react(), tailwindcss(), pdfjs()], [sites(), vite('./server/node.ts')]);
+export default worker(import.meta.dirname, { plugins: [react(), tailwindcss(), pdfjs()], hosting: [sites(), vite('./server/node.ts')] });

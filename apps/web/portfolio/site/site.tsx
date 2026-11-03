@@ -1,13 +1,12 @@
 import { useAtomValue } from '@effect/atom-react';
 import { User } from '@rasm/hosting/user';
 import { ModalOverlay } from '@rasm/ui/dialog/overlay';
-import { flow, Option, Schema } from 'effect';
+import { flow, Option } from 'effect';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import { details } from '#/media/labels.ts';
 import { MediaFigure } from '#/media/media-figure.tsx';
 import type { Bootstrap } from '#/model/bootstrap.ts';
 import type { PortfolioData } from '#/model/portfolio.ts';
@@ -20,10 +19,6 @@ import { StickyBar, WorkIndex } from '#/site/work-index.tsx';
 
 const edit = 'edit';
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Editing = Schema.fromURLSearchParams(Schema.Struct({ [edit]: Schema.String }));
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Editor = lazy(() => import('#/editor/editor.tsx').then((module) => ({ default: module.Editor })));
@@ -32,7 +27,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
     const [preview, setPreview] = useState(Option.none<typeof PortfolioData.Type>());
     const requested = useSyncExternalStore(
         () => () => undefined,
-        () => session === 'owner' && Option.isSome(Schema.decodeOption(Editing)(new URLSearchParams(location.search))),
+        () => session === 'owner' && new URLSearchParams(location.search).has(edit),
         () => false,
     );
     const [toggled, setToggled] = useState(Option.none<boolean>());
@@ -111,7 +106,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
             <StickyBar navigation={navigation} portfolio={portfolio} ref={sticky}>
                 {Option.isSome(preview) && (
                     <div className="bg-foreground text-background text-caption flex items-center gap-3.75 px-6 py-2 max-sm:flex-wrap max-sm:gap-1 max-sm:px-4">
-                        <span className="max-sm:w-full">{details(['Private preview', 'snapshot'])}</span>
+                        <span className="max-sm:w-full">Private preview · snapshot</span>
                         <Button
                             className="button button-outline ml-auto max-sm:ml-0"
                             onPress={() => {

@@ -3,7 +3,7 @@ import { HostError } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/runtime';
 import { Array, Effect, Option, Path, Predicate, Result, Schema, Struct } from 'effect';
-import { type Font, FontView } from '#/contract';
+import { Font } from '#/contract';
 import { Model } from '#/dom/model';
 import { Specifier } from '#/dom/specifier';
 import { Value } from '#/dom/value';
@@ -56,14 +56,14 @@ const faceView = Effect.fn('faceView')(function* (face: Face) {
         catch: HostError.refused(`styles and features of ${face.name}`),
     });
     const axes = Option.liftThrowable(() => Array.zipWith(face.designAxesName, face.designAxesValues, (name, value) => ({ name, value })))();
-    return yield* Model.read(FontView, face.toSpecifier(), () => ({
+    return yield* Model.read(Font.View, face.toSpecifier(), () => ({
         _tag: 'Font',
         ...Model.referenceUnsafe(face),
         family,
         style,
         status: face.status,
         uses,
-        installed: installed ? Option.some({ ...Value.picked(FontView.Installed.fields)(face), type: face.fontType, styles, axes, features, allows: Value.picked(FontView.Installed.fields.allows.fields)(face) }) : Option.none(),
+        installed: installed ? Option.some({ ...Value.picked(Font.View.Installed.fields)(face), type: face.fontType, styles, axes, features, allows: Value.picked(Font.View.Installed.fields.allows.fields)(face) }) : Option.none(),
     }));
 });
 const fontView = Model.view((model) => model.font, faceView);

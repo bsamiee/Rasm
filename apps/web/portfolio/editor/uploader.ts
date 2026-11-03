@@ -1,4 +1,4 @@
-import { preprocess, uploaderState } from '@rasm/media/uploads';
+import { Uploads } from '@rasm/media/uploads';
 import Uppy, { type Body, type Meta, type UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 import { Array, ByteSize, Cause, Data, Effect, Equivalence, Function, Match, Optic, Option, Record, Result, Schema, Struct } from 'effect';
@@ -118,9 +118,9 @@ const prepare = Effect.fnUntraced(
         ),
 );
 const preprocessing = Atom.runtime(SecureRandom.layerWebCrypto)
-    .atom((get) => preprocess(get(uppy), prepare, { concurrency: 2, message: 'Reading file' }))
+    .atom((get) => Uploads.preprocess(get(uppy), prepare, { concurrency: 2, message: 'Reading file' }))
     .pipe(Atom.keepAlive);
-const queue = uploaderState(uppy, Struct.get('files'));
+const queue = Uploads.state(uppy, Struct.get('files'));
 const pendingUploads = Atom.make((get) => Array.filterMap(Object.values(get(queue)), (file) => (file.progress.uploadComplete === true ? Result.failVoid : Result.succeed(file.meta.destination)))).pipe(Atom.withEquality(Equivalence.Array(Equivalence.strictEqual<Destination>())));
 
 // --- [EXPORTS] -------------------------------------------------------------------------

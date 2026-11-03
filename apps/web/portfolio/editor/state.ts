@@ -30,36 +30,30 @@ const saveRequest = PortfolioClient.runtime
     )
     .pipe(Atom.keepAlive);
 const reloadRequest = PortfolioClient.runtime
-    .fn((_: undefined, get) =>
-        Effect.tap(load, (state) =>
-            Effect.sync(() => {
-                get.registry.set(draft, AsyncResult.success(state));
-                get.registry.set(saveRequest, Atom.Reset);
-            }),
-        ),
+    .fn(
+        Effect.fnUntraced(function* (_: undefined, get) {
+            get.registry.set(draft, AsyncResult.success(yield* load));
+            get.registry.set(saveRequest, Atom.Reset);
+        }),
     )
     .pipe(Atom.keepAlive);
 const deleteRequest = PortfolioClient.runtime
-    .fn((id: typeof AssetId.Type, get) =>
-        PortfolioClient.use((api) => api.assets.delete({ params: { id } })).pipe(
-            Effect.tapError(() => Effect.sync(() => get.registry.refresh(recoveryRequest))),
-            Effect.andThen(Effect.sync(() => get.registry.update(draft, AsyncResult.map(assets.modify(Record.remove(id)))))),
-        ),
+    .fn(
+        Effect.fnUntraced(function* (id: typeof AssetId.Type, get) {
+            yield* PortfolioClient.use((api) => api.assets.delete({ params: { id } })).pipe(Effect.tapError(() => Effect.sync(() => get.registry.refresh(recoveryRequest))));
+            get.registry.update(draft, AsyncResult.map(assets.modify(Record.remove(id))));
+        }),
     )
     .pipe(Atom.keepAlive);
 const discardRequest = PortfolioClient.runtime
-    .fn((upload: typeof Recovery.Type, get) =>
-        PortfolioClient.use((api) => api.assets.discard({ params: { id: upload.id } })).pipe(
-            Effect.mapError((error) => ({ upload, error })),
-            Effect.tap(() =>
-                Effect.sync(() => {
-                    if (upload.status === 'removing') {
-                        get.registry.update(draft, AsyncResult.map(assets.modify(Record.remove(upload.id))));
-                    }
-                    get.registry.refresh(recoveryRequest);
-                }),
-            ),
-        ),
+    .fn(
+        Effect.fnUntraced(function* (upload: typeof Recovery.Type, get) {
+            yield* PortfolioClient.use((api) => api.assets.discard({ params: { id: upload.id } })).pipe(Effect.mapError((error) => ({ upload, error })));
+            if (upload.status === 'removing') {
+                get.registry.update(draft, AsyncResult.map(assets.modify(Record.remove(upload.id))));
+            }
+            get.registry.refresh(recoveryRequest);
+        }),
     )
     .pipe(Atom.keepAlive);
 

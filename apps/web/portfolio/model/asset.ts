@@ -2,7 +2,7 @@ import { Array, ByteSize, Context, type Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const uploadLimit = ByteSize.fromInputUnsafe('100 MB');
+const uploadLimit = ByteSize.megabytes(100);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -11,9 +11,8 @@ const extent = Schema.Finite.check(Schema.isGreaterThan(0));
 const Dimensions = Schema.Struct({ width: extent, height: extent });
 const Page = Schema.Struct({ ...Dimensions.fields, label: Schema.optionalKey(Schema.String) });
 const Sheet = Schema.Struct({ ...Page.fields, number: Schema.Int.check(Schema.isGreaterThan(0)) });
-const size = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: ByteSize.toNumberUnsafe(uploadLimit) }));
-const file = { id: AssetId, name: Schema.NonEmptyString, size };
-const Rendition = Schema.Struct({ width: Schema.Int.check(Schema.isGreaterThan(0)), size, mime: Schema.Literals(['image/jpeg', 'image/png']) });
+const file = { id: AssetId, name: Schema.NonEmptyString, size: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: ByteSize.toNumberUnsafe(uploadLimit) })) };
+const Rendition = Schema.Struct({ width: Schema.Int.check(Schema.isGreaterThan(0)), size: file.size, mime: Schema.Literals(['image/jpeg', 'image/png']) });
 class ImageAsset extends Schema.Class<ImageAsset, { readonly brand: unique symbol }>('ImageAsset')({
     ...file,
     kind: Schema.tag('image'),

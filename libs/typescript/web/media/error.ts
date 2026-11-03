@@ -8,7 +8,7 @@ class MediaError extends Schema.TaggedError<MediaError, { readonly brand: unique
     cause: Schema.optionalKey(Schema.Defect()),
 }) {
     override get message() {
-        return `${this.reason._tag}: ${this.subject}`;
+        return [`${this.reason._tag}: ${this.subject}`, ...(this.cause === undefined ? [] : [String(this.cause)])].join(': ');
     }
 }
 

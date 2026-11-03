@@ -1,16 +1,15 @@
 import { Reference } from '@rasm/automation/requests';
-import { Array, Option, Schema, SchemaGetter, SchemaTransformation } from 'effect';
+import { Array, Effect, Option, Schema, SchemaGetter, SchemaTransformation, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Container = Schema.String.check(Schema.isPattern(/(?:^|[^/])$/u));
 const Separator = Schema.Literals(['//', '/']);
 const Kind = Schema.String.check(Schema.isPattern(/^@?[a-z][\w-]*$/u));
-const { Named, Selector } = Reference;
+const { Selector } = Reference;
 const Property = Schema.TemplateLiteral(['@', Schema.String]);
-const Name = Schema.TemplateLiteralParser(Named.parts);
 const Step = Schema.Struct({ container: Container, separator: Separator, kind: Schema.Union([Kind, Schema.Literal('')]), selector: Schema.OptionFromOptionalKey(Selector) });
-const Written = Schema.Union([Schema.TemplateLiteralParser([Container, Separator, Kind, Selector]), Schema.TemplateLiteralParser([Container, Separator, Kind])]).pipe(
+const Written = Schema.Union([Schema.TemplateLiteralParser([Container, Separator, Kind, Schema.toEncoded(Selector)]), Schema.TemplateLiteralParser([Container, Separator, Kind])]).pipe(
     Schema.decodeTo(
         Schema.toEncoded(Step),
         SchemaTransformation.transform({
@@ -37,14 +36,14 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
     get property(): boolean {
         return Schema.is(Property)(this.kind);
     }
-    get path(): string {
-        return Schema.encodeSync(Specifier.Path)(this);
+    get path(): Effect.Effect<string> {
+        return Effect.orDie(Schema.encodeEffect(Specifier.Path)(this));
     }
     get leaf(): string {
-        return this.root ? this.path : Array.map([this, ...Option.toArray(this.end)], ({ kind, selector }) => `${kind}${Option.getOrElse(selector, () => '')}`).join(' to ');
+        return this.root ? Root.from.literal : Array.map([this, ...Option.toArray(this.end)], ({ kind, selector }) => `${kind}${Option.getOrElse(Option.flatMap(selector, Schema.encodeOption(Selector)), () => '')}`).join(' to ');
     }
     get name(): Option.Option<string> {
-        return Option.map(Option.flatMap(this.selector, Schema.decodeUnknownOption(Name)), ([, name]) => name);
+        return Option.map(Option.filter(this.selector, Selector.guards.Named), Struct.get('name'));
     }
 }
 

@@ -94,10 +94,13 @@ const typesetting = Effect.fnUntraced(function* ({ serving }: Effect.Success<Ret
         })
             .annotate(Tool.Readonly, true)
             .annotate(Tool.OpenWorld, false),
-        Effect.fnUntraced(function* ({ ayahs, surahs, columns, surah, ayah, separator }) {
-            const quran = yield* Quran.decode(yield* Effect.all({ ayahs: files.readFileString(ayahs), surahs: files.readFileString(surahs) }), columns);
-            return { text: yield* (yield* quran.surah(surah)).text(ayah, separator) };
-        }),
+        ({ ayahs, surahs, columns, surah, ayah, separator }) =>
+            Effect.all({ ayahs: files.readFileString(ayahs), surahs: files.readFileString(surahs) }).pipe(
+                Effect.flatMap((csv) => Quran.decode(csv, columns)),
+                Effect.flatMap((quran) => quran.surah(surah)),
+                Effect.flatMap((found) => found.text(ayah, separator)),
+                Effect.map((text) => ({ text })),
+            ),
     );
     yield* registerTool(
         Tool.make('symbols', {

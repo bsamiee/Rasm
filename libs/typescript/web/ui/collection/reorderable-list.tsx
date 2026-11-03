@@ -1,4 +1,4 @@
-import { Array, Filter } from 'effect';
+import { Array } from 'effect';
 import { GripVertical } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button, GridList, GridListItem, type GridListProps, type ItemDropTarget, type Key, type Selection, useDragAndDrop } from 'react-aria-components';
@@ -26,15 +26,8 @@ const ReorderableList = <T extends { readonly id: string }>({
     const [selection, setSelection] = useState<Selection>(new Set());
     const selected: ReadonlySet<T['id']> = new Set(items.filter(({ id }) => selection === 'all' || selection.has(id)).map(({ id }) => id));
     const reorder = (keys: ReadonlySet<Key>, { key, dropPosition }: Omit<ItemDropTarget, 'type'>) => {
-        const [moved, kept] = Array.partition(
-            items,
-            Filter.fromPredicate((item: T) => keys.has(item.id)),
-        );
-        const [before, after] = Array.splitAt(
-            kept,
-            Array.countBy(Array.take(items, items.findIndex(({ id }) => id === key) + (dropPosition === 'after' ? 1 : 0)), ({ id }) => !keys.has(id)),
-        );
-        onChange([...before, ...moved, ...after]);
+        const [before, after] = Array.splitAt(items, items.findIndex(({ id }) => id === key) + (dropPosition === 'after' ? 1 : 0));
+        onChange([...before.filter(({ id }) => !keys.has(id)), ...items.filter(({ id }) => keys.has(id)), ...after.filter(({ id }) => !keys.has(id))]);
     };
     const targets = items.map((target, index) => ({ id: target.id, label: textValue(target), index }));
     const { dragAndDropHooks } = useDragAndDrop<T>({
@@ -53,12 +46,7 @@ const ReorderableList = <T extends { readonly id: string }>({
                             <Button slot="drag">
                                 <GripVertical />
                             </Button>
-                            <MenuButton
-                                disabledKeys={moved}
-                                onAction={({ id, index }) => reorder(moved, { key: id, dropPosition: index < items.findIndex((candidate) => moved.has(candidate.id)) ? 'before' : 'after' })}
-                                options={targets}
-                                trigger={{ 'aria-label': `${moveLabel} ${textValue(item)}` }}
-                            >
+                            <MenuButton disabledKeys={moved} onAction={({ id, index }) => reorder(moved, { key: id, dropPosition: index < items.findIndex((candidate) => moved.has(candidate.id)) ? 'before' : 'after' })} options={targets} trigger={{ 'aria-label': `${moveLabel} ${textValue(item)}` }}>
                                 {moveLabel}
                             </MenuButton>
                             {children(item)}

@@ -7,7 +7,7 @@ import { SecureRandom } from 'effect/crypto';
 import { AsyncResult, type Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
-import { Button, Dialog, Heading, type Key, Modal, Tab, TabList, TabPanel, Tabs, Text } from 'react-aria-components';
+import { Button, Dialog, Heading, type Key, Modal, Tab, TabList, TabPanel, Tabs, Text, Toolbar } from 'react-aria-components';
 import { Compositions } from '#/editor/compositions.tsx';
 import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { EntryFields, EntryList } from '#/editor/entries.tsx';
@@ -131,15 +131,17 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
     return (
         <EditorDialog busy={busy}>
             <div className="border-line flex flex-wrap items-center gap-2 border-b px-9 pb-4 max-sm:px-5">
-                <button className="button button-ghost" disabled={busy} form={`${idPrefix}form`} ref={save} type="submit">
-                    Save draft
-                </button>
-                <Button className="button button-ghost" isDisabled={busy} onPress={() => onPreview(state)} slot="close">
-                    Preview draft
-                </Button>
-                <button aria-describedby={pending.length > 0 ? `${idPrefix}uploads` : undefined} className="button" disabled={busy || pending.length > 0} form={`${idPrefix}form`} ref={publish} type="submit">
-                    Publish
-                </button>
+                <Toolbar aria-label="Draft" className="flex flex-wrap items-center gap-2">
+                    <button className="button button-ghost" disabled={busy} form={`${idPrefix}form`} ref={save} type="submit">
+                        Save draft
+                    </button>
+                    <Button className="button button-ghost" isDisabled={busy} onPress={() => onPreview(state)} slot="close">
+                        Preview draft
+                    </Button>
+                    <button aria-describedby={pending.length > 0 ? `${idPrefix}uploads` : undefined} className="button" disabled={busy || pending.length > 0} form={`${idPrefix}form`} ref={publish} type="submit">
+                        Publish
+                    </button>
+                </Toolbar>
                 <p className="text-caption text-muted min-h-4.5 w-full" role="status">
                     {status}
                 </p>

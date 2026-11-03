@@ -31,7 +31,7 @@ const Library = ({
     onSelect: (id: Option.Option<typeof AssetId.Type>) => void;
     onPlace: (entryId: typeof EntryId.Type, assetId: typeof AssetId.Type) => void;
 }) => {
-    const ids = useId();
+    const idPrefix = useId();
     const setDraft = useAtomSet(draft);
     const remove = useAtomSet(deleteRequest);
     const selected = Option.flatMap(assetId, (id) => Record.get(assets, id));
@@ -47,15 +47,12 @@ const Library = ({
                     aria-label="Source files"
                     className="max-editor:data-chosen:hidden grid grid-cols-2 content-start gap-3"
                     data-chosen={Option.isSome(selected) || undefined}
-                    id={`${ids}library`}
+                    id={`${idPrefix}library`}
                     items={Object.values(assets)}
                     onSelectionChange={(keys) => {
-                        const chosen = Option.map(
-                            Array.findFirst(Object.values(assets), ({ id }) => keys !== 'all' && keys.has(id)),
-                            ({ id }) => id,
-                        );
+                        const chosen = Array.findFirst(Record.keys(assets), (id) => keys !== 'all' && keys.has(id));
                         onSelect(chosen);
-                        Option.map(chosen, () => focus(`${ids}place`));
+                        Option.map(chosen, () => focus(`${idPrefix}place`));
                     }}
                     selectedKeys={Option.toArray(assetId)}
                     selectionMode="single"
@@ -84,13 +81,13 @@ const Library = ({
                                     className="button button-ghost self-start"
                                     onClick={() => {
                                         onSelect(Option.none());
-                                        focus(`${ids}library`);
+                                        focus(`${idPrefix}library`);
                                     }}
                                     type="button"
                                 >
                                     Back to files
                                 </button>
-                                <h4 className="text-lg tracking-tight wrap-anywhere outline-none" id={`${ids}place`} tabIndex={-1}>
+                                <h4 className="text-lg tracking-tight wrap-anywhere outline-none" id={`${idPrefix}place`} tabIndex={-1}>
                                     {asset.name}
                                 </h4>
                                 <div className="media-h-70 bg-surface grid place-items-center p-3">

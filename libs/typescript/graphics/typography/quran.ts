@@ -23,7 +23,10 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         const [ayahs, surahs] = yield* Effect.all([rows(AyahRow, csv.ayahs, columns.ayahs), rows(SurahRow, csv.surahs, columns.surahs)]);
         const ayahsBySurah = Array.groupBy(ayahs, ({ surah }) => String(surah));
         const uniqueSurahs = Array.dedupeWith(surahs, (left, right) => left.number === right.number);
-        const missing = Array.difference(Record.keys(ayahsBySurah), uniqueSurahs.map(({ number }) => String(number)));
+        const missing = Array.difference(
+            Record.keys(ayahsBySurah),
+            uniqueSurahs.map(({ number }) => String(number)),
+        );
         yield* Array.match(missing, { onEmpty: () => Effect.void, onNonEmpty: (keys) => Unmatched.make({ subject: 'surah', query: Option.some(keys.join(', ')), candidates: uniqueSurahs.map(({ number }) => String(number)) }) });
         return Quran.make({
             surahs: Array.sortWith(

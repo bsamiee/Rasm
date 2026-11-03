@@ -1,12 +1,12 @@
 import { NodeServices } from '@effect/platform-node';
-import { Array, Config, Effect, FileSystem, Option, Path, Record, Schema, Struct } from 'effect';
+import { Array, Config, Effect, FileSystem, Option, Path, Record, Schema } from 'effect';
 import { loadConfigFromFile } from 'vite';
 import { mergeConfig, type ViteUserConfig, type ViteUserConfigFnPromise } from 'vitest/config';
 import { decodeFile, Package } from '#/eng/typescript/manifest';
 import { Yaml } from '#/eng/typescript/parsed';
 import { located } from '#/vite.shared';
 
-// --- [CONSTANTS]-----------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ROOT = import.meta.dirname;
 
@@ -24,24 +24,10 @@ const defaults = Effect.fnUntraced(function* (directory: string) {
         test: {
             attachmentsDir: path.join(results, 'attachments'),
             ...(Record.has(devDependencies, '@vitest/browser-playwright')
-                ? {
-                      browser: {
-                          provider: (yield* Effect.promise(() => import('@vitest/browser-playwright'))).playwright(),
-                          headless: true,
-                          instances: [{ browser: 'chromium' }],
-                          locators: { errorFormat: 'aria' },
-                          trace: { mode: 'retain-on-failure', tracesDir: path.join(results, 'traces') },
-                      },
-                  }
+                ? { browser: { provider: (yield* Effect.promise(() => import('@vitest/browser-playwright'))).playwright(), headless: true, instances: [{ browser: 'chromium' }], locators: { errorFormat: 'aria' }, trace: { mode: 'retain-on-failure', tracesDir: path.join(results, 'traces') } } }
                 : {}),
             chaiConfig: { includeStack: true, truncateThreshold: 0 },
-            dir: path.join(
-                tests,
-                ...path
-                    .relative(ROOT, directory)
-                    .split(path.sep)
-                    .filter((segment) => segment !== path.basename(tests)),
-            ),
+            dir: path.join(tests, ...Array.filter(path.relative(ROOT, directory).split(path.sep), (segment, at) => at !== 1 || segment !== path.basename(tests))),
             coverage: {
                 exclude: ['**/*.d.ts', '**/*.config.ts', '**/tests/**', '**/.storybook/**'],
                 include: ['**/*.{ts,tsx,mts,cts}'],
@@ -72,19 +58,9 @@ const project =
         Effect.gen(function* () {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const storybook = path.join(directory, '.storybook');
-            const [app, base, stories] = yield* Effect.all(
-                [
-                    Effect.promise(() => loadConfigFromFile(env, undefined, directory)),
-                    defaults(directory),
-                    Effect.when(
-                        Effect.promise(() => import('@storybook/addon-vitest/vitest-plugin')),
-                        fs.exists(path.join(storybook, 'main.ts')),
-                    ),
-                ],
-                { concurrency: 'unbounded' },
-            );
+            const [app, base, stories] = yield* Effect.all([Effect.promise(() => loadConfigFromFile(env, undefined, directory)), defaults(directory), Effect.when(Effect.promise(() => import('@storybook/addon-vitest/vitest-plugin')), fs.exists(path.join(storybook, 'main.ts')))], { concurrency: 'unbounded' });
             const configs = [
-                ...Option.toArray(Option.map(Option.fromNullishOr(app), Struct.get('config'))),
+                ...Option.toArray(Option.fromNullishOr(app?.config)),
                 base,
                 config,
                 ...Option.toArray(Option.map(stories, ({ storybookTest }) => ({ test: { projects: [{ plugins: [storybookTest({ configDir: storybook })], test: { name: 'storybook', dir: storybook, browser: { enabled: true }, api: { allowWrite: true } } }] } }))),

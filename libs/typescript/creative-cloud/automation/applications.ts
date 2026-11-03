@@ -68,9 +68,7 @@ const usage = {
             cpu: Schema.Finite.pipe(Schema.decodeTo(Schema.Duration, SchemaTransformation.transform({ decode: Duration.seconds, encode: Duration.toSeconds }))).annotate({ description: 'CPU time' }),
             footprint: Schema.ByteSizeFromNumber.annotate({ description: 'Physical footprint' }),
             threads: Schema.Int,
-        }).annotate({
-            description: 'On read and on turning unresponsive',
-        }),
+        }).annotate({ description: 'On read and on turning unresponsive' }),
     ),
     usageFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Usage read failure' })),
 };
@@ -90,8 +88,8 @@ const State = Schema.Union([
         Schema.decodeTo(
             Schema.toType(Schema.TaggedStruct('Launching', usage)),
             SchemaTransformation.transform({
-                decode: ({ running }) => ({ _tag: 'Launching' as const, ...Struct.pick(running, ['usage', 'usageFailure']) }),
-                encode: (launching) => ({ running: { status: { launching: {} }, ...Struct.pick(launching, ['usage', 'usageFailure']) } }),
+                decode: ({ running }) => ({ _tag: 'Launching' as const, ...Struct.pick(running, Struct.keys(usage)) }),
+                encode: (launching) => ({ running: { status: { launching: {} }, ...Struct.pick(launching, Struct.keys(usage)) } }),
             }),
         ),
     ),
@@ -99,8 +97,8 @@ const State = Schema.Union([
         Schema.decodeTo(
             Schema.toType(Schema.TaggedStruct('Responding', { ...elements, ...usage, answering: Schema.Boolean.annotate({ description: 'An element requires an answer' }) })),
             SchemaTransformation.transform({
-                decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding, answering: running.status.responding.elements.some(Struct.get('requiresAnswer')), ...Struct.pick(running, ['usage', 'usageFailure']) }),
-                encode: (responding) => ({ running: { status: { responding: Struct.pick(responding, ['elements', 'windows']) }, ...Struct.pick(responding, ['usage', 'usageFailure']) } }),
+                decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding, answering: running.status.responding.elements.some(Struct.get('requiresAnswer')), ...Struct.pick(running, Struct.keys(usage)) }),
+                encode: (responding) => ({ running: { status: { responding: Struct.pick(responding, ['elements', 'windows']) }, ...Struct.pick(responding, Struct.keys(usage)) } }),
             }),
         ),
     ),
@@ -108,8 +106,8 @@ const State = Schema.Union([
         Schema.decodeTo(
             Schema.toType(Schema.TaggedStruct('Unresponsive', { ...unresponsive, ...usage })),
             SchemaTransformation.transform({
-                decode: ({ running }) => ({ _tag: 'Unresponsive' as const, ...running.status.unresponsive, ...Struct.pick(running, ['usage', 'usageFailure']) }),
-                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, ['process', 'windows']) }, ...Struct.pick(value, ['usage', 'usageFailure']) } }),
+                decode: ({ running }) => ({ _tag: 'Unresponsive' as const, ...running.status.unresponsive, ...Struct.pick(running, Struct.keys(usage)) }),
+                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, ['process', 'windows']) }, ...Struct.pick(value, Struct.keys(usage)) } }),
             }),
         ),
     ),

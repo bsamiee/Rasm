@@ -1,5 +1,5 @@
 import { NodeHttpClient, NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Effect, FileSystem, Layer, Option, Schema } from 'effect';
+import { Effect, FileSystem, Layer, Option, Predicate, Schema, String } from 'effect';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 import { findMaxSatisfying, isValid } from 'verkit';
 import { CST, Parser } from 'yaml';
@@ -27,7 +27,7 @@ const locate = (token: CST.Token | undefined, key: string) => (CST.isCollection(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 Effect.gen(function* () {
-    const [fs, client] = yield* Effect.all([FileSystem.FileSystem, HttpClient.HttpClient]);
+    const fs = yield* FileSystem.FileSystem;
     const file = 'pnpm-workspace.yaml';
     const text = yield* fs.readFileString(file);
     const { catalog, catalogs } = yield* Schema.decodeEffect(Catalog)(text);
@@ -35,30 +35,19 @@ Effect.gen(function* () {
     const document = tokens.find((token) => token.type === 'document')?.value;
     const [, repository] = catalog['tree-sitter-swift'];
     const range = `^${catalogs.docgen.typescript[1]}`;
-    const [typescript, grammar, compiler] = yield* Effect.all(
+    const [{ tags }, grammar, compiler] = yield* Effect.all(
         [
-            HttpClient.filterStatusOk(client)
-                .get(`https://raw.githubusercontent.com/Effect-TS/tsgo/@effect/tsgo@${catalog['@effect/tsgo']}/_packages/tsgo/upstream.json`)
-                .pipe(
-                    Effect.flatMap(HttpClientResponse.schemaBodyJson(Upstream)),
-                    Effect.map(({ tags }) => tags.typescript.next),
-                ),
-            newest(
-                `https://github.com/${repository}`,
-                Option.liftPredicate((tag: string) => isValid(tag) && tag.endsWith('-with-generated-files')),
-            ),
-            run('pnpm', ['view', 'typescript', 'versions', '--json']).pipe(
-                Effect.flatMap(Schema.decodeEffect(Versions)),
-                Effect.flatMap((versions) => Effect.fromNullishOr(findMaxSatisfying(versions, range)).pipe(Effect.mapError(() => NoRelease.make({ subject: `npm typescript ${range}` })))),
-            ),
+            HttpClient.get(`https://raw.githubusercontent.com/Effect-TS/tsgo/@effect/tsgo@${catalog['@effect/tsgo']}/_packages/tsgo/upstream.json`).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk), Effect.flatMap(HttpClientResponse.schemaBodyJson(Upstream))),
+            newest(`https://github.com/${repository}`, Option.liftPredicate(Predicate.and(isValid, String.endsWith('-with-generated-files')))),
+            Effect.flatMap(run('pnpm', ['view', 'typescript', 'versions', '--json']), Schema.decodeEffect(Versions)).pipe(Effect.flatMap((versions) => Effect.fromOption(Option.fromNullishOr(findMaxSatisfying(versions, range)), () => NoRelease.make({ subject: `npm typescript ${range}` })))),
         ],
         { concurrency: 'unbounded' },
     );
     const rows = [
-        [['catalog', 'typescript'], typescript],
+        [['catalog', 'typescript'], tags.typescript.next],
         [['catalog', 'tree-sitter-swift'], `github:${repository}#${grammar}`],
         [['catalogs', 'docgen', 'typescript'], `npm:typescript@${compiler}`],
     ] as const;
     yield* Effect.forEach(rows, ([path, value]) => Effect.map(Effect.fromNullishOr(path.reduce<CST.Token | undefined>(locate, document)), (token) => CST.setScalarValue(token, value)), { discard: true });
-    yield* fs.writeFileString(file, tokens.map((token) => CST.stringify(token)).join(''));
+    yield* fs.writeFileString(file, tokens.map(CST.stringify).join(''));
 }).pipe(Effect.provide(Layer.merge(NodeServices.layer, NodeHttpClient.layerUndici)), NodeRuntime.runMain);

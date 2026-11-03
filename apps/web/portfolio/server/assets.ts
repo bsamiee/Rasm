@@ -70,7 +70,7 @@ const beginUpload = Effect.fn('beginUpload')(
                 body: { ...metadata, uploads: [{ id: attemptId, discard: false, objects: expected.map(({ key, width }) => ({ key, ...Option.match(width, { onNone: () => ({}), onSome: (rendition) => ({ width: rendition }) }) })) } satisfies typeof UploadAttempt.Encoded] },
             }),
         ),
-    Effect.map(({ objectKey }) => objectKey),
+    Effect.map(({ objectKey }) => Option.isSome(objectKey)),
     Effect.catchTag(['SqlError', 'SchemaError'], unavailable, () => Effect.fail(HttpApiError.Conflict.make())),
 );
 const attachUpload = Effect.fn('attachUpload')(
@@ -128,17 +128,15 @@ const releaseUploads = Effect.fn('releaseUploads')(
                     const released = (...conditions: readonly Statement.Fragment[]) => sql`SELECT (
                         SELECT json_group_array(json(o.value)) FROM json_each(a.uploads) u, json_each(u.value, '$.objects') o WHERE ${sql.and([sql`u.value ->> '$.discard' = 1`, ...conditions])}
                     ) AS objects FROM assets a WHERE a.id = ${assetId}`;
-                    return Effect.map(
-                        Release.$match(release, {
-                            Abandon: ({ attemptId }) => {
-                                const attempt = sql`u.value ->> '$.id' = ${attemptId}`;
-                                return atomic([discard(attempt, pending), released(attempt)]);
-                            },
-                            Discard: () => atomic([discard(pending), released()]),
-                            Delete: () => atomic([sql`UPDATE assets SET body = json_set(body, '$.removing', json('true')) WHERE id = ${assetId} AND NOT EXISTS (SELECT 1 FROM (${references(sql)}) WHERE asset_id = assets.id)`, discard(sql`removing IS TRUE`), sql`${released()} AND a.removing IS TRUE`]),
-                        }),
-                        Array.lastNonEmpty,
-                    );
+                    const statements = Release.$match(release, {
+                        Abandon: ({ attemptId }) => {
+                            const attempt = sql`u.value ->> '$.id' = ${attemptId}`;
+                            return [discard(attempt, pending), released(attempt)] as const;
+                        },
+                        Discard: () => [discard(pending), released()] as const,
+                        Delete: () => [sql`UPDATE assets SET body = json_set(body, '$.removing', json('true')) WHERE id = ${assetId} AND NOT EXISTS (SELECT 1 FROM (${references(sql)}) WHERE asset_id = assets.id)`, discard(sql`removing IS TRUE`), sql`${released()} AND a.removing IS TRUE`] as const,
+                    });
+                    return Effect.map(atomic(statements), Array.lastNonEmpty);
                 },
             })(release.assetId),
         ),
@@ -164,7 +162,7 @@ const finishRelease = Effect.fn('finishRelease')(
 );
 const releaseObjects = Effect.fnUntraced(function* (release: Release) {
     const [released, failures] = yield* Effect.partition(yield* releaseUploads(release), ({ key, uploadId }) => Effect.as(ObjectStorage.remove(key, uploadId), key), { concurrency: 'unbounded' });
-    yield* Array.match(released, { onEmpty: () => Effect.void, onNonEmpty: (keys) => finishRelease(release.assetId, keys) });
+    yield* Array.isReadonlyArrayNonEmpty(released) ? finishRelease(release.assetId, released) : Effect.void;
     if (Array.isReadonlyArrayNonEmpty(failures)) {
         yield* Effect.logError('object delete failed', ...failures.map(Cause.fail));
         return yield* HttpApiError.ServiceUnavailable.make();
@@ -190,14 +188,14 @@ const assetGroup = HttpApiBuilder.group(Api, 'assets', (handlers) =>
                 const expected = objects(asset, attempt);
                 const stored = yield* Effect.acquireRelease(beginUpload(asset, attempt, expected), (_, exit) => (Exit.isFailure(exit) ? releaseObjects(Release.Abandon({ assetId: asset.id, attemptId: attempt })).pipe(Effect.ignore({ log: 'Error', message: 'abandoned upload release failed' })) : Effect.void));
                 yield* parts.pipe(
-                    Stream.mapEffect((part, index) => receive(asset.id, Option.isSome(stored), expected, index, part)),
+                    Stream.mapEffect((part, index) => receive(asset.id, stored, expected, index, part)),
                     Stream.runCount,
                     Effect.filterOrFail(
                         (received) => received === expected.length,
                         (received) => UploadRefused.make({ reason: { _tag: 'Count', expected: expected.length, received } }),
                     ),
                 );
-                yield* Option.match(stored, { onNone: () => completeUpload(asset.id, attempt), onSome: () => Effect.void });
+                yield* stored ? Effect.void : completeUpload(asset.id, attempt);
                 return { id: asset.id };
             },
             Effect.scoped,

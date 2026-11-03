@@ -1,21 +1,28 @@
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { NodeHttpServer } from '@effect/platform-node';
-import { Config, ConfigProvider, Effect, Function, Layer, Logger, Match, Record, Schema } from 'effect';
+import { Config, ConfigProvider, Effect, Layer, Logger, Record, Result, Schema, Struct } from 'effect';
 import { FetchHttpClient, HttpEffect, HttpRouter, HttpServerResponse, HttpStaticServer } from 'effect/http';
 import { Otlp, OtlpSerialization } from 'effect/observability';
 import { vite } from '#/node/vite';
 import { Page } from '#/page/render';
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+interface Field extends Struct.Lambda {
+    (binding: { readonly type: string }): typeof Schema.UnknownFromJsonString | typeof Schema.String;
+    readonly '~lambda.out': this['~lambda.in'] extends { readonly type: 'json' } ? typeof Schema.UnknownFromJsonString : typeof Schema.String;
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const server = <K extends string, A, E, R>(config: { readonly name: string; readonly env: Record.ReadonlyRecord<K, { readonly type: string }> }, app: (env: Record.ReadonlyRecord<K, string>) => Layer.Layer<A, E, R>) => {
+const server = <B extends Record.ReadonlyRecord<string, { readonly type: string }>, A, E, R>(config: { readonly name: string; readonly env: B }, app: (env: Schema.Struct<{ [K in keyof B]: Struct.Apply<Field, B[K]> }>['Type']) => Layer.Layer<A, E, R>) => {
     const root = join(import.meta.dirname, vite.layout.assets);
     return Layer.unwrap(
         Effect.gen(function* () {
             const [env, files] = yield* Effect.all([
-                Config.schema(Schema.Record(Schema.Literals(Record.keys(config.env)), Schema.String)).pipe(
-                    Effect.provide(ConfigProvider.layerAdd(ConfigProvider.fromUnknown(Record.filterMap(config.env, Match.type<{ readonly type: string }>().pipe(Match.when({ type: 'assets' }, Function.constant(root)), Match.result))), { asPrimary: true })),
+                Config.schema(Schema.Struct(Struct.map(config.env, Struct.lambda<Field>(({ type }) => (type === 'json' ? Schema.UnknownFromJsonString : Schema.String))))).pipe(
+                    Effect.provide(ConfigProvider.layerAdd(ConfigProvider.fromUnknown(Record.filterMap(config.env, ({ type }) => (type === 'assets' ? Result.succeed(root) : Result.failVoid))), { asPrimary: true })),
                 ),
                 HttpStaticServer.make({ root }),
             ]);
@@ -28,7 +35,7 @@ const server = <K extends string, A, E, R>(config: { readonly name: string; read
                         { global: true },
                     ),
                 ),
-            ).pipe(Layer.provide(Layer.succeed(Page, { fetch: HttpEffect.toWebHandler(files) })));
+            ).pipe(Layer.provide(Page.layer({ fetch: HttpEffect.toWebHandler(files) })));
         }),
     ).pipe(
         Layer.provide([

@@ -6,7 +6,7 @@ import { placementAlt } from '#/media/labels.ts';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
 import { assetUrl } from '#/model/api.ts';
 import type { ImageAsset } from '#/model/asset.ts';
-import { type Placement, placementDimensions } from '#/model/placement.ts';
+import type { Placement } from '#/model/placement.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -16,7 +16,6 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
     const nearby = useInView(viewport ?? video, { margin: '200px' });
     const visible = useInView(viewport ?? video);
     const [attempt, setAttempt] = useState({ count: 0, failed: false });
-    const { width, height } = placementDimensions(placement);
     const url = assetUrl(placement.asset);
     const label = placementAlt(placement);
     const thumbnail = presentation === 'preview' || presentation === 'thumbnail';
@@ -45,7 +44,7 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
                     </Suspense>
                 </ErrorBoundary>
             ),
-            video: ({ poster }) =>
+            video: ({ poster, asset: { width, height } }) =>
                 thumbnail && poster !== undefined ? (
                     <img alt={label} className="block size-full object-contain" decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={assetUrl(poster)} srcSet={imageSourceSet(poster)} width={width} />
                 ) : (
@@ -63,14 +62,14 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
                         Match.when({ active: true }, () => 'auto' as const),
                         Match.orElse(() => 'low' as const),
                     )}
-                    height={height}
+                    height={image.asset.height}
                     key={attempt.count}
                     loading={expanded || eager ? 'eager' : 'lazy'}
                     onError={fail}
                     sizes={eager ? '100vw' : 'auto, 100vw'}
                     src={url}
                     srcSet={expanded ? undefined : imageSourceSet(image.asset)}
-                    width={width}
+                    width={image.asset.width}
                 />
             ),
         }),

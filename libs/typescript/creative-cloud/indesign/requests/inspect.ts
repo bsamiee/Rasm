@@ -32,13 +32,13 @@ const applicationView = Model.view(
         );
         const window = Option.liftThrowable(() => app.activeWindow.toSpecifier())();
         return yield* Model.read(ApplicationView, app.toSpecifier(), () => {
-            const panels = Array.getSomes(Array.makeBy(app.panels.length, (index) => Option.fromUndefinedOr(app.panels.item(index))));
+            const panels = app.panels.everyItem();
             return {
                 _tag: 'Application',
                 ...Model.referenceUnsafe(app),
                 version: app.version,
                 tool: app.toolBoxTools.currentTool,
-                panels: Array.filterMap(panels, ({ visible, name }) => (visible ? Result.succeed(name) : Result.failVoid)),
+                panels: Array.filterMap(Array.zip(panels.visible, panels.name), ([visible, name]) => (visible ? Result.succeed(name) : Result.failVoid)),
                 documents: summaries,
                 current: Option.map(opened, (document) => ({
                     document: document.toSpecifier(),
@@ -83,7 +83,7 @@ const values = Effect.fn('values')(function* (found: InDesignDOMObject<unknown>,
 const object = Effect.fn('object')(function* (found: InDesignDOMObject<unknown>, fields: Option.Option<readonly string[]>, slice: Slice) {
     const model = yield* Model;
     const { fields: own } = yield* Cache.get(model.declarations, found.constructorName);
-    const viewed = Option.firstSomeOf(views.map((each) => each(model)(found, slice)));
+    const viewed = Option.firstSomeOf(views.map((each) => each(model, found, slice)));
     const view = Option.isSome(viewed) ? Option.some(yield* viewed.value) : Option.none();
     const entries = yield* values(
         found,
@@ -101,12 +101,12 @@ const object = Effect.fn('object')(function* (found: InDesignDOMObject<unknown>,
     return Inspect.Object.make({ ...reference, view, fields: yield* Model.read(Inspect.Readings, found.toSpecifier(), () => scalars), collections });
 });
 const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: Inspect) {
-    const [found, { domObject }] = yield* Effect.all([Model.resolve(target), Model]);
+    const [found, { domObject }, path] = yield* Effect.all([Model.resolve(target), Model, target.path]);
     return yield* domObject(found)
         ? object(found, fields, slice)
         : Effect.flatMap(
               Effect.forEach(slice.of(found), (item) => Effect.all({ own: Model.reference(item), entries: values(item, Option.getOrElse(fields, Array.empty)) }).pipe(Effect.map(({ own, entries }) => ({ ...own, fields: entries })))),
-              (items) => Model.read(Inspect.Items, target.path, () => ({ _tag: 'Items', specifier: target.path, total: found.length, items })),
+              (items) => Model.read(Inspect.Items, path, () => ({ _tag: 'Items', specifier: path, total: found.length, items })),
           );
 });
 

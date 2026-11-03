@@ -6,7 +6,7 @@ import { Composition, Placement } from '#/model/placement.ts';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const EntryId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('EntryId'));
-const text = Schema.String.pipe(Schema.withConstructorDefault(Effect.succeed('')));
+const text = Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed('')), Schema.withConstructorDefault(Effect.succeed('')));
 const Entry = Schema.Struct({
     id: EntryId,
     kind: Schema.Literals(['project', 'study']),
@@ -17,18 +17,18 @@ const Entry = Schema.Struct({
     role: text,
     credits: text,
     cover: Schema.optionalKey(Placement),
-    compositions: Schema.Array(Composition).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
+    compositions: Schema.Array(Composition).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
 });
 const PortfolioStructure = Schema.Struct({
     name: text,
     introduction: text,
-    email: Schema.String.check(Schema.makeFilter((value) => value === '' || isEmail(value), { expected: 'email address or empty string' })).pipe(Schema.withConstructorDefault(Effect.succeed(''))),
+    email: Schema.String.check(Schema.makeFilter((value) => value === '' || isEmail(value), { expected: 'email address or empty string' })).pipe(Schema.withDecodingDefaultKey(Effect.succeed('')), Schema.withConstructorDefault(Effect.succeed(''))),
     hero: Schema.optionalKey(Placement),
-    entries: Schema.Array(Entry).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
+    entries: Schema.Array(Entry).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
 });
-const uniqueIds = Schema.makeFilter((document: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
-    [{ path: ['entries'], ids: document.entries.map(({ id }) => id) }, ...document.entries.map((entry, index) => ({ path: ['entries', index, 'compositions'], ids: entry.compositions.map(({ id }) => id) }))].flatMap(({ path, ids }) =>
-        Array.match(Record.keys(Record.filter(Array.groupBy(ids, Function.identity), (repeats) => repeats.length > 1)), { onEmpty: () => [], onNonEmpty: (repeated) => [{ path, issue: `IDs repeat: ${repeated.join(', ')}` }] }),
+const uniqueIds = Schema.makeFilter(({ entries = [] }: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
+    [{ path: ['entries'], ids: entries.map(({ id }) => id) }, ...entries.map(({ compositions = [] }, index) => ({ path: ['entries', index, 'compositions'], ids: compositions.map(({ id }) => id) }))].flatMap(({ path, ids }) =>
+        Function.pipe(Array.groupBy(ids, Function.identity), Record.filter((repeats) => repeats.length > 1), Record.keys, Array.match({ onEmpty: () => [], onNonEmpty: (repeated) => [{ path, issue: `IDs repeat: ${repeated.join(', ')}` }] })),
     ),
 );
 const Portfolio = PortfolioStructure.check(uniqueIds);

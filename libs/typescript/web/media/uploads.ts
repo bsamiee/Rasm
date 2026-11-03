@@ -4,13 +4,13 @@ import { Atom } from 'effect/reactivity';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const uploaderState = <M extends Meta, B extends Body, A>(uploader: Atom.Atom<Uppy<M, B>>, select: (state: State<M, B>) => A) =>
+const state = <M extends Meta, B extends Body, A>(uploader: Atom.Atom<Uppy<M, B>>, select: (state: State<M, B>) => A) =>
     Atom.make((get) => {
         const current = get(uploader);
         get.addFinalizer(current.store.subscribe((_, next) => get.setSelf(select(next))));
         return select(current.getState());
     });
-const preprocess = Effect.fn('preprocess')(function* <M extends Meta, B extends Body, E extends Parameters<UppyEventMap<M, B>['upload-error']>[1], R>(
+const preprocess = Effect.fn('Uploads.preprocess')(function* <M extends Meta, B extends Body, E extends Parameters<UppyEventMap<M, B>['upload-error']>[1], R>(
     uploader: Uppy<M, B>,
     prepare: (file: UppyFile<M, B>, data: Blob) => Effect.Effect<Partial<M>, E, R>,
     { concurrency, message }: { readonly concurrency: Types.Concurrency; readonly message: string },
@@ -41,7 +41,8 @@ const preprocess = Effect.fn('preprocess')(function* <M extends Meta, B extends 
         () => Effect.sync(() => uploader.removePreProcessor(processor)),
     );
 });
+const Uploads = { state, preprocess };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { preprocess, uploaderState };
+export { Uploads };

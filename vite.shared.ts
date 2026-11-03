@@ -2,14 +2,11 @@ import { globSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import process from 'node:process';
-import { cloudflare } from '@cloudflare/vite-plugin';
 import { NodeServices } from '@effect/platform-node';
 import { ExtensionManifest } from '@rasm/cep/manifest';
-import { Link } from '@rasm/uxp/link';
 import { Manifest } from '@rasm/uxp/manifest';
-import { transformSync } from '@swc/core';
 import viteReact from '@vitejs/plugin-react';
-import { Array, Config, Effect, Function, Option, Predicate, Record, Result, Schema, String, Struct } from 'effect';
+import { Array, Cause, Config, Effect, Function, Option, Predicate, Record, Result, Schema, String } from 'effect';
 import type { HttpRouter } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { build } from 'plist';
@@ -37,28 +34,23 @@ const IDENTIFIER = Config.String('PRODUCT_BUNDLE_IDENTIFIER');
 // --- [PROJECT]
 
 const located = (folder: string, directory: string) => join(ROOT, folder, relative(ROOT, directory));
-const daemon = (directory: string) =>
-    Effect.flatMap(Mise.read(ROOT), ({ daemons }) => {
-        const ports = Record.filterMap(daemons, (row) => (Predicate.isString(row) ? Result.failVoid : Result.fromOption(row.port, Function.constVoid)));
-        return Effect.fromOption(Array.findLast(relative(ROOT, directory).split(sep), (name) => Option.map(Record.get(ports, name), (port) => ({ name, port }))));
-    });
-const dialed = (directory: string, { path, redial }: Linking) =>
-    Effect.map(daemon(directory), ({ port }) => {
-        const origin = Link.origin(port);
-        return { origin, define: { 'import.meta.env.LINK': JSON.stringify({ endpoint: `${origin}${path}`, redial } satisfies ImportMetaEnv['LINK']) } };
-    });
-const identity = (directory: string) =>
-    Effect.all(
-        {
-            id: Effect.map(IDENTIFIER, (identifier) => `${identifier}.${basename(directory)}`),
-            name: Effect.map(Package.read(directory), Struct.get('description')),
-            version: Config.String('MinVerTagPrefix').pipe(
-                Effect.flatMap((prefix) => run('minver', ['-t', prefix, '-v', 'e'])),
-                Effect.flatMap((text) => Schema.decodeEffect(Manifest.Version)(Array.headNonEmpty(String.split(String.trim(text), PRERELEASE)))),
-            ),
-        },
-        { concurrency: 'unbounded' },
-    );
+const daemon = Effect.fnUntraced(function* (directory: string) {
+    const { daemons } = yield* Mise.read(ROOT);
+    const ports = Record.filterMap(daemons, (row) => (Predicate.isString(row) ? Result.failVoid : Result.fromOption(row.port, Function.constVoid)));
+    const found = Array.findLast(relative(ROOT, directory).split(sep), (name) => Option.map(Record.get(ports, name), (port) => ({ name, port })));
+    return yield* Effect.fromOption(found, () => new Cause.NoSuchElementError(`No mise daemon with a port names a folder of ${directory}`));
+});
+const dialed = Effect.fnUntraced(function* (directory: string, { path, redial }: Linking) {
+    const [{ port }, { Link }] = yield* Effect.all([daemon(directory), Effect.promise(() => import('@rasm/uxp/link'))], { concurrency: 'unbounded' });
+    const origin = Link.origin(port);
+    return { origin, define: { 'import.meta.env.LINK': JSON.stringify({ endpoint: `${origin}${path}`, redial } satisfies ImportMetaEnv['LINK']) } };
+});
+const identity = Effect.fnUntraced(function* (directory: string) {
+    const [identifier, { description }, prefix] = yield* Effect.all([IDENTIFIER, Package.read(directory), Config.String('MinVerTagPrefix')], { concurrency: 'unbounded' });
+    const release = yield* run('minver', ['-t', prefix, '-v', 'e']);
+    const version = yield* Schema.decodeEffect(Manifest.Version)(Array.headNonEmpty(String.split(String.trim(release), PRERELEASE)));
+    return { id: `${identifier}.${basename(directory)}`, name: description, version };
+});
 
 // --- [BUNDLE]
 
@@ -95,11 +87,11 @@ const bundled = (directory: string, asset: Required<Pick<Rolldown.EmittedAsset, 
 
 const react = () => viteReact({ compiler: { panicThreshold: 'all_errors' } });
 const worker =
-    (directory: string, plugins: PluginOption, hosting: PluginOption): UserConfigFnPromise =>
+    (directory: string, { plugins, hosting }: { readonly plugins: PluginOption; readonly hosting: PluginOption }): UserConfigFnPromise =>
     ({ mode }) =>
         Effect.gen(function* () {
-            const tooling = Array.some(yield* Effect.all([Config.withDefault(Config.Boolean('STORYBOOK'), false), Config.withDefault(Config.Boolean('VITEST'), false)]), Boolean);
-            const hosted = tooling ? [] : [hosting, cloudflare({ types: { generate: false }, ...(mode === testMode ? { persistState: false, inspectorPort: false } : { persistState: { path: located(join('.cache', 'cloudflare'), directory) } }) })];
+            const [storybook, vitest] = yield* Effect.all([Config.withDefault(Config.Boolean('STORYBOOK'), false), Config.withDefault(Config.Boolean('VITEST'), false)]);
+            const hosted = storybook || vitest ? [] : [hosting, (yield* Effect.promise(() => import('@cloudflare/vite-plugin'))).cloudflare({ types: { generate: false }, ...(mode === testMode ? { persistState: false, inspectorPort: false } : { persistState: { path: located(join('.cache', 'cloudflare'), directory) } }) })];
             return { build: { target: 'esnext', rolldownOptions: { experimental: EXPERIMENTAL } }, plugins: [plugins, hosted] };
         }).pipe(Effect.runPromise);
 const uxp =
@@ -114,14 +106,14 @@ const cep =
     (directory: string, contract: { readonly host: ExtensionManifest['host']; readonly script: string }, link: Linking): UserConfigFnPromise =>
     () =>
         Effect.gen(function* () {
-            const [{ define }, release] = yield* Effect.all([dialed(directory, link), identity(directory)], { concurrency: 'unbounded' });
-            const manifest = ExtensionManifest.make({ host: contract.host, ...release });
+            const [{ define }, release, { transformSync }] = yield* Effect.all([dialed(directory, link), identity(directory), Effect.promise(() => import('@swc/core'))], { concurrency: 'unbounded' });
+            const load = createRequire(join(directory, Package.file));
             const extendscript = { name: 'extendscript', renderChunk: (code) => transformSync(code, { jsc: { target: ExtensionManifest.target, parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } } }).code } satisfies Rolldown.Plugin;
             const panel = {
                 name: 'panel',
                 generateBundle(this: Rolldown.PluginContext): void {
                     this.emitFile({ type: 'asset', fileName: ExtensionManifest.panel, source: `<!doctype html><meta charset="utf-8"><script src="${ENTRY}.js"></script>\n` });
-                    this.emitFile({ type: 'asset', fileName: ExtensionManifest.file, source: manifest.xml });
+                    this.emitFile({ type: 'asset', fileName: ExtensionManifest.file, source: ExtensionManifest.make({ host: contract.host, ...release }).xml });
                 },
             } satisfies Rolldown.Plugin;
             return bundle(directory, {
@@ -129,10 +121,10 @@ const cep =
                 define,
                 build: { rolldownOptions: { preserveEntrySignatures: 'exports-only', output: { format: 'iife' } } },
                 environments: {
-                    client: { build: { target: ExtensionManifest.chromium, rolldownOptions: { input: join(directory, `${ENTRY}.ts`), output: { entryFileNames: '[name].js', plugins: panel } } } },
+                    client: { build: { target: ExtensionManifest.chromium, rolldownOptions: { input: { [ENTRY]: load.resolve('@rasm/cep/entrypoints') }, output: { entryFileNames: '[name].js', plugins: panel } } } },
                     host: {
                         consumer: 'client',
-                        build: { target: 'esnext', minify: false, rolldownOptions: { input: createRequire(join(directory, Package.file)).resolve(contract.script), platform: 'neutral', output: { name: ExtensionManifest.global, exports: 'default', entryFileNames: ExtensionManifest.script, plugins: extendscript } } },
+                        build: { target: 'esnext', minify: false, rolldownOptions: { input: load.resolve(contract.script), platform: 'neutral', output: { name: ExtensionManifest.global, exports: 'default', entryFileNames: ExtensionManifest.script, plugins: extendscript } } },
                     },
                 },
             });
@@ -168,10 +160,7 @@ const sea =
                             handler(this: Rolldown.PluginContext, _options, output): void {
                                 const outDir = located('.artifacts', directory);
                                 const folders = Array.dedupe(Object.values(output).flatMap((file) => (file.type === 'chunk' ? file.moduleIds.filter(isAbsolute).map(dirname) : [])));
-                                const assets = Record.fromIterableWith(
-                                    Array.flatMap(folders, (folder) => globSync('*.wasm', { cwd: folder }).map((file) => join(folder, file))),
-                                    (file) => [basename(file), file],
-                                );
+                                const assets = Record.fromEntries(Array.flatMap(folders, (folder) => globSync('*.wasm', { cwd: folder }).map((file) => [file, join(folder, file)] as const)));
                                 this.emitFile({ type: 'asset', fileName: 'sea.json', source: `${JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets }, null, 4)}\n` });
                                 this.emitFile({ type: 'asset', fileName: join('LaunchAgents', `${label}.plist`), source: agent });
                                 this.emitFile({ type: 'asset', fileName: basename(binding), source: readFileSync(binding) });

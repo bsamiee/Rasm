@@ -5,7 +5,7 @@ import { HttpServerRequest, UrlParams } from 'effect/http';
 
 interface Sites {
     readonly headers: Record.ReadonlyRecord<keyof typeof User.fields, string>;
-    readonly paths: Record.ReadonlyRecord<'signin' | 'signout', string>;
+    readonly paths: Record.ReadonlyRecord<'signin' | 'signout', `/${string}`>;
     readonly returnTo: string;
 }
 

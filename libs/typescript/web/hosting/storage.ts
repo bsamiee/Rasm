@@ -18,20 +18,11 @@ class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: O
     static readonly s3 = (bucket: string, client: S3ClientConfig = {}) =>
         Layer.effect(
             ObjectStorage,
-            Effect.map(
-                Effect.acquireRelease(
-                    Effect.sync(() => new S3Client(client)),
-                    (opened) => Effect.sync(() => opened.destroy()),
-                ),
-                (opened) => {
-                    const uploads = s3UploadStore({ client: opened, bucket });
-                    return {
-                        objects: s3Store({ client: opened, bucket, reservedPrefix: uploads.uploadPrefix }),
-                        uploads,
-                        delete: (key: string) => Effect.tryPromise({ try: (signal) => opened.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), { abortSignal: signal }), catch: failure('delete', key) }).pipe(Effect.asVoid),
-                    };
-                },
-            ),
+            Effect.gen(function* () {
+                const opened = yield* Effect.acquireRelease(Effect.sync(() => new S3Client(client)), (s3) => Effect.sync(() => s3.destroy()));
+                const uploads = s3UploadStore({ client: opened, bucket });
+                return { objects: s3Store({ client: opened, bucket, reservedPrefix: uploads.uploadPrefix }), uploads, delete: (key: string) => Effect.asVoid(Effect.tryPromise({ try: (signal) => opened.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), { abortSignal: signal }), catch: failure('delete', key) })) };
+            }),
         );
     static readonly upload = Effect.fn('ObjectStorage.upload')(function* (object: { readonly key: string; readonly size: ByteSize.ByteSize }) {
         const [{ uploads }, created] = yield* Effect.all([ObjectStorage, Clock.currentTimeMillis]);

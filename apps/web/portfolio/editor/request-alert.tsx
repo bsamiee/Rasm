@@ -12,14 +12,14 @@ type RequestFailure = Atom.Failure<typeof saveRequest>['error'] | Atom.Failure<t
 
 const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { error: E; conflict?: string; onField?: (path: readonly PropertyKey[]) => void } & ([Extract<E, { readonly _tag: 'Conflict' }>] extends [never] ? unknown : { conflict: string })) => (
     <div className="border-accent-text bg-surface border-l-3 p-4 text-sm" role="alert">
-        {Match.value<RequestFailure>(error).pipe(
-            Match.tag('SchemaError', ({ issue }) => (
+        {Match.typeTags<RequestFailure>()({
+            SchemaError: ({ issue }) => (
                 <>
                     <p>Invalid fields</p>
                     <Issues.List issue={issue} onField={onField} />
                 </>
-            )),
-            Match.tag('PlacementConflict', ({ placements }) => (
+            ),
+            PlacementConflict: ({ placements }) => (
                 <>
                     <p>Draft places files missing from library or of another type. Remove each placement or upload its file again</p>
                     <ul>
@@ -28,15 +28,14 @@ const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { 
                         ))}
                     </ul>
                 </>
-            )),
-            Match.tag('PreconditionFailed', ({ revision }) => <p>Draft revision {revision} saved in another tab. Edits stay here until reload replaces them or replacing keeps them</p>),
-            Match.tag('Forbidden', () => <p>Sign in as owner to edit</p>),
-            Match.tag('NotFound', () => <p>Upload data already removed. Refresh list</p>),
-            Match.tag('Conflict', () => <p>{conflict}</p>),
-            Match.tag('ServiceUnavailable', () => <p>Service unavailable. Edits stay here</p>),
-            Match.tag('HttpClientError', () => <p>Request failed. Edits stay here. Try again</p>),
-            Match.exhaustive,
-        )}
+            ),
+            PreconditionFailed: ({ revision }) => <p>Draft revision {revision} saved in another tab. Edits stay here until reload replaces them or replacing keeps them</p>,
+            Forbidden: () => <p>Sign in as owner to edit</p>,
+            NotFound: () => <p>Upload data already removed. Refresh list</p>,
+            Conflict: () => <p>{conflict}</p>,
+            ServiceUnavailable: () => <p>Service unavailable. Edits stay here</p>,
+            HttpClientError: () => <p>Request failed. Edits stay here. Try again</p>,
+        })(error)}
     </div>
 );
 

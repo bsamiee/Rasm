@@ -1,4 +1,36 @@
-import { handle } from '@rasm/extendscript/handle';
+import { assign, file, handle, illegal, indexed, read, step } from '@rasm/extendscript/handle';
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const is = <A>(typename: string, value: unknown): value is A => read(value, 'typename') === typename;
+const isPageItem = (value: unknown): value is PageItem => read(value, 'layer') !== undefined && read(value, 'visibleBounds') !== undefined;
+const owner = (value: unknown): Document | undefined => {
+    if (value === undefined || value === app) {
+        return;
+    }
+    return is<Document>('Document', value) ? value : owner(read(value, 'parent'));
+};
+const specifier = (value: unknown): string | undefined => {
+    const [document, parent, uuid] = [owner(value), read(value, 'parent'), read(value, 'uuid')];
+    const layers = is<Document>('Document', parent) || is<Layer>('Layer', parent) ? parent.layers : undefined;
+    const [kind, siblings] = is<Artboard>('Artboard', value) ? (['artboard', document?.artboards] as const) : (['layer', layers] as const);
+    if (document === undefined) {
+        return;
+    }
+    const reference = step('document', ['fullName', String(document.fullName)]);
+    if (document === value) {
+        return reference;
+    }
+    if (isPageItem(value) && typeof uuid === 'string') {
+        return `${reference}${step('pageItem', ['uuid', uuid])}`;
+    }
+    for (let index = 0; index < (siblings?.length ?? 0); index += 1) {
+        if (siblings?.[index] === value) {
+            return `${specifier(parent)}${indexed(kind, index)}`;
+        }
+    }
+    return;
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -14,53 +46,19 @@ export default handle({
             app.userInteractionLevel = level;
         },
     },
-    specifier: (value, { step, indexed, read }) => {
-        const isDocument = (above: unknown): above is Document => read(above, 'typename') === 'Document';
-        const owner = (above: unknown): Document | undefined => {
-            if (above === undefined || above === app) {
-                return;
-            }
-            return isDocument(above) ? above : owner(read(above, 'parent'));
-        };
-        const document = owner(value);
-        const uuid = read(value, 'layer') === undefined ? undefined : read(value, 'uuid');
-        if (document === undefined) {
-            return;
-        }
-        const reference = step('document', ['fullName', String(document.fullName)]);
-        if (typeof uuid === 'string') {
-            return `${reference}${step('pageItem', ['uuid', uuid])}`;
-        }
-        if (document === value) {
-            return reference;
-        }
-        let found: string | undefined;
-        for (const [kind, collection] of [
-            ['artboard', document.artboards],
-            ['layer', document.layers],
-        ] as const) {
-            for (let index = 0; index < collection.length && found === undefined; index += 1) {
-                found = collection[index] === value ? `${reference}${indexed(kind, index)}` : undefined;
-            }
-        }
-        return found;
-    },
-    open: ({ file: url }, { file }) => app.open(file(url)),
-    render: ({ target, longestSide, options, file: url }, { resolve, assign, file, read, illegal }) => {
-        const isDocument = (value: unknown): value is Document => read(value, 'typename') === 'Document';
-        const isArtboard = (value: unknown): value is Artboard => read(value, 'typename') === 'Artboard';
-        const isPageItem = (value: unknown): value is PageItem => read(value, 'layer') !== undefined && read(value, 'visibleBounds') !== undefined;
+    specifier,
+    open: ({ file: url }) => app.open(file(url)),
+    render: ({ target, longestSide, options, file: url }, resolve) => {
         const chain = resolve(target);
         const [document] = chain;
         const found = chain[chain.length - 1];
-        const bounds = isDocument(found) || isPageItem(found) ? found.visibleBounds : undefined;
-        const rect = isArtboard(found) ? found.artboardRect : bounds;
-        if (!isDocument(document) || rect === undefined) {
+        const bounds = is<Document>('Document', found) || isPageItem(found) ? found.visibleBounds : undefined;
+        const rect = is<Artboard>('Artboard', found) ? found.artboardRect : bounds;
+        if (!is<Document>('Document', document) || rect === undefined) {
             throw illegal(`${target} names a ${String(read(found, 'typename'))} with no bounds`);
         }
         const percent = 100;
-        const longest = Math.max(rect[2] - rect[0], rect[1] - rect[3]);
-        const scale = (longestSide / longest) * percent;
+        const scale = (longestSide / Math.max(rect[2] - rect[0], rect[1] - rect[3])) * percent;
         const { artboards } = document;
         const active = artboards.getActiveArtboardIndex();
         const added = artboards.add(rect);

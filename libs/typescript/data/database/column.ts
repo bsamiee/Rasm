@@ -49,7 +49,7 @@ class Column extends Data.Class<{
     static readonly Bound = Data.taggedEnum<Column['bounds'][number]>();
     static readonly Bytes = Schema.Union([Schema.Uint8Array, Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: byteMaximum })))]).pipe(Schema.decodeTo(Schema.Uint8Array, { decode: SchemaGetter.transform((bytes) => new Uint8Array(bytes)), encode: SchemaGetter.passthroughSubtype() }));
     static readonly Uuid = Schema.String.check(Schema.isUUID(uuidVersion), Schema.isLowercased());
-    static readonly conditions = (where: Where<Fields>) => Array.getSomes(Record.collect(where, (field, predicate) => Option.map(Option.fromUndefinedOr(predicate), (rule) => ({ column: String.camelToSnake(field), predicate: rule }))));
+    static readonly conditions = (where: Where<Fields>) => Record.collect(where, (field, predicate) => (predicate === undefined ? [] : [{ column: String.camelToSnake(field), predicate }])).flat();
     static readonly make = <F extends Fields>(field: Field<F>, schema: F[Field<F>], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[]) => {
         const flat = (node: SchemaRepresentation.Representation): readonly SchemaRepresentation.Representation[] => (node._tag === 'Union' ? node.types.flatMap(flat) : [node]);
         const walk = (ast: SchemaAST.AST) => Array.partition(flat(SchemaRepresentation.toRepresentation(ast, { referencePolicy: () => undefined }).representation), Filter.tagged<SchemaRepresentation.Representation>()('Null'));

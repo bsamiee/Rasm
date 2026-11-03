@@ -69,7 +69,7 @@ interface Shape {
     readonly policy: (sql: SqlClient.SqlClient, owner: string, name: string, type: string, setting: string) => Option.Option<{ readonly name: string; readonly rule: Statement.Fragment; readonly text: (on: Statement.Fragment, role: Statement.Fragment) => Statement.Statement<object> }>;
     readonly comment: (sql: SqlClient.SqlClient, name: string, identity: typeof Reconcile.Identity.Type) => { readonly inline: Statement.Fragment; readonly statements: (relation: Statement.Fragment, column: Option.Option<string>) => readonly Statement.Statement<object>[] };
     readonly refusals: (relation: Relation) => readonly (typeof ReconcileError.Finding.Type)[];
-    readonly role: Option.Option<(sql: SqlClient.SqlClient) => Effect.Effect<string, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError>>;
+    readonly role: (sql: SqlClient.SqlClient) => Effect.Effect<string, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError | Cause.IllegalArgumentError>;
     readonly open: (sql: SqlClient.SqlClient) => Effect.Effect<unknown, SqlError.SqlError>;
     readonly plan: (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>) => Effect.Effect<Effect.Success<ReturnType<ReturnType<typeof Reconcile.diff>['plan']>>, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError | ReconcileError>;
 }
@@ -80,18 +80,10 @@ const flags = { inserted: '#inserted', previous: '#previous', rank: '#rank', hig
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Engine extends Context.Service<Engine, Shape>()('@rasm/database/engine/Engine') {
+class Engine extends Context.Service<Engine, Shape>()('@rasm/database/engine') {
     static readonly layer = Layer.effect(
         Engine,
-        SqlClient.SqlClient.use((sql) =>
-            sql.onDialect({
-                sqlite: () => Effect.succeed<Shape>(Sqlite),
-                pg: () => Effect.succeed<Shape>(Pg),
-                mysql: () => absent('mysql'),
-                mssql: () => absent('mssql'),
-                clickhouse: () => absent('clickhouse'),
-            }),
-        ),
+        SqlClient.SqlClient.use((sql) => sql.onDialect({ sqlite: () => Effect.succeed<Shape>(Sqlite), pg: () => Effect.succeed<Shape>(Pg), mysql: () => absent('mysql'), mssql: () => absent('mssql'), clickhouse: () => absent('clickhouse') })),
     );
     static readonly fragments = (sql: SqlClient.SqlClient, engine: Shape, { name, columns, key }: Pick<Relation, 'name' | 'columns' | 'key'>): Fragments => {
         const all = Object.values(columns);

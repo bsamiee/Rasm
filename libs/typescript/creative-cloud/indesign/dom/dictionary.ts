@@ -1,6 +1,6 @@
 import type { InDesignDOMObject, MenuAction } from 'adobe:indesign';
 import { HostError, ObjectModel } from '@rasm/automation/requests';
-import { Array, Effect, flow, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
+import { Array, Effect, flow, Match, Number, Option, Record, Schema, SchemaGetter, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -51,28 +51,14 @@ const Flagged = Schema.Tuple([Schema.Boolean, ...Typed]);
 const Declared = Schema.Tuple([Schema.OptionFromNullOr(Schema.String), Schema.Array(Flagged), Schema.Array(Schema.Tuple([Schema.Array(Flagged), ...Typed])), Schema.Array(Flagged)]).pipe(
     Schema.decodeTo(Schema.toType(Declaration), {
         decode: SchemaGetter.transform(([parent, properties, methods, statics]) => {
-            const stated = ([name, description, type, array, minimum, maximum]: Schema.Tuple<typeof Typed>['Type']) => {
+            const stated = ([name, description, type, array, minimum, maximum]: Schema.Tuple<typeof Typed>['Type'], flagged = false) => {
                 const described = Option.flatMap(description, Schema.decodeUnknownOption(Described));
-                return { declared: { name, type, types: Option.orElse(Option.map(described, Struct.get('types')), () => Option.map(type, Array.of)), description, array, minimum, maximum }, optional: Option.exists(described, Struct.get('optional')) };
+                return { name, type, types: Option.orElse(Option.map(described, Struct.get('types')), () => Option.map(type, Array.of)), description, array, minimum, maximum, optional: flagged || Option.exists(described, Struct.get('optional')) };
             };
             return {
                 parent,
-                fields: Record.fromIterableWith(properties, ([readonly, ...each]) => [each[0], { ...stated(each).declared, settable: !readonly }]),
-                methods: Record.fromIterableWith(methods, ([parameters, ...each]) => {
-                    const { name, description, type, array } = stated(each).declared;
-                    return [
-                        name,
-                        {
-                            name,
-                            description,
-                            parameters: Array.map(parameters, ([optional, ...parameter]) => {
-                                const { declared, optional: described } = stated(parameter);
-                                return { ...declared, optional: optional || described };
-                            }),
-                            returns: Option.map(type, (returned) => ({ type: returned, array })),
-                        },
-                    ];
-                }),
+                fields: Record.fromIterableWith(properties, ([readonly, ...each]) => [each[0], { ...stated(each), settable: !readonly }]),
+                methods: Record.fromIterableWith(methods, ([parameters, name, description, type, array]) => [name, { name, description, parameters: Array.map(parameters, ([optional, ...parameter]) => stated(parameter, optional)), returns: Option.map(type, (returned) => ({ type: returned, array })) }]),
                 statics: Record.getSomes(Record.fromIterableWith(statics, ([, name, description]) => [name, description])),
             };
         }),
@@ -86,19 +72,13 @@ const Dictionary = {
     aggregate: 'properties',
     read: (indesign: typeof import('adobe:indesign'), kind: string) =>
         Effect.try({ try: (): unknown => indesign.app.doScript(READER, indesign.ScriptLanguage.JAVASCRIPT, [kind]), catch: HostError.refused(`dictionary class ${kind}`) }).pipe(Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.OptionFromNullOr(Declared)), Effect.orDie))),
-    unavailable: (kind: string, field: string, observed: Option.Option<InDesignDOMObject<unknown>>, writing: boolean): Option.Option<string> => {
-        const stylisticSetActions = { minimum: 0x69_74, maximum: 0x69_87 };
-        const id = Option.map(
-            Option.filter(observed, (each): each is MenuAction => each.constructorName === 'MenuAction'),
-            Struct.get('id'),
-        );
-        return Match.value({ kind, field, writing, stylistic: !Option.exists(id, Predicate.not(Number.between(stylisticSetActions))) }).pipe(
+    unavailable: (kind: string, field: string, observed: Option.Option<InDesignDOMObject<unknown>>, writing: boolean): Option.Option<string> =>
+        Match.value({ kind, field, writing, stylistic: !Option.filter(observed, (each): each is MenuAction => each.constructorName === 'MenuAction').pipe(Option.exists(({ id }) => !Number.between(id, { minimum: 0x69_74, maximum: 0x69_87 }))) }).pipe(
             Match.when({ kind: Match.is('FindChangeDropShadowSetting', 'FindChangeInnerShadowSetting'), field: Match.is('angle', 'distance', 'xOffset', 'yOffset', Dictionary.aggregate) }, () => 'Shadow fields crash native Transparency provider'),
             Match.when({ kind: 'EventListener', field: Match.is('handler', Dictionary.aggregate), writing: false }, () => 'Ended UXP context handlers crash InDesign'),
             Match.when({ kind: 'MenuAction', field: Match.is('enabled', 'checked', Dictionary.aggregate), writing: false, stylistic: true }, () => 'Stylistic Set state crashes native CharacterPanel provider'),
             Match.option,
-        );
-    },
+        ),
     undeclared: <S extends typeof ObjectModel.Field | typeof ObjectModel.Method>(schema: S, { name, settable = false }: { readonly name: string; readonly settable?: boolean }) => Effect.orDie(Schema.decodeEffect(schema)({ name, settable, parameters: [] })),
 } as const;
 

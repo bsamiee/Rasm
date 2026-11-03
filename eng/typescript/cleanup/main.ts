@@ -10,14 +10,14 @@ import manifest from '#/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<pgid>\d+)\s+(?<uid>-?\d+)\s+(?<state>\S+)\s+(?:\?\??|(?<terminal>\S+))\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
+const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<uid>-?\d+)\s+(?<state>\S+)\s+(?:\?\??|(?<terminal>\S+))\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
 const RESIDUES = ['.build', '.cache', '.artifacts', '.playwright-cli', '.playwright-mcp'];
 const AGENT = 'dev.mise.';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const IntFromString = Schema.FiniteFromString.check(Schema.isInt());
-const PsRow = fromString('ps row', (line) => PS_ROW.exec(line)?.groups).pipe(Schema.decodeTo(Schema.Struct({ pid: IntFromString, ppid: IntFromString, pgid: IntFromString, uid: IntFromString, state: Schema.String, terminal: Schema.OptionFromUndefinedOr(Schema.String), started: Schema.String, command: Schema.String })));
+const PsRow = fromString('ps row', (line) => PS_ROW.exec(line)?.groups).pipe(Schema.decodeTo(Schema.Struct({ pid: IntFromString, ppid: IntFromString, uid: IntFromString, state: Schema.String, terminal: Schema.OptionFromUndefinedOr(Schema.String), started: Schema.String, command: Schema.String })));
 const LsofRecord = Schema.Union([
     Schema.Struct({ _tag: Schema.tagDefaultOmit('Process'), pid: IntFromString }).pipe(Schema.encodeKeys({ pid: 'p' })),
     Schema.Struct({ _tag: Schema.tagDefaultOmit('File'), descriptor: Schema.String, device: Schema.OptionFromOptionalKey(Schema.String), path: Schema.String }).pipe(Schema.encodeKeys({ descriptor: 'f', device: 'd', path: 'n' })),
@@ -48,7 +48,7 @@ const entries = Effect.fn('entries')(function* (directory: string) {
 });
 const plist = (file: string) => Effect.flatMap(FileSystem.FileSystem, (fs) => fs.readFileString(file)).pipe(Effect.flatMap(Schema.decodeEffect(Plist)));
 const metadata = (cwd: string) => run('cargo', ['metadata', '--no-deps', '--format-version', '1'], { cwd }).pipe(Effect.flatMap(Schema.decodeEffect(CargoMetadata)));
-const listing = records('\n', 'ps', ['-axww', '-o', 'pid=,ppid=,pgid=,uid=,stat=,tty=,lstart=,command='], { env: { LC_ALL: 'C' }, extendEnv: true }).pipe(Effect.flatMap(Schema.decodeEffect(Schema.Array(PsRow))));
+const listing = records('\n', 'ps', ['-axww', '-o', 'pid=,ppid=,uid=,stat=,tty=,lstart=,command='], { env: { LC_ALL: 'C' }, extendEnv: true }).pipe(Effect.flatMap(Schema.decodeEffect(Schema.Array(PsRow))));
 const signal = (pid: number, value: NodeJS.Signals | 0) =>
     Effect.try({ try: () => process.kill(pid, value), catch: (cause) => new Cause.UnknownError(cause, `Signal ${value} to PID ${pid} failed`) }).pipe(
         Effect.catchIf(
@@ -73,24 +73,17 @@ Effect.gen(function* () {
                 run('uv', ['cache', 'prune'], SHOWN),
                 run('pnpm', ['store', 'prune'], SHOWN).pipe(Effect.andThen(run('pnpm', ['cache', 'prune'], SHOWN))),
                 run('cargo', ['insta', 'reject', '--workspace', '--quiet'], SHOWN),
-                Effect.all(
-                    [
-                        run('pulumi', ['plugin', 'ls', '--json']).pipe(Effect.flatMap(Schema.decodeEffect(PulumiPlugins))),
-                        Effect.forEach(Object.keys(manifest.devDependencies), (name) => Effect.map(fs.readFileString(path.join(root, 'node_modules', name, Package.file)), Schema.decodeUnknownOption(PulumiProvider)), { concurrency: 'unbounded' }),
-                    ],
-                    { concurrency: 'unbounded' },
-                ).pipe(
-                    Effect.flatMap(([cached, providers]) =>
-                        accumulate(
-                            Array.difference(
-                                cached.filter(({ kind }) => kind === 'resource'),
-                                Array.getSomes(providers).map(({ pulumi: { name, version } }) => ({ kind: 'resource', name, version })),
-                            ),
-                            ({ kind, name, version }) => run('pulumi', ['plugin', 'rm', kind, name, version, '--yes'], SHOWN),
-                            { concurrency: 'unbounded' },
-                        ),
-                    ),
-                ),
+                Effect.gen(function* () {
+                    const [cached, providers] = yield* Effect.all(
+                        [
+                            run('pulumi', ['plugin', 'ls', '--json']).pipe(Effect.flatMap(Schema.decodeEffect(PulumiPlugins))),
+                            Effect.forEach(Object.keys(manifest.devDependencies), (name) => Effect.map(fs.readFileString(path.join(root, 'node_modules', name, Package.file)), Schema.decodeUnknownOption(PulumiProvider)), { concurrency: 'unbounded' }),
+                        ],
+                        { concurrency: 'unbounded' },
+                    );
+                    const [resources, used] = [cached.filter(({ kind }) => kind === 'resource'), Array.getSomes(providers).map(({ pulumi: { name, version } }) => ({ kind: 'resource', name, version }))];
+                    return yield* accumulate(Array.difference(resources, used), ({ kind, name, version }) => run('pulumi', ['plugin', 'rm', kind, name, version, '--yes'], SHOWN), { concurrency: 'unbounded' });
+                }),
             ],
             identity,
             { concurrency: 'unbounded' },
@@ -154,7 +147,7 @@ Effect.gen(function* () {
     const local = [...Array.cartesianWith(worktrees, ['node_modules', '.venv', ...RESIDUES], path.join), ...checkouts.map(Struct.get('build_directory'))];
     const tools = [...installed, ...developer, ...toolchains.map(Struct.get('path'))];
     const owned = (candidate: (typeof running)[number]) => holds(candidate, 'txt', local) || (holds(candidate, 'txt', tools) && holds(candidate, 'cwd', worktrees));
-    const { uid } = yield* Effect.fromNullishOr(processes.get(process.pid));
+    const { uid } = yield* Effect.fromOption(Option.fromUndefinedOr(processes.get(process.pid)), () => new Cause.NoSuchElementError(`ps lists no PID ${process.pid}`));
     const supervised = [...jobs, ...Array.getSomes(daemons.map(Struct.get('pid')))];
     const exempt = new Set([...ancestors(process.pid), ...supervised.flatMap((pid) => [pid, ...descendants(pid).map(Struct.get('pid'))]), ...running.filter(({ terminal }) => Option.isSome(terminal)).flatMap(({ pid }) => ancestors(pid))]);
     const ends = Array.groupBy(
@@ -167,7 +160,7 @@ Effect.gen(function* () {
         Tuple.get(0),
     );
     const targets = running
-        .filter((leader) => leader.ppid === 1 && !(leader.pgid === leader.pid && owned(leader) && !holds(leader, 'txt', [path.join(pulumi, 'plugins')])))
+        .filter((leader) => leader.ppid === 1)
         .map((leader) => [leader, ...descendants(leader.pid)])
         .filter((group) => group.some(owned) && new Set(group.flatMap(({ pid }) => (peers.get(pid) ?? []).map(Tuple.get(1)))).isSubsetOf(new Set(group.map(Struct.get('pid')))) && !group.some((member) => exempt.has(member.pid) || member.uid !== uid))
         .flatMap((group) => group.filter(({ state }) => !state.startsWith('Z')));

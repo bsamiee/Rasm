@@ -13,7 +13,7 @@ interface ToolRow<A> {
     readonly annotations?: Context.Context<never> | undefined;
     readonly success?: Schema.Codec<A, unknown> | undefined;
 }
-type ResourceRow<A, Field extends string> = Parameters<ReturnType<Resource<A>['depend']>>[0] & {
+type ResourceRow<A, Field extends string> = Pick<Parameters<ReturnType<Resource<A>['depend']>>[0], 'report'> & {
     readonly description: string;
     readonly completion: { readonly [Key in Field]?: (success: A) => readonly string[] };
 };
@@ -35,9 +35,9 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
     },
 ) {
     const [server, services] = yield* Effect.all([Server, Effect.context<R | Schema.Struct<Fields>['DecodingServices'] | Schema.Struct<Fields>['EncodingServices']>()]);
-    const answered = (values: (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.Effect<readonly string[], Error, R | Schema.Struct<Fields>['DecodingServices']>) => (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
-        values(input, context).pipe(
-            Effect.map((found) => McpSchema.CompleteResult.make({ completion: { values: found } })),
+    const answered = (found: Effect.Effect<readonly string[], Error, R | Schema.Struct<Fields>['DecodingServices']>) =>
+        found.pipe(
+            Effect.map((values) => McpSchema.CompleteResult.make({ completion: { values } })),
             Server.orInternalError,
             Effect.provideContext(services),
         );
@@ -52,7 +52,7 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
         );
     const dependencyLookups = yield* Effect.forEach(
         listedRpcs<ResourceRow<Rpc.Success<Rpcs>, string>>(resources),
-        Effect.fnUntraced(function* ([rpc, { description, completion, ...conditions }]) {
+        Effect.fnUntraced(function* ([rpc, { description, completion, report }]) {
             const routing = route(rpc._tag);
             const uri = server.uri(rpc._tag);
             const [base, store] = yield* Effect.all([Effect.fromResult(Url.fromString(uri)), Resource.make({ schema: rpc.successSchema, changes: Stream.empty })]);
@@ -74,21 +74,12 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
                     Effect.flatMap(({ key, content }) => store.read(key, at, content)),
                     Effect.provideContext(services),
                 );
-            const cachedSuccess = (_: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
-                decoded(UrlParams.fromInput(context?.arguments ?? {})).pipe(
-                    Effect.flatMap(located),
-                    Effect.flatMap(({ key, content }) => store.cached(key, content)),
-                );
-            const completeRoute = Route.complete(routing.fields);
+            const [completeRoute, completeSuccess] = [Route.complete(Route.partial(routing.fields)), Route.complete((resolved) => decoded(UrlParams.fromInput(resolved)))];
             const completions = {
-                ...Record.getSomes(Record.map(routing.completion, flow(Option.fromUndefinedOr, Option.map(flow(completeRoute, answered))))),
+                ...Record.getSomes(Record.map(routing.completion, (complete) => Option.map(Option.fromUndefinedOr(complete), (given) => flow(completeRoute(given), answered)))),
                 ...Record.getSomes(
-                    Record.map(
-                        completion,
-                        flow(
-                            Option.fromUndefinedOr,
-                            Option.map((select) => answered(flow(cachedSuccess, Effect.map(select)))),
-                        ),
+                    Record.map(completion, (select) =>
+                        Option.map(Option.fromUndefinedOr(select), (selected) => flow(completeSuccess((_, parsed) => Effect.flatMap(located(parsed), ({ key, content }) => Effect.map(store.cached(key, content), selected))), answered)),
                     ),
                 ),
             };
@@ -103,9 +94,9 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
                     ),
                 ),
             );
-            return Option.as(
-                Option.liftPredicate(conditions, ({ refuse, report }) => refuse !== undefined || report !== undefined),
-                (chosen: Chosen, routed: Schema.Struct.Type<Fields>) => (routing.serves(chosen) ? [store.depend(Schema.encodeEffect(query.fields.route)(routed).pipe(Effect.orDie, Effect.flatMap(decoded), Effect.flatMap(located), Effect.provideContext(services)))(conditions)] : []),
+            return Option.map(
+                Option.fromUndefinedOr(report),
+                (reported) => (chosen: Chosen, routed: Schema.Struct.Type<Fields>) => (routing.serves(chosen) ? [store.depend(Schema.encodeEffect(query.fields.route)(routed).pipe(Effect.orDie, Effect.flatMap(decoded), Effect.flatMap(located), Effect.provideContext(services)))({ report: reported })] : []),
             );
         }),
     );

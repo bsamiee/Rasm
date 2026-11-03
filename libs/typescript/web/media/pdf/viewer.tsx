@@ -19,13 +19,12 @@ type Status = typeof Found.Type & { readonly failedPages: HashSet.HashSet<number
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const rotations = [0, 90, 180, 270] as const;
-const textLayerModes = { DISABLE: 0, ENABLE: 1, ENABLE_PERMISSIONS: 2 } as const satisfies typeof TextLayerMode;
+const rotations = { UPRIGHT: 0, CLOCKWISE: 90, INVERTED: 180, COUNTERCLOCKWISE: 270 } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const View = Schema.Struct({
-    pagesRotation: Schema.Literals(rotations),
+    pagesRotation: Schema.Enum(rotations),
     scrollMode: Schema.Enum(ScrollMode),
     spreadMode: Schema.Enum(SpreadMode),
     currentPageNumber: Schema.Int,
@@ -34,7 +33,7 @@ const View = Schema.Struct({
 const Found = Schema.Struct({ matchesCount: Schema.Struct({ current: Schema.Int, total: Schema.Int }), findState: Schema.optionalKey(Schema.Enum(FindState)) }).pipe(Schema.encodeKeys({ findState: 'state' }));
 const Rendered = Schema.Struct({ pageNumber: Schema.Int, error: Schema.Unknown });
 class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfViewer: PDFViewer }> {
-    static readonly TextLayerMode = textLayerModes;
+    static readonly TextLayerMode = { DISABLE: 0, ENABLE: 1, ENABLE_PERMISSIONS: 2 } as const satisfies typeof TextLayerMode;
     static readonly mount = flow(
         Effect.fn('PdfViewer.mount')(function* (container: HTMLDivElement, document: PDFDocumentProxy, { link, find, view: { currentScaleValue = 'auto' satisfies typeof DEFAULT_SCALE_VALUE, ...view } = {}, ...options }: Options) {
             const labels = yield* Effect.tryPromise(() => document.getPageLabels());
@@ -46,7 +45,28 @@ class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfVie
                 Effect.sync(() => new PDFViewer(viewer)),
                 (mounted) => Effect.sync(() => mounted.setDocument(null)),
             );
-            return Stream.callback<(status: Status) => Status, Cause.UnknownError>((queue) => PdfViewer.#listen(queue, { pdfViewer, document, labels, view: { ...view, currentScaleValue }, signal })).pipe(
+            const observer = yield* Effect.acquireRelease(
+                Effect.sync(() => new ResizeObserver(() => Object.assign(pdfViewer, { currentScaleValue: pdfViewer.currentScaleValue }).update())),
+                (created) => Effect.sync(() => created.disconnect()),
+            );
+            const updates = yield* Queue.unbounded<(status: Status) => Status, Cause.UnknownError>();
+            const offered = (update: (status: Status) => Status) => Queue.offerUnsafe(updates, update);
+            const viewed = () => offered(identity);
+            const initialized = () => {
+                pdfViewer.setPageLabels(labels);
+                Object.assign(pdfViewer, { ...view, currentScaleValue });
+                observer.observe(container);
+            };
+            const found = (event: unknown) => Option.map(Schema.decodeUnknownOption(Found)(event), (update) => offered((status) => ({ ...status, ...update })));
+            const rendered = (event: unknown) => Option.map(Schema.decodeUnknownOption(Rendered)(event), ({ pageNumber, error }) => offered((status) => ({ ...status, failedPages: Predicate.isNullish(error) ? HashSet.remove(status.failedPages, pageNumber) : HashSet.add(status.failedPages, pageNumber) })));
+            eventBus.on('pagesinit', () => Result.match(Result.try(initialized), { onSuccess: viewed, onFailure: (error) => Queue.failCauseUnsafe(updates, Cause.fail(new Cause.UnknownError(error))) }), { signal });
+            ['pagechanging', 'scalechanging', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged'].forEach((name) => eventBus.on(name, viewed, { signal }));
+            ['updatefindmatchescount', 'updatefindcontrolstate'].forEach((name) => eventBus.on(name, found, { signal }));
+            eventBus.on('pagerendered', rendered, { signal });
+            linkService.setViewer(pdfViewer);
+            linkService.setDocument(document);
+            pdfViewer.setDocument(document);
+            return Stream.fromQueue(updates).pipe(
                 Stream.scan(
                     (): Status => ({ matchesCount: { current: 0, total: 0 }, failedPages: HashSet.empty() }),
                     (status, update) => update(status),
@@ -56,40 +76,11 @@ class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfVie
         }),
         Stream.unwrap,
     );
-    static readonly #listen = (
-        queue: Queue.Queue<(status: Status) => Status, Cause.UnknownError | Cause.Done>,
-        { pdfViewer, document, labels, view, signal }: { readonly pdfViewer: PDFViewer; readonly document: PDFDocumentProxy; readonly labels: Parameters<PDFViewer['setPageLabels']>[0]; readonly view: Partial<typeof View.Type>; readonly signal: AbortSignal },
-    ) =>
-        Effect.acquireRelease(
-            Effect.sync(() => {
-                const offered = (update: (status: Status) => Status) => Queue.offerUnsafe(queue, update);
-                const viewed = () => offered(identity);
-                const observer = new ResizeObserver(() => {
-                    Object.assign(pdfViewer, { currentScaleValue: pdfViewer.currentScaleValue }).update();
-                });
-                const initialized = () => {
-                    pdfViewer.setPageLabels(labels);
-                    Object.assign(pdfViewer, view);
-                    observer.observe(pdfViewer.container);
-                };
-                const found = (event: unknown) => Option.map(Schema.decodeUnknownOption(Found)(event), (update) => offered((status) => ({ ...status, ...update })));
-                const rendered = (event: unknown) => Option.map(Schema.decodeUnknownOption(Rendered)(event), ({ pageNumber, error }) => offered((status) => ({ ...status, failedPages: Predicate.isNullish(error) ? HashSet.remove(status.failedPages, pageNumber) : HashSet.add(status.failedPages, pageNumber) })));
-                pdfViewer.eventBus.on('pagesinit', () => Result.match(Result.try(initialized), { onSuccess: viewed, onFailure: (error) => Queue.failCauseUnsafe(queue, Cause.fail(new Cause.UnknownError(error))) }), { signal });
-                ['pagechanging', 'scalechanging', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged'].forEach((name) => pdfViewer.eventBus.on(name, viewed, { signal }));
-                ['updatefindmatchescount', 'updatefindcontrolstate'].forEach((name) => pdfViewer.eventBus.on(name, found, { signal }));
-                pdfViewer.eventBus.on('pagerendered', rendered, { signal });
-                pdfViewer.linkService.setViewer(pdfViewer);
-                pdfViewer.linkService.setDocument(document);
-                pdfViewer.setDocument(document);
-                return observer;
-            }),
-            (observer) => Effect.sync(() => observer.disconnect()),
-        );
     static readonly assign = (viewer: PdfViewer, view: Partial<typeof View.Type>) => {
         Object.assign(viewer.pdfViewer, view);
     };
     static readonly rotate = (viewer: PdfViewer, quarterTurns: number) => {
-        Object.assign(viewer.pdfViewer, { pagesRotation: viewer.pagesRotation + quarterTurns * rotations[1] });
+        Object.assign(viewer.pdfViewer, { pagesRotation: viewer.pagesRotation + quarterTurns * rotations.CLOCKWISE });
     };
     static readonly find = (
         viewer: PdfViewer,
@@ -121,7 +112,7 @@ class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfVie
         usePinch(({ offset: [target], origin }) => Option.map(Option.all([viewer, Option.fromNullishOr(pinch)]), ([{ pdfViewer }, { drawingDelay }]) => pdfViewer.updateScale({ scaleFactor: target / pdfViewer.currentScale, origin: [...origin], drawingDelay: Duration.toMillis(drawingDelay) })), {
             target: { current: container },
             enabled: pinch !== undefined && Option.isSome(viewer),
-            from: () => [Option.match(viewer, { onNone: () => 1, onSome: ({ pdfViewer }) => pdfViewer.currentScale }), 0],
+            from: () => [Option.getOrUndefined(viewer)?.pdfViewer.currentScale ?? 1, 0],
             scaleBounds: { min: 0.1, max: 25 } satisfies { readonly min: typeof MIN_SCALE; readonly max: typeof MAX_SCALE },
             pointer: { touch: true },
             preventDefault: true,

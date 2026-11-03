@@ -9,7 +9,7 @@ const Params = Schema.fromURLSearchParams(Schema.Struct({ project: EntryId, comp
 const Fragment = {
     top: '#top',
     work: '#work',
-    of: (project: typeof EntryId.Type, composition?: typeof CompositionId.Type) => Option.match(Schema.encodeOption(Params)({ project, composition }), { onNone: () => Fragment.work, onSome: (params) => `#${params}` }),
+    of: (project: typeof EntryId.Type, composition?: typeof CompositionId.Type) => Schema.encodeOption(Params)({ project, composition }).pipe(Option.map((params) => `#${params}`), Option.getOrElse(() => Fragment.work)),
     read: (hash: string) => Schema.decodeOption(Params)(new URLSearchParams(hash.slice(1))),
 } as const;
 
@@ -26,25 +26,10 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     );
     const [selections, setSelections] = useState<Readonly<Partial<Record<typeof EntryId.Type, typeof CompositionId.Type>>>>({});
     const intersections = useRef(new Set<string>());
-    const located = Option.flatMap(({ project, composition }: typeof Params.Type) =>
-        Option.map(
-            Array.findFirst(portfolio.entries, ({ id }) => id === project),
-            (entry) => ({ entry, composition }),
-        ),
-    );
-    const current = located(Fragment.read(hash));
+    const located = (target: string) => Option.bind(Fragment.read(target), 'entry', ({ project }) => Array.findFirst(portfolio.entries, ({ id }) => id === project));
+    const current = located(hash);
     const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
-    const selected = (entry: typeof Entry.Type) =>
-        first(
-            entry,
-            Option.getOrElse(
-                Option.flatMap(
-                    Option.filter(current, (shown) => shown.entry === entry),
-                    ({ composition }) => Option.fromUndefinedOr(composition),
-                ),
-                () => selections[entry.id],
-            ),
-        );
+    const selected = (entry: typeof Entry.Type) => first(entry, current.pipe(Option.filter((shown) => shown.entry === entry), Option.flatMapNullishOr(({ composition }) => composition), Option.getOrElse(() => selections[entry.id])));
     const write = (method: 'pushState' | 'replaceState', target: string) => {
         history.scrollRestoration = Option.isSome(Fragment.read(target)) ? 'manual' : 'auto';
         if (location.hash !== target) {
@@ -64,13 +49,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
         section?.scrollIntoView();
     };
     const track = useEffectEvent((records: readonly IntersectionObserverEntry[], entries: readonly (typeof Entry.Type)[]) => {
-        records.forEach(({ isIntersecting, target: { id } }) => {
-            if (isIntersecting) {
-                intersections.current.add(id);
-            } else {
-                intersections.current.delete(id);
-            }
-        });
+        records.forEach(({ isIntersecting, target: { id } }) => intersections.current[isIntersecting ? 'add' : 'delete'](id));
         const entry = entries.findLast(({ id }) => intersections.current.has(id));
         const page = work.current !== null && work.current.getBoundingClientRect().top > Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) ? Fragment.top : Fragment.work;
         const held = Option.exists(current, ({ entry: shown }) => {
@@ -86,22 +65,20 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
             history.scrollRestoration = 'auto';
             return;
         }
-        Option.match(located(Fragment.read(location.hash)), {
-            onNone: () => {
-                write('replaceState', Fragment.work);
-                work.current?.scrollIntoView({ behavior: 'instant' });
-            },
-            onSome: ({ entry, composition }) => {
-                if (event === undefined || !Option.exists(current, (shown) => shown.entry.id === entry.id)) {
-                    document.getElementById(entry.id)?.scrollIntoView({ behavior: 'instant' });
-                }
-                write('replaceState', Fragment.of(entry.id, first(entry, composition)));
-            },
-        });
+        const target = located(location.hash);
+        if (Option.isNone(target)) {
+            write('replaceState', Fragment.work);
+            work.current?.scrollIntoView({ behavior: 'instant' });
+            return;
+        }
+        const { entry, composition } = target.value;
+        if (event === undefined || !Option.exists(current, (shown) => shown.entry.id === entry.id)) {
+            document.getElementById(entry.id)?.scrollIntoView({ behavior: 'instant' });
+        }
+        write('replaceState', Fragment.of(entry.id, first(entry, composition)));
     });
     useEffect(() => {
-        const { current: bar } = sticky;
-        const { current: section } = work;
+        const [bar, section] = [sticky.current, work.current];
         if (bar === null || section === null) {
             return;
         }
@@ -133,7 +110,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
             size.disconnect();
         };
     }, [portfolio.entries, sticky, work]);
-    return { active: Option.getOrUndefined(Option.map(current, ({ entry }) => entry.id)), selected, select, jump };
+    return { active: current.pipe(Option.map(({ entry }) => entry.id), Option.getOrUndefined), selected, select, jump };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

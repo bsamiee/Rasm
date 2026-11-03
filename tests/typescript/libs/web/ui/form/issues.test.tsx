@@ -11,7 +11,7 @@ const Portfolio = Schema.Struct({ entries: Schema.Array(Schema.Struct({ title: S
 
 // --- [FIXTURES] ------------------------------------------------------------------------
 
-const issue = Option.getOrThrow(Result.getFailure(SchemaParser.decodeUnknownResult(Portfolio)({ entries: [{ title: 'Plan' }, { title: '' }] }, { errors: 'all' })));
+const issue = Option.getOrThrow(Result.getFailure(SchemaParser.decodeResult(Portfolio)({ entries: [{ title: 'Plan' }, { title: '' }] }, { errors: 'all' })));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -35,6 +35,6 @@ it('routes field errors by the dot-joined path or by a caller name mapping', asy
 it('lists each issue once through the caller text and reports its path on press', async () => {
     const onField = vi.fn<(path: readonly PropertyKey[]) => void>();
     const screen = await render(<Issues.List issue={issue} onField={onField} text={({ path, message }) => `Entry ${String(Number(path[1]) + 1)} title: ${message}`} />);
-    await screen.getByRole('button', { name: /^Entry 2 title: / }).click();
+    await screen.getByRole('button', { name: 'Entry 2 title: ' }).click();
     expect(onField).toHaveBeenCalledWith(['entries', 1, 'title']);
 });

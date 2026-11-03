@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cause, Deferred, Duration, Effect, Equivalence, flow, Latch, Layer, Option, Predicate, Schedule, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Console, Deferred, Duration, Effect, flow, Latch, Layer, Option, Predicate, Schedule, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse, Url } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { type Rpc, RpcClient, type RpcClientError, type RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
@@ -27,24 +27,25 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
     extension: Schema.String.annotate({ description: 'UXP plugin or CEP extension identifier' }),
 }) {
     static readonly dial =
-        <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, { application }: { readonly application: Effect.Effect<URL, E, R> }) =>
-        ({ endpoint, redial, extension }: ImportMetaEnv['LINK'] & { readonly extension: string }) =>
+        <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, application: Effect.Effect<URL, E, R>) =>
+        (extension: string) =>
             RpcServer.layer(group, { concurrency: 1 }).pipe(
                 Layer.provide([handlers, RpcServer.layerProtocolSocketServer]),
                 Layer.provide([
                     Layer.effect(SocketServer.SocketServer)(
                         Effect.gen(function* () {
-                            const [dialed, identity] = yield* Effect.all([Effect.fromResult(Url.fromString(endpoint)), Effect.flatMap(application, (url) => Effect.orDie(Schema.encodeEffect(Link)(Link.make({ application: url, extension }))))]);
+                            const [dialed, url] = yield* Effect.all([Effect.fromResult(Url.fromString(import.meta.env.LINK.endpoint)), application]);
+                            const identity = yield* Effect.orDie(Schema.encodeEffect(Link)(Link.make({ application: url, extension })));
                             const { reader, writer } = yield* Socket.makeWebSocket(Url.setUrlParams(dialed, identity).href);
                             return {
-                                address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Unspecified, 0),
+                                address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Loopback, Number(dialed.port)),
                                 run: (handler) =>
                                     reader.pipe(
                                         Effect.flatMap((opened) => handler(Socket.make({ reader: Effect.succeed(opened), writer }))),
                                         Effect.scoped,
-                                        Effect.tapCauseIf(Cause.hasDies, Effect.logError),
+                                        Effect.tapCauseIf(Cause.hasDies, flow(Cause.pretty, Console.error)),
                                         Effect.exit,
-                                        Effect.andThen(Effect.sleep(redial)),
+                                        Effect.andThen(Effect.sleep(import.meta.env.LINK.redial)),
                                         Effect.forever,
                                     ),
                             };
@@ -68,10 +69,7 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
             const protocol = yield* RpcClient.makeProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) }).pipe(
                 Effect.provideService(RpcClient.ConnectionHooks, {
                     onConnect: Effect.flatMap(Deferred.await(made), (entry) => SubscriptionRef.update(links, flow(Array.filter<Linked>(Predicate.not(replaced)), Array.prepend(entry)))),
-                    onDisconnect: Deferred.await(made).pipe(
-                        Effect.flatMap((entry) => SubscriptionRef.update(links, Array.differenceWith(Equivalence.strictEqual<Linked>())([entry]))),
-                        Effect.andThen(ended.open),
-                    ),
+                    onDisconnect: Deferred.await(made).pipe(Effect.flatMap((entry) => SubscriptionRef.update(links, Array.filter((held) => held !== entry))), Effect.andThen(ended.open)),
                 }),
                 Effect.provideService(Socket.Socket, socket),
                 Effect.provide(RpcSerialization.layerJson),

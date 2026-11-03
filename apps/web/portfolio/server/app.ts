@@ -12,7 +12,7 @@ import { page } from '#/server/page.ts';
 
 const app = <A, E, R>(ownerEmail: string, services: Layer.Layer<A, E, R>) => {
     const provided = Layer.mergeAll(services, OwnerAccount.layer(ownerEmail), SecureRandom.layerWebCrypto);
-    return Layer.merge(page, HttpApiBuilder.layer(Api).pipe(Layer.provide(Layer.merge(documentGroup, assetGroup).pipe(Layer.provide(OwnerAccount.middleware))))).pipe(HttpRouter.provideRequest(provided), Layer.provide(provided));
+    return HttpApiBuilder.layer(Api).pipe(Layer.provide([documentGroup, assetGroup]), Layer.provide(OwnerAccount.middleware), Layer.merge(page), HttpRouter.provideRequest(provided), Layer.provide(provided));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

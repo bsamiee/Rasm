@@ -1,5 +1,5 @@
 import { D1Client } from '@effect/sql-d1';
-import { Array, Cause, Data, type Duration, Effect, Layer, Option, String, Struct } from 'effect';
+import { Array, Data, type Duration, Effect, Layer, Option, String, Struct } from 'effect';
 import { SqlClient, type Statement } from 'effect/sql';
 import { atomic } from '#/atomic';
 import { Column } from '#/column';
@@ -17,19 +17,8 @@ class Catalog extends Data.Class<{
     readonly excludedPrefixes: readonly string[];
     readonly timeouts: Option.Option<{ readonly lock: Duration.Input; readonly transaction: Duration.Input }>;
 }> {
-    static readonly make = ({
-        tables,
-        retired = [],
-        reader,
-        excludedPrefixes = [],
-        timeouts,
-    }: {
-        readonly tables: Array.NonEmptyReadonlyArray<Relation>;
-        readonly retired?: readonly string[];
-        readonly reader?: string;
-        readonly excludedPrefixes?: readonly string[];
-        readonly timeouts?: { readonly lock: Duration.Input; readonly transaction: Duration.Input };
-    }) => new Catalog({ tables, retired: retired.map(String.camelToSnake), reader: Option.fromUndefinedOr(reader), excludedPrefixes, timeouts: Option.fromUndefinedOr(timeouts) });
+    static readonly make = ({ tables, retired = [], reader, excludedPrefixes = [], timeouts }: Pick<Catalog, 'tables'> & Partial<Pick<Catalog, 'retired' | 'excludedPrefixes'>> & { readonly reader?: string; readonly timeouts?: Option.Option.Value<Catalog['timeouts']> }) =>
+        new Catalog({ tables, retired: retired.map(String.camelToSnake), reader: Option.fromUndefinedOr(reader), excludedPrefixes, timeouts: Option.fromUndefinedOr(timeouts) });
     static readonly plan = Effect.fn('Catalog.plan')(
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, () => Effect.void),
         Effect.map(({ preamble, statements, concurrent, undeclared }) => {
@@ -54,41 +43,21 @@ const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: O
     yield* Array.match([...Reconcile.refusals(catalog), ...catalog.tables.flatMap((relation) => engine.refusals(relation))], { onEmpty: () => Effect.void, onNonEmpty: (findings) => Effect.fail(ReconcileError.make({ findings })) });
     const steps = engine.plan(client.withoutTransforms(), catalog, runtime);
     const applied = Effect.tap(steps, after);
-    return yield* Option.match(d1, {
-        onNone: () => client.withTransaction(applied),
-        onSome: () =>
-            Effect.catchTag(applied, 'SqlError', (error) =>
-                Effect.filterOrFail(
-                    steps,
-                    ({ statements }) => !Array.isReadonlyArrayNonEmpty(statements),
-                    () => error,
-                ),
-            ),
-    });
+    return yield* Option.isNone(d1) ? client.withTransaction(applied) : Effect.catchTag(applied, 'SqlError', (error) => Effect.filterOrFail(steps, ({ statements }) => Array.isReadonlyArrayEmpty(statements), () => error));
 });
-const concurrently = (session: readonly { readonly name: string; readonly value: string }[], statements: Array.NonEmptyReadonlyArray<Statement.Statement<object>>) =>
-    Effect.scoped(
-        SqlClient.SqlClient.use((sql) =>
-            Effect.flatMap(sql.reserve, (connection) => {
-                const run = (statement: Statement.Statement<object>) => connection.executeUnprepared(...statement.compile(true), undefined);
-                return Effect.acquireUseRelease(
-                    Effect.forEach(session, ({ name, value }) => run(sql`SELECT set_config(${name}, ${value}, false)`), { discard: true }),
-                    () => Effect.forEach(statements, run, { discard: true }),
-                    () => Effect.orDie(Effect.forEach(session, ({ name }) => run(sql`RESET ${sql.literal(name)}`), { discard: true })),
-                );
-            }),
-        ),
+const concurrently = Effect.fnUntraced(function* (session: readonly { readonly name: string; readonly value: string }[], statements: Array.NonEmptyReadonlyArray<Statement.Statement<object>>) {
+    const sql = yield* SqlClient.SqlClient;
+    const connection = yield* sql.reserve;
+    const run = (statement: Statement.Statement<object>) => connection.executeUnprepared(...statement.compile(true), undefined);
+    return yield* Effect.acquireUseRelease(
+        Effect.forEach(session, ({ name, value }) => run(sql`SELECT set_config(${name}, ${value}, false)`), { discard: true }),
+        () => Effect.forEach(statements, run, { discard: true }),
+        () => Effect.orDie(Effect.forEach(session, ({ name }) => run(sql`RESET ${sql.literal(name)}`), { discard: true })),
     );
+}, Effect.scoped);
 const start = Effect.fnUntraced(function* <M, N>(catalog: Catalog, migrator: Option.Option<Layer.Layer<SqlClient.SqlClient, M, N>>) {
     const [engine, client] = yield* Effect.all([Engine, SqlClient.SqlClient]);
-    const undeclared = yield* Option.match(migrator, {
-        onNone: () => Catalog.reconcile(catalog),
-        onSome: (layer) =>
-            Option.match(engine.role, {
-                onNone: () => Effect.fail(new Cause.IllegalArgumentError(`${engine.dialect} has no role to migrate as`)),
-                onSome: (role) => Effect.flatMap(role(client), (name) => Effect.provide(Catalog.reconcile(catalog, Option.some(name)), layer)),
-            }),
-    });
+    const undeclared = yield* Option.match(migrator, { onNone: () => Catalog.reconcile(catalog), onSome: (layer) => Effect.flatMap(engine.role(client), (role) => Effect.provide(Catalog.reconcile(catalog, Option.some(role)), layer)) });
     yield* Object.values(undeclared).some((objects) => objects.length > 0) ? Effect.annotateLogs(Effect.logInfo('undeclared database objects'), undeclared) : Effect.void;
     yield* engine.open(client);
 });

@@ -1,11 +1,15 @@
 {
     "name": "@rasm/extendscript",
     "private": true,
-    "description": "ExtendScript handler answering CEP extension requests inside the host",
+    "description": "ExtendScript handler and reply encoder answering requests inside the host",
     "sideEffects": false,
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
-        "./handle": "./handle.ts"
+        "./handle": "./handle.ts",
+        "./runtime": "./runtime.ts"
     },
     "dependencies": {
         "@rasm/cep": "workspace:*"

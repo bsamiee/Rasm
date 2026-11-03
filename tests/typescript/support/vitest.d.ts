@@ -1,3 +1,5 @@
+import 'vitest';
+
 // --- [TYPES] ---------------------------------------------------------------------------
 
 declare module 'vitest' {
@@ -5,7 +7,3 @@ declare module 'vitest' {
         readonly artifacts: string;
     }
 }
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-
-export {};

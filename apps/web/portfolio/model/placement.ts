@@ -1,4 +1,4 @@
-import { Array, Effect, Match, Option, Record, Schema, type SchemaAST, SchemaGetter, SchemaIssue } from 'effect';
+import { Array, Effect, Match, Record, Schema, type SchemaAST, SchemaGetter, SchemaIssue } from 'effect';
 import { Asset, AssetId, Assets, ImageAsset, PdfAsset, Sheet, VideoAsset } from '#/model/asset.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -20,11 +20,8 @@ const photograph = Schema.Struct({
 });
 const sheet = Schema.Struct({ ...text, assetId: AssetId, kind: Schema.Literal('pdf'), page: Sheet.fields.number });
 const resolve = <K extends (typeof Asset.Type)['kind']>(kind: K, assetId: typeof AssetId.Type, input: unknown, options: SchemaAST.ParseOptions) =>
-    Assets.use((assets) =>
-        Option.match(Record.get(assets, assetId), {
-            onNone: () => Effect.fail(new SchemaIssue.InvalidValue({ message: `File ${assetId} missing from library` }, input, options)),
-            onSome: (asset) => (Asset.isAnyOf([kind])(asset) ? Effect.succeed(asset) : Effect.fail(new SchemaIssue.InvalidValue({ message: `${asset.name} is ${asset.kind}, placement needs ${kind}` }, input, options))),
-        }),
+    Assets.use((assets) => Effect.fromOption(Record.get(assets, assetId), () => new SchemaIssue.InvalidValue({ message: `File ${assetId} missing from library` }, input, options))).pipe(
+        Effect.filterOrFail(Asset.isAnyOf([kind]), (asset) => new SchemaIssue.InvalidValue({ message: `${asset.name} is ${asset.kind}, placement needs ${kind}` }, input, options)),
     );
 const film = Schema.Struct({
     ...text,
@@ -53,12 +50,11 @@ const Placement = StoredPlacement.pipe(
             return Match.value(stored).pipe(
                 Match.discriminatorsExhaustive('kind')({
                     pdf: (placement) =>
-                        Effect.flatMap(resolve('pdf', assetId, input, options), (asset) =>
-                            Option.match(Array.get(asset.pages, placement.page - 1), {
-                                onNone: () => Effect.fail(new SchemaIssue.InvalidValue({ message: `${asset.name} has ${asset.pages.length} sheets, placement needs sheet ${placement.page}` }, input, options)),
-                                onSome: (page) => Effect.succeed({ ...placement, asset, page: { ...page, number: placement.page } }),
-                            }),
-                        ),
+                        Effect.gen(function* () {
+                            const asset = yield* resolve('pdf', assetId, input, options);
+                            const page = yield* Effect.fromOption(Array.get(asset.sheets, placement.page - 1), () => new SchemaIssue.InvalidValue({ message: `${asset.name} has ${asset.pages.length} sheets, placement needs sheet ${placement.page}` }, input, options));
+                            return { ...placement, asset, page };
+                        }),
                     video: (placement) => Effect.map(resolve('video', assetId, input, options), (asset) => ({ ...placement, asset })),
                     image: (placement) => Effect.map(resolve('image', assetId, input, options), (asset) => ({ ...placement, asset })),
                 }),
@@ -70,8 +66,8 @@ const Placement = StoredPlacement.pipe(
 const Composition = Schema.Struct({
     id: CompositionId,
     items: Schema.Union([Schema.Tuple([Placement]), Schema.Tuple([Placement, Placement])]),
-    scale: Schema.Literals(['full', 'medium', 'small']).pipe(Schema.withConstructorDefault(Effect.succeed('full'))),
-    align: Schema.Literals(['left', 'center', 'right']).pipe(Schema.withConstructorDefault(Effect.succeed('center'))),
+    scale: Schema.Literals(['full', 'medium', 'small']).pipe(Schema.withDecodingDefaultKey(Effect.succeed('full')), Schema.withConstructorDefault(Effect.succeed('full'))),
+    align: Schema.Literals(['left', 'center', 'right']).pipe(Schema.withDecodingDefaultKey(Effect.succeed('center')), Schema.withConstructorDefault(Effect.succeed('center'))),
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -82,12 +78,11 @@ const placementsFor = (asset: typeof Asset.Type): Array.NonEmptyReadonlyArray<ty
         video: (video) => [{ kind: 'video', asset: video, caption: '' }] as const,
         image: (image) => [{ kind: 'image', asset: image, caption: '', role: 'drawing' }] as const,
     });
-const placementDimensions = (placement: typeof Placement.Type) => (placement.kind === 'pdf' ? placement.page : placement.asset);
 const placementRatio = (placement: typeof Placement.Type) => {
-    const { width, height } = placement.kind === 'image' && placement.role === 'photograph' && placement.framing.mode === 'cover' ? { width: 4, height: 3 } : placementDimensions(placement);
+    const { width, height } = placement.kind === 'image' && placement.role === 'photograph' && placement.framing.mode === 'cover' ? { width: 4, height: 3 } : placement.kind === 'pdf' ? placement.page : placement.asset;
     return width / height;
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Composition, CompositionId, Placement, percentBounds, placementDimensions, placementRatio, placementsFor };
+export { Composition, CompositionId, Placement, percentBounds, placementRatio, placementsFor };

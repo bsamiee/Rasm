@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { pdfDocument } from '@rasm/media/pdf/document';
+import { PdfDocument } from '@rasm/media/pdf/document';
 import { PdfViewer } from '@rasm/media/pdf/viewer';
 import { Array, HashSet, Match, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
@@ -146,7 +146,7 @@ const SheetPreview = ({ document, page, asset }: { document: PDFDocumentProxy; p
 };
 const PdfSheet = ({ placement, layoutId }: { placement: Extract<typeof Placement.Type, { kind: 'pdf' }>; layoutId: string | undefined }) => {
     const url = assetUrl(placement.asset);
-    const source = pdfDocument({ url, disableStream: true, disableAutoFetch: true });
+    const source = PdfDocument.family({ url, disableStream: true, disableAutoFetch: true });
     const retry = useAtomRefresh(source);
     return AsyncResult.builder(useAtomValue(source))
         .onInitialOrWaiting(() => <MediaLoading />)

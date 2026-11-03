@@ -5,6 +5,7 @@ import { Automation } from '@rasm/automation/automation';
 import { ExecuteScript, HostError, ObjectModel, Reference, Render } from '@rasm/automation/requests';
 import { answered, Reply } from '@rasm/cep/contract';
 import { ExtensionManifest } from '@rasm/cep/manifest';
+import { runtime } from '@rasm/extendscript/runtime';
 import { Illustrator } from '@rasm/illustrator/contract';
 import { InDesign } from '@rasm/indesign/contract';
 import { Route } from '@rasm/mcp/route';
@@ -16,7 +17,6 @@ import { Link } from '@rasm/uxp/link';
 import { type JscTarget, transformSync } from '@swc/core';
 import { Array, Context, Duration, Effect, Layer, Option, Path, Schema, Stream, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/ai';
-import type { RpcGroup } from 'effect/rpc';
 import { AbsolutePath } from '#/absolute-path';
 import { Capture } from '#/features/applications';
 import { link } from '#/link';
@@ -58,67 +58,37 @@ const lowered = Effect.fnUntraced(function* (code: string, target: JscTarget, aw
     });
     const mapping = new SourceMap(yield* Effect.orDie(Schema.decodeUnknownEffect(Mapping)(map)));
     const original = (line: number) => Option.map(Schema.decodeUnknownOption(Entry)(mapping.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), Struct.get('originalLine'));
-    const relined = (error: HostError) => Effect.fail(HostError.fields.reason.match(error.reason, { Refused: () => error, Thrown: ({ line }) => HostError.thrown(error.subject, Option.flatMap(line, original))(error.cause) }));
+    const relined = (error: HostError) => Effect.fail(HostError.fields.reason.guards.Thrown(error.reason) ? HostError.thrown(error.subject, Option.flatMap(error.reason.line, original))(error.cause) : error);
     return { source, relined };
 });
+const library = (installation: Installation) => Array.findFirst([InDesign, Photoshop, Illustrator, AfterEffects] as const, ({ identifier }) => installation.identifier.startsWith(identifier));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const listening = Effect.gen(function* () {
-    const [automation, listened] = yield* Effect.all([Automation, Link.listen(Libraries, { path: link.path, middleware: Layer.empty })]);
-    const owns = (installed: readonly Installation[], identifier: string) => (peer: Link) => installed.some((row) => row.identifier.startsWith(identifier) && Link.serves(row.url)(peer));
-    const owned = (identifier: string) => (peers: readonly Link[]) => Effect.map(automation.installed, (installed) => peers.filter(owns(installed, identifier)));
-    const libraries = Array.map([InDesign, Photoshop, Illustrator, AfterEffects] as const satisfies readonly { readonly identifier: string; readonly Contract: RpcGroup.Any; readonly target: JscTarget }[], ({ identifier, Contract: contract, target }) => ({
-        identifier,
-        contract,
-        target,
-        peers: Effect.flatMap(listened.peers, owned(identifier)),
-        changes: Stream.mapEffect(listened.changes, owned(identifier)),
-    }));
-    return { libraries, changes: listened.changes, call: listened.call };
-});
-const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success<ReturnType<typeof routes>>, { libraries, call }: Effect.Success<typeof listening>) {
+const listening = Link.listen(Libraries, { path: link.path, middleware: Layer.empty });
+const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success<ReturnType<typeof routes>>, links: Effect.Success<typeof listening>) {
     const [automation, path] = yield* Effect.all([Automation, Path.Path]);
     const [opened, rendered] = [serving('open'), serving('render')];
-    const opening = (row: Installation) =>
-        Array.map(
-            libraries.filter((library) => library.contract.requests.has(opened.tag) && row.identifier.startsWith(library.identifier)),
-            (library) => ({ installation: row, library }),
-        );
-    const linking = ({ installation, library }: ReturnType<typeof opening>[number]) => Effect.map(library.peers, Array.some(Link.serves(installation.url)));
-    const launched = ({ installation, library }: ReturnType<typeof opening>[number]) =>
+    const launched = (installation: Installation) =>
         automation
             .launch({ url: installation.url })
-            .pipe(Effect.andThen(Stream.runHead(Stream.filter(library.changes, Array.some(Link.serves(installation.url))))), Effect.timeoutOrElse({ duration: LINK_WAIT, orElse: () => Effect.fail(HostError.refused(`${library.identifier} link from ${installation.name} within ${Duration.format(LINK_WAIT)}`)()) }));
+            .pipe(Effect.andThen(Stream.runHead(Stream.filter(links.changes, Array.some(Link.serves(installation.url))))), Effect.timeoutOrElse({ duration: LINK_WAIT, orElse: () => Effect.fail(HostError.refused(`link from ${installation.name} within ${Duration.format(LINK_WAIT)}`)()) }));
     const opener = Effect.fnUntraced(function* (file: URL) {
-        const rows = yield* automation.opening(file);
-        const candidates = Array.flatMap(rows, opening);
+        const [rows, peers] = yield* Effect.all([automation.opening(file), links.peers]);
+        const candidates = rows.filter((row) => Option.exists(library(row), ({ Contract }) => Contract.requests.has(opened.tag)));
         const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.make({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(rows, Struct.get('name')) }));
-        const { installation } = yield* Option.match(yield* Effect.findFirst(candidates, linking), { onSome: Effect.succeed, onNone: () => Effect.as(launched(first), first) });
-        return yield* call(installation.url);
+        const installation = yield* Option.match(
+            Array.findFirst(candidates, (row) => peers.some(Link.serves(row.url))),
+            { onSome: Effect.succeed, onNone: () => Effect.as(launched(first), first) },
+        );
+        return yield* links.call(installation.url);
     });
+    const replying = yield* Effect.sync(() => transformSync(`var runtime = ${String(runtime)};`, { jsc: { target: ExtensionManifest.target, parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } } }).code);
     const scripted = Effect.fnUntraced(function* (code: string, { pid }: { readonly pid: number }) {
         const { source, relined } = yield* lowered(code, ExtensionManifest.target, false);
         const { reply } = yield* automation.script({
             pid,
-            direct: `(function () { var body = ${source}
-    function encoded(value) {
-        var parts = [], key, at, kind;
-        if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
-        if (typeof value === "number" || typeof value === "boolean") return String(value);
-        if (typeof value === "string") return '"' + value.replace(/[\\x00-\\x1f"\\\\\\u2028\\u2029]/g, function (c) { return "\\\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4); }) + '"';
-        kind = Object.prototype.toString.call(value);
-        if (kind === "[object Array]") { for (at = 0; at < value.length; at++) parts.push(encoded(value[at])); return "[" + parts.join(",") + "]"; }
-        if (kind !== "[object Object]") return encoded(String(value));
-        for (key in value) if (value[key] !== undefined) parts.push(encoded(key) + ":" + encoded(value[key]));
-        return "{" + parts.join(",") + "}";
-    }
-    try {
-        var value = body.call(this);
-        return encodeURIComponent('{"_tag":"Value","value":{' + (value === undefined ? "" : '"result":' + encoded(value)) + '}}');
-    } catch (error) {
-        return encodeURIComponent(encoded({ _tag: "Thrown", message: String(error && error.message !== undefined ? error.message : error), number: error && error.number, line: error && (error.line || error.lineNumber) }));
-    }\n}).call(this)`,
+            direct: `(function (self) { var body = ${source}\n${replying}\nreturn encodeURIComponent(runtime().reply(function () { return { result: body.call(self) }; }, function () { return undefined; }, function () { return true; }));\n})(this)`,
         });
         return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(answered(Result, ExecuteScript.make({ code: source }).label)), Effect.catchTag('HostError', relined));
     });
@@ -139,8 +109,8 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
         ({ code }, chosen) =>
             Option.match(chosen.linked, {
                 onNone: () => scripted(code, chosen),
-                onSome: Effect.fnUntraced(function* ({ library, client }) {
-                    const { source, relined } = yield* lowered(code, library.target, Context.get(library.contract.annotations, ExecuteScript.Awaits));
+                onSome: Effect.fnUntraced(function* ({ library: { target, Contract }, client }) {
+                    const { source, relined } = yield* lowered(code, target, Context.get(Contract.annotations, ExecuteScript.Awaits));
                     return yield* Effect.catchTag(client(script.tag, { code: source }), 'HostError', relined);
                 }),
             }),
@@ -202,4 +172,4 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Libraries, listening, plugins };
+export { Libraries, library, listening, plugins };

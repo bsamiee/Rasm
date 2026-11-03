@@ -10,6 +10,7 @@ import { ShapedText } from '@rasm/typography/shaped-text';
 import type { Source } from '@rasm/typography/source';
 import { Effect, FileSystem, Option, Schema, SchemaAST, Stream } from 'effect';
 import { Tool } from 'effect/ai';
+import type { listening } from '#/features/plugins';
 import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -21,7 +22,7 @@ const Specimen = Schema.Struct({
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const applicationFont = Effect.fnUntraced(function* (client: Effect.Success<ReturnType<ReturnType<Effect.Success<ReturnType<typeof routes>>['serving']>['resolve']>>['client'], name: string, text: string) {
+const applicationFont = Effect.fnUntraced(function* (client: Effect.Success<ReturnType<Effect.Success<typeof listening>['call']>>, name: string, text: string) {
     const files = yield* FileSystem.FileSystem;
     const { view, source } = yield* client('font', { name, text, file: yield* files.makeTempFileScoped({ suffix: '.otf' }) });
     const read = Option.map(source, ({ file, postscriptName }) => Effect.map(files.readFile(file), (data): typeof Source.Type => ({ data, postscriptName })));

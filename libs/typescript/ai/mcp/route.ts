@@ -20,14 +20,13 @@ const refusalError = flow(
     encodeEntries,
     Effect.map((reportText) => new Cause.IllegalArgumentError(reportText)),
 );
-const complete = <Fields extends Schema.Struct.Fields, Given = Schema.Struct.Type<Fields>>(fields: Fields) => {
+const complete =
+    <Given, Values, RD, R>(decode: (resolved: Readonly<Record<string, string>>) => Effect.Effect<Given, Error, RD>, completing: (input: string, given: Given) => Effect.Effect<Values, Error, R>) =>
+    (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
+        Effect.flatMap(decode(context?.arguments ?? {}), (given) => completing(input, given));
+const partial = <Fields extends Schema.Struct.Fields, Given = Schema.Struct.Type<Fields>>(fields: Fields) => {
     const decoders = Record.map(fields, (_, key) => Schema.decodeUnknownEffect(Schema.toCodecStringTree(Schema.Struct(Struct.pick(fields, [key])))));
-    return <Values, R>(completing: (input: string, given: Partial<Given>) => Effect.Effect<Values, Error, R>) =>
-        (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
-            Effect.all(Record.map(decoders, (decode) => Effect.option(decode(context?.arguments ?? {})))).pipe(
-                Effect.map(flow(Record.values, Array.getSomes, (picked): Partial<Given> => Object.assign({}, ...picked))),
-                Effect.flatMap((given) => completing(input, given)),
-            );
+    return (resolved: Readonly<Record<string, string>>) => Effect.map(Effect.forEach(Record.values(decoders), (decode) => Effect.option(decode(resolved))), (picked): Partial<Given> => Object.assign({}, ...Array.getSomes(picked)));
 };
 const optional = <Chosen, Fields extends Schema.Struct.Fields, R>(route: Route<Chosen, Fields, R>): Route<Option.Option<Chosen>, Fields, R> => ({
     fields: route.fields,
@@ -47,24 +46,17 @@ const register =
         return registerTool(
             tool.setParameters(Record.isEmptyRecord(fields) ? Tool.EmptyParams : Schema.toEncoded(Schema.Struct(fields))).annotateMerge(annotations),
             Effect.fnUntraced(function* (given) {
-                const [parameters, routed] = yield* Schema.decodeEffect(parts)([given, given], { errors: 'all' });
+                const [[parameters, routed], { add, respond }] = yield* Effect.all([Schema.decodeEffect(parts)([given, given], { errors: 'all' }), Server.ToolCall]);
                 const chosen = yield* route.resolve(routed);
                 const dependencies = yield* route.depends(chosen, routed);
                 const peeled = yield* Effect.forEach(Context.get(annotations, Tool.Readonly) ? [] : dependencies, (dependency) => Stream.peel(dependency.refusal, Sink.head()), { concurrency: 'unbounded' });
                 yield* Array.match(Array.getSomes(Array.map(peeled, ([first]) => Option.flatten(first))), { onEmpty: () => Effect.void, onNonEmpty: flow(refusalError, Effect.flatMap(Effect.fail)) });
-                yield* Stream.mergeAll(Array.map(peeled, Tuple.get(1)), { concurrency: 'unbounded' }).pipe(
-                    Stream.filter(Option.isSome),
-                    Stream.take(1),
-                    Stream.mapEffect(({ value }) => refusalError([value])),
-                    Stream.catch(Stream.succeed),
-                    Stream.runForEach((refusal) => Server.ToolCall.use(({ respond }) => respond(refusal))),
-                    Effect.forkScoped,
-                );
+                yield* Stream.mergeAll(Array.map(peeled, Tuple.get(1)), { concurrency: 'unbounded' }).pipe(Stream.filter(Option.isSome), Stream.take(1), Stream.mapEffect(({ value }) => refusalError([value])), Stream.ignore({ log: 'Error' }), Stream.runForEach(respond), Effect.forkScoped);
                 return yield* Effect.onExitIf(
                     handle(parameters, chosen),
                     (exit) => !(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)),
                     Effect.fnUntraced(function* () {
-                        const [[reports, failed], { add }] = yield* Effect.all([Effect.partition(dependencies, (dependency) => Server.orInternalError(dependency.report), { concurrency: 'unbounded' }), Server.ToolCall]);
+                        const [reports, failed] = yield* Effect.partition(dependencies, Struct.get('report'), { concurrency: 'unbounded' });
                         const reportText = yield* pipe(reports, Array.getSomes, Option.liftPredicate(Array.isReadonlyArrayNonEmpty), Option.map(encodeEntries), Effect.transposeOption);
                         yield* Effect.forEach([...Option.toArray(reportText), ...Array.map(failed, Struct.get('message'))], (text) => add(McpSchema.TextContent.make({ text })), { discard: true });
                     }),
@@ -72,7 +64,7 @@ const register =
             }, Effect.scoped),
         );
     };
-const Route = { complete, optional, register };
+const Route = { complete, partial, optional, register };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

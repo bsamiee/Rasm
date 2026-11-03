@@ -33,7 +33,7 @@ const host = (indesign: typeof import('adobe:indesign')) => {
         Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Entry)),
         Effect.map(({ url }) => new URL(url)),
     );
-    return { linked: Link.dial(InDesign.Contract, server, { application }), scripted };
+    return { linked: Link.dial(InDesign.Contract, server, application), scripted };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

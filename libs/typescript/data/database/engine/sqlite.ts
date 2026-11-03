@@ -1,4 +1,4 @@
-import { Array, Effect, Equal, Match, Option, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Effect, Equal, Match, Option, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import { atomic } from '#/atomic';
 import type { Catalog } from '#/catalog';
@@ -38,18 +38,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly read: Engine['Service']['read'] = (sql, { name, textual }, scope) => (textual ? sql`CAST(${scope}${sql(name)} AS TEXT) AS ${sql(name)}` : sql`${scope}${sql(name)}`);
     static readonly upsert: Engine['Service']['upsert'] = ({ sql, owner, prefix, unqualified, order, ignore, element, keys, reads, inserting, flags }, body, set) => {
         const inserted = (flag: 0 | 1) => sql`${sql.literal(`${flag}`)} AS ${sql(flags.inserted)}`;
-        return Effect.map(
-            atomic([
-                inserting(body, ignore, reads(unqualified, inserted(1))),
-                ...Array.match(set, {
-                    onEmpty: () => [],
-                    onNonEmpty: (changed) => [
-                        sql`UPDATE ${owner} SET (${sql.csv(changed.map(({ name }) => sql`${sql(name)}`))}) = (${sql.csv(changed.map(element))}) FROM ${Sqlite.texts(sql, body)} WHERE (${keys(prefix)}) = (${order}) AND (${sql.csv(changed.map(({ name }) => sql`${prefix}${sql(name)}`))}) IS DISTINCT FROM (${sql.csv(changed.map(element))}) RETURNING ${reads(unqualified, inserted(0))}`,
-                    ],
-                }),
-            ]),
-            Array.flatten,
-        );
+        const update = sql`UPDATE ${owner} SET (${sql.csv(set.map(({ name }) => sql`${sql(name)}`))}) = (${sql.csv(set.map(element))}) FROM ${Sqlite.texts(sql, body)} WHERE (${keys(prefix)}) = (${order}) AND (${sql.csv(set.map(({ name }) => sql`${prefix}${sql(name)}`))}) IS DISTINCT FROM (${sql.csv(set.map(element))}) RETURNING ${reads(unqualified, inserted(0))}`;
+        return Effect.map(atomic([inserting(body, ignore, reads(unqualified, inserted(1))), ...(Array.isReadonlyArrayNonEmpty(set) ? [update] : [])]), Array.flatten);
     };
     static readonly ensure: Engine['Service']['ensure'] = ({ sql, owner, prefix, unqualified, order, ignore, keys, reads, inserting }, body) =>
         Effect.map(atomic([inserting(body, ignore, reads(unqualified)), sql`SELECT ${reads(unqualified)} FROM ${owner} WHERE (${keys(unqualified)}) IN (SELECT ${order} FROM ${Sqlite.texts(sql, body)}) ORDER BY ${keys(prefix)}`]), Array.lastNonEmpty);
@@ -112,7 +102,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             ...Reconcile.unsupported(owner, 'casefold', all, ({ name, ascii }) => !ascii && folded.includes(name)),
         ];
     };
-    static readonly role: Engine['Service']['role'] = Option.none();
+    static readonly role: Engine['Service']['role'] = () => Effect.fail(new Cause.IllegalArgumentError(`${Sqlite.dialect} has no role to migrate as`));
     static readonly open: Engine['Service']['open'] = (sql) => sql`PRAGMA optimize = 0x10002`;
     static readonly identities = ({ columns, ...table }: typeof SqliteTable.Type) => {
         const tokens: readonly string[] = table.sql.match(lexemes) ?? [];
@@ -125,11 +115,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const body = Array.takeWhile(depths, ({ next }) => next > 0);
         const cuts = Array.filterMap(body, ({ token, depth }, index) => (depth === 1 && token === ',' ? Result.succeed(index) : Result.failVoid));
         const segments = Array.window([-1, ...cuts, body.length], 2).map(([start, end]) => body.slice(start + 1, end).map(Struct.get('token')));
-        const comment = (token: string | undefined) =>
-            Option.map(
-                Option.liftPredicate(token ?? '', (text) => text.startsWith('/*')),
-                (text) => text.slice(2, -2).trim(),
-            );
+        const comment = (token: string | undefined) => (token?.startsWith('/*') ? Option.some(token.slice(2, -2).trim()) : Option.none());
         const unquoted = (token: string) => UndefinedOr.match(quotes[token.charAt(0)], { onUndefined: () => token, onDefined: (close) => token.slice(1, -1).replaceAll(`${close}${close}`, close) });
         const defined = segments.flatMap((segment) =>
             Option.toArray(Option.filter(Array.head(segment), (first) => !keywords.includes(first.toUpperCase()))).map((first) => ({
@@ -170,12 +156,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         ).pipe(Effect.map(({ observed }) => ({ tables: observed.tables.map(Sqlite.identities), virtual: observed.virtual, sequences: observed.sequences })));
     static readonly plan: Engine['Service']['plan'] = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog) {
         const live = yield* Sqlite.observe(sql, catalog.excludedPrefixes);
-        const resolved = Reconcile.diff(
-            sql,
-            catalog,
-            catalog.tables.map((declared) => ({ declared, rendered: Reconcile.render(sql, Sqlite, catalog, declared) })),
-            { tables: live.tables, columns: ({ columns }) => columns, references: ({ references }) => references },
-        );
+        const rendered = catalog.tables.map((declared) => ({ declared, rendered: Reconcile.render(sql, Sqlite, catalog, declared) }));
+        const resolved = Reconcile.diff(sql, catalog, rendered, { tables: live.tables, columns: ({ columns }) => columns, references: ({ references }) => references });
         const populated = yield* resolved.populated;
         const quoted = (name: string) => sql`${sql(name)}`;
         const analyze = (entry: (typeof resolved.matched)[number]) => {
@@ -265,11 +247,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                     elements,
                     autoincrement: sequenced(entry.live),
                     identity: Option.some(entry.identity),
-                    identities: (name) =>
-                        Option.map(
-                            Array.findFirst(entry.fields, ({ definition }) => definition.name === name),
-                            Struct.get('identity'),
-                        ),
+                    identities: (name) => Option.fromUndefinedOr(entry.fields.find(({ definition }) => definition.name === name)?.identity),
                 }).create,
                 copy: sql`WITH live(${observed}) AS (SELECT ${sql.literal(entry.live.withoutRowid ? '*' : '"rowid", *')} FROM ${entry.rendered.relation}) INSERT INTO ${temporary(entry.declared.name)} (${copied}) SELECT ${copied} FROM live`,
             };

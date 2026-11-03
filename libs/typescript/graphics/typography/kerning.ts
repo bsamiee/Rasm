@@ -28,7 +28,7 @@ const Boundary = Schema.Struct({
     slant: Schema.Finite.annotate({ description: 'Em from foot to top, positive toward preceding run' }).pipe(Schema.withConstructorDefault(Effect.succeed(0))),
     top: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Height in em, face ascender when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
     foot: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Height in em, face descender when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-});
+}).check(Schema.makeFilter(({ top, foot }) => !Option.exists(Option.all([top, foot]), ([upper, lower]) => upper <= lower), { description: 'top above foot' }));
 const Rule = Schema.Struct({
     side: Schema.Literals(['following', 'preceding']).annotate({ description: 'Run the groups test, its first two letters when following, its last letter when preceding' }),
     groups: Schema.Array(GroupName),
@@ -61,11 +61,10 @@ class Kerning extends Schema.Class<Kerning, { readonly brand: unique symbol }>('
                 .map(([from, to]) => ({ start: from, end: to }))
                 .filter((span, at) => at % 2 === 1 || LONE_PUNCTUATION.test(content(span))),
         );
-        return Array.getSomes(
-            Array.window(spans, 2)
-                .filter(([before, after]) => !LONE_PUNCTUATION.test(content(after)) && SEPARATOR.test(text.slice(before.end, after.start)))
-                .map(([before, after]) => Option.liftPredicate({ index: after.start, kerning: -gap(content(before), content(after)) }, ({ kerning }) => kerning !== 0)),
-        );
+        return Array.window(spans, 2)
+            .filter(([before, after]) => !LONE_PUNCTUATION.test(content(after)) && SEPARATOR.test(text.slice(before.end, after.start)))
+            .map(([before, after]) => ({ index: after.start, kerning: -gap(content(before), content(after)) }))
+            .filter(({ kerning }) => kerning !== 0);
     }
 }
 

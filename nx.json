@@ -81,7 +81,7 @@
                     "format:files": { "executor": "./:format" },
                     "format:dotnet-format": { "options": { "args": [ "Workspace.slnx", "--no-restore" ] }, "dependsOn": [ "restore" ], "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/format-dotnet-format.binlog" ] },
                     "format:ruff": { "executor": "nx:run-commands", "options": { "commands": [ "ruff check --fix", "ruff format" ], "parallel": false }, "metadata": { "extensions": [ ".py", ".pyi", ".pyw", ".ipynb" ] } },
-                    "format:biome": { "command": "biome check --write --error-on-warnings --no-errors-on-unmatched", "metadata": { "extensions": null } },
+                    "format:biome": { "command": "biome check --write --error-on-warnings --no-errors-on-unmatched", "metadata": { "extensions": [ ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".json", ".jsonc", ".css", ".graphql", ".html", ".vue", ".svelte", ".astro", ".svg", ".grit" ] } },
                     "format:rustfmt": { "command": "cargo fmt", "configurations": { "files": { "command": "rustfmt" } }, "metadata": { "extensions": [ ".rs" ] } },
                     "format:swiftlint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --fix --quiet", "configurations": { "files": { "command": "swiftlint lint --fix --quiet" } }, "metadata": { "extensions": [ ".swift" ] } },
                     "format:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format format --in-place --parallel", "configurations": { "files": { "command": "xcrun swift-format format --in-place --parallel" } }, "metadata": { "extensions": [ ".swift" ] } },

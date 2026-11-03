@@ -60,15 +60,7 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                 </div>
             )}
             <div className="upload-dashboard min-w-0">
-                <p className="hint mb-3">
-                    {details([
-                        format.list(
-                            mediaTypes.flatMap((type) => type.split('/').slice(1)).map((subtype) => subtype.toUpperCase()),
-                            'disjunction',
-                        ),
-                        `Up to ${format.bytes(uploadLimit)} per file`,
-                    ])}
-                </p>
+                <p className="hint mb-3">{details([format.list(mediaTypes.map((type) => type.slice(type.indexOf('/') + 1).toUpperCase()), 'disjunction'), `Up to ${format.bytes(uploadLimit)} per file`])}</p>
                 <div className={files.length > 0 ? 'h-88' : 'h-50'}>
                     <Dashboard disableInformer={true} doneButtonHandler={() => uploader.removeFiles(files.map(Struct.get('id')))} height="100%" proudlyDisplayPoweredByUppy={false} uppy={uploader} width="100%" />
                 </div>

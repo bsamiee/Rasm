@@ -1,5 +1,5 @@
 import { it } from '@effect/vitest';
-import { layer } from '@rasm/database/pg';
+import { Postgres } from '@rasm/database/pg';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { type Cause, Context, Effect, Layer, Redacted } from 'effect';
 import { PullPolicy } from 'testcontainers';
@@ -23,7 +23,7 @@ it.layer(
 )('container', (methods) =>
     cases(
         methods,
-        (options) => Layer.unwrap(Container.use(({ restore, url }) => Effect.as(restore, layer({ url, ...options })))),
+        (options) => Layer.unwrap(Container.use(({ restore, url }) => Effect.as(restore, Postgres.layer({ url, ...options })))),
         () => Effect.void,
     ),
 );
