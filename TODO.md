@@ -27,17 +27,18 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 ### State
 
 - **TypeScript:** all fourteen `[03]` rows landed.
-- **Rust rows landed:** telemetry, command, output, screen, daemon, mcp, mesh, proximity, planar, implicit, site, solar, dependency, network, layout, optimize, stats, analysis, spectra, dynamics, tables, linework, views, annotation, typeset, ifc.
-- **Rust rows running:** pdf, weather, form, sheets; held at three rows, so the next row starts once two of these land.
-- **Rust rows left:** workbooks, cad, facets, scene, pointcloud, terrain, features, energy, daylight, query, lake, fields.
-- **Depth landed:** cli, typeset, ifc; finishing: analysis; running: layout, implicit, annotation; next: solar with site once weather lands, then each landed row not yet deepened.
-- **Tune:** `rust-tune` from `24ede74fc` running.
+- **Rust paused:** no new run starts until the TypeScript extension closes; the runs below finish and count as landed.
+- **Rust rows landed:** telemetry, command, output, screen, daemon, mcp, mesh, proximity, planar, implicit, site, solar, dependency, network, layout, optimize, stats, analysis, spectra, dynamics, form, tables, linework, views, annotation, sheets, typeset, ifc, weather; finishing: pdf, workbooks, cad.
+- **Rust rows left:** facets, scene, pointcloud, terrain, features, energy, daylight, query, lake, fields.
+- **Depth landed:** cli, typeset, ifc, analysis, layout, implicit, dependency; finishing: annotation, mesh, `geospatial` (site, solar, weather).
+- **Depth left:** telemetry, daemon, mcp, network, stats, optimize, spectra, dynamics, proximity, planar, form, tables, linework, views, sheets, pdf, workbooks, cad, and each row above once it lands.
+- **Checks owed:** `rasm-sheets` once annotation compiles.
 
 ### Queue
 
-1. **Rust:** six runs at once, three rows in RUST.md order and three depth runs, each landing freeing its slot; `rust-tune` from `24ede74fc` after 2 to 3 land, and again every few landings.
+1. **Rust, after the TypeScript extension:** three rows in RUST.md order and three depth runs at once, each landing freeing its slot; `rust-tune` from `24ede74fc` over every landing, then every few landings.
 2. **InPage:** depth pass, clean prose, `typescript-tune` and the manual audit (`2a7c018e2`, PLAN.md `[17]-[DESKTOP_MANUAL]`) landed.
-3. **Then:** `typescript-sweep` from `2a7c018e2` runs, folding the split-concept defect. Depth order: `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`, then each landed row not yet deepened.
+3. **Then:** `typescript-sweep` from `2a7c018e2` runs, folding the split-concept defect.
 4. **InPage depth rerun:** once the sweep lands and before extension phases 4 to 7, rerun the depth pass from `.artifacts/workflows/typescript-extension/inpage/depth-prompt.md` (one Fable agent), its prompt extended with every finding and naivety fix recorded since, the plan's `[16]` and `[17]-[DESKTOP_MANUAL]` rows, the matching `docs/research` notes, and deeper fontkit, HarfBuzz and catalog package use only where it replaces hand logic or adds real capability; then one adversary confirms the InPage work full, derived and collapsed, fixing in place.
 5. **Folder guidance:** once the sweep and the Rust queue settle.
 
