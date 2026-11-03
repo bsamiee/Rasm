@@ -1,116 +1,174 @@
-use core::{cmp::Reverse, iter, num::NonZero};
-use std::collections::{BTreeMap, HashMap};
+use core::num::NonZero;
+use std::collections::BTreeMap;
 
-use aws_lc_rs::digest::{self, Digest};
-use data_encoding::{BASE64_NOPAD, BASE64URL_NOPAD};
-use fs_err::tokio;
+use aws_lc_rs::digest;
+use data_encoding::{BASE64, BASE64_NOPAD, BASE64URL_NOPAD};
+use fs_err::tokio as fs;
 use futures::{StreamExt as _, stream::FuturesUnordered};
-use indexmap::IndexSet;
-use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
+use indexmap::IndexMap;
+use itertools::Itertools as _;
+use nonempty_collections::{NEVec, NonEmptyIterator as _, iter};
 use petgraph::{
     graphmap::DiGraphMap,
     visit::{DfsPostOrder, Walker as _},
 };
-use reqwest::Client;
+use reqwest::{Client, Response};
+use tokio::task;
 use url::Url;
-use validated::Validated;
 
-use crate::{IfcError, Import, Layer, Refusal};
+use crate::{IfcError, Import, Layer, Refusal, read};
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+pub enum Sri {
+    Sha256,
+    Sha384,
+    Sha512,
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fetch {
     pub limit: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 7),
-    pub mirrors: BTreeMap<Url, Url> = BTreeMap::new(),
+    pub lock: Option<Sri> = None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Stack {
+    pub layers: NEVec<Layer>,
+    pub lock: NEVec<Import>,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub async fn stack(client: &Client, fetch: &Fetch, main: Url) -> Result<NEVec<Layer>, NEVec<IfcError>> {
-    const ALGORITHMS: [(&str, &digest::Algorithm); 3] = [("sha256", &digest::SHA256), ("sha384", &digest::SHA384), ("sha512", &digest::SHA512)];
-    let verified = |integrity: &str, digests: &[Digest]| {
-        let hashes = integrity.split_whitespace().filter_map(|expression| {
-            let (algorithm, hash) = expression.split_once('?').map_or(expression, |(hash, _)| hash).split_once('-')?;
-            iter::zip(&ALGORITHMS, digests).find_map(|((name, _), digest)| (*name == algorithm).then_some((digest, hash.trim_end_matches('='))))
-        });
-        hashes.clone().map(|(digest, _)| digest.algorithm().output_len()).max().is_none_or(|strongest| {
-            hashes
-                .filter(|(digest, _)| digest.algorithm().output_len() == strongest)
-                .any(|(digest, hash)| [BASE64_NOPAD, BASE64URL_NOPAD].iter().any(|encoding| encoding.encode(digest.as_ref()) == hash))
-        })
-    };
-    let load = async |url: Url, integrity: Vec<Box<str>>| {
+pub async fn stack(client: &Client, fetch: &Fetch, mirrors: &BTreeMap<Url, Url>, main: Url) -> Result<Stack, NEVec<IfcError>> {
+    let load = async |url: &Url| -> Result<Vec<u8>, IfcError> {
         let refused = |reason| IfcError::Refused { url: url.clone(), reason };
-        let import = |source| IfcError::Import { url: url.clone(), source };
-        try bikeshed Result<(Layer, _), IfcError> {
-            let location = fetch
-                .mirrors
-                .range(..=&url)
-                .rev()
-                .find_map(|(prefix, mirror)| url.as_str().strip_prefix(prefix.as_str()).map(|rest| mirror.join(rest).map_err(|source| IfcError::Url { uri: rest.into(), source })))
-                .transpose()?
-                .unwrap_or_else(|| url.clone());
-            let bytes: Vec<u8> = match location.scheme() {
-                "file" => tokio::read(location.to_file_path().map_err(|()| refused(Refusal::Scheme))?).await?,
-                "http" | "https" => client.get(location).send().await?.error_for_status()?.bytes().await?.into(),
-                _ => Err(refused(Refusal::Scheme))?,
-            };
-            let digests = ALGORITHMS.map(|(_, algorithm)| digest::digest(algorithm, &bytes));
-            integrity.iter().all(|metadata| verified(metadata, &digests)).ok_or_else(|| refused(Refusal::Integrity))?;
-            let mut json = serde_json::Deserializer::from_slice(&bytes);
-            let layer = serde_path_to_error::deserialize(&mut json).map_err(import)?;
-            json.end().map_err(|source| import(serde_path_to_error::Error::new(serde_path_to_error::Track::new().path(), source)))?;
-            (layer, digests)
-        }
-        .map_err(NEVec::new)
-        .and_then(|(layer, digests)| {
-            layer
-                .imports
-                .iter()
-                .map(|Import { uri, integrity: declared }| match url.join(uri) {
-                    Ok(target) if url.origin().is_tuple() && !target.origin().is_tuple() => Err(IfcError::Refused { url: target, reason: Refusal::Scheme }),
-                    Ok(target) => Ok((target, declared.clone())),
-                    Err(source) => Err(IfcError::Url { uri: uri.clone(), source }),
+        let location = mirrors
+            .range(..=url)
+            .rev()
+            .find_map(|(prefix, mirror)| {
+                let rest = url.as_str().strip_prefix(prefix.as_str()).filter(|rest| prefix.as_str().ends_with('/') || rest.is_empty() || rest.starts_with('/'))?;
+                Some(if rest.is_empty() {
+                    Ok(mirror.clone())
+                } else {
+                    let mirrored = format!("{}/{}", mirror.as_str().trim_end_matches('/'), rest.trim_start_matches('/'));
+                    Url::parse(&mirrored).map_err(|source| IfcError::Url { uri: mirrored.into_boxed_str(), source })
                 })
-                .collect::<Validated<Vec<_>, _>>()
-                .ok()
-                .map(|imports| (url, layer, digests, imports))
+            })
+            .transpose()?
+            .unwrap_or_else(|| url.clone());
+        match location.scheme() {
+            "file" => fs::read(location.to_file_path().map_err(|()| refused(Refusal::Scheme))?).await.map_err(|source| IfcError::Read { url: url.clone(), source }),
+            "http" | "https" => {
+                let unreachable = |source| IfcError::Request { url: url.clone(), source };
+                client.get(location).send().await.and_then(Response::error_for_status).map_err(unreachable)?.bytes().await.map(Vec::from).map_err(unreachable)
+            }
+            _ => Err(refused(Refusal::Scheme)),
+        }
+    };
+    closure(fetch, load, main, None).await
+}
+
+pub async fn closure<L>(fetch: &Fetch, load: L, main: Url, main_layer: Option<Layer>) -> Result<Stack, NEVec<IfcError>>
+where L: AsyncFn(&Url) -> Result<Vec<u8>, IfcError> {
+    const fn algorithm(sri: Sri) -> &'static digest::Algorithm {
+        match sri {
+            Sri::Sha256 => &digest::SHA256,
+            Sri::Sha384 => &digest::SHA384,
+            Sri::Sha512 => &digest::SHA512,
+        }
+    }
+    let verified = |metadata: &str, bytes: &[u8]| {
+        let tokens = metadata.split_whitespace().filter_map(|expression| {
+            let (name, hash) = expression.split_once('?').map_or(expression, |(hash, _)| hash).split_once('-')?;
+            Some((name.parse::<Sri>().ok()?, hash.trim_end_matches('=')))
+        });
+        tokens.clone().map(|(sri, _)| sri).max().is_none_or(|strongest| {
+            let digest = digest::digest(algorithm(strongest), bytes);
+            tokens.filter(|(sri, _)| *sri == strongest).any(|(_, hash)| [BASE64_NOPAD, BASE64URL_NOPAD].iter().any(|encoding| encoding.encode(digest.as_ref()) == hash))
         })
     };
-    let mut loaded = NEVec::new(load(main, Vec::new()).await?);
-    let mut dispatched = IndexSet::from([loaded.first().0.clone()]);
-    let (mut loading, mut admitted, mut launched, mut failures) = (FuturesUnordered::new(), 0, 1, Vec::new());
+    let imported = |importer: &Url, imports: &[Import]| -> (Vec<_>, Vec<IfcError>) {
+        imports
+            .iter()
+            .map(|Import { uri, integrity }| match importer.join(uri) {
+                Ok(target) if importer.origin().is_tuple() && !target.origin().is_tuple() => Err(IfcError::Refused { url: target, reason: Refusal::Scheme }),
+                Ok(target) => Ok((target, integrity.clone())),
+                Err(source) => Err(IfcError::Url { uri: uri.clone(), source }),
+            })
+            .partition_result::<Vec<(Url, Option<Box<str>>)>, _, _, _>()
+    };
+    let retrieved = async |url: Url, tokens: Vec<Box<str>>| -> Result<_, IfcError> {
+        let bytes = load(&url).await?;
+        let checked = tokens.len();
+        task::spawn_blocking(move || {
+            tokens.iter().all(|metadata| verified(metadata, &bytes)).ok_or_else(|| IfcError::Refused { url: url.clone(), reason: Refusal::Integrity })?;
+            read(&bytes, Some(&url)).map(|layer| (url, layer, Some(bytes), checked))
+        })
+        .await?
+    };
+    let (_, head, head_bytes, _) = match main_layer {
+        Some(layer) => (main.clone(), layer, None, 0),
+        None => retrieved(main.clone(), Vec::new()).await.map_err(NEVec::new)?,
+    };
+    let (head_targets, mut failures) = imported(&main, &head.imports);
+    let mut declared = IndexMap::<Url, Vec<Box<str>>>::from([(main.clone(), Vec::new())]);
+    let declare = |targets: &[(Url, Option<Box<str>>)], held: &mut IndexMap<Url, Vec<Box<str>>>| targets.iter().for_each(|(target, integrity)| held.entry(target.clone()).or_default().extend(integrity.clone()));
+    declare(&head_targets, &mut declared);
+    let head_imports = head_targets.into_iter().map(|(target, _)| target).collect::<Vec<_>>();
+    let mut loaded = IndexMap::new();
+    let mut loading = FuturesUnordered::new();
+    let mut launched = 1_usize;
     loop {
-        dispatched.extend(loaded.iter().skip(admitted).flat_map(|(.., imports)| imports).map(|(url, _)| url.clone()));
-        admitted = loaded.len().get();
-        let room = fetch.limit.get().saturating_sub(loading.len());
-        loading.extend(
-            dispatched
-                .iter()
-                .skip(launched)
-                .take(room)
-                .map(|url| load(url.clone(), loaded.iter().flat_map(|(.., imports)| imports).filter(|(import, _)| import == url).filter_map(|(_, integrity)| integrity.clone()).collect())),
-        );
-        launched = dispatched.len().min(launched.saturating_add(room));
+        while loading.len() < fetch.limit.get()
+            && let Some((url, tokens)) = declared.get_index(launched)
+        {
+            loading.push(retrieved(url.clone(), tokens.clone()));
+            launched = launched.strict_add(1);
+        }
         match loading.next().await {
-            Some(Ok(record)) => loaded.push(record),
-            Some(Err(errors)) => failures.extend(errors),
+            Some(Ok((url, layer, bytes, checked))) => {
+                let (targets, refused) = imported(&url, &layer.imports);
+                failures.extend(refused);
+                declare(&targets, &mut declared);
+                loaded.insert(url, (layer, bytes, checked, targets.into_iter().map(|(target, _)| target).collect::<Vec<_>>()));
+            }
+            Some(Err(failure)) => failures.push(failure),
             None => break,
         }
     }
-    let known = loaded.iter().map(|(url, _, digests, _)| (url, digests)).collect::<HashMap<_, _>>();
-    let tampered = loaded
-        .iter()
-        .flat_map(|(.., imports)| imports)
-        .filter(|(url, integrity)| integrity.as_deref().zip(known.get(url)).is_some_and(|(integrity, digests)| !verified(integrity, *digests)))
-        .map(|(url, _)| url)
-        .collect::<IndexSet<_>>();
-    failures.extend(tampered.into_iter().map(|url| IfcError::Refused { url: url.clone(), reason: Refusal::Integrity }));
-    let strength = {
-        let graph = loaded.iter().flat_map(|(importer, .., imports)| imports.iter().rev().map(move |(import, _)| (importer, import))).collect::<DiGraphMap<_, ()>>();
-        DfsPostOrder::new(&graph, &loaded.first().0).iter(&graph).cloned().collect::<IndexSet<_>>()
+    let order = {
+        let edges = head_imports.iter().rev().map(|import| (&main, import));
+        let graph = edges.chain(loaded.iter().flat_map(|(importer, (.., imports))| imports.iter().rev().map(move |import| (importer, import)))).collect::<DiGraphMap<_, ()>>();
+        DfsPostOrder::new(&graph, &main).iter(&graph).cloned().collect::<Vec<_>>()
     };
-    loaded.sort_by_key(|(url, ..)| Reverse(strength.get_index_of(url)));
-    NEVec::try_from_vec(failures).map_or_else(|| Ok(loaded.into_nonempty_iter().map(|(_, layer, ..)| layer).collect()), Err)
+    let lock = fetch.lock;
+    let (first, rest) = task::spawn_blocking(move || {
+        let resolved = |url: Url, layer: Layer, bytes: Option<Vec<u8>>, checked: usize| {
+            let mut late = declared.get(&url).into_iter().flatten().skip(checked);
+            let intact = bytes.as_deref().is_none_or(|bytes| late.all(|metadata| verified(metadata, bytes)));
+            let integrity = bytes.as_deref().zip(lock).map(|(bytes, sri)| format!("{sri}-{}", BASE64.encode(digest::digest(algorithm(sri), bytes).as_ref())).into_boxed_str());
+            if intact { Ok((Import { uri: url.as_str().into(), integrity }, layer)) } else { Err(IfcError::Refused { url, reason: Refusal::Integrity }) }
+        };
+        let rest = order.into_iter().rev().filter_map(|url| loaded.swap_remove(&url).map(|(layer, bytes, checked, _)| resolved(url, layer, bytes, checked))).collect::<Vec<_>>();
+        (resolved(main, head, head_bytes, 0), rest)
+    })
+    .await
+    .map_err(|source| NEVec::new(IfcError::from(source)))?;
+    let (rest, mismatched): (Vec<_>, Vec<_>) = rest.into_iter().partition_result();
+    failures.extend(mismatched);
+    match first {
+        Ok((import, layer)) => NEVec::try_from_vec(failures).map_or_else(
+            || {
+                let (imports, layers): (Vec<_>, Vec<_>) = rest.into_iter().unzip();
+                Ok(Stack { layers: iter::once(layer).chain(layers).collect(), lock: iter::once(import).chain(imports).collect() })
+            },
+            Err,
+        ),
+        Err(failure) => Err(iter::once(failure).chain(failures).collect()),
+    }
 }

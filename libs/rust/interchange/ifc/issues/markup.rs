@@ -1,10 +1,20 @@
 use indexmap::{IndexMap, IndexSet};
+use itertools::{Either, EitherOrBoth};
 use jiff::Timestamp;
 use validated::Validated;
 use xot::Node;
 
-use super::{Codec, CommentUuid, DocumentReferenceUuid, DocumentUuid, GUID, Image, Keyed, NodeUuid, Reader, Single, TOPIC, Text, TopicUuid, ViewpointUuid, Writer, visualization::Visualization};
-use crate::IfcError;
+use super::{
+    CommentUuid, DocumentReferenceUuid, DocumentUuid, FILE, GUID, IS_EXTERNAL, Image, NodeUuid, REFERENCE, TOPIC, Text, TopicUuid, ViewpointUuid,
+    visualization::Visualization,
+    xml::{Codec, Keyed, Reader, Writer, codec, document, local_name, required, resolve, sides, stated, stored},
+};
+use crate::{IfcError, bind};
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+pub type Target = Either<DocumentUuid, Text>;
+pub type Remark = EitherOrBoth<Text, ViewpointUuid>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -21,7 +31,7 @@ const VISUALIZATION_INFO: &str = "VisualizationInfo";
 pub struct Topic {
     pub files: Vec<File>,
     pub server_assigned_id: Option<Text>,
-    pub kind: Text,
+    pub r#type: Text,
     pub status: Text,
     pub reference_links: Vec<Text>,
     pub title: Text,
@@ -37,7 +47,7 @@ pub struct Topic {
     pub description: Option<Text>,
     pub bim_snippet: Option<BimSnippet>,
     pub document_references: IndexMap<DocumentReferenceUuid, DocumentReference>,
-    pub related_topics: IndexSet<TopicUuid>,
+    pub related_topics: IndexMap<TopicUuid, ()>,
     pub comments: IndexMap<CommentUuid, Comment>,
     pub viewpoints: IndexMap<ViewpointUuid, Viewpoint>,
 }
@@ -59,23 +69,34 @@ pub struct BimSnippet {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Resource {
-    External(Text),
-    Archived { reference: Text, content: Box<[u8]> },
+pub struct Resource {
+    pub reference: Text,
+    pub content: Option<Box<[u8]>>,
 }
 
-impl Single for Resource {}
+impl Codec for Resource {
+    fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, IfcError> {
+        let holder = reader.xot.parent(node).unwrap_or(node);
+        let stated_external = reader.attribute::<Option<bool>>(holder, &[], IS_EXTERNAL).map2(Text::read(reader, node), |external, reference| (external.unwrap_or_else(|| local_name(reader.xot, holder) == FILE), reference));
+        bind(stated_external, |(external, reference)| Validated::from(if external { Ok(None) } else { reader.file(&reference).map(Some) }.map(|content| Self { reference, content })))
+    }
+
+    fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
+        let Self { reference, content } = self;
+        let holder = writer.xot.parent(node).unwrap_or(node);
+        let external = content.is_none();
+        writer.attribute(holder, &[], IS_EXTERNAL, &(external != (local_name(writer.xot, holder) == FILE)).then_some(external))?;
+        reference.write(writer, node)?;
+        content.iter().try_for_each(|content| writer.file(reference, content, zip::CompressionMethod::Deflated))
+    }
+
+    fn present(xot: &xot::Xot, node: Node) -> bool { stated(xot, node) }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DocumentReference {
     pub target: Target,
     pub description: Option<Text>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Target {
-    Document(DocumentUuid),
-    Url(Text),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,13 +108,6 @@ pub struct Comment {
     pub modified_author: Option<Text>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Remark {
-    Text(Text),
-    Viewpoint(ViewpointUuid),
-    Both { text: Text, viewpoint: ViewpointUuid },
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Viewpoint {
     pub visualization: Option<Visualization>,
@@ -102,9 +116,9 @@ pub struct Viewpoint {
 
 codec! {
     Topic {
-        element files(&["Header", "Files"], "File"),
+        element files(&["Header", "Files"], FILE),
         attribute server_assigned_id(&[TOPIC], "ServerAssignedId"),
-        attribute kind(&[TOPIC], "TopicType"),
+        attribute r#type(&[TOPIC], "TopicType"),
         attribute status(&[TOPIC], "TopicStatus"),
         element reference_links(&[TOPIC, "ReferenceLinks"], "ReferenceLink"),
         element title(&[TOPIC], "Title"),
@@ -120,7 +134,7 @@ codec! {
         element description(&[TOPIC], "Description"),
         element bim_snippet(&[TOPIC], "BimSnippet"),
         keyed document_references(&[TOPIC, "DocumentReferences"], "DocumentReference", None),
-        attribute related_topics(&[TOPIC, "RelatedTopics", "RelatedTopic"], GUID),
+        keyed related_topics(&[TOPIC, "RelatedTopics"], "RelatedTopic", None),
         keyed comments(&[TOPIC, "Comments"], COMMENT, None),
         keyed viewpoints(&[TOPIC, "Viewpoints"], "ViewPoint", Some("Index")),
     }
@@ -129,11 +143,11 @@ codec! {
         attribute ifc_spatial_structure_element(&[], "IfcSpatialStructureElement"),
         element filename(&[], "Filename"),
         element date(&[], "Date"),
-        resource reference(true),
+        element reference(&[], REFERENCE),
     }
     BimSnippet {
         attribute snippet_type(&[], "SnippetType"),
-        resource reference(false),
+        element reference(&[], REFERENCE),
         element reference_schema(&[], "ReferenceSchema"),
     }
     DocumentReference {
@@ -150,53 +164,41 @@ codec! {
 }
 
 impl Codec for Target {
-    fn read(reader: &Reader<'_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
-        match reader.element::<Option<DocumentUuid>>(node, &[], DOCUMENT_GUID).map2(reader.element::<Option<Text>>(node, &[], URL), |guid, link| (guid, link)) {
-            Validated::Good((Some(guid), _)) => Validated::Good(Self::Document(guid)),
-            Validated::Good((None, Some(link))) => Validated::Good(Self::Url(link)),
-            Validated::Good((None, None)) => Validated::fail(reader.lacks(DOCUMENT_GUID)),
-            Validated::Fail(failures) => Validated::Fail(failures),
-        }
+    fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, IfcError> {
+        bind(reader.element::<Option<DocumentUuid>>(node, &[], DOCUMENT_GUID).map2(reader.element::<Option<Text>>(node, &[], URL), |guid, link| (guid, link)), |stated| match stated {
+            (Some(guid), _) => Validated::Good(Self::Left(guid)),
+            (None, Some(link)) => Validated::Good(Self::Right(link)),
+            (None, None) => Validated::fail(reader.refused(DOCUMENT_GUID, None)),
+        })
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
         match self {
-            Self::Document(guid) => writer.element(node, &[], DOCUMENT_GUID, guid),
-            Self::Url(link) => writer.element(node, &[], URL, link),
+            Self::Left(guid) => writer.element(node, &[], DOCUMENT_GUID, guid),
+            Self::Right(link) => writer.element(node, &[], URL, link),
         }
     }
 }
 
 impl Codec for Remark {
-    fn read(reader: &Reader<'_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
-        match reader.element::<Option<Text>>(node, &[], COMMENT).map2(reader.attribute::<Option<ViewpointUuid>>(node, &[VIEWPOINT], GUID), |text, viewpoint| (text, viewpoint)) {
-            Validated::Good((Some(text), Some(viewpoint))) => Validated::Good(Self::Both { text, viewpoint }),
-            Validated::Good((Some(text), None)) => Validated::Good(Self::Text(text)),
-            Validated::Good((None, Some(viewpoint))) => Validated::Good(Self::Viewpoint(viewpoint)),
-            Validated::Good((None, None)) => Validated::fail(reader.lacks(COMMENT)),
-            Validated::Fail(failures) => Validated::Fail(failures),
-        }
-    }
+    fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, IfcError> { sides(reader, reader.element(node, &[], COMMENT), reader.attribute(node, &[VIEWPOINT], GUID), COMMENT) }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
-        match self {
-            Self::Text(text) => writer.element(node, &[], COMMENT, text),
-            Self::Viewpoint(viewpoint) => writer.attribute(node, &[VIEWPOINT], GUID, viewpoint),
-            Self::Both { text, viewpoint } => {
-                writer.element(node, &[], COMMENT, text)?;
-                writer.attribute(node, &[VIEWPOINT], GUID, viewpoint)
-            }
-        }
+        let (text, viewpoint) = self.clone().left_and_right();
+        writer.element(node, &[], COMMENT, &text)?;
+        writer.attribute(node, &[VIEWPOINT], GUID, &viewpoint)
     }
 }
 
 impl Keyed<ViewpointUuid> for Viewpoint {
-    fn read_keyed(reader: &Reader<'_>, node: Node, _: &'static str, _: ViewpointUuid) -> Validated<Self, IfcError> {
-        reader
-            .element::<Option<Text>>(node, &[], VIEWPOINT)
-            .ok()
-            .map_or_else(Validated::Fail, |file| file.map_or(Validated::Good(None), |name| reader.document(&name, VISUALIZATION_INFO).map(Some)))
-            .map2(reader.image(node, SNAPSHOT), |visualization, snapshot| Self { visualization, snapshot })
+    fn read_keyed(reader: &Reader<'_>, node: Node, _: ViewpointUuid) -> Validated<Self, IfcError> {
+        bind(reader.element::<Option<Text>>(node, &[], VIEWPOINT), |file| {
+            file.map_or(Validated::Good(None), |name| {
+                let entry = resolve(reader.entry, &name);
+                required(document(reader.open, reader.upgrading, (&entry, VISUALIZATION_INFO), Visualization::read), &entry).map(Some)
+            })
+        })
+        .map2(reader.element(node, &[], SNAPSHOT), |visualization, snapshot| Self { visualization, snapshot })
     }
 
     fn write_keyed(&self, key: ViewpointUuid, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
@@ -204,11 +206,30 @@ impl Keyed<ViewpointUuid> for Viewpoint {
         if let Some(shown) = visualization {
             let name = format!("{key}.bcfv");
             writer.text(node, VIEWPOINT, &name)?;
-            writer.document(&name, VISUALIZATION_INFO, |nested, root| {
+            stored(writer.store, (&resolve(writer.entry, &name), VISUALIZATION_INFO), |nested, root| {
                 shown.write(nested, root)?;
                 nested.attribute(root, &[], GUID, &key)
             })?;
         }
-        writer.image(node, SNAPSHOT, snapshot)
+        writer.element(node, &[], SNAPSHOT, snapshot)
     }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+pub(super) fn merged(left: Topic, right: Topic) -> Topic {
+    let (newer, older) = if left.modified_date >= right.modified_date { (left, right) } else { (right, left) };
+    let mut comments = older.comments;
+    newer.comments.into_iter().for_each(|(guid, comment)| {
+        if comments.get(&guid).is_none_or(|held| held.modified_date <= comment.modified_date) {
+            comments.insert(guid, comment);
+        }
+    });
+    let mut viewpoints = older.viewpoints;
+    viewpoints.extend(newer.viewpoints);
+    let mut document_references = older.document_references;
+    document_references.extend(newer.document_references);
+    let mut related_topics = older.related_topics;
+    related_topics.extend(newer.related_topics);
+    Topic { document_references, related_topics, comments, viewpoints, ..newer }
 }

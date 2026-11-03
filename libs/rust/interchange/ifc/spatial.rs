@@ -1,32 +1,32 @@
 use core::{iter, num::NonZero};
 
 use indexmap::IndexMap;
+use itertools::Itertools as _;
 use nonempty_collections::{NESet, NEVec};
 use petgraph::graphmap::DiGraphMap;
-use serde::{Deserialize, Serialize, de::IntoDeserializer as _};
-use serde_with::{DisplayFromStr, de::DeserializeAsWrap};
+use serde::{Deserialize, Serialize};
 use strum::VariantArray as _;
 use uom::si::f64::{Angle, Length};
 use url::Url;
 use validated::Validated;
 
 use crate::{
-    Composed, IfcError, Model, Part, Path,
-    schemas::{Attribute, attribute, record},
+    Composed, IfcError, Model, Path,
+    schemas::{Attribute, Target, attribute, record},
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
-pub enum Flow {
+pub enum FlowDirection {
     Source,
     Sink,
     SourceAndSink,
     NotDefined,
 }
 
-impl Attribute for Flow {
+impl Attribute for FlowDirection {
     const ID: &'static str = "bsi::ifc::system::flowdirection";
 }
 
@@ -98,13 +98,7 @@ pub enum Coordinates {
 }
 
 #[derive(Deserialize)]
-struct Target {
-    #[serde(rename = "ref")]
-    reference: Path,
-}
-
-#[derive(Deserialize)]
-struct SpaceBoundary {
+pub(crate) struct SpaceBoundary {
     #[serde(rename = "relatedelement")]
     related_element: Target,
     #[serde(rename = "relatingspace")]
@@ -123,37 +117,50 @@ pub fn kind(node: &Composed) -> Result<Option<Kind>, IfcError> {
     attribute::<Class>(node).map(|class| class.and_then(|Class { code, uri: _ }| code.trim_end_matches(|letter: char| letter.is_ascii_uppercase() || letter == '_').strip_prefix("Ifc")?.parse().ok()))
 }
 
+pub fn classifications(node: &Composed) -> Result<IndexMap<&str, Class>, NEVec<IfcError>> {
+    node.attributes
+        .keys()
+        .filter_map(|id| id.strip_suffix("::class").map(|namespace| (id, namespace)))
+        .filter_map(|(id, namespace)| record::<Class>(node, id).transpose().map(|class| class.map(|class| (namespace, class))))
+        .collect::<Validated<IndexMap<_, _>, _>>()
+        .ok()
+}
+
+pub fn classified<'model>(model: &'model Model, code: &str) -> Result<Vec<&'model Composed>, NEVec<IfcError>> {
+    model
+        .holding(Class::ID)
+        .filter_map(|node| attribute::<Class>(node).map(|class| class.is_some_and(|class| &*class.code == code).then_some(node)).transpose())
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
+}
+
 // --- [RELATIONS]
 
-pub fn relations(model: &Model) -> Result<DiGraphMap<&Path, NESet<Relation<'_>>>, NEVec<IfcError>> {
-    let resolved = move |Target { reference }: Target| model.get(&reference).map(|target| &target.node).ok_or(IfcError::Missing { path: reference, part: Part::Node });
-    let classified = model.nodes().filter(|node| node.attributes.contains_key(Class::ID)).map(|node| kind(node).map(|spatial| (&node.node, (node, spatial)))).collect::<Validated<IndexMap<_, _>, _>>();
-    let stated = model
-        .nodes()
-        .flat_map(|node| {
-            let bounded = attribute::<SpaceBoundary>(node).map_or_else(Validated::fail, |boundary| {
-                boundary
-                    .into_iter()
-                    .map(|SpaceBoundary { related_element, relating_space }| {
-                        Validated::from(resolved(related_element)).map2(Validated::from(resolved(relating_space)), |element, space| (element, space, Relation::Bounds { boundary: &node.node }))
-                    })
-                    .collect::<Validated<Vec<_>, _>>()
-            });
-            let linked = Link::VARIANTS.iter().map(move |&link| {
-                record::<Vec<Target>>(node, link.into()).map_or_else(Validated::fail, |targets| {
-                    targets.into_iter().flatten().map(|target| resolved(target).map(|to| (&node.node, to, Relation::Link(link)))).collect::<Validated<Vec<_>, _>>()
+pub fn relations<'model>(model: &'model Model) -> Result<DiGraphMap<&'model Path, NESet<Relation<'model>>>, NEVec<IfcError>> {
+    let resolved = |Target { reference }: Target| model.get(&reference).map(|target| &target.path);
+    let bounded = |node: &'model Composed| {
+        attribute::<SpaceBoundary>(node).map_or_else(Validated::fail, |boundary| {
+            boundary
+                .into_iter()
+                .map(|SpaceBoundary { related_element, relating_space }| {
+                    Validated::from(resolved(related_element)).map2(Validated::from(resolved(relating_space)), |element, space| (element, space, Relation::Bounds { boundary: &node.path }))
                 })
-            });
-            iter::once(bounded).chain(linked)
+                .collect::<Validated<Vec<_>, _>>()
         })
-        .collect::<Validated<Vec<Vec<_>>, _>>();
+    };
+    let linked = |node: &'model Composed, link: Link| {
+        record::<Vec<Target>>(node, link.into())
+            .map_or_else(Validated::fail, |targets| targets.into_iter().flatten().map(|target| resolved(target).map(|to| (&node.path, to, Relation::Link(link)))).collect::<Validated<Vec<_>, _>>())
+    };
+    let classified = model.holding(Class::ID).map(|node| kind(node).map(|spatial| (&node.path, (node, spatial)))).collect::<Validated<IndexMap<_, _>, _>>();
+    let stated = model.nodes().flat_map(|node| iter::once(bounded(node)).chain(Link::VARIANTS.iter().map(move |&link| linked(node, link)))).collect::<Validated<Vec<Vec<_>>, _>>();
     classified
         .map2(stated, |classified, stated| {
             let decomposed = classified.values().flat_map(|&(node, parent)| node.children.values().map(move |child| (node, parent, child))).filter_map(|(node, parent, child)| {
-                match (parent, classified.get(&child.node)) {
+                match (parent, classified.get(&child.path)) {
                     (_, None) => None,
-                    (Some(_), Some(&(_, None))) => Some((&node.node, &child.node, Relation::Contains)),
-                    (None, Some(_)) | (Some(_), Some(&(_, Some(_)))) => Some((&node.node, &child.node, Relation::Aggregates)),
+                    (Some(_), Some(&(_, None))) => Some((&node.path, &child.path, Relation::Contains)),
+                    (None, Some(_)) | (Some(_), Some(&(_, Some(_)))) => Some((&node.path, &child.path, Relation::Aggregates)),
                 }
             });
             let placed = classified.keys().fold(DiGraphMap::<_, NESet<_>>::new(), |mut graph, &path| {
@@ -172,20 +179,52 @@ pub fn relations(model: &Model) -> Result<DiGraphMap<&Path, NESet<Relation<'_>>>
         .ok()
 }
 
+pub fn network<'model>(model: &'model Model) -> Result<DiGraphMap<&'model Path, ()>, NEVec<IfcError>> {
+    let owners = |port: &'model Composed| {
+        let owners = model.parents(&port.path).map(|owner| &owner.path).collect::<Vec<_>>();
+        if owners.is_empty() { Vec::from([&port.path]) } else { owners }
+    };
+    let oriented = |from: &'model Composed, to: &'model Composed| {
+        use FlowDirection::{NotDefined, Sink, Source, SourceAndSink};
+        attribute::<FlowDirection>(from).and_then(|upstream| {
+            attribute::<FlowDirection>(to).map(|downstream| match (upstream, downstream) {
+                (Some(Source), Some(Source | Sink | SourceAndSink | NotDefined) | None) | (Some(Sink | SourceAndSink | NotDefined) | None, Some(Sink)) => [Some((from, to)), None],
+                (Some(Sink), Some(Source | SourceAndSink | NotDefined) | None) | (Some(SourceAndSink | NotDefined) | None, Some(Source)) => [Some((to, from)), None],
+                (Some(SourceAndSink | NotDefined) | None, Some(SourceAndSink | NotDefined) | None) => [Some((from, to)), Some((to, from))],
+            })
+        })
+    };
+    model
+        .holding(Link::ConnectsTo.into())
+        .map(|port| {
+            record::<Vec<Target>>(port, Link::ConnectsTo.into())
+                .map(Option::unwrap_or_default)
+                .map_or_else(Validated::fail, |targets| targets.into_iter().map(|Target { reference }| model.get(&reference).and_then(|target| oriented(port, target))).collect::<Validated<Vec<_>, _>>())
+        })
+        .collect::<Validated<Vec<_>, _>>()
+        .map(|ports| {
+            ports
+                .into_iter()
+                .flatten()
+                .flatten()
+                .flatten()
+                .flat_map(|(from, to)| owners(from).into_iter().cartesian_product(owners(to)))
+                .collect()
+        })
+        .ok()
+}
+
 // --- [GEOREFERENCE]
 
 pub fn georeference(node: &Composed) -> Result<IndexMap<NonZero<u32>, Coordinates>, NEVec<IfcError>> {
     node.attributes
         .keys()
         .filter_map(|id| id.strip_prefix("epsg").map(|digits| (id, digits)))
-        .filter_map(|(id, digits)| {
-            record::<Coordinates>(node, id).transpose().map(|decoded| {
-                let epsg = serde_path_to_error::deserialize::<_, DeserializeAsWrap<NonZero<u32>, DisplayFromStr>>(digits.into_deserializer())
-                    .map(DeserializeAsWrap::into_inner)
-                    .map_err(|source| IfcError::Record { node: node.node.clone(), attribute: id.clone(), source });
-                Validated::from(epsg).map2(Validated::from(decoded), |code, coordinates| (code, coordinates))
-            })
+        .map(|(id, digits)| {
+            Validated::from(digits.parse::<NonZero<u32>>().map_err(|source| IfcError::Epsg { node: node.path.clone(), attribute: id.clone(), source }))
+                .map2(Validated::from(record::<Coordinates>(node, id)), |code, coordinates| coordinates.map(|coordinates| (code, coordinates)))
         })
-        .collect::<Validated<IndexMap<_, _>, _>>()
+        .collect::<Validated<Vec<_>, _>>()
+        .map(|georeferences| georeferences.into_iter().flatten().collect())
         .ok()
 }
