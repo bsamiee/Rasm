@@ -44,46 +44,71 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 ### Open defects
 
 - **Stroke gap:** InDesign reads the stroke family's 4 pt bottom-edge case as 4 against 1 from the rebuilt module.
-- **Ghidra migration:** `.artifacts/workflows/ghidra/MIGRATION.md` once the decompile runs finish.
+- **Ghidra:** old product projects deleted, use-ghidra and function-hooks cleaned from the last day's usage, then the plugin reduced and renamed once the launch-route pass commits (`.artifacts/workflows/ghidra/cleanup-brief.md`, running).
 
 ## [02]-[TYPESCRIPT_EXTENSION]
 
-Extends the TypeScript libraries in depth from what the most capable InDesign plugins and scripts do.
+Extends TypeScript libraries in depth from what the most capable InDesign plugins and scripts do.
 
-### Method
+### [02.1]-[METHOD]
 
-- **Decompile in full:** every acquired product is decompiled from its code, every algorithm rebuilt as runnable TypeScript and proven against the binary (emulation) and the host (InDesign 2027 Beta, or 2026 where a product loads only there).
-- **Rebuild:** use `.claude/workflows/TYPESCRIPT.md` for the method every extension run's agents read.
+- Decompile in full: every algorithm of each acquired product rebuilt as runnable TypeScript, proven against binary and host
+- Rebuild: use `.claude/workflows/TYPESCRIPT.md` for the method every extension run's agents read
 
-### Phases
+### [02.2]-[PHASES]
 
-1. **Acquire:** done. Products sit under `docs/research/applications/<host>/products/<domain>/<key>/`, their distilled code under `docs/research/applications/<host>/distilled/<domain>/<key>/`.
-2. **Decompile:** binary proofs through Ghidra's emulator, host proofs through `tools/harnesses/indesign`.
-3. **Distill:** `rebuilt/` rewritten into `distilled/` by one distiller per algorithm family, each held identical by its own A/B harness, then adversaries per family and across the product.
-4. **InPage:** `deepen` with `.artifacts/workflows/typescript-extension/inpage/args.json` and `base` the commit pushed before launch, then `tune` with `language` typescript from that base.
-5. **Research:** one `extension-research` run per domain note at a time, in the order typography, perso-arabic, composition, grids, indesign, data, mcp, print, color, each pushed before the next.
-6. **Plans:** once the InPage run and its tune are committed, one `extension-research` run with `mode` plan per domain (typography, grids, color, indesign, data, mcp), writing the domain's plan at `.artifacts/workflows/typescript-extension/<domain>/PLAN.md` from its distilled products, rebuilt code and research, and its `ARCHITECTURE.md` and `TYPESCRIPT.md` [03] rows.
-7. **Rows:** one `deepen` run per `TYPESCRIPT.md` [03] row once its `[AFTER]` rows are committed and its gates answered: `mode` build with `key`, `base` the commit pushed before it, `inputs` its domain plan and the evidence the plan names, `oracle` a product proof covering it and `exclude` a nested row's folder, the typography row in `mode` deepen over the InPage result; then `tune` with `language` typescript from the row's base, pushed before the next row.
+1. Acquire: done, products under `docs/research/applications/<host>/products/<domain>/<key>/`, distilled code under `<host>/distilled/<domain>/<key>/`
+2. Decompile: binary proofs through Ghidra's emulator, host proofs through `tools/harnesses/indesign`
+   - Host proofs run in InDesign 2027 Beta, or 2026 where a product loads only there
+3. Distill: one distiller per algorithm family rewrites `rebuilt/` into `distilled/`, held identical by its A/B harness
+   - Adversaries follow per family and across the product
+4. InPage: `deepen` with `.artifacts/workflows/typescript-extension/inpage/args.json` and `base` the commit pushed before launch
+   - `tune` with `language` typescript follows from that base
+5. Research: one `extension-research` run per domain note at a time, each pushed before the next, in order:
+   - Typography, perso-arabic, composition, grids, indesign, data, mcp, print, color
+6. Plans: after the InPage run and its tune commit, one `extension-research` `mode` plan run per domain at a time, in order:
+   - Typography, grids, color, indesign, data, mcp
+   - Each run writes `.artifacts/workflows/typescript-extension/<domain>/PLAN.md` from its distilled products, rebuilt code and research
+   - Each run writes its domain's `ARCHITECTURE.md` rows and `TYPESCRIPT.md` [03] rows
+7. Rows: one `deepen` run per `TYPESCRIPT.md` [03] row once its `[AFTER]` rows commit and its gates are answered:
+   - `mode` build with `key`, and `base` the commit pushed before it
+   - `inputs` its domain plan and the evidence the plan names
+   - `oracle` the product proof covering it where one exists
+   - `exclude` a nested row's folder
+   - Typography row in `mode` deepen over the InPage result
+   - Then `tune` with `language` typescript from the row's base, pushed before the next row
 
-### State
+### [02.3]-[STATE]
 
-- **InPage:** library and Atelier committed; plan at `.artifacts/workflows/typescript-extension/inpage/PLAN.md`; oracle `proof/ab.ts` in `docs/research/applications/indesign/products/typesetting/inpage-typesetting-tool`, failing only on the plan's two open typography rows (`kerns` past a non-joining letter, the `0x` symbol cell).
-- **Color:** no further distill; `docs/research/applications/indesign/internals/adobe-indesign-color` and the color research stand as its evidence.
-- **Research notes:** cleaned to principles at their owners, pre-clean copies in `.artifacts/workflows/typescript-extension/base/`.
-- **Harnesses:** one launch path for every host, each run logged under `.artifacts/logs/harnesses/` with its summary in the CLI result; agents launch, drive and quit apps through watch-apps, and the hook routes every other form there.
-- **Next proofs:** host cases written and not run (second script decompile, Grid Calculator, ScribeDOOR, script domains) and ScribeDOOR for Illustrator run on it; ScribeDOOR's trial ends around 8 November.
-- **InPage proofs:** 164 functions binary-proven over 1494 cases; the plug-in is Windows-only, so host proof is impossible. Its distill carries the typesetting logic (nuqta and aerab position, letter adjustment, spacing tuner, kasheeda, overlap kerning, text carving, symbols, the Quran glossary) for Persian and Arabic over any installed font, reading what each font states; Urdu-only forms stay out.
-- **Distilled:** 61 products; pages (23 left), styles (20), right-to-left (8) and tables (3) wait on host proofs.
-- **Owner's choices:** InPage plug-in 2.2 for InDesign 2026 and a macOS build join the decompile when they arrive. No Apple Developer Program for now.
+- InPage: library and Atelier committed, plan at `.artifacts/workflows/typescript-extension/inpage/PLAN.md`
+  - Oracle `proof/ab.ts` in `docs/research/applications/indesign/products/typesetting/inpage-typesetting-tool` fails on open plan rows alone:
+    - Typography `kerns` past a non-joining letter and the `0x` symbol cell
+- InPage proofs: 164 functions binary-proven over 1494 cases, host proof impossible for the Windows-only plug-in
+- InPage distill: Persian and Arabic typesetting over any installed font, read from what each font states, Urdu-only forms out:
+  - Nuqta and aerab position, letter adjustment, spacing tuner, kasheeda, overlap kerning, text carving, symbols, Quran glossary
+- Color: no further distill, evidence in the color research and in `docs/research/applications/indesign/`:
+  - `distilled/internals/adobe-indesign-color`
+  - `internals/adobe-indesign-color` README locating each rebuilt family
+- Research notes: cleaned to principles at their owners, pre-clean copies in `.artifacts/workflows/typescript-extension/base/`
+- Harnesses: one launch path for every host, each run logged under `.artifacts/logs/harnesses/` with its summary in the CLI result
+  - Agents open, drive and quit apps through watch-apps, the hook routing every other form there
+- Next proofs: host cases written and unrun (second script decompile, Grid Calculator, ScribeDOOR, script domains)
+  - ScribeDOOR for Illustrator runs on the launch path, its trial ending around 8 November
+- Distilled: 61 products, pages (23 left), styles (20), right-to-left (8) and tables (3) waiting on host proofs
+- Owner's choices: InPage plug-in 2.2 for InDesign 2026 and a macOS build join the decompile on arrival, no Apple Developer Program for now
 
-### Scope
+### [02.4]-[SCOPE]
 
-- **InDesign interface:** the library's interface layer, as complete for InDesign as the Rhino and Blender ones: panels, panes, dialogs, preference pages, lists, buttons, swatches, color wheels and hue controls, built from the distilled app and native in look and behavior; it works with InDesign's own interface, sets every application preference with no document open and every document setting with one open (sizes, layouts, visual elements), each declared as data bound to the host's own categories; Atelier, Galley and the rebuilt plug-in capability compose it.
-- **Typography:** shaping, metrics and typesetting with Persian and Arabic right-to-left support through the packages that own it.
-- **Color:** color spaces (sRGB, CMYK, Lab, Adobe RGB and others), one conversion path between them, and palettes.
-- **Grids:** grid systems, rule lines, margins and ruling from grid theory, coupled to no host; any print or digital format is input, house values are caller data.
-- **Document structure:** pages, styles, tables and footnotes as host objects the distilled scripts drive, rebuilt on the host's own mechanisms.
-- **Depth:** MCP logic, automation and scripting, data and stores, search kinds and pagination, wherever the current code is shallow.
+- InDesign interface: library interface layer as complete as Rhino's and Blender's, from the distilled app, native beside InDesign's own:
+  - Panels, panes, dialogs, preference pages, lists, buttons, swatches, color wheels and hue controls, native in look and behavior
+  - Every application preference set with no document open, every document setting with one open (sizes, layouts, visual elements)
+  - Each setting declared as data bound to the host's own categories
+  - Atelier, Galley and the rebuilt plug-in capability compose the layer
+- Typography: shaping, metrics and typesetting with Persian and Arabic right-to-left support through the packages that own it
+- Color: color spaces (sRGB, CMYK, Lab, Adobe RGB and others), one conversion path between them, and palettes
+- Grids: grid systems, rule lines, margins and ruling from grid theory over any print or digital format, coupled to no host, house values caller data
+- Document structure: pages, styles, tables and footnotes as host objects the distilled scripts drive, rebuilt on the host's own mechanisms
+- Depth: MCP logic, automation and scripting, data and stores, search kinds and pagination, wherever code is shallow
 
 ## [03]-[DARKROOM_WINDOW]
 

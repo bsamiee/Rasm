@@ -9,11 +9,11 @@ Packages build on whole layers beneath them, each entry loading in every host th
 - Each capability sits once, at the lowest level holding it whole
 - General packages reach a host through its app package's decodes, and a composition passes their values as tool arguments
 - Adobe hosts serve their library from a plugin dialing Atelier through `Link`, UXP in InDesign and Photoshop, CEP in Illustrator and After Effects
-- `Unmatched` is every lookup refusal, and a contract error is `Schema.Union([Unmatched, <Package>Error])`
+- `Unmatched` is every lookup refusal, contract errors `Schema.Union([Unmatched, <Package>Error])`
 - Package entries a UXP plugin imports (`@rasm/typography/settings`, `@rasm/typography/source`, `@rasm/search/unmatched`) import no wasm module
 - Other wasm modules load once per process behind a `Layer.effect` with a dynamic `import()`
 - `package.json` `sideEffects` lists CSS files alone
-- `registerRpcGroup` names each tool by `rpc._tag`, and a library spells each tag it publishes as a snake_case tool name
+- `registerRpcGroup` names each tool by `rpc._tag`, and libraries spell each tag they publish as a snake_case tool name
 
 Compositions hold app content and pass it to a library as arguments:
 - Env names, flag text, tuned timeouts, and `forcePathStyle`
@@ -22,11 +22,11 @@ Compositions hold app content and pass it to a library as arguments:
 - Tool prose, tool names, link paths, bundle identifiers, and body targets
 
 Capability mined from host products enters as general logic at its level:
-- `docs/research/applications/<host>/distilled` shows product logic to rebuild in repository shape, at its strongest form where products overlap
+- `docs/research/applications/<host>/distilled` shows product logic to rebuild in repository shape at its strongest form where products overlap, a product's `rebuilt` folder where it has no distilled one
 - Fixed product names, widths and styles become their host mechanism (a numbering style on InDesign's GREP styling), values entering as caller data
 - Capability products share (alignment behind many commands) is one relation at its level, their functions its uses
 - Code targets the newest host releases, and an older release loads only products built for it
-- `docs/research/typescript-extension` notes hold domain principles, its `packages.md` package choice and its `ARCHITECTURE.md` the capability matrix
+- `docs/research/typescript-extension` notes hold domain principles, its `studies/` what one product does, `packages.md` package choice and `ARCHITECTURE.md` the capability matrix
 
 ## [02]-[WIRE]
 
@@ -36,11 +36,11 @@ Swift helper readers (`automation/{contract,apple-events,applications,fonts}.ts`
 
 ## [03]-[TARGETS]
 
-Each run rebuilds one package with every consumer its row names, after the rows its `[AFTER]` cell names.
+Each run rebuilds its row's folder under `libs/typescript` with every consumer the row names, after the rows its `[AFTER]` cell names, and changes another row's package only in the members its `[OWNS]` cell names.
 
 | [INDEX] | [KEY]                         | [PACKAGE]            | [OWNS]                                                                                                                                                                                                                                                                                                                                                                                                            | [CONSUMERS]                                                                                                                                                                           | [AFTER]                                                                  |
 | :-----: | :---------------------------- | :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------- |
-|  [01]   | `data/search`                 | `@rasm/search`       | `Unmatched` with its lookups and the wire's `single <subject>` spelling, `rank` with the host's empty answer, `Digits` over `Intl` numbering systems                                                                                                                                                                                                                                                              | `@rasm/mcp`, `@rasm/uxp`, `@rasm/automation`, `@rasm/indesign`, `@rasm/photoshop`, `@rasm/cep`, `@rasm/typography`, `apps/creative-cloud/atelier`, `plugins/argus`, `tools/harnesses` | None                                                                     |
+|  [01]   | `data/search`                 | `@rasm/search`       | `Unmatched` with its lookups and the wire's `single <subject>` spelling, `rank` with the host's empty answer, `Digits` over `Intl` numbering systems                                                                                                                                                                                                                                                              | `@rasm/mcp`, `@rasm/uxp`, `@rasm/automation`, `@rasm/indesign`, `@rasm/photoshop`, `@rasm/cep`, `@rasm/typography`, `apps/creative-cloud/atelier`, `plugins/argus`                    | None                                                                     |
 |  [02]   | `ai/mcp`                      | `@rasm/mcp`          | Tools and resources from an RPC group with routing and completion from `McpServer`, failure renderer, host allow-list, protocol list and `{?query}` templates by hand, Node composition outside every other entry's import graph                                                                                                                                                                                  | `apps/creative-cloud/atelier`, `plugins/argus`                                                                                                                                        | `data/search`                                                            |
 |  [03]   | `creative-cloud/uxp`          | `@rasm/uxp`          | Runtime services, entries decoded through Schemas, `Link` with `dial`, `listen` and `serves`, the full manifest decode                                                                                                                                                                                                                                                                                            | `eng/typescript/uxp`, `apps/creative-cloud/atelier`, `vite.shared.ts`, `@rasm/indesign`, `@rasm/photoshop`, `@rasm/cep`                                                               | `data/search`, `creative-cloud/automation`                               |
 |  [04]   | `creative-cloud/automation`   | `@rasm/automation`   | Apple-event transport and helper spawn, `State` decoded from the wire, declared wire fields, shared requests and `HostError`, typesetting requests over `Settings`                                                                                                                                                                                                                                                | `apps/creative-cloud/atelier`, `@rasm/uxp`, `@rasm/indesign`, `@rasm/photoshop`, `@rasm/cep`, `@rasm/illustrator`, `@rasm/aftereffects`                                               | `data/search`, `graphics/typography`                                     |

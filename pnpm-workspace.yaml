@@ -14,15 +14,15 @@ minimumReleaseAge: 0
 # --- [CATALOG] --------------------------------------------------------------------------
 catalog:
     # --- [EFFECT_RUNTIME]
-    effect: 4.1.1
-    '@effect/platform-node': 4.1.1
-    '@effect/platform-bun': 4.1.1
-    '@effect/platform-browser': 4.1.1
-    '@effect/opentelemetry': 4.1.1
+    effect: 4.1.2
+    '@effect/platform-node': 4.1.2
+    '@effect/platform-bun': 4.1.2
+    '@effect/platform-browser': 4.1.2
+    '@effect/opentelemetry': 4.1.2
     # --- [SERIALIZATION_MESSAGING]
     jsesc: 3.1.0 # JavaScript literals for Acrobat scripts
     '@types/jsesc': 3.0.3
-    '@solana/codecs': 8.6.0 # Bidirectional binary format declarations for Adobe palette exchange
+    '@solana/codecs': 8.7.0-canary-20261102161207 # Bidirectional binary format declarations for Adobe palette exchange
     hash-wasm: 4.12.0
     '@bufbuild/protobuf': 2.16.0
     '@bufbuild/protovalidate': 1.3.0
@@ -58,17 +58,18 @@ catalog:
     '@oslojs/encoding': 1.1.0
     '@dopplerhq/node-sdk': 1.3.0
     # --- [DATA_STORAGE]
-    '@effect/sql-pg': 4.1.1
-    '@effect/sql-sqlite-node': 4.1.1
-    '@effect/sql-sqlite-bun': 4.1.1
-    '@effect/sql-sqlite-wasm': 4.1.1
-    '@effect/sql-libsql': 4.1.1
-    '@effect/sql-d1': 4.1.1
-    '@effect/sql-mysql2': 4.1.1
-    '@effect/sql-mssql': 4.1.1
-    '@effect/sql-clickhouse': 4.1.1
-    '@effect/sql-pglite': 4.1.1
-    '@effect/sql-sqlite-do': 4.1.1
+    '@effect/sql-pg': 4.1.2
+    '@effect/sql-sqlite-node': 4.1.2
+    '@effect/sql-sqlite-bun': 4.1.2
+    '@effect/sql-sqlite-wasm': 4.1.2
+    '@effect/sql-libsql': 4.1.2
+    '@effect/sql-d1': 4.1.2
+    '@effect/sql-mysql2': 4.1.2
+    '@effect/sql-mssql': 4.1.2
+    '@effect/sql-clickhouse': 4.1.2
+    '@effect/sql-pglite': 4.1.2
+    '@effect/sql-sqlite-do': 4.1.2
+    sqlite-vec: 0.1.10-alpha.4 # `vec0` vector tables loaded into Node SQLite
     '@electric-sql/pglite': 0.5.14
     '@electric-sql/pglite-tools': 0.4.14
     '@duckdb/node-api': 2.0.0-r.1
@@ -107,12 +108,12 @@ catalog:
     hucre: 1.3.0
     jspdf: 4.2.1
     jszip: 3.10.2
-    '@effect/ai-anthropic': 4.1.1
-    '@effect/ai-openai': 4.1.1
-    '@effect/ai-openrouter': 4.1.1
-    '@effect/ai-openai-compat': 4.1.1
-    '@effect/ai-cloudflare': 4.1.1
-    '@effect/ai-typesafe': 4.1.1
+    '@effect/ai-anthropic': 4.1.2
+    '@effect/ai-openai': 4.1.2
+    '@effect/ai-openrouter': 4.1.2
+    '@effect/ai-openai-compat': 4.1.2
+    '@effect/ai-cloudflare': 4.1.2
+    '@effect/ai-typesafe': 4.1.2
     '@modelcontextprotocol/ext-apps': 2.1.0 # MCP application protocol and browser client
     '@panzoom/panzoom': 4.6.2 # Pan and zoom gestures over snapshots
     '@openfeature/server-sdk': 1.23.0
@@ -179,7 +180,7 @@ catalog:
     react-compiler-runtime: 1.0.0
     react-error-boundary: 6.1.6
     scheduler: 0.28.0
-    '@effect/atom-react': 4.1.1
+    '@effect/atom-react': 4.1.2
     '@floating-ui/react': 0.27.20
     '@tanstack/react-table': 9.3.1
     '@tanstack/react-virtual': 3.14.24
@@ -193,12 +194,12 @@ catalog:
     tailwindcss-react-aria-components: 3.0.0-nightly-99e610236-261006
     tailwind-merge: 3.7.0-dev.8396cc3d1f18c143a608a08ce8d2ca7487aa7b75
     tw-animate-css: 1.4.0
-    colorjs.io: 0.7.1
     isomorphic-dompurify: 4.6.0
     tus-js-client: 5.0.0-pre3
     react-resizable-panels: 4.16.0
     '@xyflow/react': 13.0.0-next.0
     elkjs: 0.12.1
+    outlay: 1.4.1 # Content-sized web grid tracks
     prosemirror-model: 1.25.12
     prosemirror-state: 1.4.4
     prosemirror-view: 1.42.9
@@ -213,6 +214,8 @@ catalog:
     prosemirror-collab: 1.3.1
     motion: 14.9.0
     d3: 7.9.0
+    d3-array: 3.2.5 # Nearest guide bisection on one axis
+    '@types/d3-array': 3.2.2
     uplot: 1.6.32
     '@observablehq/plot': 0.6.18-alpha.1
     '@visx/scale': 4.0.0
@@ -245,6 +248,8 @@ catalog:
     '@lume/kiwi': 0.4.4
     '@turf/turf': 7.4.0
     '@types/geojson': 7946.0.16
+    flatbush: 4.7.0 # Static spatial index for snap candidates
+    clipper2-ts: 2.0.1-18 # Polygon offset and boolean operations for trap and bleed outlines
     '@webgpu/types': 0.1.74
     typegpu: 0.12.9
     # --- [TYPOGRAPHY]
@@ -252,6 +257,41 @@ catalog:
     harfbuzzjs: 1.6.4 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
     fontkit: 2.0.4
     '@types/fontkit': 2.0.9
+    '@capsizecss/unpack': 4.0.1 # Font metrics and weighted width from font bytes
+    '@capsizecss/core': 4.1.3 # Leading trim and fallback metric overrides
+    subset-font: 2.9.0 # Variable font instance as a font file
+    flo-bezier3: 10.0.1 # Bezier intersection, area, and curvature over glyph outlines
+    flo-boolean: 6.0.5 # Outline overlap removal
+    flo-mat: 5.0.7 # Medial axis for stroke thickness and stress
+    hyphen: 1.14.1 # Liang hyphenation patterns
+    '@types/hyphen': 1.14.0
+    justif: 0.9.2 # Justified total-fit line breaking with protrusion, expansion, and tracking
+    knuth-plass-linebreak: 0.9.6 # Ragged and centered total-fit line breaking
+    utopia-core: 1.6.0 # Fluid viewport type and space scales
+    '@persian-tools/persian-tools': 5.0.0-beta.0 # Persian number words
+    quran-meta: 7.0.0 # Quran divisions per riwayah
+    '@quran.ws/text': 0.1.0 # Mushaf text, marks, pages, lines, and words
+    '@quran.ws/tajwid-rules': 0.1.0 # Tajweed rule and hukm names
+    '@quran.ws/tajwid-annotations': 0.1.0 # Tajweed spans pinned to a Mushaf edition
+    # --- [COLOR]
+    colorjs.io: 0.7.1
+    '@texel/color': 1.1.11 # Cusp gamut mapping, Okhsl and Okhsv over RGB gamuts
+    culori: 4.0.2 # Deficiency filters, monotone splines, nearest color
+    '@types/culori': 4.0.1
+    color-space: 3.5.0 # Conformance vectors, CIECAM16, ICC v2 profile writer
+    spectral.js: 3.0.0 # Kubelka-Munk pigment mixing over reflectance
+    jscolorengine: 1.7.1 # ICC profile decode, rendering intents, black point, proofing
+    # --- [DOCUMENTS]
+    papersizes-guide: 1.1.0 # Named paper formats with their standards
+    fraction.js: 5.3.4 # Exact ratios of declared dimensions
+    printing-services: 1.5.1 # Cover dimensions and print service constants
+    '@cantoo/pdf-lib': 2.11.1 # PDF page placement and box writing
+    pdfnative: 1.9.0 # PDF/X-4 check, page boxes, printer marks
+    mupdf: 1.28.1 # PDF painted object walk and bounds
+    kura-pdf: 1.2.1 # PDF/X and PDF/A conversion and preflight
+    kura-pdf-wasm: 1.2.1
+    page-validation-wasm: 0.12.1 # PDF/A and PDF/UA rule check
+    '@wasm-zoo/ghostscript': 0.7.2 # Ghostscript plate rasters and ink coverage
     # --- [ADOBE_HOSTS]
     types-for-adobe: 7.2.6
     '@adobe-uxp-types/uxp': 0.1.4
@@ -292,7 +332,7 @@ catalog:
     '@pulumiverse/acme': "0.18.1"
     # --- [TESTING]
     vitest: 5.1.0-beta.1
-    '@effect/vitest': 4.1.1
+    '@effect/vitest': 4.1.2
     fast-check: 4.10.2
     '@vitest/coverage-v8': 5.1.0-beta.1
     '@vitest/browser': 5.1.0-beta.1
@@ -319,9 +359,9 @@ catalog:
     cf: 1.0.0-beta.26 # `cloudflare.config.ts` definitions and local resource commands against Vite plugin state
     '@effect/tsgo': 0.63.0 # Effect diagnostics in patched `tsc` and language server
     typescript: 7.1.0-dev.20261028.1 # Newest build `@effect/tsgo` patches, every `effect-tsgo` subcommand fails on another build
-    '@effect/docgen': 4.1.1
-    '@effect/openapi-generator': 4.1.1
-    '@effect/graphql-generator': 4.1.1
+    '@effect/docgen': 4.1.2
+    '@effect/openapi-generator': 4.1.2
+    '@effect/graphql-generator': 4.1.2
     nx: 24.0.3
     '@nx/devkit': 24.0.3
     '@nx/dotnet': 24.0.3
