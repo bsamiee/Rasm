@@ -2,21 +2,23 @@
 
 ## [01]-[LANGUAGE_REBUILDS]
 
-Rust and TypeScript libraries and their consumers are rebuilt as general capability any future app composes, each app holding its own content: fewer types, constants and items, more derived and parameterized logic, every package used through its own members.
+Libraries in every language and their consumers are rebuilt as general capability any future app composes, each app holding its own content.
 
 ### Bar
 
 - **Depth in little surface:** the domain's full capability under advanced use in the fewest names, as general logic any future app, tool or plugin composes.
-- **Read before changing:** code is read whole with its consumers, packages and Effect from source at their pinned release; a defect is traced to every layer that holds it and fixed at each, never patched at the symptom.
+- **Read before changing:** agents read code whole with its consumers and each package from source at its pinned release; a defect is traced to every layer that holds it and fixed at each, never patched at the symptom.
 - **Reduction:** a struct, type, interface, enum, error variant, constant, string literal set or validation exists only where a caller acts on it differently; the rest folds into fewer, richer objects whose operations live with them.
 - **Derivation:** values derive from the type, member, host query or standard that owns them; related quantities live in one algebraic relation solvable for any of them; one parameterized item serves every variant; no hardcoded size, step, limit or name.
-- **Packages:** each dependency's full capability through its own members; hand logic a package or Effect states is deleted.
+- **Packages:** each dependency's full capability through its own members; hand logic a package states is deleted, and the newest, strongest package joins where it owns a fact the code would otherwise hand-write.
+- **Modern:** the newest release each project targets, written in that release's forms and standards (Python 3.15 and its PEPs, TypeScript 7, Effect 4, Rust 2024).
+- **Visibility:** public names are what a consumer composes; every other member is private in its language's form (`_` in Python, unexported in TypeScript, `pub(crate)` in Rust).
 - **Shape:** flat control flow, no wrapper, alias, forwarding layer or single-use helper, no stringly form; agent-facing messages built from their values.
 - **Architecture:** a concept owns its file, a folder holds several concepts, a module made only to break an import cycle marks a wrong boundary to rebuild; no mini files, single-file folders or coined names.
-- **Both ends:** a library and its consumers are rebuilt together, each consumer calling it directly.
+- **Both ends:** present code, names and consumers hold no authority and couple nothing; a library and its consumers are rebuilt together, each consumer calling it directly, nothing kept for compatibility.
 - **Rebuild, never move:** poor logic is deleted whole and rebuilt in its best form; relocated code is no change, and a change stands only when the result does more with less.
 - **Recorded findings:** RUST.md, TYPESCRIPT.md, `.artifacts/workflows/` and `docs/research` are acted on, never rediscovered.
-- **Doing the work:** a defect found is fixed in the same pass at its cause; subsequent passes deepen landed work, never receive work the current pass owns.
+- **Doing the work:** a defect found is fixed in the same pass at its cause, nothing deferred; each later pass deepens capability and collapses weak forms (constants, strings, small types) in one change, never receiving work an earlier pass owned.
 - **Checks:** run once when a run's work is done, findings fixed once, then run once more.
 
 ### Workflows
@@ -45,8 +47,8 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 1. **TypeScript close:** the sweep audit (running) judges and reduces the sweep's growth and checks the tree to zero; then `typescript-tune` from `2a7c018e2`.
 2. **Push**, then the **InPage depth rerun** from `.artifacts/workflows/typescript-extension/inpage/depth-prompt-2.md` (one Fable agent), with its follow-up depth, clean prose and refinement of modified content.
 3. **Push**, then the extension phases 4 to 7 in [02], pushing before the first run.
-4. **Harnesses:** run logging landed (`1193208fe`); the depth pass in `.artifacts/workflows/harnesses/depth-brief.md` (running); then the open host proofs.
-5. **Font library:** `libs/python/typography` and the `foundry` CLI at `tools/foundry` (running) from `.artifacts/workflows/fonts/DECISION.md` and `ARCHITECTURE.md`, 2,650 to 4,000 lines rebuilt from the old tooling's functionality, never its code; each round pushed; then 2 to 3 rounds, each a fresh lead deepening it from `git diff` of the round before; then `python-tune` over it.
+4. **Harnesses:** run logging landed (`1193208fe`); the depth pass in `.artifacts/workflows/harnesses/depth-brief.md` and the app launch route pass in `.artifacts/workflows/launch/depth-brief.md` (both running); then the open host proofs.
+5. **Font library:** `libs/python/typography` and the `foundry` CLI at `tools/foundry` (running) from `.artifacts/workflows/fonts/DECISION.md` and `ARCHITECTURE.md`, 2,650 to 4,000 lines; each round pushed; then 2 to 3 rounds, each a fresh lead on `.artifacts/workflows/fonts/deepen-brief.md` from the round before; then `python-tune`, which can run beside InPage.
 6. **Rust, after the TypeScript extension:** three rows in RUST.md order and three depth runs at once, each landing freeing its slot; `rust-tune` every few landings.
 7. **Folder guidance:** once the TypeScript extension and the Rust queue settle.
 
