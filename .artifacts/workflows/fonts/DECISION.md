@@ -93,3 +93,10 @@ Findings of the code study and the journal that a rebuild leaves behind:
 |  [15]   | Builders locked out of `rules.py`, PLAN prose as the rule store         | Rules in code and declarations, checked and versioned  |
 |  [16]   | `fontbakery` 1.1.0 at CI 3.9 to 3.12                                    | `fontspector` 1.9.0 with its JSON report               |
 |  [17]   | Private `Subsetter._closure_glyphs`                                     | `Subsetter.subset` over a copy, retained glyph order   |
+
+## [07]-[BUILD_BAR]
+
+Total size is 2,500 to 4,000 lines against the 10,638 lines of the current tooling, and the build reads that tooling's functionality and findings, never its code:
+- Each capability takes its higher-order form: genres, treatments and rules as data, verification as one relation, one pipeline over every face class
+- Each form builds on the chosen packages' own members, so nothing fontTools, ufo2ft, uharfbuzz, skia-pathops, OTS or fontspector states is restated
+- Use `ARCHITECTURE.md` for each package's line budget and the current surface the rebuild deletes

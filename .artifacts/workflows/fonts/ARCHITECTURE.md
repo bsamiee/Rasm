@@ -164,3 +164,28 @@ Algorithms the research proved, kept as pure functions with their correction, `r
 - `publish` copies built files to a destination argument and compares hashes, deleting nothing
 - Private Use Area ornaments have bidi class L, and the typesetting library that places them inserts the mark that keeps line order
 - Reference faces for Perso-Arabic text are unhinted with `prep` and `gasp` alone, so `Hinting` stays out of every text plan by default
+
+## [08]-[BUDGET]
+
+Line budgets derive from what each package holds, summing to 2,600 to 4,000 lines:
+
+| [INDEX] | [PACKAGE]              | [LINES]      | [HOLDS]                                                                         |
+| :-----: | :--------------------- | :----------- | :------------------------------------------------------------------------------ |
+|  [01]   | `faces`                | 600 to 900   | Set, family, face, glyph, role and coverage records, declaration decode, import |
+|  [02]   | `outlines`             | 400 to 600   | Union, difference, area, IoU, bounds, gap, stroke, nib, tidy over skia-pathops  |
+|  [03]   | `shaping`              | 250 to 400   | Runs over uharfbuzz, `hb-shape` serialization, shaping JSON codec, corpus       |
+|  [04]   | `foundry.rules`        | 900 to 1,350 | Rule and plan records, `applied`, lookup records, emitter, rule logic           |
+|  [05]   | `foundry.verification` | 300 to 500   | Requirement and finding records, `verified`, OTS and fontspector decode         |
+|  [06]   | `foundry`              | 150 to 250   | `App`, compile through ufo2ft, hinting, WOFF2, hash, publish, report            |
+
+Current surface the rebuild deletes outright, with nothing standing in for it:
+- `rebuild.py`: the older pipeline editing binaries in place, its `ROSTER`, `migrate`, `clear_previous` and Drive `publish`
+- Per-family scripts `talat.py`, `ibteda.py`, `xebec.py`, `object.py`, `inpagesymbol.py`, every `source/design.py`, `cleanup.py` and `keheh.py`
+- `features.py` string emission, `merge` prefix regrouping, `sheared_by` regex, `compiler.AfterMarks` reparse, `ufo.lib` strings holding `.fea`
+- `Work.facts` scratchpad, `Work.shaper()` compiling a TTF to measure, `provisional_span` trial mutation, `sibling_face` cache
+- `families.toml` design knobs, replaced by genre and treatment records with per-face value overrides
+- Module constants cited from reference fonts, replaced by declaration values and requirement bounds
+- `verify.py` `sheet`, `synthesis`, `parity` grab-bag, raster `seams`, `.notdef` substring counts over `hb-shape` output, `--update` seeding
+- `scan.py`, `texts.py` as code, with corpus texts as data files the declaration names
+- Hand-built GDEF, kern pairs, STAT, `prep` and `gasp` where `GdefFeatureWriter`, `KernFeatureWriter`, `buildStatTable` and ufo2ft filters cover them
+- `outline.py` duplicates in `rebuild.py` and `object.py`, cu2qu and overlap removal by hand where ufo2ft filters run them
