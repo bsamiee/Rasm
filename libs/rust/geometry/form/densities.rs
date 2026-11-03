@@ -1,6 +1,6 @@
 use core::iter;
 
-use faer::{Side, linalg::solvers::Solve, sparse::linalg::solvers::Llt};
+use faer::{Side, linalg::solvers::Solve as _, sparse::linalg::solvers::Llt};
 use nalgebra::{DVector, DVectorView, Matrix3xX};
 use nonempty_collections::NEVec;
 use validated::Validated;
@@ -19,7 +19,7 @@ pub(crate) struct Solved {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn sign(densities: &[f64]) -> f64 {
+const fn sign(densities: &[f64]) -> f64 {
     match densities {
         [first, ..] => 1.0_f64.copysign(*first),
         [] => 1.0,

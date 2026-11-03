@@ -1,6 +1,6 @@
-#![feature(try_blocks_heterogeneous)]
+#![feature(cmp_minmax, control_flow_into_value, try_blocks_heterogeneous)]
 
-use core::{iter, mem, num::NonZero};
+use core::{cmp, iter, mem, num::NonZero};
 
 use faer::{
     Accum, MatMut, MatRef, Side, get_global_parallelism,
@@ -9,6 +9,7 @@ use faer::{
         linalg::{LltError, matmul::sparse_dense_matmul, solvers::SymbolicLlt},
     },
 };
+use itertools::Itertools as _;
 use nalgebra::{DVector, Matrix3xX, Point3, Vector3};
 use nonempty_collections::NEVec;
 use rasm_optimize::OptimizeError;
@@ -94,17 +95,17 @@ impl Network {
             )
         })
         .for_each(drop);
-        reached.iter().enumerate().filter(|&(_, &mark)| !mark).map(|(node, _)| Err(FormError::Floating { node })).collect::<Validated<(), _>>().ok()?;
+        reached.iter().positions(|&mark| !mark).map(|node| Err(FormError::Floating { node })).collect::<Validated<(), _>>().ok()?;
         let incidence = |ranks: &[Option<usize>]| {
             let entries = edges
                 .iter()
                 .enumerate()
                 .flat_map(|(edge, ends)| iter::zip(ends, [1.0, -1.0]).filter_map(move |(&end, sign)| ranks.get(end).copied().flatten().map(|column| Triplet::new(edge, column, sign))))
                 .collect::<Vec<_>>();
-            SparseColMat::<usize, f64>::try_new_from_triplets(edges.len(), ranks.iter().flatten().count(), &entries)
+            Validated::from(SparseColMat::<usize, f64>::try_new_from_triplets(edges.len(), ranks.iter().flatten().count(), &entries).map_err(FormError::from))
         };
+        let (free, supports) = incidence(&index).map2(incidence(&supported), |free, supports| (free, supports)).ok()?;
         (try bikeshed Result<Self, FormError> {
-            let (free, supports) = (incidence(&index)?, incidence(&supported)?);
             let mut anchors = Matrix3xX::zeros(edges.len());
             sparse_dense_matmul(view_mut(&mut anchors), Accum::Replace, supports.as_ref(), view(&positions), 1.0, get_global_parallelism());
             let pattern = grounded(&index, &edges, iter::repeat(1.0)).map(|(pair, _)| pair).collect::<Vec<_>>();
@@ -119,8 +120,8 @@ impl Network {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Form {
     pub positions: Vec<Point3<f64>>,
-    pub lengths: DVector<f64>,
     pub forces: DVector<f64>,
+    pub lengths: DVector<f64>,
     pub reactions: Vec<Vector3<f64>>,
 }
 
@@ -164,7 +165,10 @@ where I: IntoIterator<Item = f64> {
         [
             start.map(|start| (Pair::new(start, start), weight)),
             end.map(|end| (Pair::new(end, end), weight)),
-            start.zip(end).map(|(start, end)| (Pair::new(start.max(end), start.min(end)), -weight)),
+            start.zip(end).map(|(start, end)| {
+                let [low, high] = cmp::minmax(start, end);
+                (Pair::new(high, low), -weight)
+            }),
         ]
         .into_iter()
         .flatten()
@@ -191,10 +195,10 @@ fn balance(network: &Network, spans: &Matrix3xX<f64>, densities: &DVector<f64>) 
     [residual, reactions]
 }
 
-fn form(network: &Network, free: &Matrix3xX<f64>, spans: &Matrix3xX<f64>, densities: &DVector<f64>, [residual, reactions]: [Matrix3xX<f64>; 2]) -> Form {
+fn form(network: &Network, free: &Matrix3xX<f64>, spans: &Matrix3xX<f64>, densities: &DVector<f64>, [residual, supports]: [Matrix3xX<f64>; 2]) -> Form {
     let lengths = DVector::from_iterator(spans.ncols(), spans.column_iter().map(|span| span.norm()));
-    let (mut moved, mut held) = (iter::zip(free.column_iter(), residual.column_iter()), reactions.column_iter());
-    let (positions, external) = network
+    let (mut moved, mut held) = (iter::zip(free.column_iter(), residual.column_iter()), supports.column_iter());
+    let (positions, reactions) = network
         .nodes
         .iter()
         .filter_map(|node| match *node {
@@ -202,7 +206,7 @@ fn form(network: &Network, free: &Matrix3xX<f64>, spans: &Matrix3xX<f64>, densit
             Node::Free { position: _, load: _ } => moved.next().map(|(position, imbalance)| (Point3::from(position.into_owned()), -imbalance)),
         })
         .unzip();
-    Form { positions, forces: densities.component_mul(&lengths), lengths, reactions: external }
+    Form { positions, forces: densities.component_mul(&lengths), lengths, reactions }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

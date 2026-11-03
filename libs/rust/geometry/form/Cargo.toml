@@ -28,6 +28,7 @@ nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive_more          = { workspace = true }
+itertools            = { workspace = true }
 faer                 = { workspace = true }
 nalgebra             = { workspace = true }
 nlopt                = { workspace = true }

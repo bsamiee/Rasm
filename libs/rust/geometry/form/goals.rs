@@ -6,6 +6,7 @@ use faer::{
     linalg::solvers::Solve as _,
     sparse::{SparseColMat, Triplet, linalg::matmul::sparse_dense_matmul},
 };
+use itertools::Itertools as _;
 use nalgebra::{DMatrixView, DVector, Isometry3, Matrix3xX, Point3, Unit, Vector3};
 use nlopt::Target;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
@@ -64,9 +65,8 @@ where K: Ord + Sync {
         space
             .values()
             .into_iter()
-            .enumerate()
-            .filter(|(_, bounds)| bounds.contains(&0.0) || side.is_some_and(|side| bounds.start.is_sign_positive() != side))
-            .map(|(index, _)| FormError::Entry { input: Input::Bounds, index }),
+            .positions(|bounds| bounds.contains(&0.0) || side.is_some_and(|side| bounds.start.is_sign_positive() != side))
+            .map(|index| FormError::Entry { input: Input::Bounds, index }),
     )
     .map(Err)
     .collect::<Validated<(), _>>();
@@ -100,7 +100,7 @@ where K: Ord + Sync {
                 .map_err(|failure| failure.either(NEVec::new, |failures| failures.into_nonempty_iter().map(FormError::from).collect()))?;
             let densities = densities(&grouping, solution.point.as_slice());
             let Solved { factor: _, sign: _, spans, free } = solved(network, &densities).map_err(NEVec::new)?;
-            Ok(Optimum { form: form(network, &free, &spans, &densities, balance(network, &spans, &densities)), solution })
+            Ok(Optimum { solution, form: form(network, &free, &spans, &densities, balance(network, &spans, &densities)) })
         })
         .collect())
 }

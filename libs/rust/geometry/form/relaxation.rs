@@ -1,4 +1,4 @@
-use core::{iter, num::NonZero, ops::ControlFlow};
+use core::{cmp, iter, num::NonZero, ops::ControlFlow};
 
 use faer::{
     Accum, MatMut, MatRef, get_global_parallelism,
@@ -52,11 +52,12 @@ pub fn equilibrium(network: &Network, members: &[Member], tolerance: Tolerance, 
                 .zip(members.par_iter())
                 .map(|(span, &Member { stiffness, rest, response })| {
                     let stretch = if rest > 0.0 { 1.0 - rest / span.norm() } else { 1.0 };
+                    let [compression, tension] = cmp::minmax_by(stretch, 0.0, f64::total_cmp);
                     stiffness
                         * match response {
                             Response::Bar => stretch,
-                            Response::Cable => stretch.max(0.0),
-                            Response::Strut => stretch.min(0.0),
+                            Response::Cable => tension,
+                            Response::Strut => compression,
                         }
                 })
                 .collect(),
@@ -80,7 +81,7 @@ pub fn equilibrium(network: &Network, members: &[Member], tolerance: Tolerance, 
             })
             .flat_map(|position| <[f64; 3]>::from(position.coords)),
     );
-    let (ControlFlow::Break(outcome) | ControlFlow::Continue(outcome)) = try bikeshed ControlFlow<Result<Form, FormError>, Result<Form, FormError>> {
+    let outcome = try bikeshed ControlFlow<Result<Form, FormError>, Result<Form, FormError>> {
         let (positions, ..) = (0..steps.get()).try_fold((start, Matrix3xX::zeros(network.loads.ncols()), 0.0_f64), |(positions, velocity, previous), step| {
             let (residual, densities, _) = settle(step, &positions)?;
             let stiffness = DVector::from_iterator(members.len(), iter::zip(members, densities.iter()).map(|(member, density)| member.stiffness + density.abs()));
@@ -105,5 +106,5 @@ pub fn equilibrium(network: &Network, members: &[Member], tolerance: Tolerance, 
         let (.., residual) = settle(steps.get(), &positions)?;
         Err(FormError::Unconverged { steps, residual })
     };
-    outcome.map_err(NEVec::new)
+    outcome.into_value().map_err(NEVec::new)
 }
