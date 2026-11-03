@@ -8,6 +8,19 @@ export const meta = {
 
 const FILES = 'nx run rasm:format:files --'
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const owned = (row) => ({
+  ...row,
+  owners: [...row.owners, {
+    name: 'ast-grep',
+    paths: [`tools/ast-grep/rules/${row.grep}`, `tools/ast-grep/utils/${row.grep}`, `tools/ast-grep/outline/${row.grep}.yml`],
+    decides: 'a form syntax decides alone, as a rule, a util its rules call or an outline row',
+    skills: ['use-ast-grep'],
+    targets: ['nx run rasm:lint:ast-grep', 'nx run rasm:lint:yamllint', 'nx run rasm:lint:yamlfmt'],
+  }],
+})
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 return {
@@ -17,7 +30,7 @@ return {
     ['rhino', ['use-rhino'], ['dotnet', 'typescript']],
   ],
   languages: {
-    typescript: {
+    typescript: owned({
       libs: 'libs/typescript',
       tests: 'tests/typescript',
       skills: ['typescript-coding', 'typescript-coding-effect'],
@@ -32,15 +45,17 @@ return {
       globs: '*.{ts,tsx,js}',
       pathspec: ["'*.ts'", "'*.tsx'", "'*package.json'", "'*tsconfig*.json'", "'biome.json'", "'pnpm-workspace.yaml'", "'tools/ast-grep/*/typescript/*'", "'tools/ast-grep/outline/typescript.yml'"],
       unit: 'folder holding the nearest package.json',
-      config: { paths: ['tsconfig.base.json', 'biome.json'], rows: 'each `compilerOptions` row with its @effect/language-service diagnostics and each Biome rule row', decides: 'a compiler option, an @effect/language-service diagnostic or a Biome rule', targets: ['nx run rasm:lint:biome', 'nx run-many -t typecheck:tsc'] },
-      typed: null,
+      owners: [
+        { name: 'tsc', paths: ['tsconfig.base.json'], decides: 'a `compilerOptions` row or an @effect/language-service diagnostic', skills: ['manage-repo'], targets: ['nx run-many -t typecheck:tsc'] },
+        { name: 'biome', paths: ['biome.json'], decides: 'a Biome rule or option row', skills: ['manage-repo'], targets: ['nx run rasm:lint:biome'] },
+      ],
       snippet: 'biome check --stdin-file-path=libs/typescript/snippet.ts',
       install: 'pnpm install --prefer-offline',
       format: [FILES],
       lint: [['biome', 'nx run rasm:lint:biome --']],
       whole: ['typecheck:tsc'],
-    },
-    python: {
+    }),
+    python: owned({
       libs: 'libs/python',
       tests: 'tests/python',
       skills: ['python-coding', 'python-document'],
@@ -55,8 +70,12 @@ return {
       globs: '*.{py,pyi}',
       pathspec: ["'*.py'", "'*.pyi'", "'*pyproject.toml'", "'tools/ast-grep/*/python/*'", "'tools/ast-grep/outline/python.yml'"],
       unit: 'folder holding the nearest `py.typed`, `blender_manifest.toml` or member pyproject.toml (a `[tool.uv.workspace] members` row)',
-      config: { paths: ['pyproject.toml'], rows: 'each row of the [tool.ruff*], [tool.ty*], [tool.mypy] and [tool.refurb] tables of the root and each member pyproject.toml', decides: 'a Ruff rule or option, a ty rule, a mypy error code or a FURB check', targets: ['nx run rasm:lint:ruff', 'nx run rasm:typecheck:ty', 'nx run rasm:typecheck:mypy', 'nx run rasm:lint:refurb', 'nx run rasm:lint:tombi'] },
-      typed: { name: 'refurb', paths: ['tools/refurb'], tests: 'tests/python/tools/refurb', run: 'nx run rasm:lint:refurb', test: 'pytest tests/python/tools/refurb', needs: 'types mypy resolves' },
+      owners: [
+        { name: 'ruff', paths: ['pyproject.toml'], decides: 'a Ruff rule or option row of a [tool.ruff*] table in the root or a member pyproject.toml', skills: ['manage-repo'], targets: ['nx run rasm:lint:ruff', 'nx run rasm:lint:tombi'] },
+        { name: 'ty', paths: ['pyproject.toml'], decides: 'a ty rule row of a [tool.ty*] table in the root or a member pyproject.toml', skills: ['manage-repo'], targets: ['nx run rasm:typecheck:ty', 'nx run rasm:lint:tombi'] },
+        { name: 'mypy', paths: ['pyproject.toml'], decides: 'a mypy option or error code row of a [tool.mypy] table', skills: ['manage-repo'], targets: ['nx run rasm:typecheck:mypy', 'nx run rasm:lint:tombi'] },
+        { name: 'refurb', paths: ['tools/refurb', 'tests/python/tools/refurb'], decides: 'a form that needs types mypy resolves, as a check module with its test cases or a [tool.refurb] row', skills: ['manage-repo', 'python-coding'], targets: ['nx run rasm:lint:refurb', 'pytest tests/python/tools/refurb'] },
+      ],
       snippet: 'ruff check --stdin-filename libs/python/snippet.py -',
       install: 'uv sync',
       format: [FILES],
@@ -69,8 +88,8 @@ return {
         lint: [['ruff', 'nx run rasm:lint:ruff --']],
         whole: ['typecheck:mypy:3.13', 'typecheck:ty:3.13', 'lint:refurb:3.13', 'lint:ast-grep:3.13', 'lint:tombi'],
       },
-    },
-    rust: {
+    }),
+    rust: owned({
       libs: 'libs/rust',
       tests: 'tests/rust',
       skills: ['rust-coding'],
@@ -85,15 +104,17 @@ return {
       globs: '*.rs',
       pathspec: ["'*.rs'", "'*Cargo.toml'", "'clippy.toml'", "'rust-toolchain.toml'", "'tests/rust/tools/dylint/*'", "'tools/ast-grep/*/rust/*'", "'tools/ast-grep/outline/rust.yml'"],
       unit: 'folder holding the nearest Cargo.toml',
-      config: { paths: ['Cargo.toml', 'clippy.toml'], rows: 'each `[workspace.lints.*]` row and each clippy.toml row', decides: 'a rustc or Clippy lint row', targets: ['nx run-many -t check --projects=tag:language:rust', 'nx run rasm:lint:tombi'] },
-      typed: { name: 'dylint', paths: ['tools/dylint'], tests: 'tests/rust/tools/dylint', run: 'nx run lints:check', test: 'nx run lints:test', needs: 'types and resolved paths rustc holds' },
+      owners: [
+        { name: 'clippy', paths: ['Cargo.toml', 'clippy.toml'], decides: 'a rustc or Clippy lint row of `[workspace.lints.*]` or a clippy.toml option', skills: ['manage-repo'], targets: ['nx run-many -t check --projects=tag:language:rust', 'nx run rasm:lint:tombi'] },
+        { name: 'dylint', paths: ['tools/dylint', 'tests/rust/tools/dylint'], decides: 'a form that needs types and resolved paths rustc holds, as a lint with its test cases', skills: ['manage-repo', 'rust-coding'], targets: ['nx run lints:check', 'nx run lints:test'] },
+      ],
       snippet: 'rustfmt --edition 2024 --check',
       install: 'cargo fetch',
       format: [FILES],
       lint: [],
       whole: ['lint:rustfmt', 'lint:tombi'],
-    },
-    swift: {
+    }),
+    swift: owned({
       libs: 'libs/swift',
       tests: 'tests/swift',
       skills: ['swift-coding'],
@@ -108,15 +129,17 @@ return {
       globs: '*.swift',
       pathspec: ["'*.swift'", "'Package.swift'", "'.swift-format'", "'.swiftlint.yml'", "'Xcode.xcconfig'", "'tools/ast-grep/*/swift/*'", "'tools/ast-grep/outline/swift.yml'"],
       unit: 'Package.swift target folder holding the file',
-      config: { paths: ['.swift-format', '.swiftlint.yml'], rows: 'each swift-format rule row and each SwiftLint rule row', decides: 'a swift-format rule or a SwiftLint rule', targets: ['nx run rasm:lint:swiftlint', 'nx run rasm:lint:swift-format'] },
-      typed: null,
+      owners: [
+        { name: 'swift-format', paths: ['.swift-format'], decides: 'a swift-format rule row', skills: ['manage-repo'], targets: ['nx run rasm:lint:swift-format'] },
+        { name: 'swiftlint', paths: ['.swiftlint.yml'], decides: 'a SwiftLint rule or option row', skills: ['manage-repo'], targets: ['nx run rasm:lint:swiftlint'] },
+      ],
       snippet: 'xcrun swift-format lint --strict',
       install: 'swift package resolve',
       format: [FILES],
       lint: [],
       whole: ['lint:swiftlint', 'lint:swift-format', 'typecheck:swift'],
-    },
-    dotnet: {
+    }),
+    dotnet: owned({
       libs: 'libs/dotnet',
       tests: 'tests/dotnet',
       skills: ['dotnet-coding', 'dotnet-document', 'dotnet-roslyn-codelens'],
@@ -131,13 +154,16 @@ return {
       globs: '*.cs',
       pathspec: ["'*.cs'", "'*.csproj'", "'*.props'", "'*.targets'", "'.editorconfig'", "'global.json'", "'tools/roslyn/*'", "'tests/dotnet/tools/roslyn/*'", "'tools/ast-grep/*/csharp/*'", "'tools/ast-grep/outline/csharp.yml'"],
       unit: 'folder holding the nearest .csproj',
-      config: { paths: ['.editorconfig', 'tools/roslyn/BannedSymbols.txt', 'tools/roslyn/BannedSymbols.Library.txt'], rows: 'each analyzer severity row of .editorconfig and each BannedSymbols row', decides: 'an analyzer severity row or a BannedSymbols row', targets: ['nx run rasm:lint:dotnet-format', 'nx run-many -t check --projects=tag:language:dotnet'] },
-      typed: { name: 'Rasm.Analyzers', paths: ['tools/roslyn/Rasm.Analyzers', 'tools/roslyn/Rasm.Analyzers.CodeFixes'], tests: 'tests/dotnet/tools/roslyn/Rasm.Analyzers.Tests', run: 'nx run-many -t check --projects=tag:language:dotnet', test: 'nx run Rasm.Analyzers.Tests:test', needs: 'symbols Roslyn binds' },
+      owners: [
+        { name: 'analyzers', paths: ['.editorconfig', '.config/analyzers.globalconfig'], decides: 'an analyzer severity or option row', skills: ['manage-repo'], targets: ['nx run rasm:lint:dotnet-format', 'nx run-many -t check --projects=tag:language:dotnet'] },
+        { name: 'banned-symbols', paths: ['tools/roslyn/BannedSymbols.txt', 'tools/roslyn/BannedSymbols.Library.txt'], decides: 'a banned API symbol row', skills: ['manage-repo'], targets: ['nx run-many -t check --projects=tag:language:dotnet'] },
+        { name: 'Rasm.Analyzers', paths: ['tools/roslyn/Rasm.Analyzers', 'tools/roslyn/Rasm.Analyzers.CodeFixes', 'tests/dotnet/tools/roslyn/Rasm.Analyzers.Tests'], decides: 'a form that needs symbols Roslyn binds, as an analyzer with its code fix and test cases', skills: ['manage-repo', 'dotnet-coding', 'dotnet-roslyn-codelens'], targets: ['nx run-many -t check --projects=tag:language:dotnet', 'nx run Rasm.Analyzers.Tests:test'] },
+      ],
       snippet: null,
       install: 'nx run rasm:restore',
       format: [FILES, 'nx run rasm:format:dotnet-format -- --include'],
       lint: [],
       whole: ['lint:dotnet-format'],
-    },
+    }),
   },
 }
