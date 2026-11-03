@@ -4,9 +4,9 @@ export const meta = {
   whenToUse: 'args.key a note (color, typography, composition, grids, perso-arabic, print, indesign, data, mcp); args.mode plan with args.key a plan domain (typography, grids, color, indesign, data, mcp); one run at a time, notes sharing packages.md and plans ARCHITECTURE.md and TYPESCRIPT.md',
   phases: [
     { title: 'Research', detail: 'note: principles researcher, then packages researcher reading the new note, packages.md and the catalog' },
-    { title: 'Read', detail: 'plan: evidence grouped by size, then one reader per group writing the capability it holds or implies' },
+    { title: 'Read', detail: 'plan: evidence grouped by product into what one reader holds, then one reader per group writing the capability it holds or implies' },
     { title: 'Plan', detail: 'plan: one writer of the domain plan, its ARCHITECTURE.md rows and its TYPESCRIPT.md rows' },
-    { title: 'Challenge', detail: 'two adversaries in sequence over the note or plan, then for a note one over packages.md, each against its snapshot', model: 'opus' },
+    { title: 'Challenge', detail: 'two adversaries in sequence over the note or plan, for a note one over packages.md beside them, each against its snapshot', model: 'opus' },
     { title: 'Prose', detail: 'one clean-prose pass over every file the run wrote' },
   ],
 }
@@ -18,7 +18,6 @@ const DIR = `${REPO}/docs/research/typescript-extension`
 const HOST = `${REPO}/docs/research/applications/indesign`
 const COMPANION = `${REPO}/.claude/workflows/TYPESCRIPT.md`
 const BAR = `${REPO}/.claude/workflows/BAR.md`
-const BYTES_PER_READER = 320_000
 const study = (...names) => names.map((name) => `${DIR}/studies/${name}.md`)
 const distilled = (...names) => names.map((name) => `${HOST}/distilled/${name}`)
 const COLOR = [...study('adobe-indesign-color', 'color-engines'), ...distilled('internals/adobe-indesign-color'), `${HOST}/internals/adobe-indesign-color/README.md`]
@@ -51,7 +50,6 @@ const PLANS = {
 
 const PATHS = { type: 'array', items: { type: 'string' } }
 const EDITED = { type: 'object', properties: { files: PATHS, report: { type: 'string' } }, required: ['files', 'report'] }
-const GROUPED = { type: 'object', properties: { groups: { type: 'array', items: PATHS }, code: PATHS }, required: ['groups', 'code'] }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -92,10 +90,11 @@ Researcher, packages. Read ${note} as rewritten, ${packages} whole with every do
 Find the newest TypeScript and JavaScript packages owning a fact the note states: list each candidate's releases with \`pnpm view <name> dist-tags time --json\` (prereleases count), and judge it by what its source and types compute at its newest release.
 Edit ${packages} in place, rereading it before editing: each chosen package with the facts it owns, the members used and what it lacks that code states by hand, extending a row another domain holds; each rejected candidate with the reason it loses; versions left to catalogs. Return at most 8 lines.`, { label: `packages:${KEY}`, phase: 'Research', model: 'opus' })
   if (!chosen) throw new Error(`packages researcher returned nothing for ${KEY}`)
-  const first = await adversary(basis, [note], diff([note]), '', `challenge:${KEY}:1`)
-  const second = await adversary(basis, [note], diff([note]), COLLAPSE, `challenge:${KEY}:2`)
-  const third = await adversary(basis, [packages], diff([packages]), ', reading each chosen package\'s claim against its source and choosing a rejected candidate its newest release makes stronger', `challenge:${KEY}:packages`)
-  return [{ files: [note, packages], report: `${principles}\n${chosen}` }, first, second, third]
+  const [challenged, third] = await parallel([
+    () => adversary(basis, [note], diff([note]), '', `challenge:${KEY}:1`).then((first) => adversary(basis, [note], diff([note]), COLLAPSE, `challenge:${KEY}:2`).then((second) => [first, second])),
+    () => adversary(basis, [packages], diff([packages]), ', reading each chosen package\'s claim against its source and choosing a rejected candidate its newest release makes stronger', `challenge:${KEY}:packages`),
+  ])
+  return [{ files: [note, packages], report: `${principles}\n${chosen}` }, ...(challenged ?? []), third]
 }
 
 const plan = async () => {
@@ -108,12 +107,12 @@ const plan = async () => {
   const basis = `${BASIS} Read ${BAR}, the code bar a build run on the plan meets.\nPlan domain: ${KEY}, rows ${rows.join(', ')}.`
   phase('Read')
   const mapped = await agent(`${evidence.length === 0 ? '' : `List every file under ${evidence.join(', ')} with its size in bytes, and every ${HOST}/products/<family>/<product>/rebuilt folder of the same families with no distilled folder for its product.
-Group the files into groups of at most ${BYTES_PER_READER} bytes, one product's files together, a product above the limit split by its top-level folders, a file above it alone.
-`}Edit nothing. Return (structured) the groups as absolute paths, and as code the folders of ${folders.join(', ')} that exist.`, { label: 'map', phase: 'Read', schema: GROUPED })
+Group the files by the product or concern they hold, each group what one reader reads whole at full depth: one product's files together, a product more than one reader holds split by its top-level folders.
+`}Edit nothing. Return (structured) the groups as absolute paths, and as code the folders of ${folders.join(', ')} that exist.`, { label: 'map', phase: 'Read', schema: { type: 'object', properties: { groups: { type: 'array', items: PATHS }, code: PATHS }, required: ['groups', 'code'] } })
   if (!mapped || (evidence.length > 0 && mapped.groups.length === 0)) throw new Error(`map agent grouped no evidence for ${KEY}`)
   const code = mapped.code
   const groups = [...mapped.groups, [...sources, ...code]]
-  log(`${groups.length} reader groups for ${KEY}`)
+  log(`reader groups for ${KEY}: ${groups.length}`)
   const read = await parallel(groups.map((paths, index) => () => agent(`${basis}
 Reader over ${paths.join(', ')}: read them whole${code.length > 0 ? `, and ${code.join(', ')} where the capability may already exist` : ''}.
 Write ${found}/${index + 1}.md: one line per capability the files hold or their principles imply beyond any one product, stating the capability, the one relation or parameterized operation behind it and the functions that become its uses, its level, the host mechanism it runs on, the product values a caller passes, its evidence paths, the member of a ${DIR}/packages.md package that states it, read from the package source at its catalog release, or the hand code it needs, what the rows' code holds of it, and the host proof it waits on. Edit nothing else. Return the line count.`, { label: `read:${KEY}:${index + 1}`, phase: 'Read', model: 'opus' })))
@@ -133,6 +132,7 @@ Return (structured) the files you edited and at most 8 lines.`, { label: `plan:$
   return [{ ...planned, files: [written, matrix, COMPANION] }, first, second]
 }
 
+log(PLANNING ? `plan typescript-extension domain ${KEY} over ${PLANS[KEY][2].join(', ')}` : `research typescript-extension note ${KEY}`)
 const results = (PLANNING ? await plan() : await research()).filter(Boolean)
 const files = [...new Set(results.flatMap((result) => result.files ?? []))]
 phase('Prose')

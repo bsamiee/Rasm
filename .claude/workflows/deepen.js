@@ -1,16 +1,16 @@
 export const meta = {
   name: 'deepen',
-  description: 'Build, deepen or reduce code in any language: per file group a reader, or per unit of plan rows none, then an editor, two adversaries and a verdict, cross-group sets, a lead, one check',
-  whenToUse: 'args.language a languages.js key; args.mode build, deepen (default) or reduce; one of args.path, args.paths or args.key (build: a companion [03] row [KEY]); args.base the base commit; args.exclude folders another run edits; args.inputs evidence paths every agent reads; args.oracle a behavior command the check runs; args.plan a plan whose rows for the paths, grouped into units by the package and files they own, are the work in place of file-group readers (build: the architect reads it in place of brief readers and planner, and the writers land it)',
+  description: 'Build, deepen or reduce code in any language: per file group a reader and an editor, or per unit of plan rows an editor per slice, disjoint slices at once and overlapping ones in order, then two adversaries and a verdict, cross-group sets, a lead, one check',
+  whenToUse: 'args.language a languages.js key; args.mode build, deepen (default) or reduce; one of args.path, args.paths or args.key (build: a companion [03] row [KEY]); args.base the base commit; args.exclude folders another run edits; args.inputs evidence paths every agent reads; args.oracle a behavior command the check runs; args.plan a plan whose rows for the paths, grouped into units by the package and files they own and sliced into what one editor lands, are the work in place of file-group readers (build: the architect reads it in place of brief readers and planner, and the writers land it)',
   phases: [
     { title: 'Plan', detail: 'build: two brief readers and a planner without args.plan, an adversarial architect returning the package graph', model: 'opus' },
     { title: 'Write', detail: 'build: one writer per package over disjoint files once the packages it reads are written' },
-    { title: 'Map', detail: 'per root, files grouped with their importers and base counts measured; with args.plan outside build, one agent grouping the plan rows into units by the package and files they own' },
+    { title: 'Map', detail: 'per root, files grouped with their importers and base counts measured; with args.plan outside build, one agent grouping the plan rows into units by the package and files they own, the rows of each unit into slices one editor lands at full depth' },
     { title: 'Read', detail: 'without args.plan, per file group one reader over every facet of the mode; per root a reader of relations across file groups, with args.plan only what its rows do not state, none in build', model: 'opus' },
-    { title: 'Edit', detail: 'one editor per file group over its local findings, or per unit over its plan rows' },
+    { title: 'Edit', detail: 'one editor per file group over its local findings, or per slice of a unit over its plan rows, slices over disjoint files at once and slices sharing a file in plan order' },
     { title: 'Challenge', detail: 'per file group or unit two adversaries in sequence, editing in place', model: 'opus' },
     { title: 'Verdict', detail: 'per file group or unit, diff against base judged hunk by hunk in place' },
-    { title: 'Cross-group', detail: 'per merged set of spanning changes an editor, two adversaries and a verdict, then the same over changes no editor reached' },
+    { title: 'Cross-group', detail: 'per set of spanning changes over the same files an editor, two adversaries and a verdict, disjoint sets at once and overlapping ones in order, then the same over changes no editor reached' },
     { title: 'Lead', detail: 'counts against base, unneeded growth reverted, report' },
     { title: 'Check', detail: 'owning targets and args.oracle once over touched files, one fix pass at the cause, one rerun' },
   ],
@@ -21,7 +21,6 @@ export const meta = {
 const { hosts, languages } = await workflow('languages')
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const BAR = `${REPO}/.claude/workflows/BAR.md`
-const LINES_PER_GROUP = 800
 const RETURN = 'Return (structured) files you edited, added or deleted, and changes reaching other files.'
 const MODES = {
   deepen: {
@@ -38,6 +37,7 @@ const MODES = {
       'Additions do domain work consumers hand-write or finish a host or package feature the folder half-covers, and every addition feeds a result.',
     ],
     finding: 'what it removes or adds, and one doing neither is dropped',
+    lean: ', leaning to deepen: capability the plan rows, inputs and packages hold that the files still lack, narrow or hand-write lands as general logic at full depth, extending its categories where the domain justifies, in the existing file or a new one held to the same bar',
     verdict: 'Every count above base names the capability that needs it, and growth naming none is reverted.',
     report: 'strongest changes',
   },
@@ -53,6 +53,7 @@ const MODES = {
       'Edits add no capability, and added lines stand only where they replace a larger form or give a hidden failure its case.',
     ],
     finding: 'what it removes, and one removing nothing is dropped',
+    lean: ', leaning to reduce: facts an owner, package member or parameterized form states that the files still restate, and layers no caller branches on, fold away at full depth across the files and their consumers',
     verdict: 'Every count above base names the hidden failure or invalid state that gained its case, and growth naming none is reverted.',
     report: 'strongest reductions',
   },
@@ -62,6 +63,7 @@ const PLURALS = new Intl.PluralRules('en')
 const NOUNS = {
   group: { one: 'file group', other: 'file groups' },
   unit: { one: 'unit', other: 'units' },
+  slice: { one: 'slice', other: 'slices' },
   reader: { one: 'reader', other: 'readers' },
   root: { one: 'root', other: 'roots' },
   set: { one: 'cross-group set', other: 'cross-group sets' },
@@ -158,7 +160,7 @@ ${own(state.files)} ${RETURN}`, { label: `challenge:${item.tag}:${tier}`, phase,
 const verdict = (phase) => (state, item) => agent(`${brief(state.files)}
 Verdict over ${state.files.join(', ')}. ${diff(state.files)} Judge each hunk by the bar: finish or revert each shuffle and restore each regression, in place.
 ${own(state.files)} ${RETURN}`, { label: `verdict:${item.tag}`, phase, schema: EDITED }).then((result) => advance(state, result, `verdict:${item.tag}`))
-const finish = (challenge, judge) => [adversary(challenge, '', 1), adversary(challenge, ', leaning to collapse existing declarations into stronger logic', 2), verdict(judge)]
+const finish = (challenge, judge) => [adversary(challenge, mode.lean, 1), adversary(challenge, ', leaning to collapse existing declarations into stronger logic', 2), verdict(judge)]
 const owned = (group) => (finding) => finding.files.every((path) => group.files.includes(path))
 const reader = (group) => agent(`${brief(group.files)}
 Reader over ${group.files.join(', ')}. Read each file whole, with \`${OUTLINE} --items structure ${group.root}\` for the rest of the folder, and name each change in each facet:
@@ -176,75 +178,70 @@ Name each relation, codec or parameterized function several functions in differe
 Each finding names the existing files it edits, its current and stronger form, and ${mode.finding}. Edit nothing. Return (structured) the findings.`,
   { label: `read:relations:${root}`, phase: 'Read', model: 'opus', schema: FOUND })
 }
-const merged = (findings) => findings.reduce((sets, finding) => {
-  const [joined, apart] = sets.reduce(([hit, miss], set) => overlaps(set.files, finding.files) ? [[...hit, set], miss] : [hit, [...miss, set]], [[], []])
-  return [...apart, { files: union(finding.files, ...joined.map((set) => set.files)), findings: [finding, ...joined.flatMap((set) => set.findings)] }]
-}, [])
-const chunked = (set) => {
-  const limit = 16
-  return set.findings.reduce((chunks, finding) => {
-    const current = chunks.at(-1)
-    const files = current ? union(current.files, finding.files) : []
-    return current && files.length <= limit
-      ? [...chunks.slice(0, -1), { files, findings: [...current.findings, finding] }]
-      : [...chunks, { files: union(finding.files), findings: [finding] }]
-  }, [])
-}
-const cross = (chunk) => finish('Cross-group', 'Cross-group').reduce((prior, stage) => prior.then((state) => stage(state, chunk)),
-  editor({ files: chunk.files, edited: [], spanning: [] }, chunk.findings.map((finding) => finding.change), `edit:${chunk.tag}`, 'Cross-group',
-    'Changes spanning file groups, found before the groups changed: apply each that holds against the current files. '))
-const crossing = (sets, tag) => parallel(sets.map((set, index) => () => chunked(set).reduce(
-  (prior, chunk, part) => prior.then((states) => cross({ ...chunk, tag: `${tag}:${index + 1}.${part + 1}` }).then((state) => [...states, state])),
-  Promise.resolve([]))))
-  .then((results) => live(results, `${tag} sets`).flat())
 const overlaps = (left, right) => left.some((path) => within(path, right)) || right.some((path) => within(path, left))
+const ordered = (items) => items.map((item, index) => ({ ...item, needs: items.slice(0, index).filter((other) => overlaps(other.files, item.files)).map((other) => other.id) }))
+const merged = (findings, tag) => ordered([...Map.groupBy(findings, (finding) => union(finding.files).toSorted().join(' ')).values()].map((found, index) => ({ files: union(found[0].files), findings: found, id: `${tag}:${index + 1}`, tag: `${tag}:${index + 1}`, label: `edit:${tag}:${index + 1}` })))
+const cross = (set) => finish('Cross-group', 'Cross-group').reduce((prior, stage) => prior.then((state) => stage(state, set)),
+  editor({ files: set.files, edited: [], spanning: [] }, set.findings.map((finding) => finding.change), set.label, 'Cross-group',
+    'Changes spanning file groups, found before the groups changed: apply each that holds against the current files. '))
+const crossing = (sets) => pumped(sets, cross).then((done) => [...done.values()])
 const claimed = (parts) => parts.reduce((kept, unit) => {
   const taken = kept.flatMap((group) => group.files)
   const files = union(unit.files).filter((path) => !within(path, exclude) && !overlaps([path], taken))
   return [...kept, { ...unit, files, tag: `${kept.length + 1}` }]
 }, [])
-const written = (packages, plan) => {
-  const ids = new Set(packages.map((pkg) => pkg.id))
-  const pending = [...packages]
+const pumped = (items, run) => {
+  const ids = new Set(items.map((item) => item.id))
+  const pending = [...items]
   const running = []
   const done = new Map()
   const dead = new Set()
   const prune = () => {
-    const blocked = pending.filter((pkg) => pkg.needs.some((need) => dead.has(need)))
-    blocked.forEach((pkg) => {
-      pending.splice(pending.indexOf(pkg), 1)
-      dead.add(pkg.id)
-      log(`${pkg.id} not written, ${pkg.needs.filter((need) => dead.has(need)).join(', ')} unwritten`)
+    const blocked = pending.filter((item) => item.needs.some((need) => dead.has(need)))
+    blocked.forEach((item) => {
+      pending.splice(pending.indexOf(item), 1)
+      dead.add(item.id)
+      log(`${item.label} not run, ${item.needs.filter((need) => dead.has(need)).join(', ')} unfinished`)
     })
     return blocked.length > 0 && prune()
   }
   const pump = () => {
     prune()
-    const ready = pending.reduce((picked, pkg) => pkg.needs.every((need) => done.has(need) || !ids.has(need))
-      && ![...running, ...picked].some((other) => overlaps(other.files, pkg.files)) ? [...picked, pkg] : picked, [])
-    ready.forEach((pkg) => {
-      pending.splice(pending.indexOf(pkg), 1)
-      running.push(pkg)
+    const ready = pending.reduce((picked, item) => item.needs.every((need) => done.has(need) || !ids.has(need))
+      && ![...running, ...picked].some((other) => overlaps(other.files, item.files)) ? [...picked, item] : picked, [])
+    ready.forEach((item) => {
+      pending.splice(pending.indexOf(item), 1)
+      running.push(item)
     })
-    return parallel(ready.map((pkg) => () => {
-      const reads = pkg.needs.filter((need) => done.has(need)).map((need) => `${need}: ${done.get(need).summary}`)
-      return agent(`${brief(pkg.files)}
-Writer for package ${pkg.id} (${pkg.title}): write what ${plan} section "${pkg.section}" states, editing only ${pkg.files.join(', ')}.${reads.length > 0 ? `\nPackages it reads, written:\n${listed(reads)}` : ''}
-Return (structured) the files you edited and a summary in at most 15 lines.`, { label: `write:${pkg.id}`, phase: 'Write', schema: { type: 'object', properties: { summary: { type: 'string' }, files: PATHS }, required: ['summary', 'files'] } }).then((result) => {
-        running.splice(running.indexOf(pkg), 1)
-        if (result) done.set(pkg.id, result)
-        else {
-          dead.add(pkg.id)
-          log(`write:${pkg.id} returned nothing`)
-        }
-        return pump()
-      })
-    }))
+    return parallel(ready.map((item) => () => run(item, done).then((result) => {
+      running.splice(running.indexOf(item), 1)
+      if (result) done.set(item.id, result)
+      else {
+        dead.add(item.id)
+        log(`${item.label} returned nothing`)
+      }
+      return pump()
+    })))
   }
   return pump().then(() => {
-    if (pending.length > 0) log(`${pending.map((pkg) => pkg.id).join(', ')} not written, needs form a cycle`)
-    return [...done.values()].flatMap((result) => result.files.map(relative))
+    if (pending.length > 0) log(`${pending.map((item) => item.label).join(', ')} not run, needs form a cycle`)
+    return done
   })
+}
+const written = (packages, plan) => pumped(packages.map((pkg) => ({ ...pkg, label: `write:${pkg.id}` })), (pkg, done) => {
+  const reads = pkg.needs.filter((need) => done.has(need)).map((need) => `${need}: ${done.get(need).summary}`)
+  return agent(`${brief(pkg.files)}
+Writer for package ${pkg.id} (${pkg.title}): write what ${plan} section "${pkg.section}" states, editing only ${pkg.files.join(', ')}.${reads.length > 0 ? `\nPackages it reads, written:\n${listed(reads)}` : ''}
+Return (structured) the files you edited and a summary in at most 15 lines.`, { label: pkg.label, phase: 'Write', schema: { type: 'object', properties: { summary: { type: 'string' }, files: PATHS }, required: ['summary', 'files'] } })
+}).then((done) => [...done.values()].flatMap((result) => result.files.map(relative)))
+const landed = (group) => pumped(group.slices, (slice) => editor({ files: slice.files, edited: [], spanning: [] }, slice.rows, slice.label, 'Edit',
+  `Read ${['these files', ...group.reads].join(', ')} whole as they stand, then land each row of ${PLAN} below. `))
+  .then((done) => [...done.values()].reduce((state, result) => ({ files: union(state.files, result.files), edited: union(state.edited, result.edited), spanning: [...state.spanning, ...result.spanning] }),
+    { files: group.files, edited: [], spanning: [] }))
+const local = (group) => (found) => {
+  const state = { files: group.files, edited: [], spanning: found.filter((finding) => !owned(group)(finding)) }
+  const changes = found.filter(owned(group)).map((finding) => finding.change)
+  return changes.length > 0 ? editor(state, changes, `edit:${group.tag}`, 'Edit') : state
 }
 
 // --- [CHECKS]
@@ -293,38 +290,35 @@ Return (structured) the packages as a dependency graph: id, title, section (its 
 phase('Map')
 const maps = live(await parallel((rowed ? [] : roots).map((root) => () => agent(`Target: ${root} in ${REPO}, base commit ${args.base}.
 List every file under ${root} its language's tools read with its line count, and every outside file importing from it, tests included${apart}.
-Group files into what one agent reads whole with its consumers and edits well, at most ${LINES_PER_GROUP} lines counting outside files, a family folder with the file of its name, an outside file with the group it imports most that has room, else with other outside files.
+Group files into what one agent reads whole with its consumers and edits at full depth, counting outside files, a family folder with the file of its name, an outside file with the group it imports most that has room, else with other outside files.
 Measure the base: ${based(root)}.
 Edit nothing. Return (structured) groups as repository-relative paths and base counts in one line naming each command.`,
   { label: `map:${root}`, phase: 'Map', schema: MAPPED }).then((result) => result && { ...result, root }))), 'map agents')
 const units = rowed ? await agent(`Target: ${roots.join(', ')} in ${REPO}, base commit ${args.base}.
 Inputs: ${inputs.join('; ')}.
-Read ${PLAN} whole and take each row whose change lands under ${roots.join(', ')}, a row with its nested lines. Group the rows into units by the package and files they own: a unit's files are every existing file its rows edit, consumers included, or for rows adding files alone the folder they join${apart}, no file in two units, and each unit is what one agent reads whole with its reads and lands well. A unit's reads are the consumers it leaves unedited and the distilled files its rows link.
+Read ${PLAN} whole and take each row whose change lands under ${roots.join(', ')}, a row with its nested lines. Group the rows into units by the package and files they own: a unit's files are every existing file its rows edit, consumers included, or for rows adding files alone the folder they join${apart}, no file in two units, and each unit is what two adversaries read whole with its reads and judge well. A unit's reads are the consumers it leaves unedited and the distilled files its rows link.
+Slice each unit's rows: rows touching the same files join one slice, and a slice holds no more rows than one editor lands at full depth, so a file more rows touch than one editor lands sits in several slices, listed in the order their rows land. A slice's files are the unit's files its rows edit, or the folder its added files join.
 Measure the base of each root: ${roots.map((root) => `${root}: ${based(root)}`).join('; ')}.
-Edit nothing. Return (structured) the units as repository-relative paths with each row as its first line number and its text verbatim, and base counts per root in one line naming each command.`,
-  { label: 'map:plan', phase: 'Map', schema: { type: 'object', properties: { units: { type: 'array', items: { type: 'object', properties: { files: PATHS, reads: PATHS, rows: { type: 'array', items: { type: 'object', properties: { line: { type: 'integer' }, text: { type: 'string' } }, required: ['line', 'text'] } } }, required: ['files', 'reads', 'rows'] } }, base: { type: 'string' } }, required: ['units', 'base'] } }) : null
+Edit nothing. Return (structured) the units and their slices as repository-relative paths with each row as its first line number and its text verbatim, and base counts per root in one line naming each command.`,
+  { label: 'map:plan', phase: 'Map', schema: { type: 'object', properties: { units: { type: 'array', items: { type: 'object', properties: { files: PATHS, reads: PATHS, slices: { type: 'array', items: { type: 'object', properties: { files: PATHS, rows: { type: 'array', items: { type: 'object', properties: { line: { type: 'integer' }, text: { type: 'string' } }, required: ['line', 'text'] } } }, required: ['files', 'rows'] } } }, required: ['files', 'reads', 'slices'] } }, base: { type: 'string' } }, required: ['units', 'base'] } }) : null
 if (rowed && !units) throw new Error(`map agent grouped no row of ${PLAN} under ${roots.join(', ')}`)
 const claims = claimed(rowed
-  ? units.units.map((unit) => ({ files: unit.files, reads: union(unit.reads), rows: unit.rows.map((found) => `${PLAN} line ${found.line}: ${found.text}`) }))
-  : maps.flatMap((map) => map.groups.map((files) => ({ root: map.root, files: union(files).filter((path) => within(path, [map.root]) || !within(path, roots)), reads: [], rows: [] }))))
+  ? units.units.map((unit) => ({ files: unit.files, reads: union(unit.reads), slices: unit.slices.map((slice) => ({ files: union(slice.files), rows: slice.rows.map((found) => `${PLAN} line ${found.line}: ${found.text}`) })) }))
+  : maps.flatMap((map) => map.groups.map((files) => ({ root: map.root, files: union(files).filter((path) => within(path, [map.root]) || !within(path, roots)), reads: [], slices: [] }))))
+  .map((group) => ({ ...group, slices: group.slices.map((slice) => ({ ...slice, files: slice.files.filter((path) => within(path, group.files)) })) }))
 const groups = claims.filter((group) => group.files.length > 0)
-const stranded = claims.filter((group) => group.files.length === 0).flatMap((group) => group.rows.map((change) => ({ files: [], change })))
+  .map((group) => ({ ...group, slices: ordered(group.slices.filter((slice) => slice.files.length > 0).map((slice, index) => ({ ...slice, id: `${group.tag}.${index + 1}`, label: `edit:${group.tag}.${index + 1}` }))) }))
+const stranded = claims.flatMap((group) => group.slices).filter((slice) => slice.files.length === 0).flatMap((slice) => slice.rows.map((change) => ({ files: [], change })))
 if (groups.length === 0) throw new Error(`map agents grouped no file under ${roots.join(', ')}`)
 const relating = MODE !== 'build' || PLAN === null
 const work = PLAN === null ? `${counted(groups.length, NOUNS.group)}, ${counted(groups.length + roots.length, NOUNS.reader)}`
-  : rowed ? `${counted(groups.length, NOUNS.unit)} of ${PLAN} rows, ${counted(roots.length, NOUNS.reader)} of relations` : `${counted(groups.length, NOUNS.group)}, ${PLAN} landed by the writers`
+  : rowed ? `${counted(groups.length, NOUNS.unit)} in ${counted(groups.flatMap((group) => group.slices).length, NOUNS.slice)} of ${PLAN} rows, ${counted(roots.length, NOUNS.reader)} of relations` : `${counted(groups.length, NOUNS.group)}, ${PLAN} landed by the writers`
 log(`${work} over ${counted(roots.length, NOUNS.root)}`)
 
 if (relating) phase('Read')
 const reading = relating ? parallel(roots.map((root, index) => () => relations(root, index))) : Promise.resolve([])
 const rebuilt = live(await pipeline(groups,
-  (group) => PLAN === null ? reader(group) : group.rows.map((change) => ({ files: group.files, change })),
-  (found, group) => {
-    const state = { files: group.files, edited: [], spanning: found.filter((finding) => !owned(group)(finding)) }
-    const local = found.filter(owned(group)).map((finding) => finding.change)
-    const origin = rowed ? `Read ${['these files', ...group.reads].join(', ')} whole, then land each row of ${PLAN} below. ` : ''
-    return local.length > 0 ? editor(state, local, `edit:${group.tag}`, 'Edit', origin) : state
-  },
+  (group) => rowed ? landed(group) : PLAN === null ? reader(group).then(local(group)) : local(group)([]),
   ...finish('Challenge', 'Verdict'),
 ), rowed ? 'units' : 'file groups')
 const across = live(await reading, 'relation readers').flatMap((result) => result.findings).map(located)
@@ -333,10 +327,10 @@ const gathered = [...rebuilt.flatMap((state) => state.spanning), ...across]
 const spanning = gathered.filter((finding) => !excluded(finding))
 
 phase('Cross-group')
-const sets = merged(spanning)
-const crossed = await crossing(sets, 'cross')
+const sets = merged(spanning, 'cross')
+const crossed = await crossing(sets)
 const unreached = crossed.flatMap((state) => state.spanning).filter((finding) => !excluded(finding))
-const last = unreached.length > 0 ? await crossing(merged(unreached), 'last') : []
+const last = await crossing(merged(unreached, 'last'))
 const left = [...gathered, ...crossed.flatMap((state) => state.spanning)].filter(excluded).concat(last.flatMap((state) => state.spanning), stranded)
 log(`${counted(sets.length, NOUNS.set)} from ${counted(spanning.length, NOUNS.change)}, ${unreached.length} to the last sets, ${left.length} left`)
 

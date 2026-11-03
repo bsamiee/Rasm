@@ -3,10 +3,10 @@ export const meta = {
   description: 'Mine one language\'s committed code into its skills and checks: miners, a writer and adversary per skill and per check batch, one close',
   whenToUse: 'args.language a languages.js key, args.base the commit before the mined work, args.exclude paths other runs edit; skill and check paths committed at launch',
   phases: [
-    { title: 'Map', detail: 'changed files in units; rules, utils, outline, typed checks and config files with the baseline rule's cost' },
+    { title: 'Map', detail: 'changed files in units one miner reads whole; rules in batches by the concern they decide, utils, outline, typed checks and config files with the cost of the baseline rule' },
     { title: 'Read', detail: 'a miner per diff unit, a mapper per check batch' },
     { title: 'Skills', detail: 'per skill with findings a writer, an adversary over its diff and whole, a clean-prose pass' },
-    { title: 'Rules', detail: 'per batch a writer and an adversary, the util, typed checker and config writers after every other batch' },
+    { title: 'Rules', detail: 'per batch a writer and an adversary, rule batches over disjoint files at once, the util, typed checker and config writers in order after them' },
     { title: 'Close', detail: 'renamed ids, owning targets once, rule costs against the baseline, fixes once, targets once more' },
   ],
 }
@@ -17,8 +17,11 @@ const { hosts, languages } = await workflow('languages')
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const BAR = `Read ${REPO}/.claude/workflows/BAR.md first.`
 const PROSE = `python ${REPO}/.claude/skills/clean-prose/scripts/prose.py check`
-const SPLIT = 3000
-const CHUNK = 12
+const PLURALS = new Intl.PluralRules('en')
+const NOUNS = {
+  unit: { one: 'unit', other: 'units' },
+  batch: { one: 'check batch', other: 'check batches' },
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -67,7 +70,12 @@ const scopes = (batch) => ({
 })[batch.kind]
 
 // --- [ROUTING]
-const chunked = (items, size) => Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size))
+const counted = (count, noun) => `${count} ${noun[PLURALS.select(count)]}`
+const claimed = (items) => items.reduce((kept, item) => {
+  const taken = new Set(kept.flatMap((held) => held.paths))
+  const paths = [...new Set(item.paths.map(relative))].filter((path) => !taken.has(path))
+  return paths.length > 0 ? [...kept, { ...item, paths }] : kept
+}, [])
 const hosted = (paths) => hosts.filter(([folder, , held]) => held.includes(args.language) && paths.some((path) => path.split('/').includes(folder))).flatMap(([, skills]) => skills)
 const skillsOf = (paths) => [...new Set([...row.skills, ...row.families, ...hosted(paths)])]
 const folderOf = (path) => within(path, [RULES]) ? (/\.\w+$/.test(path.split('/').pop()) ? path.replace(/\/[^/]+$/, '') : path) : undefined
@@ -142,31 +150,28 @@ Adversary for ${batch.paths.join(', ')}. Read ${changed(result.files.join(' '))}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+log(`tune ${args.language} over ${RANGE}${exclude.length > 0 ? `, except ${exclude.join(', ')}` : ''}`)
 phase('Map')
-const listing = agent(`Load Skill(use-ast-grep) and read its references/rule-building.md. ${BAR} List every rule file under ${RULES} with its id; every file under ${UTILS} with ${OUTLINE};${typed ? ` each file under ${typed.paths.join(', ')} and each test file under ${typed.tests} as its own entry;` : ''} and ${row.config.paths.join(', ')} with each member file holding ${row.config.rows}. Then measure \`${row.baseline}\` alone with ${COST}, in the foreground. Edit nothing. Return (structured) the rules with their ids, \`${row.baseline}\`'s user CPU ms as the baseline, the utils with the outline,${typed ? ` the ${typed.name} modules and tests as typed,` : ''} and the config files as configs.`, {
+const listing = agent(`Load Skill(use-ast-grep) and read its references/rule-building.md. ${BAR} List every rule file under ${RULES} with its id, grouped into batches by the concern they decide, each batch what one writer judges whole at full depth and no rule in two batches; every file under ${UTILS} with ${OUTLINE};${typed ? ` each file under ${typed.paths.join(', ')} and each test file under ${typed.tests} as its own entry;` : ''} and ${row.config.paths.join(', ')} with each member file holding ${row.config.rows}. Then measure \`${row.baseline}\` alone with ${COST}, in the foreground. Edit nothing. Return (structured) the rule batches, each named by its concern with its rule paths, \`${row.baseline}\`'s user CPU ms as the baseline, the utils with the outline,${typed ? ` the ${typed.name} modules and tests as typed,` : ''} and the config files as configs.`, {
   label: 'map:checks',
   phase: 'Map',
   schema: {
     type: 'object',
     properties: {
       baseline: { type: 'number' },
-      rules: { type: 'array', items: { type: 'object', properties: { path: TEXT, id: TEXT }, required: ['path', 'id'] } },
+      batches: { type: 'array', items: { type: 'object', properties: { name: TEXT, paths: LIST }, required: ['name', 'paths'] } },
       utils: LIST,
       configs: LIST,
       ...(typed ? { typed: LIST } : {}),
     },
-    required: ['baseline', 'rules', 'utils', 'configs', ...(typed ? ['typed'] : [])],
+    required: ['baseline', 'batches', 'utils', 'configs', ...(typed ? ['typed'] : [])],
   },
 })
-const split = await agent(`${BAR} Partition every file \`git diff --name-only ${RANGE} -- ${[...row.pathspec, ...exclude.map((path) => `':(exclude)${path}'`)].join(' ')}\` lists into units: the files under ${row.unit}, a test file under ${row.tests} with the source folder its path mirrors, else the files under their top-level folder; split so each unit's diff stays within ${SPLIT} lines. Every file falls in one unit. Edit nothing. Return (structured) the units.`, { label: 'map:units', phase: 'Map', schema: { type: 'object', properties: { units: { type: 'array', items: { type: 'object', properties: { name: TEXT, paths: LIST }, required: ['name', 'paths'] } } }, required: ['units'] } })
+const split = await agent(`${BAR} Partition every file \`git diff --name-only ${RANGE} -- ${[...row.pathspec, ...exclude.map((path) => `':(exclude)${path}'`)].join(' ')}\` lists into units: the files under ${row.unit}, a test file under ${row.tests} with the source folder its path mirrors, else the files under their top-level folder; split so each unit is what one miner reads whole with its diff at full depth. Every file falls in one unit. Edit nothing. Return (structured) the units.`, { label: 'map:units', phase: 'Map', schema: { type: 'object', properties: { units: { type: 'array', items: { type: 'object', properties: { name: TEXT, paths: LIST }, required: ['name', 'paths'] } } }, required: ['units'] } })
 if (!split) throw new Error('map:units returned nothing')
-const units = split.units.reduce((kept, unit) => {
-  const taken = new Set(kept.flatMap((held) => held.paths))
-  const paths = [...new Set(unit.paths.map(relative))].filter((path) => !taken.has(path))
-  return paths.length > 0 ? [...kept, { name: unit.name, paths }] : kept
-}, [])
+const units = claimed(split.units)
 const skillSet = skillsOf(units.flatMap((unit) => unit.paths))
-log(`${units.length} units, skills ${skillSet.join(', ')}`)
+log(`${counted(units.length, NOUNS.unit)}, skills ${skillSet.join(', ')}`)
 
 phase('Read')
 const mining = parallel(units.map((unit) => () => mine(unit))).then((found) => {
@@ -186,16 +191,15 @@ Apply it to each line changed against HEAD, with its passage, in ${changed(`.cla
 })
 const inventory = await listing
 if (!inventory) throw new Error('map:checks returned nothing')
-const rules = inventory.rules.map((rule) => ({ ...rule, path: relative(rule.path) })).sort((a, b) => a.path.localeCompare(b.path))
 const batches = [
-  ...chunked(rules, CHUNK).map((held, index) => ({ name: `rules-${index + 1}`, kind: 'rules', paths: held.map((rule) => rule.path) })),
+  ...claimed(inventory.batches).map((batch) => ({ ...batch, kind: 'rules' })),
   { name: 'utils', kind: 'utils', paths: inventory.utils.map(relative) },
   ...(typed ? [{ name: typed.name, kind: 'typed', paths: inventory.typed.map(relative) }] : []),
   { name: 'config', kind: 'config', paths: inventory.configs.map(relative) },
 ]
 const early = batches.filter((batch) => batch.kind === 'rules')
 const late = batches.filter((batch) => batch.kind !== 'rules')
-log(`${batches.length} check batches`)
+log(counted(batches.length, NOUNS.batch))
 const routed = mining.then((found) => route(batches, found))
 const ruled = pipeline(early,
   map,

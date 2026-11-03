@@ -6,7 +6,7 @@ export const meta = {
     { title: 'Basis', detail: 'existing folder guidance, line by line' },
     { title: 'Map', detail: 'one reader per area over its code and history' },
     { title: 'Select', detail: 'one judge picks levels needing a file' },
-    { title: 'Write', detail: 'per chosen file a writer, then an adversary judging every line in place' },
+    { title: 'Write', detail: 'per chosen file a writer, then an adversary judging every line in place, a nested file after the files above it and others at once' },
     { title: 'Close', detail: 'one pass across every file' },
   ],
 }
@@ -19,6 +19,8 @@ const STANDARD = `${REPO}/.claude/skills/agent-builder/references/folder-guidanc
 const EXISTING = `${DIR}/EXISTING.md`
 const SELECTION = `${DIR}/SELECTION.md`
 const BASIS = `Load Skill(clean-prose) and read the folder CLAUDE.md standard ${STANDARD} first.`
+const PLURALS = new Intl.PluralRules('en')
+const NOUNS = { file: { one: 'folder file', other: 'folder files' } }
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,6 +30,7 @@ const FOUND = { type: 'object', properties: { findings: { type: 'array', items: 
 
 if (!Array.isArray(args?.areas) || args.areas.length === 0 || !args.areas.every((area) => typeof area === 'string')) throw new Error(`args.areas takes the top-level folders to map, got ${JSON.stringify(args?.areas ?? null)}`)
 const relative = (path) => path.replace(`${REPO}/`, '').replace(/^\.\//, '').replace(/\/+$/, '')
+const counted = (count, noun) => `${count} ${noun[PLURALS.select(count)]}`
 const live = (results, role) => {
   const dead = results.filter((result) => !result).length
   if (dead > 0) log(`${dead} ${role} returned nothing`)
@@ -36,6 +39,7 @@ const live = (results, role) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+log(`guidance over ${args.areas.join(', ')}`)
 phase('Basis')
 const existing = await agent(`${BASIS}
 Read every skill's headings and every CLAUDE.md and AGENTS.md outside the root. Write ${EXISTING}: per folder file, each line the root CLAUDE.md, README.md or a skill states, each line the code contradicts, and what in it is folder-specific. Return at most 6 lines.`, { label: 'basis:existing', phase: 'Basis' })
@@ -63,13 +67,16 @@ const folders = [...new Set(chosen.write.map(relative))].filter(Boolean)
 const removed = chosen.remove.map(relative)
 
 phase('Write')
-const written = live(await pipeline(folders,
-  (folder) => agent(`${BASIS}
-Write ${REPO}/${folder}/CLAUDE.md whole from its outline in ${SELECTION}, and make ${folder}/AGENTS.md a relative symlink to it. Return at most 4 lines.`, { label: `write:${folder}`, phase: 'Write' }),
-  (wrote, folder) => wrote && agent(`${BASIS}
-Adversary for ${REPO}/${folder}/CLAUDE.md. Read the file whole and the code under ${folder}, and judge every line against the standard and the code: cut each line the standard gives no place, rewrite each the code contradicts, and sharpen each principle in place. Return at most 4 lines.`, { label: `challenge:${folder}`, phase: 'Write' }),
-), 'writers and adversaries')
-log(`${written.length} of ${folders.length} folder files written and challenged`)
+const chains = folders.toSorted((left, right) => left.split('/').length - right.split('/').length).reduce((held, folder) => {
+  const parents = folders.filter((other) => other !== folder && folder.startsWith(`${other}/`))
+  const reads = parents.length > 0 ? ` Read ${parents.map((parent) => `${REPO}/${parent}/CLAUDE.md`).join(', ')} as they stand, and state no fact they hold.` : ''
+  return held.set(folder, Promise.all(parents.map((parent) => held.get(parent))).then(() => agent(`${BASIS}
+Write ${REPO}/${folder}/CLAUDE.md whole from its outline in ${SELECTION}, and make ${folder}/AGENTS.md a relative symlink to it.${reads} Return at most 4 lines.`, { label: `write:${folder}`, phase: 'Write' }))
+    .then((wrote) => wrote && agent(`${BASIS}
+Adversary for ${REPO}/${folder}/CLAUDE.md. Read the file whole and the code under ${folder}, and judge every line against the standard and the code: cut each line the standard gives no place, rewrite each the code contradicts, and sharpen each principle in place.${reads} Return at most 4 lines.`, { label: `challenge:${folder}`, phase: 'Write' })))
+}, new Map())
+const written = live(await Promise.all(chains.values()), 'writers and adversaries')
+log(`${written.length} of ${counted(folders.length, NOUNS.file)} written and challenged`)
 
 phase('Close')
 const closed = await agent(`${BASIS}

@@ -5,7 +5,7 @@ export const meta = {
   phases: [
     { title: 'Mine', detail: 'readers over past proofs, failures and the host model, the model reader returning the battery needs' },
     { title: 'Battery', detail: 'one case author per need, one runner through the harness' },
-    { title: 'Edit', detail: 'one editor fixes every finding at its cause' },
+    { title: 'Edit', detail: 'findings sliced by shared cause, one editor per slice at the cause, slices over disjoint files at once and slices sharing a file in order' },
     { title: 'Deepen', detail: 'two adversaries in sequence over the diff against base, editing in place' },
     { title: 'Check', detail: 'owning targets over touched files and the battery once, one fix pass at the cause, one rerun' },
   ],
@@ -18,6 +18,11 @@ const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const KIT = `${REPO}/tools/harnesses`
 const BAR = `${REPO}/.claude/workflows/BAR.md`
 const ARGS = ['key', 'name', 'apps', 'skills', 'products', 'base']
+const PLURALS = new Intl.PluralRules('en')
+const NOUNS = {
+  finding: { one: 'finding', other: 'findings' },
+  slice: { one: 'slice', other: 'slices' },
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -53,6 +58,10 @@ const COMMANDS = [...[
   .map(([command, { tool, names }]) => `- ${tool}${names.length > 0 ? ` for ${names.join(', ')}` : ''}: \`${command}\``)
 const INSTALLS = [...new Set(rows.map(([, row]) => row.install))].map((command) => `\`${command}\``).join(', ')
 const listed = (lines) => lines.map((line) => `- ${line}`).join('\n')
+const counted = (count, noun) => `${count} ${noun[PLURALS.select(count)]}`
+const relative = (path) => path.replace(`${REPO}/`, '').replace(/^\.\//, '').replace(/\/+$/, '')
+const within = (path, roots) => roots.some((root) => path === root || path.startsWith(`${root}/`))
+const overlaps = (left, right) => left.some((path) => within(path, right)) || right.some((path) => within(path, left))
 const live = (results, role) => {
   const dead = results.filter((result) => !result).length
   if (dead > 0) log(`${dead} ${role} returned nothing`)
@@ -65,6 +74,7 @@ Adversary over ${KIT}. ${DIFF} Finish or revert each shuffle, restore each regre
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+log(`harness-depth ${args.key} for ${args.name} (${[args.apps].flat().join(', ')})`)
 phase('Mine')
 const proofs = mine('proofs', `every proof run for ${[args.products].flat().join(', ')}: each workaround it needed and each case left unproven where the harness could not express it`)
 const failures = await mine('failures', `crash reports in ~/Library/Logs/DiagnosticReports for ${args.name}, the harness run records under .artifacts/logs/harnesses/ and past run transcripts that drove it: each crash, hang, dialog and repeated call`)
@@ -88,14 +98,23 @@ Battery runner. Run every case file under ${BATTERY}/ through the harness once, 
 const findings = [...live([await proofs, failures, model, ran], 'miners and battery runner'), ...authored].flatMap((result) => result.findings)
 
 phase('Edit')
-const edited = findings.length > 0 ? await agent(`${WRITE}
-Editor. Fix every finding below at its cause across ${KIT}, one general fix per shared cause, rebuilding a file whole where its fixes reshape it. Refuse a finding specific to one session or one that hides a failure, one line each.
+const sliced = findings.length === 0 ? { slices: [], refused: [] } : await agent(`${READ}
+Slice the findings below over ${KIT}: findings sharing a cause join one slice with one general fix, and a slice holds no more findings than one editor lands at full depth, so a file more fixes touch than one editor lands sits in several slices, listed in the order their fixes land. Each slice names every file its fixes edit and the folder each added file joins. Refuse a finding specific to one session or one that hides a failure, one line each. Edit nothing.
 ${listed(findings)}
-Return at most 12 lines: what you fixed and refused.`, { label: 'edit', phase: 'Edit' }) : 'no finding'
-if (!edited) log('editor returned nothing')
+Return (structured) the slices as repository-relative paths with their findings verbatim, and the refusals.`, { label: 'edit:slice', phase: 'Edit', schema: { type: 'object', properties: { slices: { type: 'array', items: { type: 'object', properties: { files: LINES, findings: LINES }, required: ['files', 'findings'] } }, refused: LINES }, required: ['slices', 'refused'] } })
+if (!sliced) throw new Error(`slicer returned nothing for ${counted(findings.length, NOUNS.finding)}`)
+const slices = sliced.slices.map((slice, index) => ({ ...slice, files: slice.files.map(relative), id: index + 1 }))
+log(`${counted(slices.length, NOUNS.slice)} from ${counted(findings.length, NOUNS.finding)}`)
+const fixes = slices.reduce((held, slice) => held.set(slice.id, Promise.all(slices.slice(0, slice.id - 1).filter((other) => overlaps(other.files, slice.files)).map((other) => held.get(other.id)))
+  .then(() => agent(`${WRITE}
+Editor for ${slice.files.join(', ')}. Read them whole as they stand, then fix every finding below at its cause, one general fix per shared cause, rebuilding a file whole where its fixes reshape it.
+${listed(slice.findings)}
+Edit only ${slice.files.join(', ')} and files you add beside them. Return (structured) at most 12 lines of what you fixed, and each change reaching another file.`, { label: `edit:${slice.id}`, phase: 'Edit', schema: { type: 'object', properties: { report: { type: 'string' }, spanning: LINES }, required: ['report', 'spanning'] } }))), new Map())
+const edited = live(await Promise.all(fixes.values()), 'editors')
+const spanning = edited.flatMap((result) => result.spanning)
 
 phase('Deepen')
-const first = await adversary(1, '')
+const first = await adversary(1, spanning.length > 0 ? ` Land each change the editors found reaching past their files:\n${listed(spanning)}\n` : '')
 const second = await adversary(2, ' Lean to collapsing existing types, constants, strings and functions into stronger logic.')
 live([first, second], 'adversaries')
 
@@ -106,4 +125,4 @@ Run first the install of each language with a changed manifest among them (${INS
 ${COMMANDS.join('\n')}
 Run the battery under ${BATTERY}/ through the harness once. Fix each finding at its cause in one pass, then rerun the commands and the battery once.
 Return at most 10 lines: findings fixed and any left with why.`, { label: 'check', phase: 'Check' })
-return { edit: edited ?? 'editor returned nothing', deepen: [first, second].map((report) => report ?? 'adversary returned nothing'), check: checked ?? 'check agent returned nothing' }
+return { edit: [...edited.map((result) => result.report), ...sliced.refused.map((refusal) => `refused: ${refusal}`)], deepen: [first, second].map((report) => report ?? 'adversary returned nothing'), check: checked ?? 'check agent returned nothing' }
