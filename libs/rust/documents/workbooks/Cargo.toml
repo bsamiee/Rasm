@@ -1,0 +1,41 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-workbooks"
+version.workspace    = true
+edition.workspace    = true
+description          = "Spreadsheets every Rasm schedule and cost consumer reads and writes: XLS, XLSX, XLSB and ODS opened with or without a password, typed records with jiff date fields from any range, value blocks into XLSX and ODS sheets, templates filled by defined name, and cached formula results recalculated through ironcalc"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["spreadsheet", "xlsx", "ods", "excel", "formula"]
+categories           = ["parser-implementations", "encoding"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+thiserror        = { workspace = true }
+derive_more      = { workspace = true }
+serde            = { workspace = true }
+jiff             = { workspace = true }
+secrecy          = { workspace = true }
+calamine         = { workspace = true }
+ironcalc         = { workspace = true }
+office-crypto    = { workspace = true }
+rust_xlsxwriter  = { workspace = true }
+spreadsheet-ods  = { workspace = true }
+umya-spreadsheet = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

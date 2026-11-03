@@ -28,33 +28,46 @@ pub-underscore-fields-behavior = "AllPubFields"
 
 # --- [GRAPH]
 allowed-duplicate-crates = [
-    "syn",                   # 1 under `derive_builder` 0.11 and `darling` 0.14 of newest `clarabel` 0.11.1, under `nuts-derive` of newest `nuts-rs` 0.19.1, and under `derive-new` 0.5 and `prost-derive` 0.11 of `tract-onnx` 0.22.5 that the `pdf_oxide` 0.3.78 `ocr-tract` feature takes, 2 under proc macros not on `syn` 3 (`asn1-rs-derive`, `comemo-macros`, `der_derive`, `derive_more-impl`, `enum_dispatch`, `jiff-static`, `nalgebra-macros`, `palette_derive`, `phf_macros`, `prost-derive`, `strum_macros`, `tracing-attributes`, `typst-macros`, `zerocopy-derive`)
+    "syn",                   # 1 under `derive_builder` 0.11 and `darling` 0.14 of newest `clarabel` 0.11.1, under `nuts-derive` of newest `nuts-rs` 0.19.1, and under `derive-new` 0.5 and `prost-derive` 0.11 of `tract-onnx` 0.22.5 that the `pdf_oxide` 0.3.78 `ocr-tract` feature takes, and under `derivative` 2.2 and `packed_struct_codegen` 0.10 of newest `office-crypto` 0.4.0, 2 under proc macros not on `syn` 3 (`asn1-rs-derive`, `attribute-derive`, `attribute-derive-macro`, `bitcode_derive`, `comemo-macros`, `der_derive`, `derive_more-impl`, `enum_dispatch`, `get-size-derive2`, `jiff-static`, `manyhow`, `nalgebra-macros`, `palette_derive`, `phf_macros`, `prost-derive`, `quote-use-macros`, `strum_macros`, `tracing-attributes`, `typst-macros`, `zerocopy-derive`)
     "strsim",                # 0.10 under `darling_core` 0.14 beside 0.11 under `darling_core` 0.24 and `clap_builder`
     "getrandom",             # 0.2 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440) and under `tract-onnx-opl` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature, 0.3 under `ahash`, `jsonschema`, `referencing`, and `rand_core` 0.9, 0.4 under `rand` 0.10, `uuid`, `tempfile`, `jobserver`, `lopdf` 0.46.0, and `pdf_oxide` 0.3.78
-    "rand",                  # 0.8 under `lipsum` 0.9 of `typst-library` 0.15.1 and under `tract-onnx-opl` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature, 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace`, newest `leiden-rs` 0.8.1, and `rav1e` 0.8 of `ravif`, which the `rayon` feature of `image` 0.25.10 takes through the weak `ravif?/threading` (rust-clippy#16440), beside 0.10 under rmcp `server-side-http`, newest `rustworkx-core` 0.18.1, and `lopdf` 0.46.0
+    "rand",                  # 0.8 under `lipsum` 0.9 of `typst-library` 0.15.1 and under `tract-onnx-opl` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature, 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace`, newest `leiden-rs` 0.8.1, and `rav1e` 0.8 of `ravif`, which the `rayon` feature of `image` 0.25.10 takes through the weak `ravif?/threading` (rust-clippy#16440), beside 0.10 under rmcp `server-side-http`, newest `rustworkx-core` 0.18.1, `lopdf` 0.46.0, `ironcalc_base` 0.9.1, and `umya-spreadsheet` 3.1.1
     "rand_core",             # 0.6 under `rand` 0.8 and `rand_chacha` 0.3, 0.9 under `rand` 0.9 beside 0.10 under `rand` 0.10
     "r-efi",                 # 5 under `getrandom` 0.3 beside 6 under `getrandom` 0.4
     "matchit",               # 0.8.4 pinned exactly by newest `axum` 0.8.9 beside 0.9 for resource URI routes
     "bitflags",              # 1 under newest `defmt` 1.2.0 through the weak `defmt?/alloc` of `jiff` 0.2.39 and `jiff-core` 0.1.2 (rust-clippy#16440), beside 2 under `nix`, `rustix`, `tower-http`, `meshopt`, and `parry3d-f64`
-    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.9, `opentelemetry-proto` 0.33.1, `typst-svg` 0.15.1, `krilla` 0.8.2, `usvg` 0.47.0, and `hayro-svg` 0.7.0 and 0.9.0 beside 0.23 under newest `hyper-util` 0.1.21, `reqwest`, `rmcp`, `merman-render` 0.10.0-alpha.1, and `pdf_oxide` 0.3.78
+    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.9, `opentelemetry-proto` 0.33.1, `typst-svg` 0.15.1, `krilla` 0.8.2, `usvg` 0.47.0, `hayro-svg` 0.7.0 and 0.9.0, newest `office-crypto` 0.4.0 and `spreadsheet-ods` 1.0.4, and `umya-spreadsheet` 3.1.1 beside 0.23 under newest `hyper-util` 0.1.21, `reqwest`, `rmcp`, `merman-render` 0.10.0-alpha.1, and `pdf_oxide` 0.3.78
     "core-foundation",       # 0.9 under `system-configuration` 0.7, which newest `hyper-util` 0.1.21 pins, beside 0.10 under `security-framework` and `rustls-platform-verifier`
-    "cpufeatures",           # 0.2 under newest `const-hex` 1.19.3 that `opentelemetry-proto` serde reads beside 0.3 under `chacha20` for `rand` 0.10
-    "glam",                  # 0.30, 0.31, and 0.32 under newest `nalgebra` 0.35.0 through the weak `glam03x?/std` of its `std` feature (rust-clippy#16440), beside 0.33 under `glamx` and nalgebra `convert-glam033`
+    "cpufeatures",           # 0.2 under newest `const-hex` 1.19.3 that `opentelemetry-proto` serde reads and under `aes` 0.8, `sha1` 0.10, and `sha2` 0.10 of newest `office-crypto` 0.4.0 beside 0.3 under `chacha20` for `rand` 0.10
+    "aes",                   # 0.8 under newest `office-crypto` 0.4.0 beside 0.9 under `lopdf` 0.46.0, `pdf_oxide` 0.3.78, `umya-spreadsheet` 3.1.1, `zip` 8, `aes-gcm` 0.11, and `pkcs5` 0.8
+    "cbc",                   # 0.1 under newest `office-crypto` 0.4.0 beside 0.2 under `lopdf` 0.46.0, `pdf_oxide` 0.3.78, `umya-spreadsheet` 3.1.1, `p12-keystore` 0.3, and `pkcs5` 0.8
+    "cipher",                # 0.4 under `aes` 0.8, `cbc` 0.1, `ecb` 0.1, and `rc4` 0.1 of newest `office-crypto` 0.4.0 beside 0.5 under `aes` 0.9, `aes-gcm` 0.11, `cbc` 0.2, `ctr` 0.10, `des` 0.9, `ecb` 0.2, `rc2` 0.9, and `salsa20` 0.11
+    "inout",                 # 0.1 under `cipher` 0.4 beside 0.2 under `cipher` 0.5 and `aead` 0.6
+    "block-padding",         # 0.3 under `inout` 0.1 beside 0.4 under `inout` 0.2
+    "md-5",                  # 0.10 under newest `office-crypto` 0.4.0 beside 0.11 under `lopdf` 0.46.0 and `umya-spreadsheet` 3.1.1
+    "sha1",                  # 0.10 under newest `office-crypto` 0.4.0 beside 0.11 under `pdf_oxide` 0.3.78, `p12-keystore` 0.3, and `zip` 8
+    "sha2",                  # 0.10 under newest `office-crypto` 0.4.0 and `ocipkg` 0.2.9 beside 0.11 under `lopdf` 0.46.0, `pdf_oxide` 0.3.78, `umya-spreadsheet` 3.1.1, `merman-render` and `merman-export` 0.10.0-alpha.1, `lzma-rust2` 0.16, `p12-keystore` 0.3, `p256` and `p384` 0.14, `pkcs5` 0.8, and `scrypt` 0.12
+    "digest",                # 0.10 under `md-5` 0.10, `sha1` 0.10, and `sha2` 0.10 beside 0.11 under `md-5` 0.11, `sha1` 0.11, `sha2` 0.11, `hmac` 0.13, `pbkdf2` 0.13, `ecdsa` 0.17, `elliptic-curve` 0.14, `pkcs12` 0.2.0-pre.0, `rsa` 0.10.0-rc.19, and `signature` 3
+    "block-buffer",          # 0.10 under `digest` 0.10 beside 0.12 under `digest` 0.11 and `cipher` 0.5
+    "crypto-common",         # 0.1 under `cipher` 0.4 and `digest` 0.10 beside 0.2 under `cipher` 0.5, `digest` 0.11, `aead` 0.6, `elliptic-curve` 0.14, `primefield` 0.14, and `universal-hash` 0.6
+    "glam",                  # 0.30, 0.31, and 0.32 under newest `nalgebra` 0.35.0 through the weak `glam03x?/std` of its `std` feature (rust-clippy#16440), beside 0.33 under `glamx`, nalgebra `convert-glam033`, and `bitcode` 0.6.9 of `ironcalc` 0.9.1
     "convert_case",          # 0.10 under newest `derive_more-impl` 2.1.1 beside 0.11 under `kinded_macros` 0.5.1, which newest `nutype_macros` 0.8.0 takes
     "synstructure",          # 0.13 under `asn1-rs-derive` 0.6 of `x509-parser` 0.18 that the `pdf_oxide` 0.3.78 `signatures` feature takes beside 0.14 under `yoke-derive` and `zerofrom-derive`
     "rstar",                 # 0.8, 0.9, 0.10, 0.11, and 0.13 under newest `geo-types` 0.7.20 through the weak `rstar_0_*?/serde` of its `serde` feature (rust-clippy#16440), beside 0.12 under newest `geo` 0.33.1 and 0.13 under `parry3d-f64`
     "heapless",              # 0.6 and 0.7 under the weak `rstar` 0.8 to 0.11 copies of `geo-types` (rust-clippy#16440), beside 0.8 under `rstar` 0.12 and 0.13 and 0.9 under `thermalcomfort` 4.6.2
     "hash32",                # 0.1 and 0.2 under the weak `heapless` 0.6 and 0.7 copies (rust-clippy#16440), beside 0.3 under `heapless` 0.8 and 0.9
-    "generic-array",         # 0.12, 0.13, and 0.14 under `as-slice` 0.1.5 of the weak `heapless` 0.6.1 copy (rust-clippy#16440)
+    "generic-array",         # 0.12, 0.13, and 0.14 under `as-slice` 0.1.5 of the weak `heapless` 0.6.1 copy (rust-clippy#16440), 0.14 also under `block-padding` 0.3 and `inout` 0.1 of newest `office-crypto` 0.4.0
     "as-slice",              # 0.1 under the weak `heapless` 0.6.1 copy (rust-clippy#16440) beside 0.2 under `aligned` 0.4 of `av-scenechange` under `rav1e`, which the `rayon` feature of `image` 0.25.10 takes through the weak `ravif?/threading` (rust-clippy#16440)
     "equator",               # 0.2 under newest `nano-gemm` 0.2.2 and 0.4 under newest `spindle` 0.2.6 and `aligned-vec` 0.6.4, which newest `faer` 0.24.4 takes, beside 0.6 under `faer`
     "equator-macro",         # 0.2 and 0.4 under `equator` 0.2 and 0.4 beside 0.6 under `equator` 0.6
     "thiserror",             # 1 under newest `clarabel` 0.11.1 and under `sysctl` 0.6, which the `std` feature of newest `gemm-common` 0.19.0 under `faer` takes on Apple targets, beside 2 under every Rasm crate
     "thiserror-impl",        # 1 under `thiserror` 1 beside 2 under `thiserror` 2
     "foldhash",              # 0.1 under newest `rustworkx-core` 0.18.1 and under `hashbrown` 0.15 of newest `petgraph` 0.8.3, beside 0.2 under `hashbrown` 0.17 that `indexmap` and `rustworkx-core` take
-    "web-time",              # 0.2 under the wasm target of newest `clarabel` 0.11.1 beside 1 under the wasm targets of newest `nuts-rs` 0.19.1, `indicatif` and `tracing-opentelemetry`
+    "web-time",              # 0.2 under the wasm target of newest `clarabel` 0.11.1 beside 1 under the wasm targets of newest `nuts-rs` 0.19.1, `indicatif` and `tracing-opentelemetry` and under `cfb` 0.14 of `umya-spreadsheet` 3.1.1
     "ndarray",               # 0.16 under `tract-core` and `tract-data` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature beside 0.17, the catalog row, under `pdf_oxide`, `csaps`, `sprs`, `rustworkx-core`, `rasm-analysis`, `rasm-solar`, `rasm-spectra`, and `rasm-weather`
     "num-bigint",            # 0.5 under `arrow-buffer` 59.3.2, the release `datafusion` 55 and `deltalake` 1.1 link, beside 0.4 under `num-rational` of `nalgebra` 0.35 and `fraction` of `jsonschema` 0.60
+    "zip",                   # 6 under newest `spreadsheet-ods` 1.0.4 and 8 under `umya-spreadsheet` 3.1.1 and newest `fmi` 0.8.0, beside 9, the catalog row, under `calamine` 0.38.0, `ironcalc` 0.9.1, `rust_xlsxwriter` 0.102.0, `office_oxide` 0.1.16, and `rasm-ifc`
+    "typed-path",            # 0.12 under `zip` 8 beside 0.13, the catalog row, under `zip` 9 and `rasm-ifc`
     "zstd",                  # 0.13 under `arrow-ipc` and `parquet` 59.3.2, the `zstd` feature of `tiff` 0.11.3, and the default `zstd` of `zip` 8 that newest `fmi` 0.8.0 takes, beside 0.14 under `compression-codecs` of `async-compression`, which `tower-http` under `reqwest` 0.13 takes
     "zstd-safe",             # 7 under `zstd` 0.13 beside 8 under `zstd` 0.14 and `compression-codecs` of `async-compression`
     "brotli",                # 8 under the `brotli` codec of `parquet` 59.3.2, which `datafusion` 55 and `deltalake` 1.1 take with its defaults, and under `hayro-cmap` of `hayro-interpret` 0.7 and 0.9, beside 9 under `compression-codecs` of `async-compression` under `reqwest` 0.13 and under `pdf_oxide` 0.3.78
@@ -64,21 +77,21 @@ allowed-duplicate-crates = [
     "io-lifetimes",          # 2 under newest `fs-set-times` 0.20.3 of newest `cap-primitives` 4.0.3 beside 3 under `cap-primitives` and `io-extras`
     "weezl",                 # 0.1 under the default `lzw` of `tiff` 0.11.3 and under `gif` 0.14 of `krilla` and `image` beside 0.2 under `lopdf` 0.46.0 and `pdf_oxide` 0.3.78
     "fax",                   # 0.2 under the default `fax` of `tiff` 0.11.3 beside 0.3 under `pdf_oxide` 0.3.78
-    "indexmap",              # 1 under newest `serde_with` 3.24.0 through the weak `indexmap_1?/std` of its default `std` (rust-clippy#16440), beside 2 under `petgraph`, `rmcp`, `serde_json`, and `arrow-json`
+    "indexmap",              # 1 under newest `serde_with` 3.24.0 through the weak `indexmap_1?/std` of its default `std` (rust-clippy#16440), beside 2 under `petgraph`, `rmcp`, `serde_json`, `arrow-json`, and `zip` 6
     "schemars",              # 0.9 under newest `serde_with` 3.24.0 through the weak `schemars_0_9?/std` of its default `std` (rust-clippy#16440), beside 1 under `rmcp`, `bounded-integer`, and serde_with `schemars_1`
     "toml",                  # 0.8 under `typst-syntax`, `typst-library`, and `typst-eval` 0.15.1 beside 1 under `rasm-command`, `dylint_linting`, and `dylint_internal`
     "serde_spanned",         # 0.6 under `toml` 0.8 and `toml_edit` 0.22 beside 1 under `toml` 1
     "toml_datetime",         # 0.6 under `toml` 0.8 and `toml_edit` 0.22 beside 1 under `toml` 1 and `toml_edit` 0.25
     "winnow",                # 0.7 under `toml_edit` 0.22 beside 1 under `toml` 1, `toml_edit` 0.25, and `toml_parser`
-    "nom",                   # 7 under `x509-parser` 0.18, `asn1-rs`, `der-parser`, and `rusticata-macros` of the `pdf_oxide` 0.3.78 `signatures` feature and under `cexpr` of `bindgen`, beside 8 under `pdf_oxide`, `lopdf` 0.46.0, `tract-data` and `tract-nnef` 0.22.5, `av1-grain`, and `nom-language`
+    "nom",                   # 7 under `x509-parser` 0.18, `asn1-rs`, `der-parser`, and `rusticata-macros` of the `pdf_oxide` 0.3.78 `signatures` feature and under `cexpr` of `bindgen`, `kparse` 3.0.5, `nom_locate` 4.2.0, and newest `spreadsheet-ods` 1.0.4, beside 8 under `pdf_oxide`, `lopdf` 0.46.0, `tract-data` and `tract-nnef` 0.22.5, `av1-grain`, and `nom-language`
     "unicode-width",         # 0.1 under `codespan-reporting` 0.11 of typst-kit `emit-diagnostics` beside 0.2 under `annotate-snippets`, `ratatui-core`, `merman-core`, and `merman-render`
     "miniz_oxide",           # 0.8 under `png` 0.18, which `typst-library`, `krilla`, and `tiny-skia` take, and under `exr` 1.74, which the `rayon` feature of `image` 0.25.10 takes through the weak `exr?/rayon` (rust-clippy#16440), beside 0.9 under `flate2`
     "rand_chacha",           # 0.3 under `lipsum` 0.9 of `typst-library` and under `rand` 0.8 beside 0.9 under `rand` 0.9 and `rav1e` 0.8
-    "phf",                   # 0.13 under `typst-library`, `htmlize` 1.1.0, `hayro-interpret` 0.7, and `hayro-font` 0.5 beside 0.14 under the default `fast_match_color` of `cssparser` 0.38 that `merman-core` and `merman-render` take and under `pdf_oxide` 0.3.78
-    "phf_shared",            # 0.13 under `phf` 0.13 beside 0.14 under `phf` 0.14
+    "phf",                   # 0.12 under `chrono-tz` 0.10.4 of `ironcalc_base` 0.9.1, 0.13 under `typst-library`, `htmlize` 1.1.0, `hayro-interpret` 0.7, and `hayro-font` 0.5 beside 0.14 under the default `fast_match_color` of `cssparser` 0.38 that `merman-core` and `merman-render` take and under `pdf_oxide` 0.3.78 and `umya-spreadsheet` 3.1.1
+    "phf_shared",            # 0.12 under `phf` 0.12, 0.13 under `phf` 0.13 and `string_cache` 0.9 of newest `spreadsheet-ods` 1.0.4 beside 0.14 under `phf` 0.14
     "phf_generator",         # 0.13 under `phf_macros` 0.13 beside 0.14 under `phf_macros` 0.14
     "phf_macros",            # 0.13 under `phf` 0.13 `macros` beside 0.14 under `phf` 0.14 `macros`
-    "quick-xml",             # 0.38 under `citationberg` 0.7 of `hayagriva` beside 0.42 under `merman-render`
+    "quick-xml",             # 0.38 under `citationberg` 0.7 of `hayagriva` and under newest `office-crypto` 0.4.0 and `spreadsheet-ods` 1.0.4, 0.41 under `umya-spreadsheet` 3.1.1, beside 0.42 under `merman-render`, `calamine` 0.38.0, and `ironcalc` 0.9.1
     "roxmltree",             # 0.20 under `fontconfig-parser` of the fontdb `fontconfig` krilla-svg turns on, on Linux and BSD, beside 0.21 under `usvg`, `typst-library`, and `merman-render`
     "font-types",            # 0.11 under `read-fonts` 0.39 of `skrifa` 0.42, which `krilla` 0.8.2, `krilla-svg`, `subsetter`, `hayro-interpret` 0.7, and `glifo` 0.1 take, and under `write-fonts` 0.48 of `subsetter`, beside 0.12 under `read-fonts` 0.41 of `skrifa` 0.44, which `parley_engine` and `glifo` 0.4 take, and 0.46 of `skrifa` 0.49, which `hayro-font` 0.5 and `rasm-annotation` take
     "read-fonts",            # 0.39 under `skrifa` 0.42 and `write-fonts` 0.48 and 0.41 under `fontique` 0.12, `harfrust` 0.12, and `skrifa` 0.44 beside 0.46 under `skrifa` 0.49
@@ -89,10 +102,10 @@ allowed-duplicate-crates = [
     "hayro-jbig2",           # 0.3 under `hayro-syntax` 0.7 of `typst-library` 0.15.1 and `krilla` 0.8.2 beside 0.4 under `hayro-syntax` 0.9
     "hayro-jpeg2000",        # 0.3 under `hayro-syntax` 0.7 of `typst-library` 0.15.1 and `krilla` 0.8.2 and 0.4 under `grib` 0.20.2 and the `pdf_oxide` 0.3.78 `jpeg2000` feature beside 0.5 under `hayro-syntax` 0.9
     "moxcms",                # 0.8 under `image` 0.25.10, `hayro-interpret` 0.7 and 0.9, and `typst-library` 0.15.1 beside 0.9, the catalog row, under `rasm-pdf`
-    "imagesize",             # 0.14 under `krilla` 0.8.2 and `usvg` 0.47.0 beside 0.15, the catalog row, under `rasm-sheets`
+    "imagesize",             # 0.14 under `krilla` 0.8.2, `usvg` 0.47.0, and `umya-spreadsheet` 3.1.1 beside 0.15, the catalog row, under `rasm-sheets`
     "approx",                # 0.3 under `alga` 0.9.3, the default of `sprs` 0.11.6 under newest `csaps` 0.5.0, beside 0.5 under `nalgebra`, `simba`, `num-dual`, `statrs`, `parry3d-f64`, `geo-types`, `glam`, `glamx` and `palette`
     "num-complex",           # 0.2 under `alga` 0.9.3 of the `sprs` under newest `csaps` 0.5.0 beside 0.4 under `faer`, `nalgebra`, `ndarray`, `sprs`, `rasm-spectra` and `rasm-analysis`
-    "smallvec",              # 1 under `parry3d-f64`, `spade`, `kurbo`, `parley`, `hyper`, and `tracing-subscriber` beside 2.0.0-beta.4 under `facet-reflect` 0.46.5 of the `facet` that `fidget-core` takes under newest `fidget` 0.5.1
+    "smallvec",              # 1 under `parry3d-f64`, `spade`, `kurbo`, `parley`, `hyper`, `tracing-subscriber`, and `proc-macro-utils` 0.10 beside 2.0.0-beta.4 under `facet-reflect` 0.46.5 of the `facet` that `fidget-core` takes under newest `fidget` 0.5.1
 ]
 
 # --- [BANS]

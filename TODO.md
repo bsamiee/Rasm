@@ -29,7 +29,7 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 
 - **TypeScript:** all fourteen `[03]` rows landed.
 - **Rust paused:** no new run starts until the TypeScript extension closes; the runs below finish and count as landed.
-- **Rust rows landed:** telemetry, command, output, screen, daemon, mcp, mesh, proximity, planar, implicit, site, solar, dependency, network, layout, optimize, stats, analysis, spectra, dynamics, form, tables, linework, views, annotation, sheets, typeset, ifc, weather, pdf; finishing: workbooks, cad.
+- **Rust rows landed:** telemetry, command, output, screen, daemon, mcp, mesh, proximity, planar, implicit, site, solar, dependency, network, layout, optimize, stats, analysis, spectra, dynamics, form, tables, linework, views, annotation, sheets, typeset, ifc, weather, pdf, workbooks; finishing: cad.
 - **Rust rows left:** facets, scene, pointcloud, terrain, features, energy, daylight, query, lake, fields.
 - **Depth landed:** cli, typeset, ifc, analysis, layout, implicit, dependency, annotation, mesh; finishing: `geospatial` (site, solar, weather).
 - **Depth left:** telemetry, daemon, mcp, network, stats, optimize, spectra, dynamics, proximity, planar, form, tables, linework, views, sheets, pdf, workbooks, cad, and each row above once it lands.
