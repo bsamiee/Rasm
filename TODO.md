@@ -78,7 +78,7 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 
 ### Scope
 
-- **InDesign interface:** panels, dialogs, preference pages and controls declared as data and bound to every setting by the host's own categories, grounded in `indesign-internals`; it serves Atelier and Galley panels and the rebuilt plug-in capability.
+- **InDesign interface:** the library's interface layer, as complete for InDesign as the Rhino and Blender ones: panels, panes, dialogs, preference pages, lists, buttons, swatches, color wheels and hue controls, built from the distilled app and native in look and behavior; it works with InDesign's own interface, sets every application preference with no document open and every document setting with one open (sizes, layouts, visual elements), each declared as data bound to the host's own categories; Atelier, Galley and the rebuilt plug-in capability compose it.
 - **Typography:** shaping, metrics and typesetting with Persian and Arabic right-to-left support through the packages that own it.
 - **Color:** color spaces (sRGB, CMYK, Lab, Adobe RGB and others), one conversion path between them, and palettes.
 - **Grids:** grid systems, rule lines, margins and ruling from grid theory, coupled to no host; any print or digital format is input, house values are caller data.
