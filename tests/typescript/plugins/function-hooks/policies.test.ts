@@ -87,6 +87,10 @@ layer(NodeServices.layer, { timeout: 60_000 })('function-hooks', (it) => {
             ['/System/Applications/TextEdit.app/Contents/MacOS/TextEdit', 'watch-apps launch com.apple.TextEdit'],
             ['watch-apps perform AAEC AXPress; sleep 2; watch-apps read TextEdit', 'watch-apps perform AAEC AXPress; watch-apps read TextEdit'],
             ['watch-apps perform AAEC AXPress && sleep 2', 'watch-apps perform AAEC AXPress'],
+            ["open -a 'Rhino 8'", "watch-apps launch 'Rhino 8' --arguments=-nosplash"],
+            ['open -a Rhino --args -nosplash', 'watch-apps launch Rhino --arguments=-nosplash'],
+            ['open -a Rhino model.3dm', 'watch-apps launch Rhino --document model.3dm'],
+            ['watch-apps launch Rhino --new', 'watch-apps launch Rhino --new --arguments=-nosplash'],
             ['tree -L 2 --dirsfirst --noreport plugins', 'tree -L 2 --group-directories-first plugins'],
             ['nx run rasm:typecheck:mypy --skip-nx-cache', 'nx run rasm:typecheck:mypy'],
             ['nx affected -t check --skipNxCache', 'nx affected -t check'],
@@ -228,6 +232,9 @@ layer(NodeServices.layer, { timeout: 60_000 })('function-hooks', (it) => {
             ['watch -n 2 ls', MONITOR],
             ['watch-apps watch TextEdit', MONITOR],
             ['watch-apps watch --help', FOREGROUND],
+            ['watch-apps launch Rhino --arguments -nosplash', FOREGROUND],
+            ['watch-apps launch Rhino --document model.3dm', FOREGROUND],
+            ['watch-apps launch TextEdit', FOREGROUND],
             ['/Applications/Blender.app/Contents/MacOS/Blender --command extension list', FOREGROUND],
         ] as const)('%s', ([command, request]) => decided(command, request, false, { kind: 'allow' }));
     });

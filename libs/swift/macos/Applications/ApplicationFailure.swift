@@ -21,6 +21,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
         case foreign(pid_t)
         case closed
         case activating
+        case unsent
         case disabled
         case refused(AXError)
         case process(Errno)
@@ -52,6 +53,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .foreign(let process): "\(subject) belongs to a process other than \(process)"
             case .closed: "\(subject) sits in a closed window, read the app again for a current id"
             case .activating: "\(subject) not sent, raising a window takes focus from the frontmost app"
+            case .unsent: "\(subject) not sent, the instance is gone or refused it"
             case .disabled: "\(subject) not sent to disabled element"
             case .refused(let error): "\(subject) refused with AXError \(error.rawValue)"
             case .process(let error): "Process \(subject): \(error.description)"
@@ -69,7 +71,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .host(let error): [NSUnderlyingErrorKey: error]
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .untrusted, .unanswered, .hidden, .unreadable, .absent, .unresolved, .foreign, .closed, .activating, .disabled, .refused, .cancelled: [:]
+            case .untrusted, .unanswered, .hidden, .unreadable, .absent, .unresolved, .foreign, .closed, .activating, .unsent, .disabled, .refused, .cancelled: [:]
         }
     }
 }

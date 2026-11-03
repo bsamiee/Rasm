@@ -25,15 +25,16 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
 
 extension ElementAction {
     @concurrent
-    public func perform(in process: pid_t? = nil) async throws(ApplicationFailure) {
-        try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
+    @discardableResult
+    public func perform(in process: pid_t? = nil) async throws(ApplicationFailure) -> pid_t {
+        try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) -> pid_t in
             let subject: String = "element \(element.base64EncodedString())"
-            guard let node: AXUIElement = AXUIElement.element(element) else { throw ApplicationFailure(subject: subject, reason: .unresolved) }
-            if let process, node.process != process { throw ApplicationFailure(subject: subject, reason: .foreign(process)) }
+            guard let node: AXUIElement = AXUIElement.element(element), let owner: pid_t = node.process else { throw ApplicationFailure(subject: subject, reason: .unresolved) }
+            if let process, owner != process { throw ApplicationFailure(subject: subject, reason: .foreign(process)) }
             let read: [String: CFTypeRef] = try node.values([kAXRoleAttribute, kAXWindowAttribute, kAXEnabledAttribute])
             let window: AXUIElement? = read[kAXRoleAttribute] as? String == kAXWindowRole ? node : read[kAXWindowAttribute].flatMap(AXUIElement.checked)
             let open: Bool? = try window.map { window throws(ApplicationFailure) in
-                try node.process.map(AXUIElementCreateApplication)?.elements(kAXWindowsAttribute).contains(window) ?? false
+                try AXUIElementCreateApplication(owner).elements(kAXWindowsAttribute).contains(window)
             }
             guard open != false else { throw ApplicationFailure(subject: subject, reason: .closed) }
             let outcome: AXError =
@@ -43,8 +44,8 @@ extension ElementAction {
                     case (.perform(_, let action), _): AXUIElementPerformAction(node, action as CFString)
                     case (.set(_, let value), _): try node.write(value as CFString, to: kAXValueAttribute)
                 }
-            guard outcome != .success else { return }
-            throw ApplicationFailure(outcome, subject: description, process: node.process, answering: self) {
+            guard outcome != .success else { return owner }
+            throw ApplicationFailure(outcome, subject: description, process: owner, answering: self) {
                 outcome == .invalidUIElement ? ApplicationFailure(subject: subject, reason: .unresolved) : ApplicationFailure(subject: description, reason: .refused(outcome))
             }
         }

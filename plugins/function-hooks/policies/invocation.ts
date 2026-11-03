@@ -492,7 +492,8 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         osascript: { valued: ['-e', '-l', '-s'] },
         open: { valued: ['-a', '-b', '-s', '-u', '-i', '-o', '--env', '--stdin', '--stdout', '--stderr', '--arch', '--url'] },
         analyzeHeadless: { wholeWords: true, informational: ['-help'], valued: ['-log', '-scriptlog', '-scriptPath', '-propertiesPath', '-processor', '-cspec', '-analysisTimeoutPerFile', '-keystore', '-max-cpu', '-librarySearchPaths', '-loader'] },
-        Blender: { informational: ['-v', '-h', '--log-list-categories'], headless: ['-b', '--background'] },
+        Blender: { informational: ['-v', '-h', '--log-list-categories'], headless: ['-b', '--background', '-c', '--command'] },
+        'watch-apps': { informational: ['-h', '--help'], valued: ['--document', '--arguments', '--environment', '--pid', '--window', '--longest-side'] },
     } satisfies Record<string, Program>),
 );
 

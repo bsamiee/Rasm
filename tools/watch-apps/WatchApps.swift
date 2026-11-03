@@ -60,7 +60,7 @@ extension OrderedDictionary where Key == NSRunningApplication {
 struct WatchApps: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         abstract: "Observes and drives installed applications in background. Commands exit 1 after a fail line",
-        subcommands: [Watch.self, Launch.self, Show.self, Read.self, Capture.self, Perform.self, Set.self],
+        subcommands: [Watch.self, Launch.self, Show.self, Read.self, Capture.self, Perform.self, Set.self, Quit.self],
     )
 
     static func main() async {
@@ -144,6 +144,19 @@ struct Instance: ParsableArguments {
         guard pid == nil || installed.names.count == 1 else { throw ValidationError("--pid names an instance of one application") }
     }
 
+    func chosen(of id: String) -> Result<[NSRunningApplication], Unmatched> {
+        let running: [NSRunningApplication] = NSWorkspace.shared.instances { instance in instance.bundleIdentifier == id }
+        return pid.map { pid in
+            Unmatched.single(
+                running.filter { instance in instance.processIdentifier == pid },
+                subject: "running instance of \(id)",
+                query: String(pid),
+                candidates: running.map { instance in String(instance.processIdentifier) },
+            ) { instance in String(instance.processIdentifier) }
+            .map { instance in [instance] }
+        } ?? .success(running)
+    }
+
     func each<Value>(
         of applications: some Collection<String>,
         output: AsyncStream<(key: String, line: Line)>.Continuation,
@@ -151,18 +164,7 @@ struct Instance: ParsableArguments {
         as line: (OrderedDictionary<NSRunningApplication, Value>) -> Line?,
     ) async {
         for id: String in applications {
-            let running: [NSRunningApplication] = NSWorkspace.shared.instances { instance in instance.bundleIdentifier == id }
-            let chosen: Result<[NSRunningApplication], Unmatched> =
-                pid.map { pid in
-                    Unmatched.single(
-                        running.filter { instance in instance.processIdentifier == pid },
-                        subject: "running instance of \(id)",
-                        query: String(pid),
-                        candidates: running.map { instance in String(instance.processIdentifier) },
-                    ) { instance in String(instance.processIdentifier) }
-                    .map { instance in [instance] }
-                } ?? .success(running)
-            switch chosen {
+            switch chosen(of: id) {
                 case .success(let chosen):
                     let reads: [(NSRunningApplication, Result<Value, ApplicationFailure>)] = await Array(chosen.async.map { instance in (instance, await read(id, instance)) })
                     let values: OrderedDictionary<NSRunningApplication, Value> = OrderedDictionary(
@@ -223,7 +225,7 @@ struct Watch: AsyncParsableCommand {
 
 struct Launch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Opens each application hidden without activation and prints its state until it leaves launching or an element requires an answer, then exits leaving the instance running"
+        abstract: "Opens each application hidden without activation and prints its state until it responds, exits, or a system prompt naming it shows, then exits leaving the instance running"
     )
 
     @OptionGroup var installed: Installed
@@ -255,10 +257,27 @@ struct Launch: AsyncParsableCommand {
 
     func run() async throws {
         await WatchApps.run(installed.names) { applications, output in
-            await withDiscardingTaskGroup { group in
-                for (id, copies): (key: String, value: [Installation]) in applications {
-                    group.addTask { await launch(id, among: copies, output: output) }
+            let names: [String] = Array(OrderedSet(applications.values.joined().map(\.name)))
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    await withDiscardingTaskGroup { launches in
+                        for (id, copies): (key: String, value: [Installation]) in applications {
+                            launches.addTask { await launch(id, among: copies, output: output) }
+                        }
+                    }
                 }
+                group.addTask {
+                    let prompts: some AsyncSequence<(host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>), Never> = await NSWorkspace.shared.systemPrompts(
+                        naming: names,
+                        notifications: notifications,
+                        polling: messagingTimeout,
+                    )
+                    if let asking: (host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>) = await prompts.first(where: { _ in true }) {
+                        output.yield((asking.host, .states(asking.prompts)))
+                    }
+                }
+                await group.next()
+                group.cancelAll()
             }
         }
     }
@@ -271,7 +290,7 @@ struct Launch: AsyncParsableCommand {
             configuration.arguments = arguments
             configuration.environment = Dictionary(environment) { _, last in last }
             let instance: NSRunningApplication = try await NSWorkspace.shared.launch(Installation.single(of: id, among: copies), opening: document, configuration: configuration).instance
-            for await state: InstanceState in instance.launchStates(notifications: notifications, polling: messagingTimeout) { output.yield((id, .states([instance: state]))) }
+            for await state: InstanceState in instance.states(until: \.isResponding, notifications: notifications, polling: messagingTimeout) { output.yield((id, .states([instance: state]))) }
         } catch {
             output.yield((id, .fail(error.localizedDescription)))
         }
@@ -363,8 +382,14 @@ struct Target: ParsableArguments {
 
     func run(_ action: ElementAction) async {
         await WatchApps.run { output in
-            if case .failure(let failure) = await Result(catching: { () async throws(ApplicationFailure) in try await action.perform() }) {
-                output.yield((action.element.base64EncodedString(), .fail(failure.localizedDescription)))
+            switch await Result(catching: { () async throws(ApplicationFailure) in try await action.perform() }) {
+                case .success(let process):
+                    guard let instance: NSRunningApplication = NSRunningApplication(processIdentifier: process) else { return }
+                    let key: String = instance.bundleIdentifier ?? String(process)
+                    for await state: InstanceState in instance.states(until: { state in !state.isLaunching }, notifications: notifications, polling: messagingTimeout) {
+                        output.yield((key, .states([instance: state])))
+                    }
+                case .failure(let failure): output.yield((action.element.base64EncodedString(), .fail(failure.localizedDescription)))
             }
         }
     }
@@ -372,7 +397,7 @@ struct Target: ParsableArguments {
 
 struct Perform: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Performs one element Accessibility action, silent unless it fails"
+        abstract: "Performs one element Accessibility action and prints the state its instance settles in"
     )
 
     @OptionGroup var target: Target
@@ -387,7 +412,7 @@ struct Perform: AsyncParsableCommand {
 
 struct Set: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Sets element \(kAXValueAttribute) to text, silent unless the element holds no settable \(kAXValueAttribute) or the write fails"
+        abstract: "Sets element \(kAXValueAttribute) to text and prints the state its instance settles in, failing on an element without settable \(kAXValueAttribute)"
     )
 
     @OptionGroup var target: Target
@@ -397,5 +422,46 @@ struct Set: AsyncParsableCommand {
 
     func run() async throws {
         await target.run(.set(element: target.id, value: value))
+    }
+}
+
+struct Quit: AsyncParsableCommand {
+    static let configuration: CommandConfiguration = CommandConfiguration(
+        abstract: "Asks each running instance to quit and prints its state until it exits or an element requires an answer, sending nothing while one does"
+    )
+
+    @OptionGroup var instance: Instance
+
+    @Flag(help: "Kills each instance without asking, for one no answer or quit frees")
+    var force: Bool = false
+
+    func run() async throws {
+        await WatchApps.run(instance.installed.names) { applications, output in
+            await withDiscardingTaskGroup { group in
+                for id: String in applications.keys {
+                    switch instance.chosen(of: id) {
+                        case .success(let running) where running.isEmpty: output.yield((id, .states([:])))
+                        case .success(let running):
+                            for each: NSRunningApplication in running { group.addTask { await quit(id, each, output: output) } }
+                        case .failure(let miss): output.yield((id, .fail(miss.localizedDescription)))
+                    }
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func quit(_ id: String, _ running: NSRunningApplication, output: AsyncStream<(key: String, line: Line)>.Continuation) async {
+        var asked: Bool = false
+        for await state: InstanceState in running.states(until: { [force] state in !force && state.requiresAnswer }, notifications: notifications, polling: messagingTimeout) {
+            output.yield((id, .states([running: state])))
+            guard !asked, !state.is(\.exited), force || !state.requiresAnswer else { continue }
+            asked = true
+            guard force ? running.forceTerminate() : running.terminate() else {
+                let failure: ApplicationFailure = ApplicationFailure(subject: "\(force ? "kill" : "quit") of process \(running.processIdentifier)", reason: .unsent)
+                output.yield((id, .fail(failure.localizedDescription)))
+                return
+            }
+        }
     }
 }

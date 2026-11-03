@@ -1,31 +1,29 @@
 ---
 name: watch-apps
-description: "Use when opening or driving a desktop app, covering background control through Accessibility"
+description: "Use when opening, driving, observing, or quitting a desktop app, covering background control through Accessibility"
 ---
 
 # [WATCH_APPS]
 
 ## [01]-[SEQUENCE]
 
-Start the watcher from a terminal or harness with Accessibility access before an app's first launch or script call, and keep it until work ends:
-1. Start a Monitor running `watch` on the app's bundle id or display name and on helpers showing its dialogs (`com.adobe.crashreporter` for Adobe)
-2. Read start lines: `system` pressure and each app's running instances or `{}` for none
-3. Before opening another instance, answer, quit, or kill one already `unresponsive` or showing `requiresAnswer` by its `pid`
-4. Open the app with `launch` and read its `pid` from the last line
-5. Act on each line by its state table row, on the `pid` of the instance work drives
-6. Run `read` for control ids a watch line leaves out, then `perform` or `set` on one id
-7. Read the effect from the next watch line, `perform` and `set` print nothing on success
-8. End work through the app's `Quit` menu item (`AXPress` on its `read` id) or script command, then answer save prompts the next lines show
-9. Restart the Monitor with the same command on its expiry notice
-
-```text
-Monitor {"command": "watch-apps watch <app> [<helper>]...",
-         "description": "<app> dialogs and lifecycle", "timeout_ms": 1800000}
-```
+Run commands from a terminal or harness with Accessibility access, each returns the state its action settles in:
+1. Open the app with `launch` and read its `pid` from the last line keyed by its bundle id
+2. Before `--new`, answer or quit the instance `launch` returned when it reads `unresponsive` or `requiresAnswer`
+3. Act on the last line by its state table row, on the `pid` of the instance work drives
+4. Run `read` for control ids a line leaves out, then `perform` or `set` on one id and act on the last line it prints
+5. While a call outside `watch-apps` runs (an Atelier script, a harness case), keep a Monitor running `watch` on the app and helpers showing its dialogs (`com.adobe.crashreporter` for Adobe), restart it with the same command on its expiry notice, and stop it with TaskStop when work ends
+6. End each instance you launched with `quit --pid`, and a `perform` answering the save prompt it prints lets the quit finish
 
 ```bash
 watch-apps launch <app> [--new] \
     [--document <path>]... [--arguments <argument>]... [--environment NAME=VALUE]...
+watch-apps quit <app>... [--pid <pid>] [--force]
+```
+
+```text
+Monitor {"command": "watch-apps watch <app> [<helper>]...",
+         "description": "<app> dialogs and lifecycle", "timeout_ms": 1800000}
 ```
 
 - Names resolve as a path when starting with `/`, then by bundle id, Spotlight name or id, and containment, ignoring case and diacritics
@@ -33,7 +31,10 @@ watch-apps launch <app> [--new] \
 - `launch` of a bundle id installed at more than one path prints a `fail` line naming each path, pass one path as the name
 - `launch` reuses the instance running at the app's path unless `--new` is passed
 - New instances open hidden and unfocused with no state restored, no recent item added, and no prompt
-- `launch` prints state lines until the instance leaves `launching` or an element requires an answer, then exits
+- `launch` prints state lines until the instance responds, a dialog included, or exits, or a system prompt naming the app shows, then exits leaving the instance running
+- `quit` sends nothing while an element requires an answer, otherwise it asks the instance to quit and prints its lines until it exits or a save prompt shows
+- `quit --force` kills the instance, for one no answer or quit frees, and the killed app asks about its previous session at the next launch
+- `quit` without `--pid` quits every instance of the app, and prints `{}` when none runs
 - `watch-apps` quits, kills, hides, closes a document, presses a button, or writes a preference only on an agent's command
 - `--document` opens each named file, an unreachable file fails the command before anything opens
 - Without `--document`, AppKit apps open an untitled document and Adobe apps their Home screen until a `make document` script call
@@ -50,12 +51,12 @@ Runs other than `watch` act once and exit:
 ```bash
 watch-apps read <app>... [--pid <pid>]
 watch-apps capture <app>... [--pid <pid>] [--window <window>] [--longest-side <pixels>]
-watch-apps show <app> --pid <pid>
+watch-apps show <app>... [--pid <pid>]
 watch-apps perform <id> <action>
 watch-apps set <id> -- '<text>'
 ```
 
-- `--pid` selects the one instance `read`, `capture`, or `show` acts on and takes one app
+- `--pid` selects the one instance `read`, `capture`, `show`, or `quit` acts on and takes one app
 - `capture` writes a PNG of the instance's on-screen windows to `$TMPDIR/watch-apps/<bundle id>-<pid>-windows.png`
 - `--window` captures one window by a line's `window` or `windows` `number` value to a file ending in that number
 - `--longest-side` scales the image down to that many pixels
@@ -63,13 +64,14 @@ watch-apps set <id> -- '<text>'
 - `show` unhides a launched instance for `capture` without activating it
 - `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item
 - `set` writes text to an element's settable `AXValue`, every other element prints a `fail` line
+- `perform` and `set` then print the state the owning instance settles in, `unresponsive` for an action starting long work, and `watch` in a Monitor reports when it answers again
 - `set` bypasses the app's change tracking: a document stays unedited, autosave can write the text, and closing asks nothing
 - Ids name one element of one presentation, absent once its window, sheet, or dialog closes or shows again, or the app replaces the element
 - Menu item ids name a position in their menu, rerun `read` after the app changes that menu
 - Menu items of a background app take `AXPress` with no Automation grant and read `enabled` false where the app disables them
 - Modal dialogs shown while launching leave every menu item `enabled` false, modal dialogs a menu item opens leave `enabled` as it read
 - Failed runs print a `fail` line keyed by `id` with a `reason`: absent or disabled element, `AXRaise`, or a refused or unanswered action
-- Refused and unanswered actions can have run, read the next state line before retrying one
+- Refused and unanswered actions can have run, `read` the instance before retrying one
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
 - Watchers read hidden instances and actions reach them
 
@@ -80,10 +82,11 @@ Lines read `{"<bundle id>": {"<pid>": <state>}}`, a field the app leaves unknown
 - `fail` lines read `{"<key>": {"fail": {"reason": <text>}}}`, keyed by name, bundle id, element id, `system`, or `watch-apps`
 - `capture` lines read `{"<bundle id>": {"<pid>": {"file": <path>, "windows": [<window>]}}}` or `fail` for an instance with no on-screen window
 - `system` lines read `{"system": {"memory": "normal|warning|critical", "thermal": "nominal|fair|serious|critical"}}` from the kernel
-- Lines print at start and when a state changes, each showing every running instance of that app
+- States print once they hold for one 1-second messaging timeout, a state replaced sooner never prints, exits print at once
+- `watch` lines print at start and on each change, each showing every running instance of that app, and `launch`, `perform`, `set`, and `quit` lines show their one instance
 - Exited instances show in the line of their exit and of their crash report, then leave
 
-`watch` adds a line keyed by `com.apple.UserNotificationCenter`, `com.apple.coreservices.uiagent`, `com.apple.accessibility.universalAccessAuthWarn`, or `com.apple.SecurityAgent` holding each dialog of that process requiring an answer with a watched app's display name as a whole word in its title or text, and a `{}` line once the dialogs close. Crash alerts, privacy prompts, downloaded-app warnings, Accessibility warnings, and keychain and authorization prompts come from system processes, and apps sharing a display name share their lines.
+`watch` adds a line keyed by `com.apple.UserNotificationCenter`, `com.apple.coreservices.uiagent`, `com.apple.accessibility.universalAccessAuthWarn`, or `com.apple.SecurityAgent` holding each dialog of that process requiring an answer with a watched app's display name as a whole word in its title or text, and a `{}` line once the dialogs close, and `launch` exits on the first such line. Crash alerts, privacy prompts, downloaded-app warnings, Accessibility warnings, and keychain and authorization prompts come from system processes, and apps sharing a display name share their lines.
 
 `responding` lists `elements` and `windows` in every watch, `launch`, and `read` line:
 - Watch and `launch` lines hold each window as an outline and give each element requiring an answer its `detail`
@@ -129,7 +132,7 @@ Instances are read at insertion and after each window, sheet, title, focus, mini
 |  [08]   | `exited`       | `status`, `signal`, `report`, `*Failure` | Instance ended                   | Read the report at `url` before a launch |
 |  [09]   | `fail`         | `reason`                                 | Watcher or command failure       | Grant access or pass a bundle id         |
 
-Crash reports hold `url`, `pid`, `bundleIdentifier`, and Mach `exception` type. `statusFailure` and `reportFailure` hold the cause of a failed exit status or crash report read. Killed apps ask about the previous session at their next launch, kill only an instance no answer or quit frees.
+Crash reports hold `url`, `pid`, `bundleIdentifier`, and Mach `exception` type. `statusFailure` and `reportFailure` hold the cause of a failed exit status or crash report read.
 
 ## [04]-[FOCUS]
 

@@ -43,12 +43,12 @@ extension NSWorkspace {
 }
 
 extension NSRunningApplication {
-    public func launchStates(notifications: Set<String>, polling interval: Duration) -> AsyncStream<InstanceState> {
+    public func states(until settled: @escaping @Sendable (InstanceState) -> Bool, notifications: Set<String>, polling interval: Duration) -> AsyncStream<InstanceState> {
         AsyncStream { continuation in
             let following: Task<Void, Never> = Task {
                 for await state: InstanceState in states(walking: \.requiresAnswer, notifications: notifications, polling: interval) {
                     continuation.yield(state)
-                    guard state.isLaunching else { break }
+                    guard !settled(state) else { break }
                 }
                 continuation.finish()
             }

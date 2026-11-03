@@ -20,7 +20,19 @@ public enum InstanceState: Sendable {
     case exited(Result<TerminationStatus, Errno>, report: Result<CrashReport, ApplicationFailure>?)
 
     public var isLaunching: Bool {
-        self[case: \.running]?.0.is(\.launching) == true
+        status?.is(\.launching) == true
+    }
+
+    public var isResponding: Bool {
+        status?.is(\.responding) == true
+    }
+
+    public var requiresAnswer: Bool {
+        status?[case: \.responding]?.elements.contains(where: \.requiresAnswer) == true
+    }
+
+    private var status: ApplicationStatus? {
+        self[case: \.running]?.0
     }
 }
 
@@ -82,17 +94,24 @@ extension NSRunningApplication {
     ) -> some AsyncSequence<InstanceState, Never> {
         AsyncStream { continuation in
             let (ticks, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+            let (held, hold): (AsyncStream<InstanceState>, AsyncStream<InstanceState>.Continuation) = AsyncStream.makeStream()
             let observer: Result<Observer, ApplicationFailure> = Result { () throws(ApplicationFailure) in try Observer(self, notifications: notifications, ticks: tick) }
             let watching: Task<Void, Never> = Task {
                 for await change: Result<ApplicationStatus, ApplicationFailure> in self.statusChanges(walking: walked, observer: observer, ticks: ticks, polling: interval, clock: clock)
                 where !Task.isCancelled {
-                    continuation.yield(self.state(of: change, sampling: false))
+                    hold.yield(self.state(of: change, sampling: false))
                 }
+                hold.finish()
+            }
+            let settling: Task<Void, Never> = Task {
+                for await state: InstanceState in held.debounce(for: interval, clock: clock) where !Task.isCancelled { continuation.yield(state) }
             }
             let following: Task<Void, Never> = Task {
                 let exit: Result<ProcessExit, Errno>? = await termination(of: self.processIdentifier).first { _ in true }
                 watching.cancel()
+                settling.cancel()
                 await watching.value
+                await settling.value
                 guard let exit: Result<ProcessExit, Errno> else { return continuation.finish() }
                 continuation.yield(.exited(exit.map(\.status), report: nil))
                 if case .success(let ended) = exit, ended.detail.contains(.csError) || reportingSignals.contains(ended.status) {
@@ -104,6 +123,7 @@ extension NSRunningApplication {
             }
             continuation.onTermination = { _ in
                 watching.cancel()
+                settling.cancel()
                 following.cancel()
                 observer[case: \.success]?.stop()
             }

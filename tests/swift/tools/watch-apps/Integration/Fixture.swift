@@ -226,7 +226,7 @@ func perform(_ control: WatchAppsLine.Control, _ action: String = kAXPressAction
         as: WatchAppsLine.self,
     )
     expectNoDifference(performed.status, .exited(0))
-    expectNoDifference(phases(in: performed.lines.suffix(1)).isDisjoint(with: [.responding, .answering, .exited]), false, "last line \(String(describing: performed.lines.last))")
+    expectNoDifference(phases(in: performed.lines.suffix(1)).subtracting([.launching]).isEmpty, false, "last line \(String(describing: performed.lines.last))")
 }
 
 func press(_ scenario: Scenario, in fixture: Fixture, pid: Int32) async throws {
