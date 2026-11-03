@@ -44,7 +44,7 @@ const JUSTIFICATIONS = {
     NASKH_JUSTIFICATION: { insertion: 'stretched', fractional: false },
 } as const satisfies Record<Members<typeof ParagraphJustificationOptions>, { readonly insertion: 'tatweel' | 'stretched'; readonly fractional: boolean }>;
 const LONGEST_KASHIDA_WIDTH = 3;
-const KASHIDA_WIDTH = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: LONGEST_KASHIDA_WIDTH })).annotate({ description: 'None, short, medium, long, read as the elongation degree' });
+const KASHIDA_WIDTH = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: LONGEST_KASHIDA_WIDTH })).annotate({ description: 'None, short, medium, long, a fixed elongation read as the point interval [width, width]' });
 const FEATURE_FLAGS = { otfTitling: 'titl', otfContextualAlternate: 'calt', otfDiscretionaryLigature: 'dlig', otfStylisticAlternate: 'salt', otfJustificationAlternate: 'jalt' } as const;
 const CAPITALIZATIONS = {
     CAP_TO_SMALL_CAP: ['c2sc', 'smcp'],
@@ -92,14 +92,14 @@ const kashida = Schema.Struct({
     otfJustificationAlternate: Schema.Boolean,
 }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.kashida.schema), {
-        decode: SchemaGetter.transform(({ kashidas, paragraphJustification = 'DEFAULT_JUSTIFICATION', paragraphKashidaWidth: degree, otfJustificationAlternate: alternates }) => {
+        decode: SchemaGetter.transform(({ kashidas, paragraphJustification = 'DEFAULT_JUSTIFICATION', paragraphKashidaWidth: width, otfJustificationAlternate: alternates }) => {
             const { insertion, fractional } = JUSTIFICATIONS[paragraphJustification];
-            return { insertion: kashidas === 'KASHIDAS_OFF' ? ('none' as const) : insertion, degree, fractional, alternates };
+            return { insertion: kashidas === 'KASHIDAS_OFF' ? ('none' as const) : insertion, degree: width, upper: width, fractional, alternates };
         }),
-        encode: SchemaGetter.transformEffect(({ insertion, degree, fractional, alternates: otfJustificationAlternate }) =>
+        encode: SchemaGetter.transformEffect(({ insertion, degree, upper, fractional, alternates: otfJustificationAlternate }) =>
             pipe(
-                Option.liftPredicate(degree, Schema.is(KASHIDA_WIDTH)),
-                Effect.fromOption(() => new SchemaIssue.InvalidValue({ message: `No paragraphKashidaWidth for degree ${degree}` }, degree)),
+                Option.liftPredicate(degree, (width) => width === upper && Schema.is(KASHIDA_WIDTH)(width)),
+                Effect.fromOption(() => new SchemaIssue.InvalidValue({ message: `No paragraphKashidaWidth for [${degree}, ${upper}]` }, { degree, upper })),
                 Effect.map((paragraphKashidaWidth) => {
                     const shared = { paragraphKashidaWidth, otfJustificationAlternate };
                     return insertion === 'none' ? { kashidas: 'KASHIDAS_OFF' as const, ...shared } : { kashidas: 'DEFAULT_KASHIDAS' as const, paragraphJustification: `NASKH_${insertion === 'tatweel' ? 'TATWEEL' : 'KASHIDA'}_JUSTIFICATION${fractional ? '_FRAC' : ''}` as const, ...shared };
@@ -176,4 +176,4 @@ const featureMembers = (target: Text | TextDefault, { capitalization, opentypeFe
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { HostSettings };
+export { HostSettings, KASHIDA_WIDTH, LONGEST_KASHIDA_WIDTH };

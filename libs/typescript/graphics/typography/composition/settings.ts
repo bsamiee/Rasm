@@ -1,10 +1,6 @@
 import { Effect, Schema, Struct } from 'effect';
 import { Tag } from '#/tags';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const KASHIDA_DEGREES = 12;
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Range = (value: number, description: string) => {
@@ -19,12 +15,15 @@ const Kashida = Schema.Struct({
     insertion: Schema.Literals(['none', 'tatweel', 'stretched'])
         .annotate({ description: 'Elongation by tatweel characters or stretched glyphs' })
         .pipe(Schema.withConstructorDefault(Effect.succeed('none'))),
-    degree: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: KASHIDA_DEGREES }))
-        .annotate({ description: `Elongation degree i, each chosen place stretching by 0 or by [i, ${KASHIDA_DEGREES}] nuqta, 0 none` })
+    degree: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+        .annotate({ description: 'Elongation degree i, each chosen place stretching by 0 or by [i, upper] nuqta, 0 none' })
+        .pipe(Schema.withConstructorDefault(Effect.succeed(0))),
+    upper: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+        .annotate({ description: 'Style upper bound u of one elongation in nuqta' })
         .pipe(Schema.withConstructorDefault(Effect.succeed(0))),
     fractional: Schema.Boolean.annotate({ description: 'Elongation below one tatweel width' }).pipe(Schema.withConstructorDefault(Effect.succeed(false))),
     alternates: Schema.Boolean.annotate({ description: 'Justification alternates before elongation' }).pipe(Schema.withConstructorDefault(Effect.succeed(false))),
-});
+}).check(Schema.makeFilter(({ degree, upper }) => degree <= upper, { description: 'degree <= upper' }));
 const Marks = Schema.Struct(Struct.Record(['x', 'y'], Schema.Finite.pipe(Schema.withConstructorDefault(Effect.succeed(0))))).annotate({ description: 'Mark offset in em, y up' });
 const Spacing = Schema.Struct({
     word: Range(1, 'Ratios of space advance'),
@@ -51,4 +50,4 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { KASHIDA_DEGREES, Settings };
+export { Settings };

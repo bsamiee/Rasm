@@ -1,7 +1,7 @@
 import { Array, Data, Function, Match, Number, Option, Order, Record, Struct, UndefinedOr } from 'effect';
 import { Feature } from 'harfbuzzjs';
 import { GeneralCategory, JoiningGroup } from 'icu';
-import { KASHIDA_DEGREES, Settings } from '#/composition/settings';
+import { Settings } from '#/composition/settings';
 import type { Face } from '#/face';
 import { ShapedText } from '#/shaped-text';
 import { Word } from '#/text/words';
@@ -67,9 +67,9 @@ class Justification extends Data.Class<
             const safeClusters = new Set(layout.shaped.glyphs.filter(({ flags }) => flags.includes('SAFE_TO_INSERT_TATWEEL')).map(Struct.get('cluster')));
             const clusters = Justification.kashidaClusters(layout.run.text, (cluster) => safeClusters.has(cluster));
             const room = Math.max(0, remainder(layout, wordRatios)) / nuqta;
-            const places = room < kashida.degree ? 0 : Math.min(clusters.length, Math.floor(room / kashida.degree), Math.ceil(room / KASHIDA_DEGREES));
+            const places = room < kashida.degree ? 0 : Math.min(clusters.length, Math.floor(room / kashida.degree), Math.ceil(room / kashida.upper));
             const elongation = Option.map(Option.liftPredicate(places, Number.isGreaterThan(0)), (count) => {
-                const length = Number.clamp(room / count, { minimum: kashida.degree, maximum: KASHIDA_DEGREES }) * nuqta;
+                const length = Number.clamp(room / count, { minimum: kashida.degree, maximum: kashida.upper }) * nuqta;
                 const tatweels = Math.ceil(length / advance(TATWEEL));
                 return { clusters: Array.sort(Array.take(clusters, count), Order.Number), tatweels, scale: kashida.fractional ? length / (tatweels * advance(TATWEEL)) : 1 };
             });

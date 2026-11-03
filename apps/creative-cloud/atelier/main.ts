@@ -2,7 +2,6 @@ import process from 'node:process';
 import { NodeCrypto } from '@effect/platform-node';
 import { Automation } from '@rasm/automation/automation';
 import { main } from '@rasm/mcp/node';
-import { Unicode } from '@rasm/typography/unicode';
 import { Array, Config, Effect, identity, Layer, Sink, Stream, SubscriptionRef } from 'effect';
 import { command, dictionaries } from '#/features/apple-events';
 import { applications, launch, perform, screenshot } from '#/features/applications';
@@ -34,4 +33,4 @@ const served = Effect.gen(function* () {
     yield* Effect.forkScoped(Stream.runForEach(Stream.merge(rest, Stream.drop(changes, 1)), () => tools));
 });
 
-main(manifest, Layer.unwrap(Effect.map(Config.String('ATELIER_PATH'), (executable) => Layer.effectDiscard(served).pipe(Layer.provide(Automation.layer(executable)), Layer.provide(Unicode.layer), Layer.provide(NodeCrypto.layer)))));
+main(manifest, Layer.unwrap(Effect.map(Config.String('ATELIER_PATH'), (executable) => Layer.effectDiscard(served).pipe(Layer.provide(Automation.layer(executable)), Layer.provide(NodeCrypto.layer)))));

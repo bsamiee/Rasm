@@ -42,12 +42,7 @@ class Profile extends Data.Class<{
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const minClearance = (right: Iterable<readonly [number, number]>, left: Edge) =>
-    pipe(
-        Array.getSomes(Array.map([...right], ([height, x]) => Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x))),
-        Option.liftPredicate(Array.isReadonlyArrayNonEmpty),
-        Option.map(Array.min(Order.Number)),
-    );
+const minClearance = (right: Iterable<readonly [number, number]>, left: Edge) => pipe(Array.getSomes(Array.map([...right], ([height, x]) => Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x))), Option.liftPredicate(Array.isArrayNonEmpty), Option.map(Array.min(Order.Number)));
 const deviation = (curve: readonly Point[]) => {
     const wangDivisor = 8;
     const bendPoints = 3;

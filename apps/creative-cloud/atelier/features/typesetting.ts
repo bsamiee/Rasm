@@ -60,19 +60,19 @@ const pages = (client: Client, target: string) =>
             return [runs, Option.liftPredicate(offset + PAGE, (next) => next < ranges)] as const;
         }),
     );
+const sameFace = (left: Range, right: Range) => left.font === right.font && Equal.equals(left.axes, right.axes);
 const text = Effect.fnUntraced(function* (client: Client, target: string) {
     const { view, collections } = yield* object(client, target, [TEXTS]);
-    const held = Option.filter(view, isText);
-    if (Option.isSome(held)) {
-        return held.value;
-    }
-    const owned = yield* Effect.fromOption(
-        Array.findFirst(collections, ({ name }) => name === TEXTS),
-        () => Unmatched.make({ subject: 'text', query: Option.some(target), candidates: Array.map(collections, Struct.get('name')) }),
-    );
-    const members = yield* inspected(client, { target: owned.specifier, slice: FIRST });
-    const member = yield* Effect.fromOption(members._tag === 'Items' ? Array.head(members.items) : Option.none(), () => Unmatched.make({ subject: 'text', query: Option.some(target), candidates: [] }));
-    return yield* page(client, member.specifier);
+    const owned = Effect.gen(function* () {
+        const collection = yield* Effect.fromOption(
+            Array.findFirst(collections, ({ name }) => name === TEXTS),
+            () => Unmatched.make({ subject: 'text', query: Option.some(target), candidates: Array.map(collections, Struct.get('name')) }),
+        );
+        const members = yield* inspected(client, { target: collection.specifier, slice: FIRST });
+        const member = yield* Effect.fromOption(members._tag === 'Items' ? Array.head(members.items) : Option.none(), () => Unmatched.make({ subject: 'text', query: Option.some(target), candidates: [] }));
+        return yield* page(client, member.specifier);
+    });
+    return yield* Option.match(Option.filter(view, isText), { onNone: () => owned, onSome: Effect.succeed });
 });
 const story = Effect.fnUntraced(function* (client: Client, target: string) {
     const given = yield* text(client, target);
@@ -86,7 +86,6 @@ const story = Effect.fnUntraced(function* (client: Client, target: string) {
         return [start + content.length, { start, end: start + content.length, text: content, font: Option.getOrElse(appliedFont.name, () => appliedFont.specifier), axes: Result.getOrElse(designAxes, Array.empty) }] as const;
     });
     const [first, last] = Word.expand(ranges.map(Struct.get('text')).join(''), index, index + given.length);
-    const sameFace = (left: Range, right: Range) => left.font === right.font && Equal.equals(left.axes, right.axes);
     const joined = Array.match(ranges, { onEmpty: Array.empty<Array.NonEmptyReadonlyArray<Range>>, onNonEmpty: Array.groupWith(sameFace) }).map((group): Range => ({ ...Array.headNonEmpty(group), end: Array.lastNonEmpty(group).end, text: group.map(Struct.get('text')).join('') }));
     const spans = joined
         .filter(({ start, end }) => start < last && end > first)
@@ -96,9 +95,8 @@ const story = Effect.fnUntraced(function* (client: Client, target: string) {
         });
     return { owner: owner.specifier, spans };
 });
-const kerner = Effect.fnUntraced(function* (client: Client, rules: typeof Kerning.Rules.Type, group: Array.NonEmptyReadonlyArray<Range>) {
+const kerner = Effect.fnUntraced(function* (client: Client, rules: typeof Kerning.Rules.Type, { font, axes }: Range, group: readonly Range[]) {
     const [path, files] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const { font, axes } = Array.headNonEmpty(group);
     const characters = group.map(Struct.get('text')).join('');
     const { source } = yield* client('font', { name: font, text: characters, file: path.join(yield* files.makeTempDirectoryScoped(), 'subset.otf') });
     const { file, postscriptName } = yield* Effect.fromOption(source, () => Unmatched.make({ subject: 'font file', query: Option.some(font), candidates: [] }));
@@ -106,12 +104,19 @@ const kerner = Effect.fnUntraced(function* (client: Client, rules: typeof Kernin
     const named = yield* Face.open(opened, { variations: [], size: Option.none() });
     const instance = yield* Schema.decodeEffect(Face.Instance)({ variations: Array.zipWith(named.axes, axes, ({ tag }, value) => `${tag}=${value}`) });
     const pair = Kerning.pair(Array.isReadonlyArrayEmpty(axes) ? named : yield* Face.open(opened, instance), rules);
-    const pairs = yield* Cache.make({ capacity: characters.length, lookup: ({ before, after }: { readonly before: string; readonly after: string }) => pair(before, after) });
+    const pairs = yield* Cache.make({ capacity: characters.length, lookup: ({ before, after }: { readonly before: string; readonly after: string }) => Effect.sync(() => pair(before, after)) });
     return group.map((range) => ({ range, pair: (before: string, after: string) => Cache.get(pairs, { before, after }) }));
 }, Effect.scoped);
 const kerned = Effect.fnUntraced(function* (client: Client, target: string, rules: typeof Kerning.Rules.Type) {
     const { owner, spans } = yield* story(client, target);
-    const kerners = yield* Effect.forEach(Object.values(Array.groupBy(spans, ({ font, axes }) => `${font}/${axes.join()}`)), (group) => kerner(client, rules, group));
+    const kerners = yield* Effect.forEach(Array.dedupeWith(spans, sameFace), (face) =>
+        kerner(
+            client,
+            rules,
+            face,
+            spans.filter((span) => sameFace(face, span)),
+        ),
+    );
     const ordered = Array.sort(
         kerners.flat(),
         Order.mapInput(Number.Order, ({ range }: (typeof kerners)[number][number]) => range.start),
@@ -124,7 +129,7 @@ const kerned = Effect.fnUntraced(function* (client: Client, target: string, rule
                 Effect.fnUntraced(function* ([{ range, pair }, at]) {
                     const found = yield* Kerning.of(range.text, pair);
                     yield* Ref.update(rows, Array.appendAll(found.map(({ index, em }) => ({ index: range.start + index, em }))));
-                    return { progress: at + 1, total: Option.some(ordered.length), message: Option.some(range.font) };
+                    return { progress: at + 1, total: ordered.length, message: range.font };
                 }),
             ),
         ),
@@ -142,11 +147,10 @@ const typesetting = Effect.fnUntraced(function* ({ serving }: Routed) {
             parameters: Schema.Struct({
                 target: Kerns.fields.target,
                 rules: Kerning.Rules.annotate({ description: 'Gap rules by ICU joining group, first match wins, none when absent' }).pipe(Schema.withDecodingDefaultKey(Schema.encodeEffect(Kerning.Rules)(Kerning.Rules.make({})))),
-                clear: Schema.Boolean.annotate({ description: 'Restores metrics kerning across target' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
             }),
             success: Kerns.Result,
         }),
-        ({ target, rules, clear }, { client }) => (clear ? client('kerns', { target, kerns: 'clear' }) : kerned(client, target, rules)),
+        ({ target, rules }, { client }) => kerned(client, target, rules),
     );
     yield* registerTool(
         Tool.make('glossary', {
@@ -185,7 +189,7 @@ const typesetting = Effect.fnUntraced(function* ({ serving }: Routed) {
             return {
                 sets: Record.map(
                     symbols.supported(face).sets,
-                    Array.map((point) => Symbols.text(point)),
+                    Array.map((point) => String.fromCodePoint(point)),
                 ),
             };
         }),
