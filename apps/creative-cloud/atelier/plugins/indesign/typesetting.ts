@@ -13,6 +13,7 @@ const SHORTCUT_MULTIPLE = 5;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Steps = Schema.Struct({ kerning: HostSettings.Thousandths, baselineShift: Schema.Finite });
+const elongating = Settings.fields.kashida.schema.isAnyOf(['Tatweel', 'Stretched']);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -68,14 +69,14 @@ const typesetting = (scripted: ReturnType<typeof host>['scripted']) =>
                 status.textContent = '';
                 controls.style.display = 'flex';
                 elongation.show(kashida._tag);
-                if (kashida._tag !== 'None') {
+                if (elongating(kashida)) {
                     width.show(kashida.lower);
                 }
                 sets.forEach(([tag, box]) => Object.assign(box, { checked: Option.exists(Record.get(features, tag), Number.isGreaterThan(0)) }));
             });
         const acted = <E>(change: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, Model>) => fork(scripted(Effect.flatMap(change, typesetSelection)).pipe(Effect.matchCauseEffect({ onFailure: failed, onSuccess: displayed })));
         const changed = () => acted(Effect.succeedNone);
-        const elongated = ({ kashida }: Settings) => Option.map(Option.all([elongation.read(), width.read()]), ([_tag, lower]) => ({ kashida: _tag === 'None' ? { _tag } : { _tag, lower, upper: lower, fractional: kashida._tag !== 'None' && kashida.fractional } }));
+        const elongated = ({ kashida }: Settings) => Option.map(Option.all([elongation.read(), width.read()]), ([_tag, lower]) => ({ kashida: _tag === 'None' ? { _tag } : { _tag, lower, upper: lower, fractional: elongating(kashida) && kashida.fractional } }));
         [elongation, width].forEach(({ element }) => element.addEventListener('change', () => acted(Effect.map(typesetSelection(Option.none()), elongated))));
         sets.forEach(([tag, box]) => box.addEventListener('change', () => acted(Effect.succeedSome({ features: { [tag]: box.checked ? 1 : null } }))));
         buttons.forEach(([{ axis, sign }, button]) => button.addEventListener('click', ({ metaKey, ctrlKey }) => acted(nudged(Option.map(mode.read(), Struct.get(axis)), sign * (metaKey || ctrlKey ? SHORTCUT_MULTIPLE : 1)))));

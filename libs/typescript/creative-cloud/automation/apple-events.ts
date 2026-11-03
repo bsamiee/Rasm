@@ -3,23 +3,16 @@ import { Array, Effect, Option, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Described {
-    readonly _tag: 'record';
-    readonly type: string;
-    readonly fields: { readonly [term: string]: AppleEventValue };
-}
-interface Specified {
-    readonly _tag: 'specifier';
-    readonly want: string;
-    readonly form: typeof Form.Type;
-    readonly seld: AppleEventValue;
-    readonly from?: AppleEventValue;
-}
-interface Plain {
-    readonly _tag?: never;
-    readonly [term: string]: AppleEventValue;
-}
-type AppleEventValue = null | boolean | number | string | readonly AppleEventValue[] | Described | Specified | typeof Leaf.Type | Plain;
+type AppleEventValue =
+    | null
+    | boolean
+    | number
+    | string
+    | readonly AppleEventValue[]
+    | { readonly _tag: 'record'; readonly type: string; readonly fields: { readonly [term: string]: AppleEventValue } }
+    | { readonly _tag: 'specifier'; readonly want: string; readonly form: typeof Form.Type; readonly seld: AppleEventValue; readonly from?: AppleEventValue }
+    | typeof Leaf.Type
+    | { readonly _tag?: never; readonly [term: string]: AppleEventValue };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -12,7 +12,7 @@ import { search } from '#/requests/find-change';
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const notFound = Schema.is(Schema.Struct({ code: Schema.Literal(-2) }));
-const faceView = Effect.fn('faceView')(function* (face: Face) {
+const fontView = Effect.fn('fontView')(function* (face: Face) {
     const { app, FontStatus, OpenTypeFeature, members } = yield* Model;
     const [family, installed] = [face.fontFamily, face.status.equals(FontStatus.INSTALLED)];
     const style = installed ? Option.some(face.fontStyleName) : Option.none();
@@ -50,7 +50,6 @@ const faceView = Effect.fn('faceView')(function* (face: Face) {
         installed: installed ? Option.some({ ...Value.picked(Font.View.Installed.fields)(face), type: face.fontType, styles, axes, features, allows: Value.picked(Font.View.Installed.fields.allows.fields)(face) }) : Option.none(),
     }));
 });
-const fontView = Model.view((model) => model.font, faceView);
 const font = Effect.fn('font')(function* ({ name, text, file }: Font) {
     const [face, { FontStatus }, { fs }, path] = yield* Effect.all([Effect.flatMap(Model.fonts, (lookup) => lookup(name)), Model, Uxp, Path.Path]);
     const subset = Effect.as(Effect.try({ try: () => face.createSubsetFont(text, file), catch: HostError.refused(`subset of ${face.name}`) }), Option.some({ file, postscriptName: Option.none<string>() }));
@@ -63,7 +62,7 @@ const font = Effect.fn('font')(function* ({ name, text, file }: Font) {
               ),
           )
         : Option.none();
-    return { view: yield* faceView(face), source };
+    return { view: yield* fontView(face), source };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

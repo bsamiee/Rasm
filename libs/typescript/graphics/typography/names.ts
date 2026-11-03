@@ -16,26 +16,13 @@ class Names extends Data.Class<{ readonly handle: Face; readonly entries: readon
     static readonly ids = { family: { typographicFamily: 16, family: 1 }, style: { typographicSubfamily: 17, subfamily: 2 }, fullName: { fullName: 4 }, version: { version: 5 }, postscriptName: { postscriptName: 6 }, prefix: { variationsPrefix: 25 } } as const;
     static readonly spelled = (value: number) => {
         const fixed = (given: number) => Math.round(given * 2 ** FRACTION_BITS);
-        const shortest = Array.min(
-            Array.map(Array.range(0, FRACTION_BITS), (places) => Number.round(value, places)),
-            Order.mapInput(Order.Boolean, (rounded) => fixed(rounded) !== fixed(value)),
-        );
-        return `${shortest}`.replace(LEADING_ZERO, '$<sign>.');
+        const shortest = Array.findFirst(Array.range(0, FRACTION_BITS), (places) => Option.liftPredicate(Number.round(value, places), (rounded) => fixed(rounded) === fixed(value)));
+        return `${Option.getOrElse(shortest, () => value)}`.replace(LEADING_ZERO, '$<sign>.');
     };
-    static readonly Generated = Schema.TemplateLiteralParser([
-        Schema.String.check(Schema.isPattern(/^[^_]+$/u)),
-        '_',
-        Schema.String.pipe(
-            Schema.decodeTo(
-                Schema.Array(
-                    Schema.TemplateLiteralParser([Schema.String.check(Schema.isStringFinite()).pipe(Schema.decodeTo(Schema.Finite, { decode: SchemaGetter.Number(), encode: SchemaGetter.transform(Names.spelled) })), Tag]).pipe(
-                        Schema.decodeTo(Schema.Tuple([Schema.String, Schema.Finite]), { decode: SchemaGetter.transform(([value, tag]) => [tag, value] as const), encode: SchemaGetter.transform(([tag, value]) => [value, tag] as const) }),
-                    ),
-                ),
-                { decode: SchemaGetter.split({ separator: '_' }), encode: SchemaGetter.transform(Array.join('_')) },
-            ),
-        ),
-    ]).pipe(
+    static readonly Descriptor = Schema.TemplateLiteralParser([Schema.String.check(Schema.isStringFinite()).pipe(Schema.decodeTo(Schema.Finite, { decode: SchemaGetter.Number(), encode: SchemaGetter.transform(Names.spelled) })), Tag]).pipe(
+        Schema.decodeTo(Schema.Tuple([Schema.String, Schema.Finite]), { decode: SchemaGetter.transform(([value, tag]) => [tag, value] as const), encode: SchemaGetter.transform(([tag, value]) => [value, tag] as const) }),
+    );
+    static readonly Generated = Schema.TemplateLiteralParser([Schema.String.check(Schema.isPattern(/^[^_]+$/u)), '_', Schema.String.pipe(Schema.decodeTo(Schema.Array(Names.Descriptor), { decode: SchemaGetter.split({ separator: '_' }), encode: SchemaGetter.transform(Array.join('_')) }))]).pipe(
         Schema.decodeTo(Schema.Struct({ prefix: Schema.String, variations: Schema.Record(Schema.String, Schema.Finite) }), {
             decode: SchemaGetter.transform(([prefix, , descriptors]) => ({ prefix, variations: Record.fromEntries(descriptors) })),
             encode: SchemaGetter.transform(({ prefix, variations }) => [prefix, '_', Record.toEntries(variations)] as const),

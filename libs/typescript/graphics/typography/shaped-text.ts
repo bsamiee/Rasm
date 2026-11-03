@@ -68,11 +68,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
         const unmapped = new Set(glyphs.filter(({ codepoint }) => codepoint === 0).map(Struct.get('cluster')));
         return ShapedText.make({
             glyphs: Array.zipWith(glyphs, buffer.getGlyphPositions(), ({ codepoint, cluster, flags: glyphFlags }, position) => {
-                const glyphClass = face.font.face.getGlyphClass(codepoint);
-                const kind = Option.getOrElse(
-                    Array.findFirst(GlyphClasses.literals, (key) => GlyphClass[key] === glyphClass),
-                    () => 'UNCLASSIFIED' as const,
-                );
+                const kind = Array.getUnsafe(GlyphClasses.literals, face.font.face.getGlyphClass(codepoint));
                 const placed = Record.map(position, em);
                 return {
                     glyph: codepoint,

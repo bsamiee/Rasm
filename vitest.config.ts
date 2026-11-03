@@ -20,6 +20,7 @@ const defaults = Effect.fnUntraced(function* (directory: string) {
     const [path, ci, { devDependencies }] = yield* Effect.all([Path.Path, Config.withDefault(Config.Boolean('CI'), false), Package.read(directory)]);
     const results = located(path.join('.artifacts', 'typescript', 'vitest'), directory);
     const tests = path.join(ROOT, 'tests', 'typescript');
+    const segments = path.relative(ROOT, directory).split(path.sep);
     return {
         test: {
             attachmentsDir: path.join(results, 'attachments'),
@@ -27,13 +28,7 @@ const defaults = Effect.fnUntraced(function* (directory: string) {
                 ? { browser: { provider: (yield* Effect.promise(() => import('@vitest/browser-playwright'))).playwright(), headless: true, instances: [{ browser: 'chromium' }], locators: { errorFormat: 'aria' }, trace: { mode: 'retain-on-failure', tracesDir: path.join(results, 'traces') } } }
                 : {}),
             chaiConfig: { includeStack: true, truncateThreshold: 0 },
-            dir: path.join(
-                tests,
-                ...path
-                    .relative(ROOT, directory)
-                    .split(path.sep)
-                    .filter((segment, at) => at !== 1 || segment !== path.basename(tests)),
-            ),
+            dir: path.join(tests, ...segments.filter((segment, at) => at !== 1 || segment !== path.basename(tests))),
             coverage: {
                 exclude: ['**/*.d.ts', '**/*.config.ts', '**/tests/**', '**/.storybook/**'],
                 include: ['**/*.{ts,tsx,mts,cts}'],

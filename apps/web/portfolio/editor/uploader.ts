@@ -8,7 +8,7 @@ import { HttpApiClient } from 'effect/http-api';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import { assets, draft, hero, recoveryRequest, updateEntry } from '#/editor/state.ts';
 import { Api, UploadRefused, uploadField } from '#/model/api.ts';
-import { type Asset, AssetJson, mediaTypes, PdfAsset, uploadLimit, VideoAsset } from '#/model/asset.ts';
+import { Asset, AssetJson, mediaTypes, PdfAsset, uploadLimit, VideoAsset } from '#/model/asset.ts';
 import { Composition, CompositionId, placementsFor } from '#/model/placement.ts';
 import type { EntryId } from '#/model/portfolio.ts';
 
@@ -94,9 +94,8 @@ const prepare = Effect.fnUntraced(
         const { inspectFile } = yield* Effect.tryPromise(() => import('#/editor/inspect-file.ts'));
         const random = yield* SecureRandom.SecureRandom;
         const { asset, renditions } = yield* inspectFile(new File([data], name, { type }), yield* random.uuidV7());
-        const placements = Destination.$is('Entry')(destination) && asset.kind !== 'pdf' ? placementsFor(asset) : [];
-        const ids = yield* Effect.forEach(placements, () => random.uuidV7());
-        const compositions = Array.zipWith(placements, ids, (placement, id) => Composition.make({ id: CompositionId.make(id), items: [placement] }));
+        const placements = Destination.$is('Entry')(destination) && !Asset.guards.pdf(asset) ? placementsFor(asset) : [];
+        const compositions = yield* Effect.forEach(placements, (placement) => Effect.map(random.uuidV7(), (id) => Composition.make({ id: CompositionId.make(id), items: [placement] })));
         return { [uploadField.asset]: yield* Schema.encodeEffect(AssetJson)(asset), prepared: { asset, compositions }, [uploadField.renditions]: renditions };
     },
     (effect, { type }) =>

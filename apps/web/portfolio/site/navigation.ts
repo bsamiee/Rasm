@@ -9,11 +9,7 @@ const Params = Schema.fromURLSearchParams(Schema.Struct({ project: EntryId, comp
 const Fragment = {
     top: '#top',
     work: '#work',
-    of: (project: typeof EntryId.Type, composition?: typeof CompositionId.Type) =>
-        Schema.encodeOption(Params)({ project, composition }).pipe(
-            Option.map((params) => `#${params}`),
-            Option.getOrElse(() => Fragment.work),
-        ),
+    of: (project: typeof EntryId.Type, composition?: typeof CompositionId.Type) => Option.match(Schema.encodeOption(Params)({ project, composition }), { onNone: () => Fragment.work, onSome: (params) => `#${params}` }),
     read: (hash: string) => Schema.decodeOption(Params)(new URLSearchParams(hash.slice(1))),
 } as const;
 
@@ -33,15 +29,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     const located = (target: string) => Option.bind(Fragment.read(target), 'entry', ({ project }) => Array.findFirst(portfolio.entries, ({ id }) => id === project));
     const current = located(hash);
     const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
-    const selected = (entry: typeof Entry.Type) =>
-        first(
-            entry,
-            current.pipe(
-                Option.filter((shown) => shown.entry === entry),
-                Option.flatMapNullishOr(({ composition }) => composition),
-                Option.getOrElse(() => selections[entry.id]),
-            ),
-        );
+    const selected = (entry: typeof Entry.Type) => first(entry, Option.getOrUndefined(Option.filter(current, (shown) => shown.entry === entry))?.composition ?? selections[entry.id]);
     const write = (method: 'pushState' | 'replaceState', target: string) => {
         history.scrollRestoration = Option.isSome(Fragment.read(target)) ? 'manual' : 'auto';
         if (location.hash !== target) {
@@ -113,9 +101,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
         measure();
         restore();
         size.observe(bar);
-        ['popstate', 'hashchange'].forEach((name) => {
-            globalThis.addEventListener(name, restore, { signal: events.signal });
-        });
+        ['popstate', 'hashchange'].forEach((name) => globalThis.addEventListener(name, restore, { signal: events.signal }));
         globalThis.addEventListener('resize', observe, { signal: events.signal });
         return () => {
             events.abort();
@@ -123,15 +109,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
             size.disconnect();
         };
     }, [portfolio.entries, sticky, work]);
-    return {
-        active: current.pipe(
-            Option.map(({ entry }) => entry.id),
-            Option.getOrUndefined,
-        ),
-        selected,
-        select,
-        jump,
-    };
+    return { active: Option.getOrUndefined(Option.map(current, ({ entry }) => entry.id)), selected, select, jump };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

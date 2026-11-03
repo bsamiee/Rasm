@@ -216,20 +216,17 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
         config.startupTimeout,
     );
     const sync = typeof capabilities.textDocumentSync === 'number' ? { openClose: capabilities.textDocumentSync !== TextDocumentSyncKind.None, change: capabilities.textDocumentSync } : (capabilities.textDocumentSync ?? {});
-    const declared = Record.collect(
-        Record.filter(
-            {
-                [DidOpenTextDocumentNotification.method]: sync.openClose === true && {},
-                [DidCloseTextDocumentNotification.method]: sync.openClose === true && {},
-                [DidChangeTextDocumentNotification.method]: sync.change !== undefined && sync.change !== TextDocumentSyncKind.None && { syncKind: sync.change },
-                [DidSaveTextDocumentNotification.method]: sync.save === true ? {} : sync.save,
-                [DocumentDiagnosticRequest.method]: capabilities.diagnosticProvider,
-            },
-            Predicate.isObject,
-        ),
-        (method, registerOptions) => [method, { id: method, method, registerOptions }] as const,
+    const declared = Record.filterMap(
+        {
+            [DidOpenTextDocumentNotification.method]: sync.openClose === true && {},
+            [DidCloseTextDocumentNotification.method]: sync.openClose === true && {},
+            [DidChangeTextDocumentNotification.method]: sync.change !== undefined && sync.change !== TextDocumentSyncKind.None && { syncKind: sync.change },
+            [DidSaveTextDocumentNotification.method]: sync.save === true ? {} : sync.save,
+            [DocumentDiagnosticRequest.method]: capabilities.diagnosticProvider,
+        },
+        (registerOptions, method) => (Predicate.isObject(registerOptions) ? Result.succeed({ id: method, method, registerOptions }) : Result.failVoid),
     );
-    yield* SubscriptionRef.update(state, (current) => ({ ...current, registrations: HashMap.setMany(current.registrations, declared) }));
+    yield* SubscriptionRef.update(state, (current) => ({ ...current, registrations: HashMap.setMany(current.registrations, Record.toEntries(declared)) }));
     yield* notify(InitializedNotification.type, {});
     yield* Option.match(config.settings, { onNone: () => Effect.void, onSome: (settings) => notify(DidChangeConfigurationNotification.type, { settings }) });
     yield* Effect.addFinalizer(() =>

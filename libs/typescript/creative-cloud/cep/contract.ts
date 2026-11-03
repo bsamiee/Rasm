@@ -15,7 +15,7 @@ const Reply = Schema.Union([
     Schema.TaggedStruct('Value', { value: Schema.optionalKey(Schema.Json) }),
     Unmatched,
     Schema.TaggedStruct('IllegalArgument', { message: Schema.String }),
-    Schema.TaggedStruct('Thrown', { message: Schema.String, number: Schema.optionalKey(Schema.Finite), line: Schema.OptionFromOptionalKey(Schema.Int) }),
+    Schema.TaggedStruct('Thrown', { message: Schema.String, number: Schema.OptionFromOptionalKey(Schema.Finite), line: Schema.OptionFromOptionalKey(Schema.Int) }),
 ]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -27,7 +27,10 @@ const answered =
             Value: ({ value }) => Schema.decodeEffect(success)(value),
             Unmatched: Effect.fail,
             IllegalArgument: ({ message }) => Effect.fail(new Cause.IllegalArgumentError(message)),
-            Thrown: (failed) => Effect.fail(Option.isSome(failed.line) ? HostError.thrown(`${subject}: ${failed.message}`, failed.line)(failed) : HostError.refused(subject)(failed)),
+            Thrown: (failed) => {
+                const coded = [subject, ...Option.toArray(Option.map(failed.number, (code) => `Error ${code}`))].join(': ');
+                return Effect.fail(Option.isSome(failed.line) ? HostError.thrown(`${coded}: ${failed.message}`, failed.line)(failed) : HostError.refused(coded)(failed));
+            },
         });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

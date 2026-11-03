@@ -11,13 +11,7 @@ const CompositionId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('Co
 const text = { caption: Schema.String, alt: Schema.optionalKey(Schema.String), description: Schema.optionalKey(Schema.String) };
 const percentage = Schema.Finite.check(Schema.isBetween(percentBounds));
 const drawing = Schema.Struct({ ...text, assetId: AssetId, kind: Schema.Literal('image'), role: Schema.Literal('drawing') });
-const photograph = Schema.Struct({
-    ...text,
-    assetId: AssetId,
-    kind: Schema.Literal('image'),
-    role: Schema.Literal('photograph'),
-    framing: Schema.Union([Schema.Struct({ mode: Schema.Literal('contain') }), Schema.Struct({ mode: Schema.Literal('cover'), x: percentage, y: percentage })]),
-});
+const photograph = Schema.Struct({ ...text, assetId: AssetId, kind: Schema.Literal('image'), role: Schema.Literal('photograph'), framing: Schema.Union([Schema.Struct({ mode: Schema.Literal('contain') }), Schema.Struct({ mode: Schema.Literal('cover'), x: percentage, y: percentage })]) });
 const sheet = Schema.Struct({ ...text, assetId: AssetId, kind: Schema.Literal('pdf'), page: Sheet.fields.number });
 const resolve = <K extends (typeof Asset.Type)['kind']>(kind: K, assetId: typeof AssetId.Type, input: unknown, options: SchemaAST.ParseOptions) =>
     Assets.use((assets) => Effect.fromOption(Record.get(assets, assetId), () => new SchemaIssue.InvalidValue({ message: `File ${assetId} missing from library` }, input, options))).pipe(

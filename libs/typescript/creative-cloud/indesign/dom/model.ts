@@ -35,7 +35,6 @@ import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cache, Cause, Context, Duration, Effect, Equal, Equivalence, Exit, flow, identity, Match, Option, Predicate, pipe, Record, Result, Schema, Struct } from 'effect';
 import { Dictionary } from '#/dom/dictionary';
-import type { Slice } from '#/dom/slice';
 import { Specifier } from '#/dom/specifier';
 import { Value } from '#/dom/value';
 
@@ -253,10 +252,6 @@ class Model extends Context.Service<Model>()('@rasm/indesign/dom/model', {
         return Reference.make({ type: object.constructorName, specifier: object.toSpecifier(), name: valid ? Option.liftPredicate(Reflect.get(object, 'name'), Predicate.isString) : Option.none(), valid });
     };
     static readonly reference = (object: InDesignDOMObject<unknown>): Effect.Effect<Reference, HostError> => Effect.try({ try: () => Model.referenceUnsafe(object), catch: HostError.refused('object reference') });
-    static readonly view =
-        <T, A, E, R>(matches: (model: typeof Model.Service) => (value: unknown) => value is T, of: (object: T, slice: Slice) => Effect.Effect<A, E, R>) =>
-        (model: typeof Model.Service, found: unknown, slice: Slice): Option.Option<Effect.Effect<A, E, R>> =>
-            Option.map(Option.liftPredicate(found, matches(model)), (object) => of(object, slice));
     static readonly encoder = Effect.map(
         Model,
         ({ enumerator, collection, domObject }) =>

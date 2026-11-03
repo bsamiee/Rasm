@@ -96,7 +96,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const unkeyed = Option.isSome(search) && (withoutRowid || !all.some(({ name, kind }) => kind === 'integer' && Equal.equals(key, [name])));
         const folded = indexes.flatMap(({ keys }) => keys.filter(Struct.get('casefold')).map(Struct.get('column')));
         return [
-            ...Reconcile.unsupported(owner, 'reserved', all, ({ name }) => aliases.includes(name)),
+            ...Reconcile.unsupported(owner, 'reserved', all, ({ name }) => aliases.includes(name.toLowerCase())),
             ...Reconcile.unsupported(owner, 'tenant', all, ({ name }) => Option.exists(tenant, ({ column }) => column.name === name)),
             ...Reconcile.unsupported(owner, 'search', all, ({ name }) => unkeyed && key.includes(name)),
             ...Reconcile.unsupported(owner, 'casefold', all, ({ name, ascii }) => !ascii && folded.includes(name)),

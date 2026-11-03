@@ -139,9 +139,7 @@ class TextView extends Schema.TaggedClass<TextView, { readonly brand: unique sym
     ranges: Schema.Int.annotate({ description: 'Style range count' }),
     runs: Schema.Array(Run).annotate({ description: 'Slice style ranges in order' }),
     paragraphAttributes: ParagraphAttributes,
-}) {
-    static readonly Run = Run;
-}
+}) {}
 class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: unique symbol }>()('Document', {
     ...Reference.fields,
     saved: Schema.Boolean,

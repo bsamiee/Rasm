@@ -70,14 +70,8 @@ class Column extends Data.Class<{
         const limits = <P, B>(read: typeof stored, reviver: SchemaRepresentation.FilterReviver<P>, ...bounds: ReadonlyArray<(payload: P) => B>) => read(reviver).flatMap((payload) => bounds.map((bound) => bound(payload)));
         const compare = (subject: 'value' | 'codePoints') => (op: '>' | '>=' | '<' | '<=', limit: number | bigint | Date) => Column.Bound.Compare({ op, value: limit, subject });
         const [value, points] = [compare('value'), compare('codePoints')];
-        const lower =
-            <V extends number | bigint | Date, B>(bound: (op: '>' | '>=', limit: V) => B) =>
-            ({ minimum, exclusiveMinimum }: { readonly minimum: V; readonly exclusiveMinimum?: true | undefined }) =>
-                bound(exclusiveMinimum === true ? '>' : '>=', minimum);
-        const upper =
-            <V extends number | bigint | Date, B>(bound: (op: '<' | '<=', limit: V) => B) =>
-            ({ maximum, exclusiveMaximum }: { readonly maximum: V; readonly exclusiveMaximum?: true | undefined }) =>
-                bound(exclusiveMaximum === true ? '<' : '<=', maximum);
+        const lower = (bound: typeof value) => (payload: { readonly minimum: number | bigint | Date; readonly exclusiveMinimum?: true | undefined }) => bound(payload.exclusiveMinimum === true ? '>' : '>=', payload.minimum);
+        const upper = (bound: typeof value) => (payload: { readonly maximum: number | bigint | Date; readonly exclusiveMaximum?: true | undefined }) => bound(payload.exclusiveMaximum === true ? '<' : '<=', payload.maximum);
         const storage = (node: SchemaRepresentation.Representation): readonly string[] =>
             Match.value(node).pipe(
                 Match.tag('Literal', ({ literal: member }) => [typeof member]),

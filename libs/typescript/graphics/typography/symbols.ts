@@ -7,19 +7,13 @@ import type { Face } from '#/face';
 const HEXADECIMAL = 16;
 const HEX_DIGITS = /^[\dA-Fa-f]{1,6}$/u;
 const MAX_CODE_POINT = 0x10_ff_ff;
-const SURROGATES = { minimum: 0xd8_00, maximum: 0xdf_ff };
+const SCALAR_VALUE = /^\P{Cs}$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Character = Schema.String.check(Schema.isPattern(HEX_DIGITS)).pipe(
-    Schema.decodeTo(
-        Schema.Int.check(
-            Schema.isBetween({ minimum: 0, maximum: MAX_CODE_POINT }),
-            Schema.makeFilter((point) => point < SURROGATES.minimum || point > SURROGATES.maximum, { description: 'Unicode scalar value, surrogates excluded' }),
-        ),
-        SchemaTransformation.transform({ decode: (cell) => Number.parseInt(cell, HEXADECIMAL), encode: (point) => point.toString(HEXADECIMAL) }),
-    ),
-    Schema.decodeTo(Schema.String, SchemaTransformation.transform({ decode: String.fromCodePoint, encode: (character) => character.codePointAt(0) ?? 0 })),
+    Schema.decodeTo(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: MAX_CODE_POINT })), SchemaTransformation.transform({ decode: (cell) => Number.parseInt(cell, HEXADECIMAL), encode: (point) => point.toString(HEXADECIMAL) })),
+    Schema.decodeTo(Schema.String.check(Schema.isPattern(SCALAR_VALUE)), SchemaTransformation.transform({ decode: String.fromCodePoint, encode: (character) => character.codePointAt(0) ?? 0 })),
 );
 class Symbols extends Schema.Class<Symbols, { readonly brand: unique symbol }>('Symbols')({ sets: Schema.Record(Schema.String, Schema.Array(Character)).annotate({ description: 'Characters by header name, cells hexadecimal code points' }) }) {
     static readonly decode = Effect.fn('Symbols.decode')(function* (tsv: string) {

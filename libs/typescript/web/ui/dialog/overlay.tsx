@@ -1,6 +1,6 @@
-import { RegistryContext } from '@effect/atom-react';
+import { useAtomSet } from '@effect/atom-react';
 import { Atom } from 'effect/reactivity';
-import { type ReactNode, use, useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { composeRenderProps, type ModalOverlayProps, ModalOverlay as Overlay } from 'react-aria-components';
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -20,11 +20,11 @@ const ModalOverlay = Object.assign(
     {
         open: Atom.readable((get) => get(mounted)),
         Counted: ({ children }: { readonly children: ReactNode }) => {
-            const registry = use(RegistryContext);
+            const count = useAtomSet(mounted);
             useEffect(() => {
-                registry.update(mounted, (count) => count + 1);
-                return () => registry.update(mounted, (count) => count - 1);
-            }, [registry]);
+                count((open) => open + 1);
+                return () => count((open) => open - 1);
+            }, [count]);
             return children;
         },
     },

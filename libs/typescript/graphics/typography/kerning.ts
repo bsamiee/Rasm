@@ -46,14 +46,16 @@ class Kerning extends Schema.Class<Kerning, { readonly brand: unique symbol }>('
     kerns(face: Face, text: string, settings = Settings.make({})) {
         const { unitsPerEm } = face;
         const { ascender, descender } = face.metrics.extents.horizontal;
-        const outline = memoized((glyph: number) => Profile.outline(face.font.glyphToJson(glyph)));
+        const [outlines, profiles] = [new Map<number, ReturnType<typeof Profile.outline>>(), new Map<string, Profile>()];
+        const outline = (glyph: number) => outlines.getOrInsertComputed(glyph, () => Profile.outline(face.font.glyphToJson(glyph)));
         const direction = Option.orElse(settings.direction, () => Array.findFirst(Array.fromIterable(text), (character) => Option.fromUndefinedOr(STRONG.get(BidiClass.forChar(character.codePointAt(0) ?? 0)))));
-        const profile = memoized((span: string) => Profile.of(ShapedText.of(face, ShapedText.Run.make({ text: span, direction: LONE_PUNCTUATION.test(span) ? direction : Option.none() }), settings), unitsPerEm, outline));
+        const profile = (span: string) => profiles.getOrInsertComputed(span, () => Profile.of(ShapedText.of(face, ShapedText.Run.make({ text: span, direction: LONE_PUNCTUATION.test(span) ? direction : Option.none() }), settings), unitsPerEm, outline));
         const gap = (before: string, after: string) => {
-            const { boundary, correction } = ruleFor(this, before, after);
+            const letters = { following: Array.take(Word.letters(after), 2), preceding: Array.takeRight(Word.letters(before), 1) };
+            const { boundary, correction } = Array.findFirst(this.rows, ({ side, groups }) => letters[side].some(({ group }) => groups.includes(group))).pipe(Option.getOrElse(() => this.fallback));
             const preceding = profile(before);
             const bounded = preceding.bounded({ slant: boundary.slant * unitsPerEm, top: Option.getOrElse(boundary.top, () => ascender) * unitsPerEm, foot: Option.getOrElse(boundary.foot, () => descender) * unitsPerEm });
-            return Option.match(profile(after).gap(bounded), { onNone: () => 0, onSome: (clearance) => Math.max(Math.min(clearance, preceding.advance) / unitsPerEm + correction, 0) });
+            return Option.match(Profile.gap(profile(after), bounded), { onNone: () => 0, onSome: (clearance) => Math.max(Math.min(clearance, preceding.advance) / unitsPerEm + correction, 0) });
         };
         const content = ({ start, end }: Word['joins'][number]) => text.slice(start, end);
         const spans = Word.of(text).flatMap(({ start, end, joins }) =>
@@ -67,25 +69,6 @@ class Kerning extends Schema.Class<Kerning, { readonly brand: unique symbol }>('
             .filter(({ kerning }) => kerning !== 0);
     }
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const ruleFor = ({ rows, fallback }: Kerning, before: string, after: string) => {
-    const letters = { following: Array.take(Word.letters(after), 2), preceding: Array.takeRight(Word.letters(before), 1) };
-    return Option.getOrElse(
-        Array.findFirst(rows, ({ side, groups }) => letters[side].some(({ group }) => groups.includes(group))),
-        () => fallback,
-    );
-};
-const memoized = <K, V>(compute: (key: K) => V) => {
-    const computed = new Map<K, V>();
-    return (key: K): V =>
-        Option.getOrElse(Option.fromUndefinedOr(computed.get(key)), () => {
-            const value = compute(key);
-            computed.set(key, value);
-            return value;
-        });
-};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

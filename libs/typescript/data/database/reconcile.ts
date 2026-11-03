@@ -9,15 +9,9 @@ import type { Relation } from '#/relation';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Finding = typeof ReconcileError.Finding.Type;
-type Refusal = Extract<Finding['reason'], { readonly _tag: 'Unsupported' }>['refusal'];
-type Method = (typeof methods)[number];
 interface Live {
     readonly name: string;
     readonly identity: string | null;
-}
-interface Reference {
-    readonly columns: Array.NonEmptyReadonlyArray<string>;
-    readonly target: string;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -25,7 +19,6 @@ interface Reference {
 const identifierBytes = 63;
 const digestBase = 257;
 const digestModulus = 2_147_483_647;
-const methods = ['btree', 'gin', 'gist', 'brin'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -46,20 +39,11 @@ const identifier = (parts: readonly string[]) => {
 };
 
 // --- [REFUSALS]
-const finding = (table: string, columns: readonly string[], reason: Finding['reason']): Finding => ({ table, columns, reason });
-const unsupported = <C extends { readonly name: string }>(owner: string, refusal: Refusal, rows: readonly C[], refuses: (row: C) => boolean): readonly Finding[] =>
-    rows.some(refuses)
-        ? [
-              finding(
-                  owner,
-                  rows.filter(refuses).map(({ name }) => name),
-                  { _tag: 'Unsupported', refusal },
-              ),
-          ]
-        : [];
-const declaredRefusals = ({ name: owner, key, references, columns, indexes, search }: Relation) => {
+const findings = (table: string, columns: readonly string[], reason: Finding['reason']): readonly Finding[] => Array.match(columns, { onEmpty: () => [], onNonEmpty: (named) => [{ table, columns: named, reason }] });
+const unsupported = <C extends { readonly name: string }>(table: string, refusal: Extract<Finding['reason'], { readonly _tag: 'Unsupported' }>['refusal'], rows: readonly C[], refuses: (row: C) => boolean) => findings(table, rows.filter(refuses).map(Struct.get('name')), { _tag: 'Unsupported', refusal });
+const refusals = ({ name: owner, key, references, columns, indexes }: Relation) => {
     const [all, linked] = [Object.values(columns), [...key, ...references.flatMap((reference) => reference.columns)]];
-    const conditions = [...indexes.flatMap(({ where }) => where), ...all.flatMap(({ projection }) => Option.toArray(projection).flatMap((projected) => (projected._tag === 'Where' ? projected.where : [])))];
+    const conditions = [...indexes.flatMap(({ where }) => where), ...all.flatMap(({ projection }) => Option.toArray(Option.filter(projection, Column.Projection.$is('Where'))).flatMap(Struct.get('where')))];
     const constants = (entry: Column) => [
         ...Option.toArray(entry.default),
         ...conditions
@@ -73,32 +57,10 @@ const declaredRefusals = ({ name: owner, key, references, columns, indexes, sear
                 ),
             ),
     ];
-    const names = [...indexes.map(({ parts }) => identifier([owner, ...parts])), ...Option.toArray(search).map(() => identifier([owner, 'search']))];
-    const collided = Array.dedupe(names.filter((name, index) => names.indexOf(name) !== index)).map((name) => ({ name }));
     return [
         ...(['unbounded', 'mixed'] as const).flatMap((refusal) => unsupported(owner, refusal, all, (entry) => Option.contains(entry.refusal, refusal))),
         ...unsupported(owner, 'projected', all, ({ name, projection }) => Option.isSome(projection) && linked.includes(name)),
         ...unsupported(owner, 'invalid', all, (entry) => constants(entry).some((value) => Option.isNone(Schema.decodeUnknownOption(entry.schema)(value)))),
-        ...unsupported(owner, 'collision', collided, Function.constTrue),
-    ];
-};
-const refusals = ({ tables }: Catalog) => {
-    const names = tables.map(({ name }) => name);
-    const kinds = (relation: Relation, parts: readonly string[]) => parts.map((part) => Object.values(relation.columns).find(({ name }) => name === part)?.kind);
-    const references = (relation: Relation) =>
-        relation.references.flatMap(({ columns, table }) =>
-            Match.value({ dangling: !names.includes(table.name), mismatched: !Equal.equals(kinds(relation, columns), kinds(table, table.key)) }).pipe(
-                Match.when({ dangling: true }, () => 'dangling' as const),
-                Match.when({ mismatched: true }, () => 'mismatched' as const),
-                Match.option,
-                Option.toArray,
-                Array.map((refusal) => finding(relation.name, columns, { _tag: 'Unsupported', refusal })),
-            ),
-        );
-    return [
-        ...tables.flatMap(declaredRefusals),
-        ...tables.flatMap(references),
-        ...Array.dedupe(tables.filter((relation, index) => names.indexOf(relation.name) !== index || Option.exists(relation.renamedFrom, (from) => from !== relation.name && names.includes(from))).map(({ name }) => name)).map((name) => finding(name, [], { _tag: 'Unsupported', refusal: 'duplicate' })),
     ];
 };
 
@@ -143,7 +105,7 @@ const render = (
             Match.orElse(members),
         );
     };
-    const keyed = ({ column: name, casefold }: Relation['indexes'][number]['keys'][number], method: Method) => {
+    const keyed = ({ column: name, casefold }: Relation['indexes'][number]['keys'][number], method: Relation['indexes'][number]['method']) => {
         const opclass = Option.flatMap(named(name), ({ kind }) => Option.flatten(engine.opclass(method, kind)));
         return {
             text: spaced([casefold ? engine.casefold(sql, name) : operand(name), ...Option.toArray(opclass).map(Struct.get('name'))]),
@@ -225,7 +187,7 @@ const diff = <L extends Live, C extends Live>(
     sql: SqlClient.SqlClient,
     catalog: Catalog,
     rendered: readonly { readonly declared: Relation; readonly rendered: ReturnType<typeof render> }[],
-    { tables, columns, references }: { readonly tables: readonly L[]; readonly columns: (live: L) => readonly C[]; readonly references: (live: L) => readonly Reference[] },
+    { tables, columns, references }: { readonly tables: readonly L[]; readonly columns: (live: L) => readonly C[]; readonly references: (live: L) => readonly { readonly columns: Array.NonEmptyReadonlyArray<string>; readonly target: string }[] },
 ) => {
     const claim = <R extends Live, D extends { readonly name: string; readonly renamedFrom: Option.Option<string>; readonly identity: typeof Identity.Type }>(live: readonly R[], retired: readonly string[], declared: readonly D[]) => {
         const [standing, retiring] = Array.partition(live, (row) => {
@@ -234,18 +196,17 @@ const diff = <L extends Live, C extends Live>(
             return generation < Array.countBy(retired, Equal.equals(row.name)) ? Result.fail(row) : Result.succeed({ row, origin, generation, recorded });
         });
         type Candidate = (typeof standing)[number];
-        const unclaimed: readonly Candidate[] = [];
-        const owns = (item: D, candidate: Candidate) => candidate.generation === item.identity.generation && [candidate.row.name, candidate.origin].some((name) => name === item.name || Option.contains(item.renamedFrom, name));
         const take = (claimed: readonly Candidate[], matches: (candidate: Candidate) => boolean) => {
             const pick = Array.findFirst(standing, (candidate) => !claimed.includes(candidate) && matches(candidate));
             return [[...claimed, ...Option.toArray(pick)], pick] as const;
         };
-        const [owners, owned] = Array.mapAccum(declared, unclaimed, (claimed, item) => take(claimed, (candidate) => owns(item, candidate)));
+        const unclaimed: readonly Candidate[] = [];
+        const [owners, owned] = Array.mapAccum(declared, unclaimed, (claimed, item) => take(claimed, (candidate) => candidate.generation === item.identity.generation && [candidate.row.name, candidate.origin].some((name) => name === item.name || Option.contains(item.renamedFrom, name))));
         const [, chosen] = Array.mapAccum(Array.zip(declared, owned), owners, (claimed, [item, own]) => (Option.isSome(own) ? ([claimed, own] as const) : take(claimed, (candidate) => candidate.row.name === item.name)));
-        const found = Array.zip(declared, chosen).map(([item, choice]) => ({
+        const found = Array.zip(Array.zip(declared, owned), chosen).map(([[item, own], choice]) => ({
             item,
             row: Option.map(choice, Struct.get('row')),
-            owned: Option.exists(choice, (candidate) => owns(item, candidate)),
+            owned: Option.isSome(own),
             identity: Option.match(choice, { onNone: () => ({ origin: item.identity.origin, generation: item.identity.generation }), onSome: ({ origin, generation }) => ({ origin, generation }) }),
             recorded: Option.flatMap(choice, Struct.get('recorded')),
         }));
@@ -284,21 +245,12 @@ const diff = <L extends Live, C extends Live>(
     const edges = unordered.flatMap((entry, child) => entry.rendered.links.map((link) => ({ parent: unordered.findIndex(({ declared }) => declared.name === link.target), child, link }))).filter(({ parent, child }) => parent !== -1 && parent !== child);
     const graph = (included: typeof edges) =>
         Graph.directed<number, number>((mutable) => {
-            unordered.forEach((_, index) => {
-                Graph.addNode(mutable, index);
-            });
-            included.forEach(({ parent, child }) => {
-                Graph.addEdge(mutable, parent, child, child);
-            });
+            unordered.forEach((_, index) => Graph.addNode(mutable, index));
+            included.forEach(({ parent, child }) => Graph.addEdge(mutable, parent, child, child));
         });
     const components = Graph.stronglyConnectedComponents(graph(edges));
     const cyclic = edges.filter(({ parent, child }) => components.some((component) => component.includes(parent) && component.includes(child)));
-    const created = Array.fromIterable(Graph.values(Graph.topo()(graph(Array.difference(edges, cyclic))))).flatMap((index) =>
-        Option.toArray(Array.get(unordered, index)).map((entry) => ({
-            ...entry,
-            deferred: cyclic.filter(({ child }) => child === index).map(Struct.get('link')),
-        })),
-    );
+    const created = Array.fromIterable(Graph.values(Graph.topo()(graph(Array.difference(edges, cyclic))))).flatMap((index) => Option.toArray(Array.get(unordered, index)).map((entry) => ({ ...entry, deferred: cyclic.filter(({ child }) => child === index).map(Struct.get('link')) })));
     const kept = Array.difference(tables, [...located.retiring, ...located.claimed]);
     const removed = located.retiring.map(({ name }) => name);
     const occupied = SqlSchema.findOne({ Request: Schema.String, Result: Schema.Struct({ populated: Schema.BooleanFromBit }), execute: (name) => sql`SELECT EXISTS (SELECT 1 FROM ${sql(name)}) AS populated` });
@@ -326,23 +278,19 @@ const diff = <L extends Live, C extends Live>(
             },
         ) => {
             const dropped = [...removed, ...parts.replaced];
-            const findings = [
-                ...matched.filter(({ live, required }) => parts.populated.includes(live.name) && Array.isReadonlyArrayNonEmpty(required)).map(({ declared, required }) => finding(declared.name, required.map(Struct.get('name')), { _tag: 'Required' })),
+            const all = [
+                ...matched.flatMap(({ live, declared, required }) => findings(declared.name, parts.populated.includes(live.name) ? required.map(Struct.get('name')) : [], { _tag: 'Required' })),
                 ...matched.flatMap((entry) => {
                     const moved = entry.fields.filter((field) => entry.owned && field.owned && !field.definition.retype && parts.drifted(entry, field)).map(({ definition }) => definition.name);
-                    return Array.isReadonlyArrayNonEmpty(moved) ? [finding(entry.declared.name, moved, { _tag: 'Retype' })] : [];
+                    return findings(entry.declared.name, moved, { _tag: 'Retype' });
                 }),
-                ...kept.flatMap((row) =>
-                    references(row)
-                        .filter(({ target }) => dropped.includes(target))
-                        .map(({ columns: linked, target }) => finding(row.name, linked, { _tag: 'RetainedReference', target })),
-                ),
+                ...kept.flatMap((row) => references(row).flatMap(({ columns: linked, target }) => findings(row.name, dropped.includes(target) ? linked : [], { _tag: 'RetainedReference', target }))),
                 ...matched.flatMap((entry) =>
                     references(entry.live)
                         .filter(({ columns: linked, target }) => removed.includes(target) && Array.isReadonlyArrayEmpty(Array.intersection(linked, entry.dropping.map(Struct.get('name')))))
                         .map((reference) => ({ ...reference, columns: Array.map(reference.columns, entry.renamed) }))
                         .filter(({ columns: linked }) => !entry.rendered.links.some((link) => Equal.equals(link.columns, linked)))
-                        .map(({ columns: linked, target }) => finding(entry.declared.name, linked, { _tag: 'RetainedReference', target })),
+                        .flatMap(({ columns: linked, target }) => findings(entry.declared.name, linked, { _tag: 'RetainedReference', target })),
                 ),
                 ...parts.findings,
             ];
@@ -359,7 +307,7 @@ const diff = <L extends Live, C extends Live>(
                 session: parts.session,
                 undeclared: { tables: kept.map(({ name }) => name), columns: matched.flatMap(({ declared, retained }) => retained.map(({ name }) => ({ table: declared.name, column: name }))), ...parts.undeclared },
             };
-            return Array.match(findings, { onEmpty: () => Effect.succeed(planned), onNonEmpty: (all) => Effect.fail(ReconcileError.make({ findings: all })) });
+            return Array.match(all, { onEmpty: () => Effect.succeed(planned), onNonEmpty: (raised) => Effect.fail(ReconcileError.make({ findings: raised })) });
         },
     };
 };
@@ -379,7 +327,7 @@ const Reconcile = {
     diff,
     Identity,
     referentialActions: ['NO ACTION', 'RESTRICT', 'CASCADE', 'SET NULL', 'SET DEFAULT'],
-    methods,
+    methods: ['btree', 'gin', 'gist', 'brin'],
 } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------

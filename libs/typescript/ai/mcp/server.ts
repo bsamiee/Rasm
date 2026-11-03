@@ -18,15 +18,15 @@ const Scheme = Schema.String.pipe(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Server extends Context.Service<Server, { readonly uri: (path: string) => string; readonly register: <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, Exclude<R, McpServer.McpServer>> }>()('@rasm/mcp/server') {
+class Server extends Context.Service<Server, { readonly uri: (path: string) => string }>()('@rasm/mcp/server') {
     static readonly Scheme = Scheme;
     static readonly Instructions = Context.Reference<readonly string[]>('@rasm/mcp/Server/Instructions', { defaultValue: () => [] });
     static readonly ToolCall = Context.Reference<{ readonly add: (block: McpSchema.ContentBlock) => Effect.Effect<void>; readonly respond: (refusal: Error) => Effect.Effect<void> }>('@rasm/mcp/Server/ToolCall', { defaultValue: () => ({ add: () => Effect.void, respond: () => Effect.void }) });
     static readonly orInternalError = Effect.mapError(({ message }: Error) => McpSchema.InternalError.make({ message }));
     static readonly layer = ({ scheme, retention }: { readonly scheme: typeof Scheme.Type; readonly retention: Duration.Duration }) =>
-        Layer.effect(Server)(
+        Layer.effect(McpServer.McpServer)(
             Effect.gen(function* () {
-                const uri = (path: string) => `${scheme}://${path}`;
+                const { uri } = yield* Server;
                 const [server, { registration, record, link }] = yield* Effect.all([McpServer.McpServer, executions(uri('executions'), retention)]);
                 const ranking =
                     <C, R>(complete: (input: string, context: C) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError, R>) =>
@@ -50,16 +50,15 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
                         },
                         instrumented('tools/call', options.tool.name, { 'gen_ai.tool.name': options.tool.name, 'gen_ai.operation.name': 'execute_tool' }),
                     );
-                const registry = McpServer.McpServer.of({
+                return McpServer.McpServer.of({
                     ...server,
                     addTool: (options) => Effect.andThen(writes(options) ? registration : Effect.void, server.addTool({ ...options, handle: handleCall(options) })),
                     addResource: (options) => server.addResource({ ...options, handle: options.handle.pipe(instrumented('resources/read', options.resource.uri, { 'mcp.resource.uri': options.resource.uri })) }),
                     addResourceTemplate: (options) => server.addResourceTemplate({ ...options, completions: Record.map(options.completions, ranking), handle: (at, params) => options.handle(at, params).pipe(instrumented('resources/read', options.template.uriTemplate, { 'mcp.resource.uri': at })) }),
                     addPrompt: (options) => server.addPrompt({ ...options, completions: Record.map(options.completions, ranking), handle: (params) => options.handle(params).pipe(instrumented('prompts/get', options.prompt.name, { 'gen_ai.prompt.name': options.prompt.name })) }),
                 });
-                return Server.of({ uri, register: Effect.provideService(McpServer.McpServer, registry) });
             }),
-        );
+        ).pipe(Layer.provideMerge(Layer.succeed(Server)({ uri: (path) => `${scheme}://${path}` })));
     static readonly layerHttp = <E, R>(
         manifest: { readonly name: typeof Scheme.Type; readonly version: string; readonly description: string },
         options: { readonly address: NetAddress.InetAddress; readonly hosts: readonly string[]; readonly retention: Duration.Duration; readonly instructions: readonly string[] },

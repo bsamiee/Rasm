@@ -1,4 +1,4 @@
-import { Array, Context, Effect, flow, Option, pipe, Record, Schema, Stream } from 'effect';
+import { Array, Context, Effect, flow, Option, Predicate, pipe, Record, Schema, Stream } from 'effect';
 import { McpSchema, McpServer, Tool } from 'effect/ai';
 import { Url, UrlParams } from 'effect/http';
 import type { Rpc, RpcGroup } from 'effect/rpc';
@@ -34,15 +34,13 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
         readonly invoke: (rpc: Rpcs) => (payload: Rpc.Payload<Rpcs>, chosen: Chosen) => Effect.Effect<Rpc.Success<Rpcs>, Error, R>;
     },
 ) {
-    const [server, services] = yield* Effect.all([Server, Effect.context<R | Schema.Struct<Fields>['DecodingServices'] | Schema.Struct<Fields>['EncodingServices']>()]);
-    const registry = yield* server.register(Effect.service(McpServer.McpServer));
+    const [server, registry, services] = yield* Effect.all([Server, McpServer.McpServer, Effect.context<R | Schema.Struct<Fields>['DecodingServices'] | Schema.Struct<Fields>['EncodingServices']>()]);
     const answered = <RF>(found: Effect.Effect<readonly string[], Error, RF>) =>
         found.pipe(
             Effect.map((values) => McpSchema.CompleteResult.make({ completion: { values } })),
             Server.orInternalError,
             Effect.provideContext(services),
         );
-    const present = <V>(rows: Readonly<Record<string, V | undefined>>) => Record.getSomes(Record.map(rows, Option.fromUndefinedOr));
     const listedRpcs = <Row>(rows: Readonly<Record<string, Row | undefined>>) =>
         Array.flatMap([...group.requests.values()], (rpc) =>
             pipe(
@@ -80,8 +78,8 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
                     Effect.map(select),
                 );
             const completions = {
-                ...Record.map(present(routing.completion), (completing) => flow(complete(decodeRoute, completing), answered)),
-                ...Record.map(present(completion), (select) => flow(complete(flow(UrlParams.fromInput, decoded), selected(select)), answered)),
+                ...Record.map(Record.filter(routing.completion, Predicate.isNotUndefined), (completing) => flow(complete(decodeRoute, completing), answered)),
+                ...Record.map(Record.filter(completion, Predicate.isNotUndefined), (select) => flow(complete(flow(UrlParams.fromInput, decoded), selected(select)), answered)),
             };
             yield* Schema.is(Schema.toEncoded(Schema.Struct(fields)))({}) ? registry.addResource({ resource: McpSchema.Resource.make({ ...descriptor, uri }), annotations: group.annotations, handle: Effect.catchTag(readUri(uri), 'InvalidParams', Effect.die) }) : Effect.void;
             yield* Array.match(Record.keys(fields), {

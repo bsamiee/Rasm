@@ -1,4 +1,4 @@
-import { Array, Data, Effect, Equal, Exit, Option, Record, Schema, String, Struct } from 'effect';
+import { Array, Data, Effect, Equal, Option, Record, Schema, String, Struct } from 'effect';
 import { SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
 import { Column, type Field, type Fields, type Where } from '#/column';
 import { Engine } from '#/engine';
@@ -86,14 +86,8 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
             onNone: () => effect,
             onSome: Effect.fnUntraced(function* ({ column, setting }: Option.Option.Value<Relation['tenant']>) {
                 const [sql, encoded] = yield* Effect.all([SqlClient.SqlClient, Schema.encodeEffect(column.schema)(id)]);
-                const scope = SqlSchema.findOne({ Request: Schema.String, Result: Schema.Struct({ prior: Schema.String }), execute: (value) => sql`WITH p AS MATERIALIZED (SELECT coalesce(current_setting(${setting}, true), '') AS prior) SELECT p.prior, set_config(${setting}, ${value}, true) FROM p` });
-                return yield* sql.withTransaction(
-                    Effect.acquireUseRelease(
-                        scope(`${encoded}`),
-                        () => effect,
-                        ({ prior }, exit) => (Exit.isSuccess(exit) ? Effect.orDie(scope(prior)) : Effect.void),
-                    ),
-                );
+                const scoped = sql`SELECT set_config(${setting}, ${`${encoded}`}, true)`;
+                return yield* sql.withTransaction(Effect.andThen(scoped, effect));
             }),
         });
 }
@@ -143,9 +137,8 @@ const selecting = (context: Fragments, filter: Statement.Fragment, ordering: (sc
     const { sql, owner, prefix, unqualified, reads, flags } = context;
     const outer = sql.literal('t.');
     const filtered = sql`SELECT ${reads(unqualified)} FROM ${owner} WHERE ${filter} ORDER BY ${ordering(prefix)}`;
-    const limited = Option.match(limit, { onNone: () => filtered, onSome: (count) => sql`${filtered} LIMIT ${count}` });
     return Option.match(Option.all({ count: limit, by: group }), {
-        onNone: () => limited,
+        onNone: () => Option.match(limit, { onNone: () => filtered, onSome: (count) => sql`${filtered} LIMIT ${count}` }),
         onSome: ({ count, by }) =>
             sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(flags.position)} <= ${count} ORDER BY ${sql.csv([sql`t.${sql(by.name)}`, ordering(outer)])}`,
     });
@@ -153,7 +146,7 @@ const selecting = (context: Fragments, filter: Statement.Fragment, ordering: (sc
 const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Relation, 'name' | 'columns' | 'key' | 'search'>) => {
     const run = perform(relation);
     const all = Object.values<Column>(relation.columns);
-    const named = (field: string) => Array.findFirst(all, (entry) => entry.field === field);
+    const named = (field: string) => Record.get(relation.columns, field);
     const wire = (entry: Column) => (entry.kind === 'blob' ? Schema.encodeTo(Schema.NullOr(Schema.Uint8ArrayFromHex))(entry.schema) : entry.schema);
     const written = all.filter(({ projection }) => Option.isNone(projection));
     const keyed = written.filter(({ name }) => relation.key.includes(name));

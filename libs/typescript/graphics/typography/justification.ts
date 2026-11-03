@@ -35,6 +35,8 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
     ratios: Schema.Struct(Struct.Record(SPACINGS, Schema.Finite)).annotate({ description: 'Applied spacing ratios' }),
     addedWidths: Schema.Struct(Struct.Record([...SPACINGS, 'kashida' as const], Schema.Finite)).annotate({ description: 'Width each mechanism added in em' }),
 }) {
+    static readonly kashidaClusters = (text: string, allowed: (cluster: number) => boolean = Function.constTrue) =>
+        Array.sort(Array.getSomes(Word.of(text).map(({ joins }) => Array.head(Array.sort(BY_RANK)(joins.flatMap((join) => kashidaCandidates(text, join)).filter(({ cluster }) => allowed(cluster)))))), BY_RANK).map(Struct.get('cluster'));
     static readonly of = (face: Face, source: Run, width: number, settings = Settings.make({})): Justification => {
         const { kashida, spacing } = settings;
         const space = 0x20;
@@ -55,16 +57,8 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         });
         const addedWidths = ({ widths }: Measurement, ratios: Ratios): Ratios => Record.map(widths, (base, kind) => base * (ratios[kind] - IDENTITY[kind]));
         const remainder = (layout: Measurement, ratios: Ratios) => width - layout.shaped.advance - Number.sumAll(Object.values(addedWidths(layout, ratios)));
-        const fitRatio = (kind: keyof Ratios, layout: Measurement, ratios: Ratios): Ratios => ({
-            ...ratios,
-            [kind]: Number.clamp(ratios[kind] + Option.getOrElse(Number.divide(remainder(layout, ratios), layout.widths[kind]), () => 0), { minimum: spacing[kind].min, maximum: spacing[kind].max }),
-        });
-        const natural = measured({
-            ...source,
-            text: settings.digits(source.text),
-            features: Option.isSome(alternate) ? [new Feature(JUSTIFICATION_ALTERNATES, 0), ...source.features] : source.features,
-            flags: Array.union(source.flags, ['PRODUCE_SAFE_TO_INSERT_TATWEEL' as const]),
-        });
+        const fitRatio = (kind: keyof Ratios, layout: Measurement, ratios: Ratios): Ratios => ({ ...ratios, [kind]: Number.clamp(ratios[kind] + Option.getOrElse(Number.divide(remainder(layout, ratios), layout.widths[kind]), () => 0), { minimum: spacing[kind].min, maximum: spacing[kind].max }) });
+        const natural = measured({ ...source, text: settings.digits(source.text), features: Option.isSome(alternate) ? [new Feature(JUSTIFICATION_ALTERNATES, 0), ...source.features] : source.features, flags: Array.union(source.flags, ['PRODUCE_SAFE_TO_INSERT_TATWEEL' as const]) });
         const wordRatios = fitRatio('word', natural, Record.map(spacing, Struct.get('desired')));
         const withFeature = (layout: Measurement, feature: Feature) => measured({ ...layout.run, features: [...layout.run.features, feature] });
         const closer = (layout: Measurement, next: Measurement) => {
@@ -74,12 +68,8 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         const withAlternates = Option.match(alternate, { onNone: () => natural, onSome: (value) => closer(natural, withFeature(natural, new Feature(JUSTIFICATION_ALTERNATES, value))) });
         const withStretchedAlternates = (layout: Measurement) => {
             const shapedClusters = new Set(layout.shaped.glyphs.map(Struct.get('cluster')));
-            return kashidaClusters(layout.run.text, (cluster) => shapedClusters.has(cluster)).reduce((closest, cluster) => {
-                const glyphAt = ({ shaped }: Measurement) =>
-                    Option.map(
-                        Array.findFirst(shaped.glyphs, (glyph) => glyph.cluster === cluster),
-                        Struct.get('glyph'),
-                    );
+            return Justification.kashidaClusters(layout.run.text, (cluster) => shapedClusters.has(cluster)).reduce((closest, cluster) => {
+                const glyphAt = ({ shaped }: Measurement) => Array.findFirst(shaped.glyphs, (glyph) => glyph.cluster === cluster).pipe(Option.map(Struct.get('glyph')));
                 const probe = (value: number) => withFeature(closest, new Feature(JUSTIFICATION_ALTERNATES, value, cluster, cluster + 1));
                 const base = glyphAt(probe(0));
                 return Array.unfold(1, (value) => Option.liftPredicate([probe(value), value + 1] as const, ([candidate]) => !Equal.equals(glyphAt(candidate), base))).reduce(closer, closest);
@@ -87,7 +77,7 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         };
         const withTatweels = (layout: Measurement, { lower, upper, fractional }: Extract<Settings['kashida'], { readonly lower: number }>): Measurement => {
             const safeClusters = new Set(layout.shaped.glyphs.filter(({ flags }) => flags.includes('SAFE_TO_INSERT_TATWEEL')).map(Struct.get('cluster')));
-            const clusters = kashidaClusters(layout.run.text, (cluster) => safeClusters.has(cluster));
+            const clusters = Justification.kashidaClusters(layout.run.text, (cluster) => safeClusters.has(cluster));
             const inserted = Option.gen(function* () {
                 const [nuqta, tatweel] = yield* Option.all([face.nuqta, Option.filter(advance(TATWEEL), Number.isGreaterThan(0))]);
                 const room = Math.max(0, remainder(layout, wordRatios)) / nuqta;
@@ -165,17 +155,6 @@ const kashidaCandidates = (text: string, { start, end }: Word['joins'][number]) 
         const row = Array.findFirst(rows, (each) => each.before(before.group) && each.after(after.group) && each.next(next));
         return Option.toArray(row).map(({ rank }) => ({ cluster: start + after.offset, rank }));
     });
-};
-const kashidaClusters = (text: string, allowed: (cluster: number) => boolean) => {
-    const best = ({ joins }: Word) =>
-        Option.map(
-            Option.liftPredicate(
-                joins.flatMap((join) => kashidaCandidates(text, join)).filter(({ cluster }) => allowed(cluster)),
-                Array.isArrayNonEmpty,
-            ),
-            (candidates) => Array.min(candidates, BY_RANK),
-        );
-    return Array.sort(Array.getSomes(Word.of(text).map(best)), BY_RANK).map(Struct.get('cluster'));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

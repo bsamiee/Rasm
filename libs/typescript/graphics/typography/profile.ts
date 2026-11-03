@@ -29,17 +29,11 @@ class Profile extends Data.Class<{
             return [{ cursor: end, start: type === 'M' ? end : start }, type === 'M' ? [] : Array.window([cursor, ...flattened([cursor, ...Array.dropRight(points, 1), end])], 2)];
         })[1].flat();
     static readonly of = (shaped: ShapedText, unitsPerEm: number, outline: (glyph: number) => readonly Segment[]) => {
-        const [, placed] = Array.mapAccum(shaped.glyphs, { x: 0, y: 0 }, ({ x, y }, { glyph, xAdvance, yAdvance, xOffset, yOffset }) => {
-            const origin = { x: (x + xOffset) * unitsPerEm, y: (y + yOffset) * unitsPerEm };
-            return [{ x: x + xAdvance, y: y + yAdvance }, outline(glyph).map(([from, to]) => [moved(from, origin), moved(to, origin)] as const)];
-        });
+        const [, placed] = Array.mapAccum(shaped.glyphs, ORIGIN, ({ x, y }, { glyph, xAdvance, yAdvance, xOffset, yOffset }) => [{ x: x + xAdvance, y: y + yAdvance }, outline(glyph).map((segment) => moved(segment, { x: (x + xOffset) * unitsPerEm, y: (y + yOffset) * unitsPerEm }))] as const);
         const bands = [...Map.groupBy(placed.flat().flatMap(crossings), Struct.get('band'))];
-        return new Profile({
-            left: new Map(bands.map(([band, rows]) => [band, Math.min(...rows.map(Struct.get('left')))])),
-            right: new Map(bands.map(([band, rows]) => [band, Math.max(...rows.map(Struct.get('right')))])),
-            advance: shaped.advance * unitsPerEm,
-        });
+        return new Profile({ left: new Map(bands.map(([band, rows]) => [band, Math.min(...rows.map(Struct.get('left')))])), right: new Map(bands.map(([band, rows]) => [band, Math.max(...rows.map(Struct.get('right')))])), advance: shaped.advance * unitsPerEm });
     };
+    static readonly gap = (before: Profile, after: Profile) => Option.map(minClearance(before.right, after.left), (clearance) => before.advance + clearance);
 
     bounded({ slant, top, foot }: { readonly slant: number; readonly top: number; readonly foot: number }) {
         const line = Array.range(Math.floor(foot), Math.ceil(top))
@@ -50,22 +44,15 @@ class Profile extends Data.Class<{
             onSome: (offset) => new Profile({ ...this, left: new Map([...this.left, ...line.map(([height, shift]) => [height, offset + shift] as const)]) }),
         });
     }
-    gap(after: Profile) {
-        return Option.map(minClearance(this.right, after.left), (clearance) => this.advance + clearance);
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const moved = ({ x, y }: Point, by: Point): Point => ({ x: x + by.x, y: y + by.y });
-const minClearance = (right: Iterable<readonly [number, number]>, left: Edge) =>
-    pipe(
-        Array.fromIterable(right),
-        Array.map(([height, x]) => Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x)),
-        Array.getSomes,
-        Option.liftPredicate(Array.isArrayNonEmpty),
-        Option.map((gaps) => Array.min(gaps, Order.Number)),
-    );
+const moved = ([from, to]: Segment, by: Point): Segment => [
+    { x: from.x + by.x, y: from.y + by.y },
+    { x: to.x + by.x, y: to.y + by.y },
+];
+const minClearance = (right: Iterable<readonly [number, number]>, left: Edge) => pipe(Array.getSomes(Array.map(Array.fromIterable(right), ([height, x]) => Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x))), Option.liftPredicate(Array.isArrayNonEmpty), Option.map(Array.min(Order.Number)));
 const deviation = (curve: readonly Point[]) => {
     const wangDivisor = 8;
     const bendPoints = 3;

@@ -14,16 +14,12 @@ const refusals = {
     generated: 'rebuild drops undeclared generated column',
     retained: 'rebuild drops undeclared column constraints',
     invalid: 'default or predicate value fails its column schema',
-    dangling: 'references table absent from catalog',
-    mismatched: 'reference columns differ from parent key in count or kind',
-    duplicate: 'names another declared table',
-    collision: 'derives one index name twice',
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Reason = Schema.TaggedUnion({ Unsupported: { refusal: Schema.Literals(Record.keys(refusals)) }, Required: {}, Retype: {}, RetainedReference: { target: Schema.String } });
-const Finding = Schema.Struct({ table: Schema.String, columns: Schema.Array(Schema.String), reason: Reason });
+const Finding = Schema.Struct({ table: Schema.String, columns: Schema.NonEmptyArray(Schema.String), reason: Reason });
 const described = Reason.match({
     Unsupported: ({ refusal }) => refusals[refusal],
     Required: () => 'required, add default for existing rows',
@@ -36,7 +32,7 @@ const described = Reason.match({
 class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand: unique symbol }>()('ReconcileError', { findings: Schema.NonEmptyArray(Finding) }) {
     static readonly Finding = Finding;
     override get message() {
-        return this.findings.map(({ table, columns, reason }) => [table, ...(columns.length === 0 ? [] : [`(${columns.join(', ')})`]), described(reason)].join(' ')).join('\n');
+        return this.findings.map(({ table, columns, reason }) => `${table} (${columns.join(', ')}) ${described(reason)}`).join('\n');
     }
 }
 

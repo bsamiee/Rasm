@@ -16,10 +16,7 @@ interface Route<Chosen, Fields extends Schema.Struct.Fields, R> {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const encodeEntries = flow(Record.fromEntries<readonly [string, Schema.Json]>, Schema.encodeEffect(Schema.fromJsonString(Schema.JsonObject)), Effect.orDie);
-const refusalError = flow(
-    encodeEntries,
-    Effect.map((reportText) => new Cause.IllegalArgumentError(reportText)),
-);
+const refusalError = (entries: readonly (readonly [string, Schema.Json])[]) => Effect.map(encodeEntries(entries), (text) => new Cause.IllegalArgumentError(text));
 const optional = <Chosen, Fields extends Schema.Struct.Fields, R>(route: Route<Chosen, Fields, R>): Route<Option.Option<Chosen>, Fields, R> => ({
     fields: route.fields,
     resolve: (given) => (Object.values(given).every((value) => Option.isOption(value) && Option.isNone(value)) ? Effect.succeedNone : Effect.asSome(route.resolve(given))),

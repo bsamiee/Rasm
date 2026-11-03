@@ -28,8 +28,7 @@ const COLLECTIONS = {
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Kind = Schema.Literals(Struct.keys(COLLECTIONS));
-const { Selector } = Reference;
-const Step = Schema.TemplateLiteralParser(['/', Schema.String.check(Schema.isPattern(/^\w+$/u)), Selector, Schema.String]);
+const Step = Schema.TemplateLiteralParser(['/', Schema.String.check(Schema.isPattern(/^\w+$/u)), Reference.Selector, Schema.String]);
 const Identity = Schema.Struct({ id: Schema.Int });
 const Titled = Schema.Struct({ name: Schema.String });
 const Instance = Schema.declare(Predicate.isObjectKeyword);
@@ -103,8 +102,8 @@ const rendered = Effect.fnUntraced(function* (longestSide: number, { found, writ
 const { app, core, constants, action } = photoshop;
 const classes = Record.filter(Object.fromEntries(Object.entries(app)), Predicate.isFunction);
 const scope = { ...photoshop, ...classes, ...constants };
-const located = (container: object, kind: typeof Kind.Type, selector: typeof Selector.Type): Effect.Effect<object, Unmatched> =>
-    Selector.match(selector, {
+const located = (container: object, kind: typeof Kind.Type, selector: typeof Reference.Selector.Type): Effect.Effect<object, Unmatched> =>
+    Reference.Selector.match(selector, {
         Identified: ({ id }) => Unmatched.single(flattened(container, kind).filter(Schema.is(Identity)), `${kind} id`, Option.some(`${id}`), (item) => [`${item.id}`]),
         Indexed: ({ index }) => {
             const listed = elements(container, kind);
@@ -123,34 +122,26 @@ const resolve = (path: string, container: object = app): Effect.Effect<object, U
               const kind = yield* Unmatched.single(Struct.keys(COLLECTIONS), 'collection kind', Option.some(word), Array.of);
               return yield* resolve(rest, yield* located(container, kind, selector));
           });
-const traced = (value: object): Option.Option<{ readonly element: typeof Element.Type; readonly path: readonly (readonly [typeof Kind.Type, typeof Selector.Type])[] }> =>
+const traced = (value: object): Option.Option<{ readonly element: typeof Element.Type; readonly path: readonly (readonly [typeof Kind.Type, typeof Reference.Selector.Type])[] }> =>
     Option.gen(function* () {
         const element = yield* Schema.decodeUnknownOption(Element)(value);
         const kind = yield* Schema.decodeUnknownOption(Kind)(String.uncapitalize(element.typename));
         const rooted = COLLECTIONS[kind] in app;
-        const container: object = rooted
-            ? app
-            : yield* Option.flatMap(
-                  Option.orElse(element.document, () => element.parent),
-                  owner,
-              );
+        const container: object = rooted ? app : yield* Option.flatMap(Option.firstSomeOf([element.document, element.parent]), owner);
         const above = rooted ? [] : (yield* traced(container)).path;
         const selector = yield* Option.firstSomeOf([
-            Option.map(element.id, (id) => Selector.cases.Identified.make({ id })),
-            Option.flatMap(
-                Option.orElse(element.postScriptName, () => element.name),
-                (name) => Selector.cases.Named.makeOption({ name }),
-            ),
+            Option.map(element.id, (id) => Reference.Selector.cases.Identified.make({ id })),
+            Option.flatMap(Option.firstSomeOf([element.postScriptName, element.name]), (name) => Reference.Selector.cases.Named.makeOption({ name })),
             Option.map(
                 Array.findFirstIndex(elements(container, kind), (each) => each === value),
-                (index) => Selector.cases.Indexed.make({ index }),
+                (index) => Reference.Selector.cases.Indexed.make({ index }),
             ),
         ]);
         return { element, path: [...above, [kind, selector] as const] };
     });
 const reference = Effect.fnUntraced(function* (value: object) {
     const { element, path } = yield* Effect.fromOption(traced(value));
-    const steps = yield* Effect.orDie(Effect.forEach(path, ([kind, selector]) => Effect.map(Schema.encodeEffect(Selector)(selector), (step) => `/${kind}${step}`)));
+    const steps = yield* Effect.orDie(Effect.forEach(path, ([kind, selector]) => Effect.map(Schema.encodeEffect(Reference.Selector)(selector), (step) => `/${kind}${step}`)));
     return Reference.make({ type: element.typename, specifier: steps.join(''), name: element.name, valid: true });
 });
 const encoded = (value: unknown): Effect.Effect<unknown> => {

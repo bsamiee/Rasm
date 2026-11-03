@@ -2,7 +2,7 @@ import { useAtom, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } f
 import { ModalOverlay } from '@rasm/ui/dialog/overlay';
 import { focus } from '@rasm/ui/focus';
 import { Issues } from '@rasm/ui/form/issues';
-import { Array, Match, Option, Predicate } from 'effect';
+import { Array, Match, Option, Predicate, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { AsyncResult, type Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
@@ -93,32 +93,12 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
         focus(`${idPrefix}title`);
     };
     const locate = ([head, entryIndex, part, compositionIndex]: readonly PropertyKey[], snapshot: typeof Portfolio.Type) => {
-        if (head !== 'entries') {
-            show('identity');
-            focus(`${idPrefix}${String(head)}`);
-            return;
-        }
-        show('entries');
-        Option.match(
-            Option.flatMap(Option.liftPredicate(entryIndex, Predicate.isNumber), (index) => Array.get(snapshot.entries, index)),
-            {
-                onNone: () => setWorkspace('entries'),
-                onSome: (entry) =>
-                    Option.match(
-                        Option.flatMap(
-                            Option.liftPredicate(compositionIndex, (index) => part === 'compositions' && Predicate.isNumber(index)),
-                            (index) => Array.get(entry.compositions, Number(index)),
-                        ),
-                        {
-                            onNone: () => openEntry(entry.id, part === 'title' ? `${idPrefix}title` : `${idPrefix}entry`),
-                            onSome: ({ id }) => {
-                                openEntry(entry.id, id);
-                                setComposition(id);
-                            },
-                        },
-                    ),
-            },
-        );
+        const entry = head === 'entries' && Predicate.isNumber(entryIndex) ? Array.get(snapshot.entries, entryIndex) : Option.none();
+        const failing = part === 'compositions' && Predicate.isNumber(compositionIndex) ? Option.flatMap(entry, ({ compositions }) => Array.get(compositions, compositionIndex)) : Option.none();
+        const target = Option.match(failing, { onNone: () => `${idPrefix}${part === 'title' ? 'title' : 'entry'}`, onSome: Struct.get('id') });
+        show(head === 'entries' ? 'entries' : 'identity');
+        Option.match(entry, { onNone: () => (head === 'entries' ? setWorkspace('entries') : focus(`${idPrefix}${String(head)}`)), onSome: ({ id }) => openEntry(id, target) });
+        Option.map(failing, ({ id }) => setComposition(id));
     };
     const status = Match.value({ reloading: reloading.waiting, saving: operation.waiting, changed: state.portfolio !== state.saved, saved: AsyncResult.value(operation) }).pipe(
         Match.when({ reloading: true }, () => 'Loading latest draft…'),

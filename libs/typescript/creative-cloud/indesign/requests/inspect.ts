@@ -2,7 +2,7 @@ import type { Application, InDesignDOMObject } from 'adobe:indesign';
 import { HostError, ObjectModel } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/runtime';
-import { Array, Cache, Effect, Option, pipe, Record, Result, Schema, Struct } from 'effect';
+import { Array, Cache, Effect, Match, Option, pipe, Record, Result, Schema, Struct } from 'effect';
 import { ApplicationView, Inspect } from '#/contract';
 import { documentView, layerView, linkView, overset, pageView, spreadView, summary, swatchView } from '#/documents/document';
 import { overrides, storyView, styleView, textView } from '#/documents/text';
@@ -18,36 +18,33 @@ const Contents = Schema.Struct({ contents: Schema.Json });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const applicationView = Model.view(
-    (model) => model.application,
-    Effect.fnUntraced(function* (app: Application) {
-        const { overridable, storied } = yield* Model;
-        const story = (item: unknown) => Option.map(Option.liftPredicate(item, storied), ({ parentStory }) => parentStory.toSpecifier());
-        const summaries = yield* Effect.forEach(app.documents.everyItem().getElements(), summary);
-        const opened = yield* Effect.option(Model.current);
-        const selection = yield* Effect.forEach(Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }), (item) =>
-            Effect.all({ own: Model.reference(item), overrides: Effect.transposeOption(Option.map(Option.liftPredicate(item, overridable), overrides)) }).pipe(
-                Effect.map(({ own, overrides: overridden }) => ({ ...own, contents: Option.map(Schema.decodeUnknownOption(Contents)(item), Struct.get('contents')), parentStory: story(item), overrides: overridden })),
-            ),
-        );
-        const window = Option.liftThrowable(() => app.activeWindow.toSpecifier())();
-        return yield* Model.read(ApplicationView, app.toSpecifier(), () => ({
-            _tag: 'Application',
-            ...Model.referenceUnsafe(app),
-            version: app.version,
-            tool: app.toolBoxTools.currentTool,
-            panels: Array.getSomes(Array.map(Array.range(0, app.panels.length - 1), (index) => Option.map(Option.filter(Option.fromUndefinedOr(app.panels.item(index)), Struct.get('visible')), Struct.get('name')))),
-            documents: summaries,
-            current: Option.map(opened, (document) => ({
-                document: document.toSpecifier(),
-                window,
-                selection,
-                overset: overset(document),
-                undo: { mode: app.activeScriptUndoMode, name: document.undoName, history: document.undoHistory },
-            })),
-        }));
-    }),
-);
+const applicationView = Effect.fnUntraced(function* (app: Application) {
+    const { overridable, storied } = yield* Model;
+    const story = (item: unknown) => Option.map(Option.liftPredicate(item, storied), ({ parentStory }) => parentStory.toSpecifier());
+    const summaries = yield* Effect.forEach(app.documents.everyItem().getElements(), summary);
+    const opened = yield* Effect.option(Model.current);
+    const selection = yield* Effect.forEach(Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }), (item) =>
+        Effect.all({ own: Model.reference(item), overrides: Effect.transposeOption(Option.map(Option.liftPredicate(item, overridable), overrides)) }).pipe(
+            Effect.map(({ own, overrides: overridden }) => ({ ...own, contents: Option.map(Schema.decodeUnknownOption(Contents)(item), Struct.get('contents')), parentStory: story(item), overrides: overridden })),
+        ),
+    );
+    const window = Option.liftThrowable(() => app.activeWindow.toSpecifier())();
+    return yield* Model.read(ApplicationView, app.toSpecifier(), () => ({
+        _tag: 'Application',
+        ...Model.referenceUnsafe(app),
+        version: app.version,
+        tool: app.toolBoxTools.currentTool,
+        panels: Array.getSomes(Array.map(Array.range(0, app.panels.length - 1), (index) => Option.map(Option.filter(Option.fromUndefinedOr(app.panels.item(index)), Struct.get('visible')), Struct.get('name')))),
+        documents: summaries,
+        current: Option.map(opened, (document) => ({
+            document: document.toSpecifier(),
+            window,
+            selection,
+            overset: overset(document),
+            undo: { mode: app.activeScriptUndoMode, name: document.undoName, history: document.undoHistory },
+        })),
+    }));
+});
 const accessors = (found: InDesignDOMObject<unknown>) =>
     pipe(
         Array.flatMap(Uxp.members(Object.getPrototypeOf(found)), ({ fields }) => fields),
@@ -79,8 +76,23 @@ const values = Effect.fn('values')(function* (found: InDesignDOMObject<unknown>,
 const object = Effect.fn('object')(function* (found: InDesignDOMObject<unknown>, fields: Option.Option<readonly string[]>, slice: Slice) {
     const model = yield* Model;
     const { fields: own } = yield* Cache.get(model.declarations, found.constructorName);
-    const viewed = Option.firstSomeOf(([applicationView, documentView, pageView, spreadView, layerView, styleView, swatchView, linkView, storyView, textView, fontView, preflightView] as const).map((each) => each(model, found, slice)));
-    const view = Option.isSome(viewed) ? Option.some(yield* viewed.value) : Option.none();
+    const view = yield* Effect.transposeOption(
+        Match.value<unknown>(found).pipe(
+            Match.when(model.application, applicationView),
+            Match.when(model.document, documentView),
+            Match.when(model.page, pageView),
+            Match.whenOr(model.spread, model.masterSpread, spreadView),
+            Match.when(model.layer, layerView),
+            Match.when(model.style, styleView),
+            Match.when(model.swatch, swatchView),
+            Match.when(model.link, linkView),
+            Match.when(model.story, storyView),
+            Match.whenOr(model.text, model.frame, (text) => textView(text, slice)),
+            Match.when(model.font, fontView),
+            Match.when(model.preflightProcess, preflightView),
+            Match.option,
+        ),
+    );
     const entries = yield* values(
         found,
         Option.getOrElse(fields, () => (Option.isSome(view) ? Record.keys(Record.filter(own, model.collectionField)) : Array.map(accessors(found), Struct.get('name')))),

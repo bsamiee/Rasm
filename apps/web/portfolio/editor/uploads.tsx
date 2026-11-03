@@ -9,7 +9,7 @@ import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
 import { Destination, nextDestination, pendingUploads, preprocessing, queue, uppy } from '#/editor/uploader.ts';
 import { choice, details, entryTitle, format } from '#/media/labels.ts';
-import { type AssetId, type Assets, mediaTypes, uploadLimit } from '#/model/asset.ts';
+import { Asset, type AssetId, type Assets, mediaTypes, uploadLimit } from '#/model/asset.ts';
 import type { Entry, EntryId } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -32,7 +32,7 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
         const asset = file.meta.prepared === undefined ? undefined : assets[file.meta.prepared.asset.id];
         const { destination } = file.meta;
         const entry = entries.find((item) => Destination.$is('Entry')(destination) && item.id === destination.id);
-        return file.progress.uploadComplete === true && asset?.kind === 'pdf' && entry !== undefined ? [{ id: file.id, label: details([asset.name, entryTitle(entry)]), entryId: entry.id, assetId: asset.id }] : [];
+        return file.progress.uploadComplete === true && Asset.guards.pdf(asset) && entry !== undefined ? [{ id: file.id, label: details([asset.name, entryTitle(entry)]), entryId: entry.id, assetId: asset.id }] : [];
     });
     const selectedFile = files.find((file) => file.id === selected);
     return (

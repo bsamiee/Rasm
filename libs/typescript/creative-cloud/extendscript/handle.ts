@@ -5,10 +5,6 @@ import { runtime } from '#/runtime';
 
 type Payload<Tag extends Envelope['tag']> = Extract<Envelope, { readonly tag: Tag }>['payload'];
 type Fields = Readonly<Record<string, unknown>>;
-interface Slot {
-    readonly item: unknown;
-    readonly refused: string | undefined;
-}
 interface Host<Held> {
     readonly indexBase: number;
     readonly dialogs: { readonly suppress: () => Held; readonly restore: (held: Held) => void };
@@ -101,17 +97,6 @@ const step = (kind: string, selector?: readonly [key: string, value: string | nu
     const [key, value] = selector;
     return `/${kind}[@${key}=${typeof value === 'number' ? value : escaped(value)}]`;
 };
-const slots = (collection: Fields, base: number): Slot[] => {
-    const found: Slot[] = [];
-    for (let at = base; at < Number(collection.length) + base; at += 1) {
-        try {
-            found.push({ item: collection[at], refused: undefined });
-        } catch (thrown) {
-            found.push({ item: undefined, refused: `[${at - base}] ${message(thrown)}` });
-        }
-    }
-    return found;
-};
 const member = (collection: Fields, base: number, selector: string): unknown => {
     const [split, length] = [selector.indexOf('='), Number(collection.length)];
     if (selector.charAt(0) !== '@' || split < 0) {
@@ -150,8 +135,12 @@ const steps = (specifier: string): string[] => {
 const stepped = (base: number, specifier: string) => {
     const named = (collection: Fields): string[] => {
         const names: string[] = [];
-        for (const { item, refused } of slots(collection, base)) {
-            names.push(refused ?? String(read(item, 'name')));
+        for (let at = base; at < Number(collection.length) + base; at += 1) {
+            try {
+                names.push(String(read(collection[at], 'name')));
+            } catch (thrown) {
+                names.push(`[${at - base}] ${message(thrown)}`);
+            }
         }
         return names;
     };

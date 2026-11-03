@@ -10,24 +10,7 @@ import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Method = (typeof Reconcile.methods)[number];
-interface Fragments {
-    readonly sql: SqlClient.SqlClient;
-    readonly engine: Shape;
-    readonly name: string;
-    readonly written: readonly Column[];
-    readonly owner: Statement.Fragment;
-    readonly prefix: Statement.Fragment;
-    readonly unqualified: Statement.Fragment;
-    readonly order: Statement.Fragment;
-    readonly ignore: Statement.Fragment;
-    readonly flags: typeof flags;
-    readonly element: (entry: Column) => Statement.Fragment;
-    readonly keys: (scope: Statement.Fragment) => Statement.Fragment;
-    readonly reads: (scope: Statement.Fragment, ...extra: readonly (string | Statement.Fragment)[]) => Statement.Fragment;
-    readonly inserting: (body: string, conflict: Statement.Fragment, returning: Statement.Fragment) => Statement.Statement<SqlConnection.Row>;
-    readonly matching: (entry: Column, body: string) => Statement.Fragment;
-}
+type Method = Relation['indexes'][number]['method'];
 interface Shape {
     readonly dialect: Statement.Dialect;
     readonly types: Readonly<Record<Kind, string>>;
@@ -36,9 +19,9 @@ interface Shape {
     readonly texts: (sql: SqlClient.SqlClient, body: string) => Statement.Fragment;
     readonly insertion: (sql: SqlClient.SqlClient, body: string, order: Statement.Fragment) => Statement.Fragment;
     readonly read: (sql: SqlClient.SqlClient, entry: Column, scope: Statement.Fragment) => Statement.Fragment;
-    readonly upsert: (parts: Fragments, body: string, set: readonly Column[]) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError, SqlClient.SqlClient>;
-    readonly ensure: (parts: Fragments, body: string) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError, SqlClient.SqlClient>;
-    readonly search: (parts: Fragments, searchable: Option.Option.Value<Relation['search']>, text: string, pattern: string, marks: Option.Option<{ readonly open: string; readonly close: string }>, count: number) => Statement.Statement<SqlConnection.Row>;
+    readonly upsert: (parts: ReturnType<typeof Engine.fragments>, body: string, set: readonly Column[]) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError, SqlClient.SqlClient>;
+    readonly ensure: (parts: ReturnType<typeof Engine.fragments>, body: string) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError, SqlClient.SqlClient>;
+    readonly search: (parts: ReturnType<typeof Engine.fragments>, searchable: Option.Option.Value<Relation['search']>, text: string, pattern: string, marks: Option.Option<{ readonly open: string; readonly close: string }>, count: number) => Statement.Statement<SqlConnection.Row>;
     readonly constant: (entry: Column, value: string | number) => string;
     readonly codePoints: (sql: SqlClient.SqlClient, subject: Statement.Fragment) => Statement.Fragment;
     readonly text: (sql: SqlClient.SqlClient, subject: Statement.Fragment, kind: Kind) => Statement.Fragment;
@@ -74,10 +57,6 @@ interface Shape {
     readonly plan: (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>) => Effect.Effect<Effect.Success<ReturnType<ReturnType<typeof Reconcile.diff>['plan']>>, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError | ReconcileError>;
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const flags = { inserted: '#inserted', previous: '#previous', rank: '#rank', highlight: '#highlight', position: '#position' } as const;
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Engine extends Context.Service<Engine, Shape>()('@rasm/database/engine') {
@@ -85,7 +64,7 @@ class Engine extends Context.Service<Engine, Shape>()('@rasm/database/engine') {
         Engine,
         SqlClient.SqlClient.use((sql) => sql.onDialect({ sqlite: () => Effect.succeed<Shape>(Sqlite), pg: () => Effect.succeed<Shape>(Pg), mysql: () => absent('mysql'), mssql: () => absent('mssql'), clickhouse: () => absent('clickhouse') })),
     );
-    static readonly fragments = (sql: SqlClient.SqlClient, engine: Shape, { name, columns, key }: Pick<Relation, 'name' | 'columns' | 'key'>): Fragments => {
+    static readonly fragments = (sql: SqlClient.SqlClient, engine: Shape, { name, columns, key }: Pick<Relation, 'name' | 'columns' | 'key'>) => {
         const all = Object.values(columns);
         const written = all.filter(({ projection }) => Option.isNone(projection));
         const [unqualified, owner] = [sql.literal(''), sql`${sql(name)}`];
@@ -102,12 +81,12 @@ class Engine extends Context.Service<Engine, Shape>()('@rasm/database/engine') {
             unqualified,
             order,
             ignore: sql`ON CONFLICT (${keys(unqualified)}) DO NOTHING`,
-            flags,
+            flags: { inserted: '#inserted', previous: '#previous', rank: '#rank', highlight: '#highlight', position: '#position' } as const,
             element,
             keys,
-            reads: (scope, ...extra) => sql.csv([...all.map((entry) => engine.read(sql, entry, scope)), ...extra]),
-            inserting: (body, conflict, returning) => sql`INSERT INTO ${owner} (${sql.csv(written.map((entry) => sql`${sql(entry.name)}`))}) SELECT ${sql.csv(written.map(element))} FROM ${engine.insertion(sql, body, order)} ${conflict} RETURNING ${returning}`,
-            matching: (entry, body) => {
+            reads: (scope: Statement.Fragment, ...extra: readonly (string | Statement.Fragment)[]) => sql.csv([...all.map((entry) => engine.read(sql, entry, scope)), ...extra]),
+            inserting: (body: string, conflict: Statement.Fragment, returning: Statement.Fragment) => sql`INSERT INTO ${owner} (${sql.csv(written.map((entry) => sql`${sql(entry.name)}`))}) SELECT ${sql.csv(written.map(element))} FROM ${engine.insertion(sql, body, order)} ${conflict} RETURNING ${returning}`,
+            matching: (entry: Column, body: string) => {
                 const column = sql`${sql(entry.name)}`;
                 return sql`(${column} IN (SELECT ${engine.element(sql, entry, sql.literal('e.value'))} FROM ${engine.texts(sql, body)}) OR (${column} IS NULL AND EXISTS (SELECT 1 FROM ${engine.texts(sql, body)} WHERE e.value IS NULL)))`;
             },

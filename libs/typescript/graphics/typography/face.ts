@@ -42,6 +42,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
                 variations: Schema.Record(Schema.String, Schema.Finite).annotate({ description: 'Axis values by tag' }),
             }),
         ).annotate({ description: 'fvar named instances, selectable by PostScript name' }),
+        extenders: Schema.Array(Schema.Int).annotate({ description: 'JSTF arab extender glyphs' }),
         font: Schema.instanceOf(Font).pipe(Schema.encodeTo(Schema.optionalKey(Schema.Never), { decode: SchemaGetter.forbidden(() => 'Encoded face omits font data'), encode: SchemaGetter.omit() })),
     },
     { description: 'Face at one instance, names from named instance matching coordinates, else Adobe Technical Note 5902 postscriptName' },
@@ -141,6 +142,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             color: Color.of(chosen),
             axes,
             namedInstances: chosen.namedInstances.map(({ names: { style, postscriptName }, variations: values }) => ({ style, postscriptName, variations: values })),
+            extenders: tables.JSTF.scriptList.flatMap(({ tag, script }) => (tag === 'arab' ? Option.getOrElse(script.extenderGlyphs, Array.empty) : [])),
             font,
         });
     });

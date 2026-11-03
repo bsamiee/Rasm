@@ -35,10 +35,12 @@ const install = Effect.fn('install')(function* (built: string, agent: string) {
     const [fs, path, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME')]);
     const [manifest, listing] = yield* Effect.all([fs.readFileString(path.join(built, Manifest.file)).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json))), run(agent, ['--list', 'all']).pipe(Effect.flatMap(Schema.decodeEffect(Listing)))], { concurrency: 'unbounded' });
     yield* listing.some((extension) => extension['Extension Name'] === manifest.name) ? run(agent, ['--remove', manifest.name]) : Effect.void;
-    const installed = 'Installation Successful';
     yield* run(agent, ['--install', `${built}.ccx`]).pipe(
         Effect.catchTag('ExitError', ({ output }) => Effect.succeed(output)),
-        Effect.filterOrFail(String.includes(installed), (answer) => new Cause.UnknownError(answer, NO_HOST_RELEASE.test(answer) ? `No installed ${manifest.host.app} release at ${manifest.host.minVersion} or later accepts ${manifest.name}` : `${path.basename(agent)} refused ${manifest.name}: ${answer.trim()}`)),
+        Effect.filterOrFail(
+            String.includes('Installation Successful'),
+            (answer) => new Cause.UnknownError(answer, NO_HOST_RELEASE.test(answer) ? `No installed ${manifest.host.app} release at ${manifest.host.minVersion} or later accepts ${manifest.name}` : `${path.basename(agent)} refused ${manifest.name}: ${answer.trim()}`),
+        ),
     );
     yield* fs.remove(path.join(home, ADOBE, 'CEP', 'extensions', manifest.id), { recursive: true, force: true });
 });

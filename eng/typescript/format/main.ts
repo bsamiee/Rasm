@@ -29,7 +29,7 @@ const format = flow(
                     Effect.flatMap((results) =>
                         Stream.runForEach(
                             Stream.fromAsyncIterable(results, (cause) => new Cause.UnknownError(cause)),
-                            (report) => (report.success ? Effect.void : Effect.fail(new Cause.UnknownError(report, 'Executor reported no success'))),
+                            ({ success }) => (success ? Effect.void : Effect.fail(new Cause.UnknownError(target, 'Executor reported no success'))),
                         ),
                     ),
                     Effect.mapError((cause) => new Cause.UnknownError(cause, `${targetToTargetString(target)} failed`)),

@@ -7,19 +7,12 @@ import { Server } from '#/server';
 
 type Params<Schemas extends readonly Schema.Constraint[]> = { readonly [K in keyof Schemas]: Schemas[K]['Type'] };
 type Named<Schemas extends readonly Schema.Constraint[]> = { readonly [K in Extract<keyof Schemas, `${number}`> as Schemas[K] extends McpSchema.Param<infer Name, Schema.Constraint> ? Name : `param${K}`]: Schemas[K]['Type'] };
+type Resource<A> = Effect.Success<ReturnType<typeof make<A, unknown, never>>>;
 type Descriptor = Omit<typeof McpServer.registerResource extends { (options: infer Options): unknown; (...template: never): unknown } ? Options : never, 'uri' | 'content'>;
 interface Entry<A> {
     readonly read: Effect.Effect<A, Error>;
     readonly value: A;
     readonly uris: HashSet.HashSet<string>;
-}
-interface Resource<A> {
-    readonly mimeType: string | undefined;
-    readonly read: (key: string, at: string, content: Effect.Effect<A, Error>) => Effect.Effect<McpSchema.ReadResourceResult, McpSchema.InvalidParams | McpSchema.InternalError>;
-    readonly cached: (key: string, content: Effect.Effect<A, Error>) => Effect.Effect<A, Error>;
-    readonly depend: (
-        source: Effect.Effect<{ readonly key: string; readonly content: Effect.Effect<A, Error> }, Error>,
-    ) => (conditions: { readonly refuse?: Predicate.Predicate<A> | undefined; readonly report?: Predicate.Predicate<A> | undefined }) => { readonly refusal: Stream.Stream<Option.Option<readonly [string, Schema.Json]>, Error>; readonly report: Effect.Effect<Option.Option<readonly [string, Schema.Json]>, Error> };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -46,14 +39,7 @@ const make = Effect.fnUntraced(function* <A, I, R>({ schema, mimeType, changes }
         Effect.acquireRelease(
             Ref.update(
                 watched,
-                HashMap.modifyAt(
-                    at,
-                    flow(
-                        Option.getOrElse(() => 0),
-                        Number.increment,
-                        Option.some,
-                    ),
-                ),
+                HashMap.modifyAt(at, (count) => Option.some(Option.getOrElse(count, () => 0) + 1)),
             ),
             () => Ref.update(watched, HashMap.modifyAt(at, flow(Option.map(Number.decrement), Option.filter(Number.isGreaterThan(0))))),
         );
@@ -68,7 +54,7 @@ const make = Effect.fnUntraced(function* <A, I, R>({ schema, mimeType, changes }
     yield* changes.pipe(
         Stream.mapEffect(() => SubscriptionRef.get(store)),
         Stream.flattenIterable,
-        Stream.runForEach(
+        Stream.mapEffect(
             Effect.fnUntraced(
                 function* ([key, entry]: readonly [string, Entry<A>]) {
                     const [value, watching] = yield* Effect.all([Effect.catchNoSuchElement(entry.read), Ref.get(watched)]);
@@ -77,7 +63,9 @@ const make = Effect.fnUntraced(function* <A, I, R>({ schema, mimeType, changes }
                 },
                 Effect.ignoreCause({ log: 'Error' }),
             ),
+            { concurrency: 'unbounded' },
         ),
+        Stream.runDrain,
         Effect.forkScoped,
     );
     yield* SubscriptionRef.changes(store).pipe(
@@ -87,11 +75,12 @@ const make = Effect.fnUntraced(function* <A, I, R>({ schema, mimeType, changes }
     );
     return {
         mimeType: media,
-        read: (key, at, content) => observe(key, content, at).pipe(Effect.catchNoSuchElement, Server.orInternalError, Effect.flatMap(Option.match({ onNone: () => Effect.fail(McpSchema.InvalidParams.make({ message: `Resource '${at}' not found` })), onSome: (value) => reply(at, value) }))),
+        read: (key: string, at: string, content: Effect.Effect<A, Error>) =>
+            observe(key, content, at).pipe(Effect.catchNoSuchElement, Server.orInternalError, Effect.flatMap(Option.match({ onNone: () => Effect.fail(McpSchema.InvalidParams.make({ message: `Resource '${at}' not found` })), onSome: (value) => reply(at, value) }))),
         cached,
         depend:
-            (source) =>
-            ({ refuse, report }) => {
+            (source: Effect.Effect<{ readonly key: string; readonly content: Effect.Effect<A, Error> }, Error>) =>
+            ({ refuse, report }: { readonly refuse?: Predicate.Predicate<A> | undefined; readonly report?: Predicate.Predicate<A> | undefined }) => {
                 const current = ({ key, content }: Effect.Success<typeof source>) => Effect.catchNoSuchElement(observe(key, content));
                 return {
                     refusal: UndefinedOr.match(refuse, {
@@ -110,12 +99,12 @@ const make = Effect.fnUntraced(function* <A, I, R>({ schema, mimeType, changes }
                         onDefined: (holds) =>
                             Effect.gen(function* () {
                                 const located = yield* source;
-                                return yield* Effect.flatMap(current(located), matchingEntry(located.key, holds));
+                                return yield* matchingEntry(located.key, holds)(yield* current(located));
                             }),
                     }),
                 };
             },
-    } satisfies Resource<A>;
+    };
 });
 const register = Effect.fnUntraced(function* <A, I, E extends Error, R>({
     schema,
@@ -129,7 +118,7 @@ const register = Effect.fnUntraced(function* <A, I, E extends Error, R>({
 }) {
     const [server, services, store] = yield* Effect.all([Server, Effect.context<R>(), make({ schema, mimeType: descriptor.mimeType, changes })]);
     const [uri, read] = [server.uri(descriptor.name), Effect.provideContext(content, services)];
-    yield* server.register(McpServer.registerResource({ ...descriptor, uri, mimeType: store.mimeType, description: descriptor.description ?? SchemaAST.resolveDescription(schema.ast), content: store.read(uri, uri, read) }));
+    yield* McpServer.registerResource({ ...descriptor, uri, mimeType: store.mimeType, description: descriptor.description ?? SchemaAST.resolveDescription(schema.ast), content: store.read(uri, uri, read) });
     return store.depend(Effect.succeed({ key: uri, content: read }));
 });
 const template = <const Schemas extends readonly Schema.Codec<unknown, unknown, never, never>[]>(path: TemplateStringsArray, ...schemas: Schemas) =>
@@ -153,18 +142,16 @@ const template = <const Schemas extends readonly Schema.Codec<unknown, unknown, 
         const keyed = (params: Params<Schemas>) => Effect.orDie(canonical(interleaved(params)));
         const reading = (params: Params<Schemas>, at: string) => Effect.provideContext(content(at, ...params), services);
         const decodeArguments = partial<Record<string, Schemas[number]>, Named<Schemas>>(Record.fromEntries(Array.map(schemas, (each, index) => [McpSchema.isParam(each) ? each.name : `param${index}`, each] as const)));
-        yield* server.register(
-            McpServer.registerResource(
-                segments,
-                ...schemas,
-            )({
-                ...descriptor,
-                mimeType: store.mimeType,
-                description: descriptor.description ?? SchemaAST.resolveDescription(schema.ast),
-                completion: Record.map({ ...completion }, (completing) => flow(complete(decodeArguments, completing), Effect.provideContext(services))),
-                content: (at, ...params) => Effect.flatMap(keyed(params), (key) => store.read(key, at, reading(params, at))),
-            }),
-        );
+        yield* McpServer.registerResource(
+            segments,
+            ...schemas,
+        )({
+            ...descriptor,
+            mimeType: store.mimeType,
+            description: descriptor.description ?? SchemaAST.resolveDescription(schema.ast),
+            completion: Record.map({ ...completion }, (completing) => flow(complete(decodeArguments, completing), Effect.provideContext(services))),
+            content: (at, ...params) => Effect.flatMap(keyed(params), (key) => store.read(key, at, reading(params, at))),
+        });
         return (...params: Params<Schemas>) => store.depend(Effect.map(keyed(params), (key) => ({ key, content: reading(params, key) })));
     });
 const Resource = { make, register, template };

@@ -7,7 +7,7 @@ import { Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
 import { SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import { Api, Recovery, UploadRefused, uploadField } from '#/model/api.ts';
-import { type Asset, type AssetId, AssetJson } from '#/model/asset.ts';
+import { Asset, type AssetId, AssetJson } from '#/model/asset.ts';
 import { OwnerAccount } from '#/server/owner.ts';
 import { assets, projectedPaths, references, UploadAttempt } from '#/server/store/catalog.ts';
 
@@ -18,6 +18,7 @@ type Release = Data.TaggedEnum<{ Abandon: { readonly assetId: typeof AssetId.Typ
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Release = Data.taggedEnum<Release>();
+const AssetRead = Schema.Struct({ id: assets.schema.fields.id, width: Schema.OptionFromNullOr(Schema.Int) });
 const AssetObject = Schema.Struct({ mime: Schema.String, name: Schema.OptionFromNullOr(Schema.String), published: Schema.BooleanFromBit, objectKey: Schema.String });
 const Released = Schema.Struct({ objects: Schema.fromJsonString(UploadAttempt.fields.objects) });
 
@@ -25,10 +26,10 @@ const Released = Schema.Struct({ objects: Schema.fromJsonString(UploadAttempt.fi
 
 // --- [READS]
 const readAsset = Effect.fn('readAsset')(
-    (request: { readonly id: typeof AssetId.Type; readonly width: Option.Option<number> }) =>
+    (request: typeof AssetRead.Type) =>
         SqlClient.SqlClient.use((sql) =>
             SqlSchema.findOne({
-                Request: Schema.Struct({ id: assets.schema.fields.id, width: Schema.OptionFromNullOr(Schema.Int) }),
+                Request: AssetRead,
                 Result: AssetObject,
                 execute: ({ id, width }) => sql`SELECT COALESCE(r.value ->> '$.mime', a.body ->> '$.mime') AS mime, CASE WHEN r.value IS NULL THEN a.body ->> '$.name' END AS name, o.value ->> '$.key' AS ${sql('objectKey')},
                     EXISTS (SELECT 1 FROM (${references(sql)}) WHERE state = 'published' AND asset_id = a.id) AS published
@@ -52,7 +53,7 @@ const readRecovery = SqlClient.SqlClient.use((sql) =>
 
 // --- [UPLOADS]
 const objects = (asset: typeof Asset.Type, attempt: string) => [
-    ...(asset.kind === 'image' ? (asset.renditions ?? []) : []).map(({ width, size, mime }) => ({ key: `${attempt}/${width}`, width: Option.some(width), size: ByteSize.bytes(size), mime, field: uploadField.renditions })),
+    ...(Asset.guards.image(asset) ? (asset.renditions ?? []) : []).map(({ width, size, mime }) => ({ key: `${attempt}/${width}`, width: Option.some(width), size: ByteSize.bytes(size), mime, field: uploadField.renditions })),
     { key: attempt, width: Option.none<number>(), size: ByteSize.bytes(asset.size), mime: asset.mime, field: uploadField.file },
 ];
 const beginUpload = Effect.fn('beginUpload')(

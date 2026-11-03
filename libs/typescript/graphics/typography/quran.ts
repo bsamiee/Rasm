@@ -23,11 +23,8 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         const [ayahs, surahs] = yield* Effect.all([rows(AyahRow, csv.ayahs, columns.ayahs), rows(SurahRow, csv.surahs, columns.surahs)]);
         const ayahsBySurah = Array.groupBy(ayahs, ({ surah }) => String(surah));
         const uniqueSurahs = Array.dedupeWith(surahs, (left, right) => left.number === right.number);
-        const missing = Array.difference(
-            Record.keys(ayahsBySurah),
-            uniqueSurahs.map(({ number }) => String(number)),
-        );
-        yield* Array.match(missing, { onEmpty: () => Effect.void, onNonEmpty: (keys) => Unmatched.make({ subject: 'surah', query: Option.some(keys.join(', ')), candidates: uniqueSurahs.map(({ number }) => String(number)) }) });
+        const numbers = uniqueSurahs.map(({ number }) => String(number));
+        yield* Array.match(Array.difference(Record.keys(ayahsBySurah), numbers), { onEmpty: () => Effect.void, onNonEmpty: (keys) => Unmatched.make({ subject: 'surah', query: Option.some(keys.join(', ')), candidates: numbers }) });
         return Quran.make({
             surahs: Array.sortWith(
                 uniqueSurahs.map(({ number, name }) => Surah.make({ number, name, ayahs: Array.dedupeWith(Array.sortWith(Array.map(ayahsBySurah[String(number)] ?? [], Struct.omit(['surah'])), Struct.get('number'), Order.Number), (left, right) => left.number === right.number) })),

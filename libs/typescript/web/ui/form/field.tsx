@@ -1,4 +1,4 @@
-import { Array } from 'effect';
+import { Array, Option } from 'effect';
 import { Check, Minus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { CheckboxButton, CheckboxField, type CheckboxFieldProps, FieldError, Input, Label, Slider, SliderOutput, type SliderProps, SliderThumb, SliderTrack, Text, TextArea, TextField, type TextFieldProps } from 'react-aria-components';
@@ -24,14 +24,7 @@ const Field = Object.assign(
             <Slider {...props}>
                 <Label>{label}</Label>
                 <SliderOutput />
-                <SliderTrack>
-                    {({ state }) =>
-                        Array.makeBy(state.values.length, (index) => {
-                            const thumb = thumbs?.[index];
-                            return thumb === undefined ? <SliderThumb index={index} key={index} /> : <SliderThumb aria-label={thumb} index={index} key={index} />;
-                        })
-                    }
-                </SliderTrack>
+                <SliderTrack>{({ state }) => Array.makeBy(state.values.length, (index) => <SliderThumb {...Option.match(Array.get(thumbs ?? [], index), { onNone: () => ({}), onSome: (thumb) => ({ 'aria-label': thumb }) })} index={index} key={index} />)}</SliderTrack>
             </Slider>
         ),
         Checkbox: ({ children, ...props }: Omit<CheckboxFieldProps, 'children'> & { readonly children?: ReactNode }) => (

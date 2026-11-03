@@ -30,7 +30,7 @@ const open = Effect.fn('open')(function* (source: DocumentInitParameters, subjec
     return yield* Effect.tryPromise({
         try: () => task.promise,
         catch: Match.type<unknown>().pipe(
-            Match.when(Match.instanceOf(PasswordException), (cause) => MediaError.make({ reason: { _tag: 'Protected', code: cause.code }, subject, cause })),
+            Match.when(Match.instanceOf(PasswordException), (cause) => MediaError.make({ reason: { _tag: 'Protected' }, subject, cause })),
             Match.when(Match.instanceOf(InvalidPDFException), (cause) => MediaError.make({ reason: { _tag: 'Unreadable' }, subject, cause })),
             Match.when(
                 (cause: unknown) => cause instanceof ResponseException && cause.missing === true,
@@ -40,17 +40,15 @@ const open = Effect.fn('open')(function* (source: DocumentInitParameters, subjec
         ),
     });
 });
-const loaded = Effect.fnUntraced(function* (range: PDFDataRangeTransport, subject: string, concurrency: number) {
-    const document = yield* open({ range, disableAutoFetch: true, disableStream: true }, subject);
-    return yield* Effect.all([Effect.tryPromise(() => document.getPageLabels()), Effect.forEach(Array.range(1, document.numPages), (number) => Effect.tryPromise(() => document.getPage(number)), { concurrency })], { concurrency: 'unbounded' });
-});
 const pages = Effect.fn('pages')(function* (file: File, { concurrency }: { readonly concurrency: number }) {
     const fetches = yield* FiberSet.make<void, Cause.UnknownError>();
     const fetchRange = yield* FiberSet.runtime(fetches)();
     const range: PDFDataRangeTransport = Object.assign(new PDFDataRangeTransport(file.size, null), {
         requestDataRange: (begin: number, end: number) => fetchRange(Effect.tryPromise(() => file.slice(begin, end).bytes()).pipe(Effect.map((chunk) => range.onDataRange(begin, chunk)))),
     });
-    const [labels, proxies] = yield* loaded(range, file.name, concurrency).pipe(Effect.raceFirst(Effect.andThen(FiberSet.join(fetches), Effect.interrupt)));
+    const failed = Effect.andThen(FiberSet.join(fetches), Effect.interrupt);
+    const document = yield* Effect.raceFirst(open({ range, disableAutoFetch: true, disableStream: true }, file.name), failed);
+    const [labels, proxies] = yield* Effect.raceFirst(Effect.all([Effect.tryPromise(() => document.getPageLabels()), Effect.forEach(Array.range(1, document.numPages), (number) => Effect.tryPromise(() => document.getPage(number)), { concurrency })], { concurrency: 'unbounded' }), failed);
     return Array.map(proxies, (page, index) => ({
         ...Struct.pick(page.getViewport({ scale: 1 }), ['width', 'height']),
         ...pipe(

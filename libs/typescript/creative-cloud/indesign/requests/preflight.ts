@@ -20,17 +20,14 @@ const nested: (rows: readonly (typeof Flat.Type)[]) => readonly (typeof Prefligh
 });
 const Aggregated = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Flat)]).pipe(Schema.decodeTo(Schema.Array(Preflight.Issue), { decode: SchemaGetter.transform(([, , rows]) => nested(rows)), encode: SchemaGetter.forbiddenEncoding }));
 const aggregated = (process: PreflightProcess) => Result.try(() => process.aggregatedResults).pipe(Result.flatMap(Schema.decodeUnknownResult(Aggregated)));
-const preflightView = Model.view(
-    (model) => model.preflightProcess,
-    (process: PreflightProcess) =>
-        Model.read(Preflight.View, process.toSpecifier(), () => ({
-            _tag: 'PreflightProcess',
-            ...Model.referenceUnsafe(process),
-            targetObject: process.targetObject,
-            appliedProfile: Option.fromNullishOr(process.appliedProfile),
-            aggregatedResults: aggregated(process),
-        })),
-);
+const preflightView = (process: PreflightProcess) =>
+    Model.read(Preflight.View, process.toSpecifier(), () => ({
+        _tag: 'PreflightProcess',
+        ...Model.referenceUnsafe(process),
+        targetObject: process.targetObject,
+        appliedProfile: Option.fromNullishOr(process.appliedProfile),
+        aggregatedResults: aggregated(process),
+    }));
 const checked = Effect.fn('checked')(function* (document: Document, named: Option.Option<string>) {
     const { app } = yield* Model;
     const { preflightOff, preflightWorkingProfile: working } = document.preflightOptions;

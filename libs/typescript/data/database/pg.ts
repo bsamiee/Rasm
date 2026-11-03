@@ -15,18 +15,15 @@ const codecs = [
     codec(PgTypes.OID.jsonb, Function.identity, Result.succeed, (bytes) => PgTypes.decode(bytes.subarray(1), PgTypes.OID.text, 1)),
     codec(PgTypes.OID.bool, (text) => text === 't', flow(Number, Result.succeed)),
 ];
-const parsers = Record.fromIterableWith(codecs, ({ oid, text }) => [`${oid}`, text]);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const pool = (config: PgClient.PgPoolConfig) => {
     const types = PgTypes.makeRegistry();
-    codecs.forEach(({ oid, binary }) => {
-        types.register(oid, { decode: binary, encode: (value: unknown) => PgTypes.encode(value, oid) });
-    });
+    codecs.forEach(({ oid, binary }) => types.register(oid, { decode: binary, encode: (value: unknown) => PgTypes.encode(value, oid) }));
     return PgClient.layer({ ...config, types });
 };
-const pglite = (config: PgliteClient.PgliteClientConfig.Create) => PgliteClient.layer({ ...config, parsers: { ...config.parsers, ...parsers } });
+const pglite = (config: PgliteClient.PgliteClientConfig.Create) => PgliteClient.layer({ ...config, parsers: { ...config.parsers, ...Record.fromIterableWith(codecs, ({ oid, text }) => [`${oid}`, text]) } });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
