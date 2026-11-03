@@ -1,4 +1,4 @@
-import { Record, Schema } from 'effect';
+import { Array, Effect, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -31,6 +31,7 @@ const described = Reason.match({
 
 class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand: unique symbol }>()('ReconcileError', { findings: Schema.NonEmptyArray(Finding) }) {
     static readonly Finding = Finding;
+    static readonly raise = (findings: readonly (typeof Finding.Type)[]) => (Array.isReadonlyArrayNonEmpty(findings) ? Effect.fail(ReconcileError.make({ findings })) : Effect.void);
     override get message() {
         return this.findings.map(({ table, columns, reason }) => `${table} (${columns.join(', ')}) ${described(reason)}`).join('\n');
     }

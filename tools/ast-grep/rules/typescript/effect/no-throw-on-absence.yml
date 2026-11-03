@@ -2,7 +2,7 @@
 id: no-throw-on-absence
 language: tsx
 severity: error
-ignores: ['libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
+ignores: ['.claude/workflows/*.js', 'libs/typescript/creative-cloud/extendscript/*.ts', 'libs/typescript/creative-cloud/{illustrator,aftereffects}/host.ts']
 utils:
     absence-test:
         any:

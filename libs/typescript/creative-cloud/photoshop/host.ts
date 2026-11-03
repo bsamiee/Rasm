@@ -40,7 +40,7 @@ const Element = Schema.Struct({
     document: Schema.OptionFromOptionalKey(Instance),
     parent: Schema.OptionFromOptionalNullOr(Instance),
 });
-const Rendered = Schema.Union([Schema.declare((input: unknown): input is Document => Predicate.hasProperty(input, 'typename') && input.typename === 'Document'), Schema.declare((input: unknown): input is Document['layers'][number] => Predicate.hasProperty(input, 'typename') && input.typename === 'Layer')]);
+const Rendered = Schema.declare((input: unknown): input is Document | Document['layers'][number] => Predicate.hasProperty(input, 'typename') && (input.typename === 'Document' || input.typename === 'Layer'));
 const Png = Schema.Struct({
     method: Schema.optionalKey(Schema.Enum(photoshop.constants.PNGMethod)),
     compression: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 9 }))),
@@ -50,7 +50,7 @@ const Entry = Uxp.Entry.mapFields(Struct.assign({ isFile: Schema.Literal(true) }
 const Members = Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Finite]));
 const Parameter = Schema.Struct({ type: Schema.String, start: Schema.Int, end: Schema.Int, left: Schema.OptionFromOptionalKey(Schema.Struct({ start: Schema.Int, end: Schema.Int })) });
 const Declared = Schema.Struct({ body: Schema.Tuple([Schema.Struct({ expression: Schema.Struct({ body: Schema.Struct({ body: Schema.Tuple([Schema.Struct({ value: Schema.Struct({ params: Schema.Array(Parameter) }) })]) }) }) })]) });
-const Rejected = Schema.Struct({ number: Schema.Literals([REJECTIONS.Cancelled, REJECTIONS.Unavailable]).transform(['Cancelled', 'Unavailable']) });
+const Rejected = Schema.Struct({ number: Schema.Union(Record.collect(REJECTIONS, (tag, code) => Schema.Literal(code).transform(tag))) });
 const Executable = Schema.Tuple([Schema.Struct({ executablePath: Schema.Struct({ _path: Schema.String }) })]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -100,7 +100,7 @@ const rendered = Effect.fnUntraced(function* (longestSide: number, { found, writ
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const { app, core, constants, action } = photoshop;
-const classes = Record.filter(Object.fromEntries(Object.entries(app)), Predicate.isFunction);
+const classes = Record.filter({ ...app }, Predicate.isFunction);
 const scope = { ...photoshop, ...classes, ...constants };
 const located = (container: object, kind: typeof Kind.Type, selector: typeof Reference.Selector.Type): Effect.Effect<object, Unmatched> =>
     Reference.Selector.match(selector, {
@@ -122,42 +122,40 @@ const resolve = (path: string, container: object = app): Effect.Effect<object, U
               const kind = yield* Unmatched.single(Struct.keys(COLLECTIONS), 'collection kind', Option.some(word), Array.of);
               return yield* resolve(rest, yield* located(container, kind, selector));
           });
-const traced = (value: object): Option.Option<{ readonly element: typeof Element.Type; readonly path: readonly (readonly [typeof Kind.Type, typeof Reference.Selector.Type])[] }> =>
-    Option.gen(function* () {
-        const element = yield* Schema.decodeUnknownOption(Element)(value);
-        const kind = yield* Schema.decodeUnknownOption(Kind)(String.uncapitalize(element.typename));
-        const rooted = COLLECTIONS[kind] in app;
-        const container: object = rooted ? app : yield* Option.flatMap(Option.firstSomeOf([element.document, element.parent]), owner);
-        const above = rooted ? [] : (yield* traced(container)).path;
-        const selector = yield* Option.firstSomeOf([
+const reference: (value: object) => Effect.Effect<Reference, Cause.NoSuchElementError> = Effect.fnUntraced(function* (value) {
+    const element = yield* Effect.fromOption(Schema.decodeUnknownOption(Element)(value));
+    const kind = yield* Effect.fromOption(Schema.decodeUnknownOption(Kind)(String.uncapitalize(element.typename)));
+    const rooted = COLLECTIONS[kind] in app;
+    const container: object = rooted ? app : yield* Effect.fromOption(Option.flatMap(Option.firstSomeOf([element.document, element.parent]), owner));
+    const above = rooted ? '' : (yield* reference(container)).specifier;
+    const selector = yield* Effect.fromOption(
+        Option.firstSomeOf([
             Option.map(element.id, (id) => Reference.Selector.cases.Identified.make({ id })),
             Option.flatMap(Option.firstSomeOf([element.postScriptName, element.name]), (name) => Reference.Selector.cases.Named.makeOption({ name })),
             Option.map(
                 Array.findFirstIndex(elements(container, kind), (each) => each === value),
                 (index) => Reference.Selector.cases.Indexed.make({ index }),
             ),
-        ]);
-        return { element, path: [...above, [kind, selector] as const] };
-    });
-const reference = Effect.fnUntraced(function* (value: object) {
-    const { element, path } = yield* Effect.fromOption(traced(value));
-    const steps = yield* Effect.orDie(Effect.forEach(path, ([kind, selector]) => Effect.map(Schema.encodeEffect(Reference.Selector)(selector), (step) => `/${kind}${step}`)));
-    return Reference.make({ type: element.typename, specifier: steps.join(''), name: element.name, valid: true });
+        ]),
+    );
+    const step = yield* Effect.orDie(Schema.encodeEffect(Reference.Selector)(selector));
+    return Reference.make({ type: element.typename, specifier: `${above}/${kind}${step}`, name: element.name, valid: true });
 });
-const encoded = (value: unknown): Effect.Effect<unknown> => {
-    if (Array.isArray(value)) {
-        return Effect.forEach(value, encoded);
-    }
-    if (Predicate.isObject(value) && Object.getPrototypeOf(value) === Object.prototype) {
-        return Effect.all(Record.map(value, encoded));
-    }
-    return Predicate.isObjectKeyword(value)
-        ? reference(value).pipe(
-              Effect.flatMap(flow(Schema.encodeEffect(Reference), Effect.orDie)),
-              Effect.catchTag('NoSuchElementError', () => Effect.succeed(value)),
-          )
-        : Effect.succeed(value);
-};
+const encoded = (value: unknown): Effect.Effect<unknown> =>
+    Match.value(value).pipe(
+        Match.when(Array.isArray, Effect.forEach(encoded)),
+        Match.when(
+            (input: unknown): input is Readonly<Record<string, unknown>> => Predicate.isObject(input) && Object.getPrototypeOf(input) === Object.prototype,
+            (fields) => Effect.all(Record.map(fields, encoded)),
+        ),
+        Match.when(Predicate.isObjectKeyword, (object) =>
+            reference(object).pipe(
+                Effect.flatMap(flow(Schema.encodeEffect(Reference), Effect.orDie)),
+                Effect.catchTag('NoSuchElementError', () => Effect.succeed(object)),
+            ),
+        ),
+        Match.orElse(Effect.succeed),
+    );
 const modal = Effect.fnUntraced(function* <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>) {
     const services = yield* Effect.context<R>();
     return yield* yield* Effect.tryPromise({

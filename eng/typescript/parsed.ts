@@ -5,7 +5,7 @@ import { parse as parseYaml } from 'yaml';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const fromString = (expected: string, parse: (text: string) => unknown): Schema.decodeTo<Schema.Unknown, Schema.String> =>
+const fromString = (expected: string, parse: (text: string) => unknown) =>
     Schema.String.pipe(
         Schema.decodeTo(Schema.Unknown, {
             decode: SchemaGetter.transformEffect((text: string, options) => Effect.try({ try: () => parse(text), catch: (cause) => new SchemaIssue.InvalidValue({ expected, cause }, text, options) })),

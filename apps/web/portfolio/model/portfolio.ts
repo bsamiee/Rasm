@@ -1,12 +1,12 @@
 import { Array, Effect, Schema, SchemaGetter, SchemaIssue, SchemaParser, Struct } from 'effect';
 import isEmail from 'validator/lib/isEmail.js';
-import { type AssetId, Assets } from '#/model/asset.ts';
+import { type AssetId, Assets, defaulted } from '#/model/asset.ts';
 import { Composition, Placement } from '#/model/placement.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const EntryId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('EntryId'));
-const text = Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed('')), Schema.withConstructorDefault(Effect.succeed('')));
+const text = defaulted(Schema.String, '');
 const Entry = Schema.Struct({
     id: EntryId,
     kind: Schema.Literals(['project', 'study']),
@@ -17,21 +17,29 @@ const Entry = Schema.Struct({
     role: text,
     credits: text,
     cover: Schema.optionalKey(Placement),
-    compositions: Schema.Array(Composition).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
+    compositions: defaulted(Schema.Array(Composition), []),
 });
 const PortfolioStructure = Schema.Struct({
     name: text,
     introduction: text,
-    email: Schema.String.check(Schema.makeFilter((value) => value === '' || isEmail(value), { expected: 'email address or empty string' })).pipe(Schema.withDecodingDefaultKey(Effect.succeed('')), Schema.withConstructorDefault(Effect.succeed(''))),
+    email: defaulted(Schema.String.check(Schema.makeFilter((value) => value === '' || isEmail(value), { expected: 'email address or empty string' })), ''),
     hero: Schema.optionalKey(Placement),
-    entries: Schema.Array(Entry).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
+    entries: defaulted(Schema.Array(Entry), []),
 });
 const uniqueIds = Schema.makeFilter(({ entries = [] }: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
     [{ path: ['entries'], ids: entries.map(({ id }) => id) }, ...entries.map(({ compositions = [] }, index) => ({ path: ['entries', index, 'compositions'], ids: compositions.map(({ id }) => id) }))].flatMap(({ path, ids }) =>
         Array.match(Array.dedupe(ids.filter((id, index) => ids.indexOf(id) !== index)), { onEmpty: () => [], onNonEmpty: (repeated) => [{ path, issue: `IDs repeat: ${repeated.join(', ')}` }] }),
     ),
 );
-const Portfolio = PortfolioStructure.check(uniqueIds);
+const Portfolio = Object.assign(PortfolioStructure.check(uniqueIds), {
+    assetIds: (portfolio: typeof PortfolioStructure.Type): ReadonlySet<typeof AssetId.Type> =>
+        new Set(
+            [...Array.fromNullishOr(portfolio.hero), ...portfolio.entries.flatMap((entry) => [...Array.fromNullishOr(entry.cover), ...entry.compositions.flatMap(Struct.get('items'))])].flatMap((placement) => [
+                placement.asset.id,
+                ...(placement.kind === 'video' && placement.poster !== undefined ? [placement.poster.id] : []),
+            ]),
+        ),
+});
 const StoredPortfolio = Schema.toEncoded(PortfolioStructure).check(uniqueIds);
 const PortfolioData = Schema.Struct({ portfolio: Schema.Unknown, assets: Assets.schema }).pipe(
     Schema.decodeTo(Schema.Struct({ portfolio: Schema.toType(Portfolio), assets: Schema.toType(Assets.schema) }), {
@@ -42,16 +50,6 @@ const PortfolioData = Schema.Struct({ portfolio: Schema.Unknown, assets: Assets.
     }),
 );
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const assetIds = (portfolio: typeof Portfolio.Type): ReadonlySet<typeof AssetId.Type> =>
-    new Set(
-        [...Array.fromNullishOr(portfolio.hero), ...portfolio.entries.flatMap((entry) => [...Array.fromNullishOr(entry.cover), ...entry.compositions.flatMap(Struct.get('items'))])].flatMap((placement) => [
-            placement.asset.id,
-            ...(placement.kind === 'video' && placement.poster !== undefined ? [placement.poster.id] : []),
-        ]),
-    );
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assetIds, Entry, EntryId, Portfolio, PortfolioData, StoredPortfolio };
+export { Entry, EntryId, Portfolio, PortfolioData, StoredPortfolio };

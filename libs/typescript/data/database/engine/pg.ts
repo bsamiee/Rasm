@@ -1,15 +1,13 @@
 import { Array, Duration, Effect, Equal, Function, Match, Option, Order, Record, Schema, Struct } from 'effect';
 import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
-import type { Column, Kind } from '#/column';
+import type { Kind } from '#/column';
 import type { Engine } from '#/engine';
 import { Reconcile } from '#/reconcile';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const trigram = { extension: 'pg_trgm', classes: { gin: 'gin_trgm_ops', gist: 'gist_trgm_ops' } } as const;
-const identifiers = /"(?:[^"]|"")*"|[\p{L}_][\p{L}\p{N}_$]*/gu;
-const placeholder = '$column';
 const confdeltype = { 'NO ACTION': 'a', RESTRICT: 'r', CASCADE: 'c', 'SET NULL': 'n', 'SET DEFAULT': 'd' } as const satisfies { readonly [A in (typeof Reconcile.referentialActions)[number]]: string };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -41,46 +39,8 @@ const PgTable = Schema.Struct({
     ),
     policies: Schema.Array(Schema.Struct({ name: Schema.String, using: Schema.NullOr(Schema.String), check: Schema.NullOr(Schema.String), roles: Names })),
 });
-class PgPrelude extends Schema.Class<PgPrelude, { readonly brand: unique symbol }>('PgPrelude')({
-    migrator: Schema.String,
-    absent: Names,
-    configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
-}) {
-    static readonly settings = ({ timeouts }: Catalog) =>
-        Option.toArray(timeouts).flatMap(({ lock, transaction }) => [
-            { name: 'lock_timeout', value: `${Duration.toMillis(lock)}ms` },
-            { name: 'transaction_timeout', value: `${Duration.toMillis(transaction)}ms` },
-        ]);
-    static readonly open = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, preamble: readonly Statement.Statement<object>[], required: readonly string[], filters: readonly string[], configurations: typeof Pg.Configurations.Type) {
-        yield* Effect.all(preamble, { discard: true });
-        const { search_path: path } = yield* SqlSchema.findOne({
-            Request: Schema.Struct({ required: Names, filters: Names }),
-            Result: Schema.Struct({ search_path: Schema.String }),
-            execute: (names) =>
-                sql`SELECT pg_advisory_xact_lock(hashtextextended(current_schema(), 0))::text AS lock, set_config('search_path', concat_ws(', ', quote_ident(current_schema()),
-                            (SELECT string_agg(quote_ident(n.nspname), ', ' ORDER BY n.nspname) FROM pg_namespace n WHERE n.oid NOT IN (current_schema()::regnamespace, 'pg_catalog'::regnamespace)
-                                AND (EXISTS (SELECT 1 FROM pg_extension e WHERE e.extnamespace = n.oid AND e.extname = ANY(${names.required}::text[])) OR EXISTS (SELECT 1 FROM pg_ts_dict d WHERE d.dictnamespace = n.oid AND d.dictname = ANY(${names.filters}::text[])))), 'pg_temp'), true) AS search_path`,
-        })({ required, filters });
-        const prelude = yield* SqlSchema.findOne({
-            Request: Schema.Struct({ required: Names, filters: Names, declared: Pg.Configurations }),
-            Result: PgPrelude,
-            execute: (names) =>
-                sql`WITH maps AS (SELECT m.mapcfg, m.maptokentype, array_agg(m.mapdict::regdictionary::text ORDER BY m.mapseqno) AS dictionaries FROM pg_ts_config_map m GROUP BY m.mapcfg, m.maptokentype),
-                            declared AS (SELECT d.name, d.configuration::regconfig::oid AS base, (SELECT c.oid FROM pg_ts_config c WHERE c.cfgnamespace = current_schema()::regnamespace AND c.cfgname = d.name) AS live, array(SELECT quote_ident(f) FROM unnest(d.filters) f) AS filters FROM json_to_recordset(${names.declared}::json) d(name text, configuration text, filters text[])),
-                            tokens AS (SELECT d.name, t.tokid, t.alias, CASE WHEN b.dictionaries IS NOT NULL THEN d.filters || b.dictionaries END AS wanted, l.dictionaries AS now
-                                FROM declared d JOIN pg_ts_config c ON c.oid = d.base CROSS JOIN ts_token_type(c.cfgparser) t
-                                LEFT JOIN maps b ON (b.mapcfg, b.maptokentype) = (d.base, t.tokid) LEFT JOIN maps l ON (l.mapcfg, l.maptokentype) = (coalesce(d.live, d.base), t.tokid))
-                            SELECT current_user::text AS migrator,
-                                array(SELECT a.name FROM (SELECT x FROM unnest(${names.required}::text[]) x WHERE NOT EXISTS (SELECT 1 FROM pg_extension e WHERE e.extname = x)
-                                    UNION SELECT f FROM unnest(${names.filters}::text[]) f WHERE NOT EXISTS (SELECT 1 FROM pg_ts_dict d WHERE d.dictname = f) AND EXISTS (SELECT 1 FROM pg_available_extensions v WHERE v.name = f)) a(name) ORDER BY a.name) AS absent, array_to_json(array(SELECT json_build_object('name', d.name, 'configuration', d.base::regconfig::text, 'configured', d.live IS NOT NULL,
-                                'drift', array(SELECT json_build_object('tokens', array_agg(k.alias ORDER BY k.tokid), 'dictionaries', k.wanted) FROM tokens k WHERE k.name = d.name AND k.now IS DISTINCT FROM k.wanted GROUP BY k.wanted)) FROM declared d))::text AS configurations`,
-        })({ required, filters, declared: configurations });
-        return { prelude, path };
-    });
-}
 class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tables: Schema.Array(PgTable), scratch: Schema.Array(PgTable) }) {
     static readonly Configuration = Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Names });
-    static readonly Configurations = Schema.fromJsonString(Schema.Array(Pg.Configuration));
 
     // --- [ROWS]
     static readonly dialect = 'pg';
@@ -106,13 +66,26 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         return tokenizer === 'trigram' ? joined : sql`to_tsvector(${sql.literal(Reconcile.literal(Pg.configuration(tokenizer)))}, ${joined})`;
     };
     static readonly search: Engine['Service']['search'] = ({ sql, owner, prefix, unqualified, keys, reads, flags }, searchable, text, pattern, marks, count) => {
-        const { columns: searched, tokenizer } = searchable;
-        const body = Pg.document(sql, searchable);
-        const [rank, highlight] = [sql(flags.rank), sql(flags.highlight)];
-        const marked = (mark: (name: string, open: string, close: string) => Statement.Fragment) => Option.match(marks, { onNone: () => sql.literal('NULL'), onSome: ({ open, close }) => sql`jsonb_build_object(${sql.csv(searched.flatMap((entry) => [Reconcile.literal(entry.field), mark(entry.name, open, close)]))})` });
-        return tokenizer === 'trigram'
-            ? sql`SELECT ${reads(unqualified)}, word_similarity(${text}, ${body}) AS ${rank}, ${marked((part, open, close) => sql`regexp_replace(${sql(part)}, ${`***=${text}`}, ${`${open.replaceAll('\\', '\\\\')}\\&${close.replaceAll('\\', '\\\\')}`}, 'gi')`)} AS ${highlight} FROM ${owner} WHERE (${body}) ILIKE ${pattern} ORDER BY ${rank} DESC, ${keys(prefix)} LIMIT ${count}`
-            : sql`SELECT ${reads(unqualified)}, ts_rank(${body}, q) AS ${rank}, ${marked((part, open, close) => sql`ts_headline(${sql.literal(Reconcile.literal(Pg.configuration(tokenizer)))}, ${sql(part)}, q, ${`StartSel="${open.replaceAll('"', '""')}", StopSel="${close.replaceAll('"', '""')}", HighlightAll=true`})`)} AS ${highlight} FROM ${owner} CROSS JOIN plainto_tsquery(${sql.literal(Reconcile.literal(Pg.configuration(tokenizer)))}, ${text}) q WHERE ${body} @@ q ORDER BY ${rank} DESC, ${keys(prefix)} LIMIT ${count}`;
+        const [body, rank] = [Pg.document(sql, searchable), sql(flags.rank)];
+        const { score, source, filter, mark } = Match.value(searchable.tokenizer).pipe(
+            Match.when('trigram', () => ({
+                score: sql`word_similarity(${text}, ${body})`,
+                source: owner,
+                filter: sql`(${body}) ILIKE ${pattern}`,
+                mark: (part: string, open: string, close: string) => sql`regexp_replace(${sql(part)}, ${`***=${text}`}, ${`${open.replaceAll('\\', '\\\\')}\\&${close.replaceAll('\\', '\\\\')}`}, 'gi')`,
+            })),
+            Match.orElse((tokenizer) => {
+                const dictionary = sql.literal(Reconcile.literal(Pg.configuration(tokenizer)));
+                return {
+                    score: sql`ts_rank(${body}, q)`,
+                    source: sql`${owner} CROSS JOIN plainto_tsquery(${dictionary}, ${text}) q`,
+                    filter: sql`${body} @@ q`,
+                    mark: (part: string, open: string, close: string) => sql`ts_headline(${dictionary}, ${sql(part)}, q, ${`StartSel="${open.replaceAll('"', '""')}", StopSel="${close.replaceAll('"', '""')}", HighlightAll=true`})`,
+                };
+            }),
+        );
+        const marked = Option.match(marks, { onNone: () => sql.literal('NULL'), onSome: ({ open, close }) => sql`jsonb_build_object(${sql.csv(searchable.columns.flatMap((entry) => [Reconcile.literal(entry.field), mark(entry.name, open, close)]))})` });
+        return sql`SELECT ${reads(unqualified)}, ${score} AS ${rank}, ${marked} AS ${sql(flags.highlight)} FROM ${source} WHERE ${filter} ORDER BY ${rank} DESC, ${keys(prefix)} LIMIT ${count}`;
     };
 
     // --- [DDL]
@@ -174,13 +147,54 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     };
     static readonly role: Engine['Service']['role'] = (sql) => Effect.map(SqlSchema.findOne({ Request: Schema.Void, Result: Schema.Struct({ role: Schema.String }), execute: () => sql`SELECT current_user AS role` })(undefined), Struct.get('role'));
     static readonly open: Engine['Service']['open'] = () => Effect.void;
-    static readonly observe = (sql: SqlClient.SqlClient, excludedPrefixes: readonly string[]) =>
-        Effect.map(
-            SqlSchema.findOne({
-                Request: Names,
-                Result: Schema.Struct({ observed: Schema.fromJsonString(Pg) }),
-                execute: (prefixes) =>
-                    sql`WITH relations AS (SELECT c.oid, c.relname, c.relowner, c.relacl, c.relrowsecurity, c.relforcerowsecurity, c.relnamespace = pg_my_temp_schema() AS scratch FROM pg_class c WHERE c.relnamespace IN (current_schema()::regnamespace, pg_my_temp_schema()) AND c.relkind = 'r' AND NOT EXISTS (SELECT 1 FROM unnest(${prefixes}::text[]) p(prefix) WHERE starts_with(c.relname::text, p.prefix))),
+    static readonly plan: Engine['Service']['plan'] = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>) {
+        const rendered = catalog.tables.map((declared) => ({ declared, rendered: Reconcile.render(sql, Pg, catalog, declared) }));
+        const indexes = rendered.flatMap(({ rendered: table }) => table.indexes);
+        const required = Array.dedupe(indexes.flatMap(Struct.get('extensions')));
+        const owned = Array.dedupeWith(Array.getSomes(indexes.map(({ configuration }) => configuration)), (self, that) => self.name === that.name);
+        const settings = Option.toArray(catalog.timeouts).flatMap(({ lock, transaction }) => Record.collect({ lock_timeout: lock, transaction_timeout: transaction }, (name, limit) => ({ name, value: `${Duration.toMillis(limit)}ms` })));
+        const preamble = settings.map(({ name, value }) => sql`SET LOCAL ${sql.literal(name)} = ${sql.literal(Reconcile.literal(value))}`);
+        const prelude = { required, filters: Array.dedupe(owned.flatMap(Struct.get('filters'))), declared: owned };
+        yield* Effect.all(preamble, { discard: true });
+        const { path } = yield* SqlSchema.findOne({
+            Request: Prelude,
+            Result: Schema.Struct({ path: Schema.String }),
+            execute: (names) =>
+                sql`SELECT pg_advisory_xact_lock(hashtextextended(current_schema(), 0))::text AS lock, set_config('search_path', concat_ws(', ', quote_ident(current_schema()),
+                            (SELECT string_agg(quote_ident(n.nspname), ', ' ORDER BY n.nspname) FROM pg_namespace n WHERE n.oid NOT IN (current_schema()::regnamespace, 'pg_catalog'::regnamespace)
+                                AND (EXISTS (SELECT 1 FROM pg_extension e WHERE e.extnamespace = n.oid AND e.extname = ANY(${names.required}::text[])) OR EXISTS (SELECT 1 FROM pg_ts_dict d WHERE d.dictnamespace = n.oid AND d.dictname = ANY(${names.filters}::text[])))), 'pg_temp'), true) AS path`,
+        })(prelude);
+        const { migrator, absent, configurations } = yield* SqlSchema.findOne({
+            Request: Prelude,
+            Result: Schema.Struct({
+                migrator: Schema.String,
+                absent: Names,
+                configurations: Schema.fromJsonString(
+                    Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) })),
+                ),
+            }),
+            execute: (names) =>
+                sql`WITH maps AS (SELECT m.mapcfg, m.maptokentype, array_agg(m.mapdict::regdictionary::text ORDER BY m.mapseqno) AS dictionaries FROM pg_ts_config_map m GROUP BY m.mapcfg, m.maptokentype),
+                            declared AS (SELECT d.name, d.configuration::regconfig::oid AS base, (SELECT c.oid FROM pg_ts_config c WHERE c.cfgnamespace = current_schema()::regnamespace AND c.cfgname = d.name) AS live, array(SELECT quote_ident(f) FROM unnest(d.filters) f) AS filters FROM json_to_recordset(${names.declared}::json) d(name text, configuration text, filters text[])),
+                            tokens AS (SELECT d.name, t.tokid, t.alias, CASE WHEN b.dictionaries IS NOT NULL THEN d.filters || b.dictionaries END AS wanted, l.dictionaries AS now
+                                FROM declared d JOIN pg_ts_config c ON c.oid = d.base CROSS JOIN ts_token_type(c.cfgparser) t
+                                LEFT JOIN maps b ON (b.mapcfg, b.maptokentype) = (d.base, t.tokid) LEFT JOIN maps l ON (l.mapcfg, l.maptokentype) = (coalesce(d.live, d.base), t.tokid))
+                            SELECT current_user::text AS migrator,
+                                array(SELECT a.name FROM (SELECT x FROM unnest(${names.required}::text[]) x WHERE NOT EXISTS (SELECT 1 FROM pg_extension e WHERE e.extname = x)
+                                    UNION SELECT f FROM unnest(${names.filters}::text[]) f WHERE NOT EXISTS (SELECT 1 FROM pg_ts_dict d WHERE d.dictname = f) AND EXISTS (SELECT 1 FROM pg_available_extensions v WHERE v.name = f)) a(name) ORDER BY a.name) AS absent, array_to_json(array(SELECT json_build_object('name', d.name, 'configuration', d.base::regconfig::text, 'configured', d.live IS NOT NULL,
+                                'drift', array(SELECT json_build_object('tokens', array_agg(k.alias ORDER BY k.tokid), 'dictionaries', k.wanted) FROM tokens k WHERE k.name = d.name AND k.now IS DISTINCT FROM k.wanted GROUP BY k.wanted)) FROM declared d))::text AS configurations`,
+        })(prelude);
+        const [existing, drifted] = [configurations.filter(Struct.get('configured')).map(Struct.get('name')), configurations.filter(({ drift }) => Array.isReadonlyArrayNonEmpty(drift)).map(Struct.get('name'))];
+        const ready = ({ extensions: needed, configuration }: (typeof indexes)[number]) => !needed.some((name) => absent.includes(name)) && Option.toArray(configuration).every(({ name }) => existing.includes(name));
+        const role = Option.match(runtime, { onNone: () => sql.literal('PUBLIC'), onSome: (name) => sql`${sql(name)}` });
+        const block = (statements: readonly Statement.Statement<object>[]) => sql`DO ${sql.literal(Reconcile.literal(`BEGIN ${statements.map((statement) => `${statement.compile(true)[0]};`).join(' ')} END`))}`;
+        const scratched = rendered.map(({ declared }) => Reconcile.render(sql, Pg, catalog, declared, { target: (name) => sql`pg_temp.${sql(name)}`, inline: Function.constFalse }));
+        yield* block(scratched.flatMap((table) => [sql`${table.create} ON COMMIT DROP`, ...table.indexes.filter(ready).map(({ text }) => text('')), ...Option.toArray(table.policy).map(({ text }) => text(role))]));
+        const { observed: live } = yield* SqlSchema.findOne({
+            Request: Names,
+            Result: Schema.Struct({ observed: Schema.fromJsonString(Pg) }),
+            execute: (prefixes) =>
+                sql`WITH relations AS (SELECT c.oid, c.relname, c.relowner, c.relacl, c.relrowsecurity, c.relforcerowsecurity, c.relnamespace = pg_my_temp_schema() AS scratch FROM pg_class c WHERE c.relnamespace IN (current_schema()::regnamespace, pg_my_temp_schema()) AND c.relkind = 'r' AND NOT EXISTS (SELECT 1 FROM unnest(${prefixes}::text[]) p(prefix) WHERE starts_with(c.relname::text, p.prefix))),
                     constraints AS (SELECT n.oid, n.conrelid, n.conname, n.contype, n.convalidated, n.confrelid, n.confdeltype,
                         array(SELECT a.attname::text FROM unnest(n.conkey) WITH ORDINALITY k(number, position) JOIN pg_attribute a ON (a.attrelid, a.attnum) = (n.conrelid, k.number) ORDER BY k.position) AS columns
                         FROM pg_constraint n JOIN relations r ON r.oid = n.conrelid),
@@ -202,26 +216,8 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                         'policies', array(SELECT json_build_object('name', p.polname, 'using', pg_get_expr(p.polqual, p.polrelid, true), 'check', pg_get_expr(p.polwithcheck, p.polrelid, true), 'roles', p.polroles::regrole[]::text[]) FROM pg_policy p WHERE p.polrelid = r.oid)) AS relation
                         FROM relations r)
                     SELECT json_build_object('tables', array(SELECT d.relation FROM described d WHERE NOT d.scratch), 'scratch', array(SELECT d.relation FROM described d WHERE d.scratch))::text AS observed`,
-            })(excludedPrefixes),
-            Struct.get('observed'),
-        );
-    static readonly plan: Engine['Service']['plan'] = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>) {
-        const rendered = catalog.tables.map((declared) => ({ declared, rendered: Reconcile.render(sql, Pg, catalog, declared) }));
-        const indexes = rendered.flatMap(({ rendered: table }) => table.indexes);
-        const required = Array.dedupe(indexes.flatMap(Struct.get('extensions')));
-        const owned = Array.dedupeWith(Array.getSomes(indexes.map(({ configuration }) => configuration)), (self, that) => self.name === that.name);
-        const settings = PgPrelude.settings(catalog);
-        const preamble = settings.map(({ name, value }) => sql`SET LOCAL ${sql.literal(name)} = ${sql.literal(Reconcile.literal(value))}`);
-        const { prelude, path } = yield* PgPrelude.open(sql, preamble, required, Array.dedupe(owned.flatMap(Struct.get('filters'))), owned);
-        const { migrator, absent, configurations } = prelude;
-        const [existing, drifted] = [configurations.filter(Struct.get('configured')).map(Struct.get('name')), configurations.filter(({ drift }) => Array.isReadonlyArrayNonEmpty(drift)).map(Struct.get('name'))];
-        const ready = ({ extensions: needed, configuration }: (typeof indexes)[number]) => !needed.some((name) => absent.includes(name)) && Option.toArray(configuration).every(({ name }) => existing.includes(name));
-        const role = Option.match(runtime, { onNone: () => sql.literal('PUBLIC'), onSome: (name) => sql`${sql(name)}` });
-        const block = (statements: readonly Statement.Statement<object>[]) => sql`DO ${sql.literal(Reconcile.literal(`BEGIN ${statements.map((statement) => `${statement.compile(true)[0]};`).join(' ')} END`))}`;
-        const scratched = rendered.map(({ declared }) => Reconcile.render(sql, Pg, catalog, declared, { target: (name) => sql`pg_temp.${sql(name)}`, inline: Function.constFalse }));
-        yield* block(scratched.flatMap((table) => [sql`${table.create} ON COMMIT DROP`, ...table.indexes.filter(ready).map(({ text }) => text('')), ...Option.toArray(table.policy).map(({ text }) => text(role))]));
-        const live = yield* Pg.observe(sql, catalog.excludedPrefixes);
-        const resolved = Reconcile.diff(sql, catalog, rendered, { tables: live.tables, columns: ({ columns }) => columns, references: ({ references }) => references });
+        })(catalog.excludedPrefixes);
+        const resolved = Reconcile.diff(sql, catalog, rendered, live.tables);
         const populated = yield* resolved.populated;
         const privileges = [...Option.toArray(runtime).map((grantee) => ({ grantee, all: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] })), ...Option.toArray(catalog.reader).map((grantee) => ({ grantee, all: ['SELECT'] }))].filter(({ grantee }) => grantee !== migrator);
         const grants = (on: Statement.Fragment, held: readonly (readonly [string, string])[]) =>
@@ -240,21 +236,8 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const shape = (row: (typeof PgTable.Type)['indexes'][number], rename: (column: string) => string) => ({ unique: row.unique, method: row.method, width: row.width, classes: row.classes, predicate: row.predicate, keys: row.keys.map(({ column, text }) => (column ? rename(text) : text)) });
         const checks = ({ checks: rows }: typeof PgTable.Type, column: string) =>
             Array.sort(
-                rows.filter(({ columns }) => Equal.equals(columns, [column])).map(({ definition }) => definition.replaceAll(identifiers, (token) => (token === column || token === `"${column.replaceAll('"', '""')}"` ? placeholder : token))),
+                rows.filter(({ columns }) => Equal.equals(columns, [column])).map(({ definition }) => definition.replaceAll(/"(?:[^"]|"")*"|[\p{L}_][\p{L}\p{N}_$]*/gu, (token) => (token === column || token === `"${column.replaceAll('"', '""')}"` ? '$column' : token))),
                 Order.String,
-            );
-        const drifts = (table: typeof PgTable.Type, desired: typeof PgTable.Type, now: (typeof PgTable.Type)['columns'][number], definition: { readonly name: string; readonly digest: number; readonly projection: Column['projection'] }, digested: Option.Option<number>) =>
-            Option.exists(
-                Array.findFirst(desired.columns, (row) => row.name === definition.name),
-                (wants) =>
-                    now.type !== wants.type ||
-                    now.required !== wants.required ||
-                    now.generated !== wants.generated ||
-                    (wants.generated === '' && now.expression !== wants.expression) ||
-                    Option.match(digested, {
-                        onNone: () => !Equal.equals(checks(table, now.name), checks(desired, definition.name)),
-                        onSome: (digest) => Option.isNone(definition.projection) && digest !== definition.digest,
-                    }),
             );
         const analyze = (entry: (typeof resolved.matched)[number], desired: typeof PgTable.Type) => {
             const { name } = entry.declared;
@@ -356,7 +339,21 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             replaced: [],
             populated,
             session: [...settings, { name: 'search_path', value: path }],
-            drifted: ({ declared, live: table }, { definition, found, recorded }) => Option.exists(Option.all({ desired: scratch(declared.name), now: found }), ({ desired, now }) => drifts(table, desired, now, definition, Option.flatMapNullishOr(recorded, Struct.get('digest')))),
+            drifted: ({ declared, live: table }, { definition, found, recorded }) =>
+                Option.exists(Option.all({ desired: scratch(declared.name), now: found }), ({ desired, now }) =>
+                    Option.exists(
+                        Array.findFirst(desired.columns, (row) => row.name === definition.name),
+                        (wants) =>
+                            now.type !== wants.type ||
+                            now.required !== wants.required ||
+                            now.generated !== wants.generated ||
+                            (wants.generated === '' && now.expression !== wants.expression) ||
+                            Option.match(Option.flatMapNullishOr(recorded, Struct.get('digest')), {
+                                onNone: () => !Equal.equals(checks(table, now.name), checks(desired, definition.name)),
+                                onSome: (digest) => Option.isNone(definition.projection) && digest !== definition.digest,
+                            }),
+                    ),
+                ),
             preamble,
             opening: [
                 ...absent.map((extension) => sql`CREATE EXTENSION IF NOT EXISTS ${sql(extension)}`),
@@ -391,6 +388,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         });
     });
 }
+const Prelude = Schema.Struct({ required: Names, filters: Names, declared: Schema.fromJsonString(Schema.Array(Pg.Configuration)) });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

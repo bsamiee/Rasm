@@ -24,7 +24,7 @@ const saveRequest = PortfolioClient.runtime
                 Effect.flatMap((payload) => (submitted.publish ? api.documents.publish : api.documents.save)({ payload, headers: { 'if-match': submitted.revision } })),
                 Effect.mapError((error) => ({ error, portfolio: submitted.portfolio })),
             );
-            get.registry.update(draft, AsyncResult.map(Struct.evolve({ saved: () => submitted.portfolio, revision: () => response.headers['draft-etag'] })));
+            get.registry.update(draft, loaded.modify(Struct.evolve({ saved: () => submitted.portfolio, revision: () => response.headers['draft-etag'] })));
             return submitted;
         }),
     )
@@ -32,16 +32,16 @@ const saveRequest = PortfolioClient.runtime
 const reloadRequest = PortfolioClient.runtime
     .fn(
         Effect.fnUntraced(function* (_: undefined, get) {
-            get.registry.set(draft, AsyncResult.success(yield* load));
-            get.registry.set(saveRequest, Atom.Reset);
+            get.set(draft, AsyncResult.success(yield* load));
+            get.set(saveRequest, Atom.Reset);
         }),
     )
     .pipe(Atom.keepAlive);
 const deleteRequest = PortfolioClient.runtime
     .fn(
         Effect.fnUntraced(function* (id: typeof AssetId.Type, get) {
-            yield* PortfolioClient.use((api) => api.assets.delete({ params: { id } })).pipe(Effect.tapError(() => Effect.sync(() => get.registry.refresh(recoveryRequest))));
-            get.registry.update(draft, AsyncResult.map(assets.modify(Record.remove(id))));
+            yield* PortfolioClient.use((api) => api.assets.delete({ params: { id } })).pipe(Effect.tapError(() => Effect.sync(() => get.refresh(recoveryRequest))));
+            get.registry.update(draft, assets.modify(Record.remove(id)));
         }),
     )
     .pipe(Atom.keepAlive);
@@ -50,17 +50,20 @@ const discardRequest = PortfolioClient.runtime
         Effect.fnUntraced(function* (upload: typeof Recovery.Type, get) {
             yield* PortfolioClient.use((api) => api.assets.discard({ params: { id: upload.id } })).pipe(Effect.mapError((error) => ({ upload, error })));
             if (upload.status === 'removing') {
-                get.registry.update(draft, AsyncResult.map(assets.modify(Record.remove(upload.id))));
+                get.registry.update(draft, assets.modify(Record.remove(upload.id)));
             }
-            get.registry.refresh(recoveryRequest);
+            get.refresh(recoveryRequest);
         }),
     )
     .pipe(Atom.keepAlive);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const assets = Optic.id<Atom.Success<typeof draft>>().key('assets');
-const portfolio = Optic.id<Atom.Success<typeof draft>>().key('portfolio');
+const loaded = Optic.id<Atom.Type<typeof draft>>()
+    .refine(AsyncResult.isSuccess)
+    .compose(Optic.makeLens((result: AsyncResult.Success<Atom.Success<typeof draft>, Atom.Failure<typeof draft>>) => result.value, AsyncResult.success));
+const assets = loaded.key('assets');
+const portfolio = loaded.key('portfolio');
 const hero = portfolio.optionalKey('hero');
 const updateEntry = (id: typeof EntryId.Type, update: (entry: typeof Entry.Type) => typeof Entry.Type) => portfolio.key('entries').modify(Array.map((item) => (item.id === id ? update(item) : item)));
 

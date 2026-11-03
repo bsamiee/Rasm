@@ -44,7 +44,7 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 
 - Cases differing in data are field sets of one tagged union, cases differing in values no rule decides are rows of an `as const` table
 - Tables crossing varying axes are one `Array.cartesianWith` over the axes, each row computed from its pair
-- Members differing in a number, flag, literal, or applied function are one member taking it as a parameter
+- Members differing in a number, flag, literal, or applied function are one member taking that value alone
 - Parameters default to a value an owner states (a host's resolved option, a standard), and every other parameter is required
 - Parameters every caller passes one value for fold into their owner, and fields no caller acts on go
 - Declarations read once sit inline, a value read twice is a `const` named for its fact
@@ -80,6 +80,7 @@ const summary = (lines: Array.NonEmptyReadonlyArray<Line>) => ({
 Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no absent case:
 - Native array methods state a direct `filter`, `every`, `join`, or `reduce`, other traversals `Array`, `Record`, `Struct`, and `Iterable` functions
 - `Record.collect` maps entries to an array and `Record.filterMap` keeps entries a lookup finds, `Object.entries` pairs restating both
+- `Struct.renameKeys` maps keys to the spelling a host reads, `Struct.evolveKeys` computes them, a destructure rebuilding the object restating both
 - Named reductions (`BigDecimal.sumAll`, `Array.max`, `Array.groupBy`) state their fold
 - `reduce` with a seed folds a reduction no member names, `Array.mapAccum(xs, seed, (state, x) => [next, y])` maps under a running state
 - `Array.makeBy` and `Array.range` generate sequences from a length or bounds
@@ -144,7 +145,7 @@ class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
 }) {
-    static readonly unavailable = (subject: string) => (cause: unknown) => StoreError.make({ reason: { _tag: 'Unavailable' }, subject, cause });
+    static readonly of = (reason: StoreError['reason'], subject: string) => (cause?: unknown) => StoreError.make({ reason, subject, cause });
 
     override get message() {
         return [`${this.reason._tag}: ${this.subject}`, ...(this.cause === undefined ? [] : [String(this.cause)])].join(': ');
@@ -152,11 +153,11 @@ class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique
 }
 ```
 
-`unavailable(key)` is the `catch` of every host call reaching the store, and the message renders a foreign cause beside reason and subject:
+`StoreError.of({ _tag: 'Unavailable' }, key)` is the `catch` of every host call reaching the store, and the message renders a foreign cause beside reason and subject:
 - Instances are effects failing with themselves, `return yield*` raises one in a generator and a handler returning one fails with it
 - Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged
 - Codecs over a value the program built die through `Effect.orDie`
-- Arity and kind refusals fail with `Cause.IllegalArgumentError`, and a package error declares only failures no host error states
+- Absences and refused arguments fail with the `Cause` error naming them (`NoSuchElementError`, `IllegalArgumentError`) and a message from their values
 - Foreign failures become a `cause` where the package adds a subject a caller acts on
 
 ### [05.1]-[COMPOSITION]
@@ -219,7 +220,7 @@ const status = Issuance.match({
 - `Effect.abortSignal` yields a signal its scope aborts on close, for a host's `abortSignal` or `{ signal }` option
 
 ```ts
-const read = Effect.fn('read')((key: string) => Effect.tryPromise({ try: (signal) => bucket.get(key, { signal }), catch: StoreError.unavailable(key) }), Effect.map(Option.fromNullOr));
+const read = Effect.fn('read')((key: string) => Effect.tryPromise({ try: (signal) => bucket.get(key, { signal }), catch: StoreError.of({ _tag: 'Unavailable' }, key) }), Effect.map(Option.fromNullOr));
 ```
 
 `bucket.get` is a host call returning `Promise<Uint8Array | null>`.
@@ -247,7 +248,7 @@ Quantities with a unit are values of their module, a plain number holds a count 
 - `BigDecimal` holds money and exact decimal arithmetic, `ByteSize` holds sizes, and `Duration.format` and `ByteSize.format` render both
 - `SecureRandom.SecureRandom` service's `uuidV7` creates identifiers, module `uuidV7Unsafe` where code reads no service (an event handler)
 - `Intl` instances segment words and format numbers, dates, lists, and plurals in a caller locale, else the host's, each built once outside its reader
-- Plural forms are an `Intl.LDMLPluralRule` record with a required `other`, indexed by the `select(count)` category, a count comparison restating it
+- Plural forms are an `Intl.LDMLPluralRule` record of whole phrases over the formatted count, `other` required, a count comparison or suffix rule restating it
 - `Intl.Collator(locale, { usage: 'search', sensitivity: 'accent' }).compare(a, b) === 0` states name equality ignoring case alone
 
 ## [08]-[MODULES]
@@ -259,7 +260,8 @@ Modules hold one concept, and a class holds the concept's data with its operatio
 - Modules loaded by name are a table of `() => import('<path>')` thunks typed by the import, a schema over the loaded module restating it
 - Wrappers, forwarders, re-exports, and aliases merge into the declaration they pass through
 - Modules export named declarations, a default export stands where a host loads one
-- Types, `const` values and operations naming one concept share one name under one `export { X }`, `erasableSyntaxOnly` refuses a `namespace`
-- Package `exports` entries are the import paths consumers use
+- Union schemas hold their operations as members `Object.assign` puts on them, `erasableSyntaxOnly` refusing a `namespace`
+- Types, schemas, and operations of one concept share one name under one `export { X }`, a `thing`, `ThingView`, or `thingFor` beside it restating them
+- Imports name the paths package `exports` entries declare, a `paths` mapping or file path into a dependency restating them
 - Modules load without side effects, a registry, cache, or connection builds in the layer that owns it
 - Use `typescript-coding-effect` for Effect module families, tests, and telemetry

@@ -12,10 +12,8 @@ const owner = (value: unknown): Document | undefined => {
 };
 const specifier = (value: unknown): string | undefined => {
     const [document, parent, uuid] = [owner(value), read(value, 'parent'), read(value, 'uuid')];
-    const layers = is<Document>('Document', parent) || is<Layer>('Layer', parent) ? parent.layers : undefined;
-    const [kind, siblings] = is<Artboard>('Artboard', value) ? (['artboard', document?.artboards] as const) : (['layer', layers] as const);
     if (document === undefined) {
-        return;
+        return undefined;
     }
     const reference = step('document', ['fullName', String(document.fullName)]);
     if (document === value) {
@@ -24,6 +22,7 @@ const specifier = (value: unknown): string | undefined => {
     if (isPageItem(value) && typeof uuid === 'string') {
         return `${reference}${step('pageItem', ['uuid', uuid])}`;
     }
+    const [kind, siblings] = is<Artboard>('Artboard', value) ? (['artboard', document.artboards] as const) : (['layer', is<Document>('Document', parent) || is<Layer>('Layer', parent) ? parent.layers : undefined] as const);
     for (let index = 0; index < (siblings?.length ?? 0); index += 1) {
         if (siblings?.[index] === value) {
             return `${specifier(parent)}${indexed(kind, index)}`;

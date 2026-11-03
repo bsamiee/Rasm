@@ -2,7 +2,7 @@
 id: no-filter-by-membership
 language: tsx
 severity: error
-ignores: ['plugins/function-hooks/**']
+ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
 utils:
     collection:
         matches: {effect-module: {name: {regex: '\b(Array|Chunk|HashSet)$'}}}

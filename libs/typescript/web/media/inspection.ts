@@ -13,11 +13,10 @@ type Options = ImageEncodeOptions & { readonly minimumWidth: number; readonly ra
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const { $is, $match, Image, Video, Pdf } = Data.taggedEnum<Inspection>();
-const failure = (_tag: 'Unreadable' | 'Unsupported', file: File) => (cause: unknown) => MediaError.make({ reason: { _tag }, subject: file.name, cause });
 const bitmap = (decode: () => Promise<ImageBitmap>, fail: (cause: unknown) => MediaError) => Effect.acquireRelease(Effect.tryPromise({ try: decode, catch: fail }), (opened) => Effect.sync(() => opened.close()));
 const image = Effect.fnUntraced(function* (file: File, { minimumWidth, ratio, concurrency, ...encoding }: Options) {
-    const unsupported = failure('Unsupported', file);
-    const source = yield* bitmap(() => createImageBitmap(file), failure('Unreadable', file));
+    const unsupported = MediaError.of('Unsupported', file.name);
+    const source = yield* bitmap(() => createImageBitmap(file), MediaError.of('Unreadable', file.name));
     const renditions = yield* Effect.forEach(
         Array.unfold(Math.floor(source.width / ratio), (width) => (width >= minimumWidth ? Option.some([width, Math.floor(width / ratio)] as const) : Option.none())),
         Effect.fnUntraced(function* (width: number) {
@@ -42,13 +41,10 @@ const video = Effect.fnUntraced(function* (file: File) {
                 URL.revokeObjectURL(opened.url);
             }),
     );
+    const unreadable = MediaError.of('Unreadable', file.name);
     return yield* Effect.callback<Inspection, MediaError>((resume, signal) => {
-        element.addEventListener(
-            'loadedmetadata',
-            () => resume(element.videoWidth > 0 && element.videoHeight > 0 ? Effect.succeed(Video({ width: element.videoWidth, height: element.videoHeight, duration: Duration.seconds(element.duration) })) : MediaError.make({ reason: { _tag: 'Unreadable' }, subject: file.name })),
-            { once: true, signal },
-        );
-        element.addEventListener('error', () => resume(failure('Unreadable', file)(element.error)), { once: true, signal });
+        element.addEventListener('loadedmetadata', () => resume(element.videoWidth > 0 && element.videoHeight > 0 ? Effect.succeed(Video({ width: element.videoWidth, height: element.videoHeight, duration: Duration.seconds(element.duration) })) : unreadable()), { once: true, signal });
+        element.addEventListener('error', () => resume(unreadable(element.error)), { once: true, signal });
         element.src = url;
     });
 }, Effect.scoped);
@@ -62,7 +58,7 @@ const read = Effect.fn('read')((file: File, options: Options) =>
                 Effect.map((pages) => Pdf({ pages })),
             ),
         ),
-        Match.orElse(() => MediaError.make({ reason: { _tag: 'Unsupported' }, subject: file.name })),
+        Match.orElse(() => MediaError.of('Unsupported', file.name)()),
     ),
 );
 const Inspection = { read, $is, $match };

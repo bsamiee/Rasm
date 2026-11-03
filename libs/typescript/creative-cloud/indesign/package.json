@@ -9,12 +9,11 @@
     },
     "exports": {
         "./contract": "./contract.ts",
-        "./change": "./requests/change.ts",
         "./host": "./host.ts",
         "./model": "./dom/model.ts",
-        "./settings": "./documents/settings.ts",
-        "./transactions": "./dom/transactions.ts",
-        "./typesetting": "./requests/typesetting.ts"
+        "./requests": "./requests.ts",
+        "./settings": "./dom/settings.ts",
+        "./transactions": "./dom/transactions.ts"
     },
     "dependencies": {
         "@rasm/automation": "workspace:*",

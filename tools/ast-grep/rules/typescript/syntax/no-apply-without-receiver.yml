@@ -25,7 +25,7 @@ rewriters:
       fix: ($NODE)
     - id: spread
       rule: {pattern: $NODE}
-      fix: ...$NODE
+      fix: '...$NODE'
 transform:
     CALLEE: rewrite($F, rewriters=[bare, wrapped])
     SPREADS: rewrite($SPREAD, rewriters=[spread])

@@ -5,7 +5,7 @@ import { Match, Record, Struct } from 'effect';
 import type { ReactNode } from 'react';
 import { choice, descriptionLabel, details, sheetLabel } from '#/media/labels.ts';
 import { Asset, type Assets } from '#/model/asset.ts';
-import { type Placement, percentBounds } from '#/model/placement.ts';
+import { Placement } from '#/model/placement.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -42,8 +42,9 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                                                 <Choice {...choice} label="Framing" onChange={(option) => onChange({ ...photograph, framing: option.framing })} options={framings} value={framing.mode} />
                                                 {framing.mode === 'cover' && (
                                                     <div className="field-pair">
-                                                        <Field.Slider label="Horizontal focal point" maxValue={percentBounds.maximum} minValue={percentBounds.minimum} onChange={(x) => onChange({ ...photograph, framing: { ...framing, x } })} value={framing.x} />
-                                                        <Field.Slider label="Vertical focal point" maxValue={percentBounds.maximum} minValue={percentBounds.minimum} onChange={(y) => onChange({ ...photograph, framing: { ...framing, y } })} value={framing.y} />
+                                                        {Record.collect({ x: 'Horizontal', y: 'Vertical' } as const, (axis, direction) => (
+                                                            <Field.Slider key={axis} label={`${direction} focal point`} maxValue={Placement.focus.maximum} minValue={Placement.focus.minimum} onChange={(position) => onChange({ ...photograph, framing: { ...framing, [axis]: position } })} value={framing[axis]} />
+                                                        ))}
                                                     </div>
                                                 )}
                                             </>

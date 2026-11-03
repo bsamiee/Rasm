@@ -19,7 +19,7 @@ export default handle({
     open: ({ file: url }) => {
         const project = app.open(file(url));
         if (project === null) {
-            throw new Error(`After Effects opened no project from ${url}`);
+            throw illegal(`${url} opened no project`);
         }
         return { type: reflected(project)?.name, specifier: step('project'), name: project.file?.displayName, valid: true };
     },

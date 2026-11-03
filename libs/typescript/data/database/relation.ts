@@ -1,5 +1,5 @@
 import { Array, Data, Effect, Equal, Option, Record, Schema, String, Struct } from 'effect';
-import { SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
+import { SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import { Column, type Field, type Fields, type Where } from '#/column';
 import { Engine } from '#/engine';
 import type { Reconcile } from '#/reconcile';
@@ -32,11 +32,6 @@ interface RelationOptions<F extends Fields> {
 }
 type Written<F extends Fields, O extends RelationOptions<F>> = Schema.Struct.Type<Omit<F, keyof O['projections']>>;
 type Selection<F extends Fields> = { readonly [K in Field<F>]?: Array.NonEmptyReadonlyArray<F[K]['Type']> | { readonly not: Array.NonEmptyReadonlyArray<F[K]['Type']> } };
-type Fragments = ReturnType<typeof Engine.fragments>;
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const like = /[\\%_]/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -79,7 +74,7 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
     static readonly search = <F extends Fields, O extends RelationOptions<F> & { readonly search: NonNullable<RelationOptions<F>['search']> }>(relation: Relation<F, O>, text: string, limit: number, marks?: { readonly open: string; readonly close: string }) =>
         Option.match(relation.queries.search, {
             onNone: () => Effect.succeed([]),
-            onSome: (find) => find({ text, pattern: `%${text.replaceAll(like, (character) => `\\${character}`)}%`, count: limit, marks: Option.fromUndefinedOr(marks) }),
+            onSome: (find) => find({ text, pattern: `%${text.replaceAll(/[\\%_]/gu, '\\$&')}%`, count: limit, marks: Option.fromUndefinedOr(marks) }),
         });
     static readonly withTenant = <F extends Fields, O extends RelationOptions<F> & { readonly tenant: NonNullable<RelationOptions<F>['tenant']> }, A, E, R>(relation: Relation<F, O>, id: F[O['tenant']['column']]['Type'], effect: Effect.Effect<A, E, R>) =>
         Option.match(relation.tenant, {
@@ -130,31 +125,29 @@ const definition = <F extends Fields>(fields: F, options: RelationOptions<F>) =>
 };
 
 // --- [QUERIES]
-const perform = (relation: Pick<Relation, 'name' | 'columns' | 'key'>) => (statement: (context: Fragments) => Effect.Effect<readonly unknown[], SqlError.SqlError, SqlClient.SqlClient>) => Effect.flatMap(Effect.all([SqlClient.SqlClient, Engine]), ([sql, engine]) => statement(Engine.fragments(sql, engine, relation)));
-const conditions = (context: Fragments, all: readonly Column[], where: { readonly [field: string]: string | { readonly not: string } | undefined }) =>
-    context.sql.and(all.flatMap((entry) => Array.fromNullishOr(where[entry.field]).map((rule) => (typeof rule === 'string' ? context.matching(entry, rule) : context.sql`(${context.matching(entry, rule.not)}) IS NOT TRUE`))));
-const selecting = (context: Fragments, filter: Statement.Fragment, ordering: (scope: Statement.Fragment) => Statement.Fragment, limit: Option.Option<number>, group: Option.Option<Column>) => {
-    const { sql, owner, prefix, unqualified, reads, flags } = context;
-    const outer = sql.literal('t.');
+const selecting = (
+    { sql, owner, prefix, unqualified, reads, keys, flags, where: matching }: ReturnType<typeof Engine.fragments>,
+    columns: Relation['columns'],
+    { where, order, limit, per }: { readonly where: Parameters<ReturnType<typeof Engine.fragments>['where']>[0]; readonly order: ReadonlyArray<string | { readonly descending: string }>; readonly limit: Option.Option<number>; readonly per: Option.Option<string> },
+) => {
+    const ordering = (scope: Statement.Fragment) => sql.csv([...order.flatMap((entry) => Option.toArray(Record.get(columns, typeof entry === 'string' ? entry : entry.descending)).map(({ name }) => sql`${scope}${sql(name)}${sql.literal(typeof entry === 'string' ? '' : ' DESC')}`)), keys(scope)]);
+    const [outer, filter] = [sql.literal('t.'), matching(where)];
     const filtered = sql`SELECT ${reads(unqualified)} FROM ${owner} WHERE ${filter} ORDER BY ${ordering(prefix)}`;
-    return Option.match(Option.all({ count: limit, by: group }), {
+    return Option.match(Option.all({ count: limit, by: Option.flatMap(per, (field) => Record.get(columns, field)) }), {
         onNone: () => Option.match(limit, { onNone: () => filtered, onSome: (count) => sql`${filtered} LIMIT ${count}` }),
         onSome: ({ count, by }) =>
             sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(flags.position)} <= ${count} ORDER BY ${sql.csv([sql`t.${sql(by.name)}`, ordering(outer)])}`,
     });
 };
 const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Relation, 'name' | 'columns' | 'key' | 'search'>) => {
-    const run = perform(relation);
+    const run = <A, E>(statement: (context: ReturnType<typeof Engine.fragments>) => Effect.Effect<A, E, SqlClient.SqlClient>) => Effect.flatMap(Effect.all([SqlClient.SqlClient, Engine]), ([sql, engine]) => statement(Engine.fragments(sql, engine, relation)));
     const all = Object.values<Column>(relation.columns);
-    const named = (field: string) => Record.get(relation.columns, field);
     const wire = (entry: Column) => (entry.kind === 'blob' ? Schema.encodeTo(Schema.NullOr(Schema.Uint8ArrayFromHex))(entry.schema) : entry.schema);
     const written = all.filter(({ projection }) => Option.isNone(projection));
     const keyed = written.filter(({ name }) => relation.key.includes(name));
     const list = (entry: Column) => Schema.fromJsonString(Schema.NonEmptyArray(wire(entry)));
     const Rows = Schema.Array(Schema.Struct(Record.fromIterableWith(written, (entry) => [entry.field, wire(entry)])));
     const Selection = Schema.Struct(Record.fromIterableWith(all, (entry) => [entry.field, Schema.optionalKey(Schema.Union([list(entry), Schema.Struct({ not: list(entry) })]))]));
-    const ordering = (context: Fragments, order: ReadonlyArray<string | { readonly descending: string }>) => (scope: Statement.Fragment) =>
-        context.sql.csv([...order.flatMap((entry) => Option.toArray(named(typeof entry === 'string' ? entry : entry.descending)).map(({ name }) => context.sql`${scope}${context.sql(name)}${context.sql.literal(typeof entry === 'string' ? '' : ' DESC')}`)), context.keys(scope)]);
     return {
         insert: SqlSchema.findNonEmpty({ Request: Schema.fromJsonString(Rows), Result: schema, execute: (body) => run(({ unqualified, reads, inserting }) => inserting(body, unqualified, reads(unqualified))) }),
         ensure: SqlSchema.findNonEmpty({ Request: Schema.fromJsonString(Rows), Result: schema, execute: (body) => run((context) => context.engine.ensure(context, body)) }),
@@ -178,9 +171,9 @@ const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Rela
         select: SqlSchema.findAll({
             Request: Schema.Struct({ where: Selection, order: Schema.Array(Schema.Union([Schema.String, Schema.Struct({ descending: Schema.String })])), limit: Schema.Option(Schema.Natural), per: Schema.Option(Schema.String) }),
             Result: schema,
-            execute: ({ where, order, limit, per }) => run((context) => selecting(context, conditions(context, all, where), ordering(context, order), limit, Option.flatMap(per, named))),
+            execute: (request) => run((context) => selecting(context, relation.columns, request)),
         }),
-        remove: SqlSchema.findAll({ Request: Selection, Result: schema, execute: (where) => run((context) => context.sql`DELETE FROM ${context.owner} WHERE ${conditions(context, all, where)} RETURNING ${context.reads(context.unqualified)}`) }),
+        remove: SqlSchema.findAll({ Request: Selection, Result: schema, execute: (where) => run(({ sql, owner, reads, unqualified, where: matching }) => sql`DELETE FROM ${owner} WHERE ${matching(where)} RETURNING ${reads(unqualified)}`) }),
         search: Option.map(relation.search, (searchable) =>
             SqlSchema.findAll({
                 Request: Schema.Struct({ text: Schema.String, pattern: Schema.String, count: Schema.Natural, marks: Schema.Option(Schema.Struct({ open: Schema.String, close: Schema.String })) }),
@@ -193,4 +186,4 @@ const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Rela
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Present, Relation, type RelationOptions };
+export { Relation, type RelationOptions };

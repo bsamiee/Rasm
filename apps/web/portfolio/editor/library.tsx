@@ -2,7 +2,6 @@ import { useAtomSet } from '@effect/atom-react';
 import { MenuButton } from '@rasm/ui/collection/menu-button';
 import { focus } from '@rasm/ui/focus';
 import { Array, ByteSize, Optic, Option, Record } from 'effect';
-import { AsyncResult } from 'effect/reactivity';
 import { FileText, Film } from 'lucide-react';
 import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
@@ -11,8 +10,8 @@ import { deleteRequest, draft, hero } from '#/editor/state.ts';
 import { details, entryTitle, format } from '#/media/labels.ts';
 import { MediaFigure } from '#/media/media-figure.tsx';
 import { Asset, type AssetId, type Assets } from '#/model/asset.ts';
-import { placementsFor } from '#/model/placement.ts';
-import { assetIds, type EntryId, type Portfolio } from '#/model/portfolio.ts';
+import { Placement } from '#/model/placement.ts';
+import { type EntryId, Portfolio } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -35,12 +34,12 @@ const Library = ({
     const setDraft = useAtomSet(draft);
     const remove = useAtomSet(deleteRequest);
     const selected = Option.flatMap(assetId, (id) => Record.get(assets, id));
-    const summary = (asset: typeof Asset.Type) => [format.bytes(ByteSize.bytes(asset.size)), asset.kind === 'pdf' ? format.quantity(asset.pages.length, { one: (count) => `${count} sheet`, other: (count) => `${count} sheets` }) : undefined];
+    const summary = (asset: typeof Asset.Type) => [format.bytes(ByteSize.bytes(asset.size)), asset.kind === 'pdf' ? format.quantity(asset.pages.length, { one: (shown) => `${shown} sheet`, other: (shown) => `${shown} sheets` }) : undefined];
     return (
         <section className="border-line min-w-0 border-t pt-5">
             <div className="mb-4 flex items-center justify-between gap-3">
                 <h3 className="text-xl tracking-tight">Library</h3>
-                <span className="text-muted text-xs">{format.quantity(Object.keys(assets).length, { one: (count) => `${count} file`, other: (count) => `${count} files` })}</span>
+                <span className="text-muted text-xs">{format.quantity(Object.keys(assets).length, { one: (shown) => `${shown} file`, other: (shown) => `${shown} files` })}</span>
             </div>
             <div className="editor:grid-cols-2 grid min-w-0 gap-6">
                 <GridList
@@ -63,7 +62,7 @@ const Library = ({
                                 {Asset.match(asset, {
                                     pdf: () => <FileText className="text-muted size-6" />,
                                     video: () => <Film className="text-muted size-6" />,
-                                    image: (image) => <MediaFigure active={false} placement={Array.headNonEmpty(placementsFor(image))} presentation="thumbnail" priority={false} renderMedia={true} />,
+                                    image: (image) => <MediaFigure active={false} placement={Array.headNonEmpty(Placement.fromAsset(image))} presentation="thumbnail" priority={false} renderMedia={true} />,
                                 })}
                             </div>
                             <span className="mt-3 block text-sm wrap-anywhere">{asset.name}</span>
@@ -74,7 +73,8 @@ const Library = ({
                 {Option.match(selected, {
                     onNone: () => <p className="hint">Select file to preview or place</p>,
                     onSome: (asset) => {
-                        const uses = [...(assetIds(portfolio).has(asset.id) ? ['draft'] : []), ...(assetIds(published).has(asset.id) ? ['published work'] : [])];
+                        const uses = Record.keys(Record.filter({ draft: portfolio, 'published work': published }, (document) => Portfolio.assetIds(document).has(asset.id)));
+                        const placement = Array.headNonEmpty(Placement.fromAsset(asset));
                         return (
                             <div className="editor:border-line editor:border-l editor:pl-6 flex min-w-0 flex-col gap-4">
                                 <button
@@ -91,7 +91,7 @@ const Library = ({
                                     {asset.name}
                                 </h4>
                                 <div className="media-h-70 bg-surface grid place-items-center p-3">
-                                    <MediaFigure active={true} placement={Array.headNonEmpty(placementsFor(asset))} presentation="expandable" priority={false} renderMedia={true} />
+                                    <MediaFigure active={true} placement={placement} presentation="expandable" priority={false} renderMedia={true} />
                                 </div>
                                 <div className="actions">
                                     {portfolio.entries.length > 0 && (
@@ -99,7 +99,7 @@ const Library = ({
                                             Add to entry
                                         </MenuButton>
                                     )}
-                                    <button className="button button-ghost" onClick={() => setDraft(AsyncResult.map(Optic.replace(hero, Array.headNonEmpty(placementsFor(asset)))))} type="button">
+                                    <button className="button button-ghost" onClick={() => setDraft(Optic.replace(hero, placement))} type="button">
                                         Use as hero
                                     </button>
                                 </div>

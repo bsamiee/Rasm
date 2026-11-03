@@ -64,9 +64,12 @@ const targets = {
     cloudflare: Effect.fnUntraced(function* ({ rootConfig, workers }: BuildOutput, { name, hostnames, production, named }: Stack) {
         const { config, bundleDir, assetsDir } = workers.default;
         const [path, accountId] = yield* Effect.all([Path.Path, rootConfig.accountId === undefined ? Config.String('CLOUDFLARE_ACCOUNT_ID') : Config.succeed(rootConfig.accountId)]);
-        const triggers = yield* Effect.forEach(config.triggers ?? [], (trigger) =>
-            Match.value(trigger).pipe(
-                Match.discriminators('type')({ fetch: Effect.succeed, queue: Effect.succeed, scheduled: Effect.succeed }),
+        const triggers = config.triggers ?? [];
+        const triggered = <K extends Trigger['type']>(type: K) => triggers.filter((trigger): trigger is Extract<Trigger, { readonly type: K }> => trigger.type === type);
+        yield* Effect.forEach(
+            triggers,
+            Match.type<Trigger>().pipe(
+                Match.whenOr({ type: 'fetch' }, { type: 'queue' }, { type: 'scheduled' }, () => Effect.void),
                 Match.orElse(({ type }) => refuse(`trigger of type ${type}`)),
             ),
         );
@@ -181,16 +184,8 @@ const targets = {
         });
         const zones = yield* Effect.cached(Effect.tryPromise({ try: () => getZones({ account: { id: accountId } }), catch: (cause) => new Cause.UnknownError(cause, `zones of account ${accountId} do not list`) }));
         const routes = yield* Effect.forEach(
-            production
-                ? Array.filterMap(
-                      triggers,
-                      Match.type<Trigger>().pipe(
-                          Match.when({ type: 'fetch' }, ({ pattern, zone }) => ({ pattern, zone })),
-                          Match.result,
-                      ),
-                  )
-                : [],
-            Effect.fnUntraced(function* ({ pattern, zone }: Omit<Extract<Trigger, { readonly type: 'fetch' }>, 'type'>) {
+            production ? triggered('fetch') : [],
+            Effect.fnUntraced(function* ({ pattern, zone }: Extract<Trigger, { readonly type: 'fetch' }>) {
                 const host = Array.headNonEmpty(String.split(pattern, '/')).replaceAll('*', '');
                 const owners = (yield* zones).results.filter((owner) => (zone === undefined ? host === owner.name || host.endsWith(`.${owner.name}`) : zone === owner.name));
                 const { id } = yield* Array.match(owners, {
@@ -207,18 +202,12 @@ const targets = {
             }),
         );
         const consumers = yield* Effect.forEach(
-            Array.filterMap(
-                triggers,
-                Match.type<Trigger>().pipe(
-                    Match.when({ type: 'queue' }, ({ name: queue, deadLetterQueue, maxBatchSize, maxBatchTimeout, maxConcurrency, maxRetries, retryDelay, visibilityTimeoutMs }) => ({
-                        queue,
-                        deadLetterQueue,
-                        settings: { batchSize: maxBatchSize, maxConcurrency: maxConcurrency ?? undefined, maxRetries, maxWaitTimeMs: maxBatchTimeout === undefined ? undefined : Duration.toMillis(Duration.seconds(maxBatchTimeout)), retryDelay, visibilityTimeoutMs },
-                    })),
-                    Match.result,
-                ),
-            ),
-            ({ queue, deadLetterQueue, settings }) => Effect.map(Cache.get(queues, queue), ({ queueId }) => new QueueConsumer(`${name}-${queue}`, { accountId, queueId, scriptName: worker.name, type: 'worker', deadLetterQueue, settings }, { dependsOn: [version] }).queueName),
+            triggered('queue'),
+            Effect.fnUntraced(function* ({ name: queue, deadLetterQueue, maxBatchSize, maxBatchTimeout, maxConcurrency, maxRetries, retryDelay, visibilityTimeoutMs }: Extract<Trigger, { readonly type: 'queue' }>) {
+                const { queueId } = yield* Cache.get(queues, queue);
+                const settings = { batchSize: maxBatchSize, maxConcurrency: maxConcurrency ?? undefined, maxRetries, maxWaitTimeMs: maxBatchTimeout === undefined ? undefined : Duration.toMillis(Duration.seconds(maxBatchTimeout)), retryDelay, visibilityTimeoutMs };
+                return new QueueConsumer(`${name}-${queue}`, { accountId, queueId, scriptName: worker.name, type: 'worker', deadLetterQueue, settings }, { dependsOn: [version] }).queueName;
+            }),
         );
         return {
             url: worker.subdomain.url,
@@ -226,21 +215,7 @@ const targets = {
             domains: hostnames.map((hostname) => new WorkersCustomDomain(`${name}-${hostname}`, { accountId, hostname, service: worker.name }, { dependsOn: [version] }).hostname),
             routes,
             consumers,
-            schedules: new WorkersCronTrigger(
-                name,
-                {
-                    accountId,
-                    scriptName: worker.name,
-                    schedules: Array.filterMap(
-                        triggers,
-                        Match.type<Trigger>().pipe(
-                            Match.when({ type: 'scheduled' }, ({ schedule }) => ({ cron: schedule })),
-                            Match.result,
-                        ),
-                    ),
-                },
-                { dependsOn: [version] },
-            ).schedules,
+            schedules: new WorkersCronTrigger(name, { accountId, scriptName: worker.name, schedules: triggered('scheduled').map(({ schedule }) => ({ cron: schedule })) }, { dependsOn: [version] }).schedules,
         };
     }),
     docker: Effect.fnUntraced(function* ({ root, workers }: BuildOutput, { name, hostnames, production, named }: Stack) {

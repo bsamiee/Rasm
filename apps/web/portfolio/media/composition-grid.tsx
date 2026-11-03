@@ -2,13 +2,13 @@ import { CustomProperties } from '@rasm/ui/custom-properties';
 import { Array, Number } from 'effect';
 import type { ComponentProps } from 'react';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import { type Composition, placementRatio } from '#/model/placement.ts';
+import { type Composition, Placement } from '#/model/placement.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const CompositionGrid = ({ composition, active, presentation, renderMedia }: { composition: typeof Composition.Type; active: boolean; presentation: ComponentProps<typeof MediaFigure>['presentation']; renderMedia: boolean }) => {
     const [first, second] = composition.items;
-    const ratios = Array.map(composition.items, placementRatio);
+    const ratios = Array.map(composition.items, Placement.ratio);
     return (
         <div className="composition" data-align={composition.align} data-presentation={presentation} data-scale={composition.scale}>
             <CustomProperties properties={{ '--ratio-max': Array.max(ratios, Number.Order), '--ratio-sum': Number.sumAll(ratios), '--pair-columns': ratios.map((ratio) => `minmax(0, ${ratio / Array.min(ratios, Number.Order)}fr)`).join(' ') }}>

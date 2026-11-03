@@ -2,8 +2,6 @@ import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDe
 import { Settings } from '@rasm/typography/settings';
 import { Array, Effect, identity, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
 import { Model } from '#/dom/model';
-import { Value } from '#/dom/value';
-import { write } from '#/requests/change';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -147,12 +145,12 @@ class HostSettings extends Schema.Class<HostSettings, { readonly brand: unique s
     static readonly kashidaWidths = KASHIDA_WIDTHS;
     static readonly Thousandths = thousandths;
     static readonly Partial = HostSettings.mapFields(Struct.map(Schema.optionalKey));
-    static readonly read = (target: InDesignDOMObject<unknown>) => Model.read(HostSettings, `settings of ${target.toSpecifier()}`, () => Record.map(HostSettings.fields, (row) => Value.picked(row.from.fields)(target))).pipe(Effect.map(Settings.make));
+    static readonly read = (target: InDesignDOMObject<unknown>) => Model.use(({ picked }) => Model.read(HostSettings, `settings of ${target.toSpecifier()}`, () => Record.map(HostSettings.fields, (row) => picked(row, target)))).pipe(Effect.map(Settings.make));
     static readonly write = Effect.fnUntraced(function* (target: Text | TextDefault, change: typeof Settings.Partial.Type) {
         const merged = yield* Effect.flatMap(HostSettings.read(target), (settings) => Settings.merge(settings, change));
         const { features: tags, ...sections } = yield* Schema.encodeEffect(HostSettings.Partial)(Struct.pick(merged, Struct.keys(change)));
         const members: Record.ReadonlyRecord<string, unknown> = Object.fromEntries(Object.values(sections).flatMap(Object.entries));
-        return yield* write(target, { ...retained(target, members), ...(tags === undefined ? {} : yield* featureMembers(target, tags)) });
+        return yield* Model.write(target, { ...retained(target, members), ...(tags === undefined ? {} : yield* featureMembers(target, tags)) });
     });
 }
 

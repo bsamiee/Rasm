@@ -44,23 +44,11 @@ const unsupported = <C extends { readonly name: string }>(table: string, refusal
 const refusals = ({ name: owner, key, references, columns, indexes }: Relation) => {
     const [all, linked] = [Object.values(columns), [...key, ...references.flatMap((reference) => reference.columns)]];
     const conditions = [...indexes.flatMap(({ where }) => where), ...all.flatMap(({ projection }) => Option.toArray(Option.filter(projection, Column.Projection.$is('Where'))).flatMap(Struct.get('where')))];
-    const constants = (entry: Column) => [
-        ...Option.toArray(entry.default),
-        ...conditions
-            .filter(({ column }) => column === entry.name)
-            .flatMap(({ predicate }) =>
-                Match.value(predicate).pipe(
-                    Match.when(null, () => []),
-                    Match.when({ not: null }, () => []),
-                    Match.when({ not: Match.defined }, ({ not }) => not),
-                    Match.orElse(Function.identity),
-                ),
-            ),
-    ];
+    const constants = (entry: Column) => [...Option.toArray(entry.default), ...conditions.filter(({ column }) => column === entry.name).flatMap(({ values }) => Option.getOrElse(values, () => []))];
     return [
         ...(['unbounded', 'mixed'] as const).flatMap((refusal) => unsupported(owner, refusal, all, (entry) => Option.contains(entry.refusal, refusal))),
         ...unsupported(owner, 'projected', all, ({ name, projection }) => Option.isSome(projection) && linked.includes(name)),
-        ...unsupported(owner, 'invalid', all, (entry) => constants(entry).some((value) => Option.isNone(Schema.decodeUnknownOption(entry.schema)(value)))),
+        ...unsupported(owner, 'invalid', all, (entry) => constants(entry).some((value) => Option.isNone(Schema.decodeOption(entry.schema)(value)))),
     ];
 };
 
@@ -96,15 +84,12 @@ const render = (
     const named = (name: string) => Array.findFirst(entries, (entry) => entry.name === name);
     const projection = (entry: Column): Option.Option<Statement.Fragment> => Option.map(entry.projection, (projected) => (projected._tag === 'Path' ? engine.projection(sql, entry, projected) : conjunction(projected.where.map(predicate))));
     const operand = (name: string): Statement.Fragment => Option.match(Option.flatMap(named(name), projection), { onNone: () => quoted(name), onSome: (expression) => engine.projected(sql, expression, name) });
-    const predicate = ({ column: name, predicate: rule }: Relation['indexes'][number]['where'][number]): Statement.Fragment => {
-        const members = (values: readonly (string | number)[]) => spaced([operand(name), `IN (${Array.getSomes(values.map((member) => Option.map(named(name), (entry) => engine.constant(entry, member)))).join(', ')})`]);
-        return Match.value(rule).pipe(
-            Match.when(null, () => spaced([operand(name), 'IS NULL'])),
-            Match.when({ not: null }, () => spaced([operand(name), 'IS NOT NULL'])),
-            Match.when({ not: Match.defined }, ({ not }) => sql.join('', false)(['(', members(not), ') IS NOT TRUE'])),
-            Match.orElse(members),
-        );
-    };
+    const within = (subject: Statement.Fragment, entry: Column, values: readonly (string | number)[]) => sql`${subject} IN (${sql.literal(values.map((value) => engine.constant(entry, value)).join(', '))})`;
+    const predicate = ({ column: name, negated, values }: Relation['indexes'][number]['where'][number]): Statement.Fragment =>
+        Option.match(Option.all([values, named(name)]), {
+            onNone: () => spaced([operand(name), negated ? 'IS NOT NULL' : 'IS NULL']),
+            onSome: ([members, entry]) => (negated ? sql`(${within(operand(name), entry, members)}) IS NOT TRUE` : within(operand(name), entry, members)),
+        });
     const keyed = ({ column: name, casefold }: Relation['indexes'][number]['keys'][number], method: Relation['indexes'][number]['method']) => {
         const opclass = Option.flatMap(named(name), ({ kind }) => Option.flatten(engine.opclass(method, kind)));
         return {
@@ -127,7 +112,15 @@ const render = (
             Option.map(
                 Option.liftPredicate(
                     [
-                        ...(Array.isReadonlyArrayNonEmpty(entry.literals) ? [sql`${subject} IN (${sql.literal(entry.literals.map((value) => engine.constant(entry, typeof value === 'number' ? value : `${value}`)).join(', '))})`] : []),
+                        ...(Array.isReadonlyArrayNonEmpty(entry.literals)
+                            ? [
+                                  within(
+                                      subject,
+                                      entry,
+                                      entry.literals.map((value) => (typeof value === 'number' ? value : `${value}`)),
+                                  ),
+                              ]
+                            : []),
                         ...(entry.kind === 'integer' && !entry.textual ? [sql`${subject} BETWEEN ${sql.literal(`${-Number.MAX_SAFE_INTEGER}`)} AND ${sql.literal(`${Number.MAX_SAFE_INTEGER}`)}`] : []),
                         ...entry.bounds.map(checked(subject)),
                         ...engine.domain(sql, subject, entry.kind),
@@ -183,11 +176,11 @@ const render = (
 };
 
 // --- [DIFF]
-const diff = <L extends Live, C extends Live>(
+const diff = <L extends Live & { readonly columns: readonly Live[]; readonly references: readonly { readonly columns: Array.NonEmptyReadonlyArray<string>; readonly target: string }[] }>(
     sql: SqlClient.SqlClient,
     catalog: Catalog,
     rendered: readonly { readonly declared: Relation; readonly rendered: ReturnType<typeof render> }[],
-    { tables, columns, references }: { readonly tables: readonly L[]; readonly columns: (live: L) => readonly C[]; readonly references: (live: L) => readonly { readonly columns: Array.NonEmptyReadonlyArray<string>; readonly target: string }[] },
+    tables: readonly L[],
 ) => {
     const claim = <R extends Live, D extends { readonly name: string; readonly renamedFrom: Option.Option<string>; readonly identity: typeof Identity.Type }>(live: readonly R[], retired: readonly string[], declared: readonly D[]) => {
         const [standing, retiring] = Array.partition(live, (row) => {
@@ -218,7 +211,7 @@ const diff = <L extends Live, C extends Live>(
         rendered.map((table) => ({ table, name: table.declared.name, renamedFrom: table.declared.renamedFrom, identity: table.rendered.identity })),
     );
     const entries = located.found.map(({ item: { table }, row, owned, identity, recorded }) => {
-        const live = Option.match(row, { onNone: () => [], onSome: columns });
+        const live = Option.match(row, { onNone: Array.empty<L['columns'][number]>, onSome: ({ columns }): readonly L['columns'][number][] => columns });
         const resolved = claim(live, table.declared.retired.columns, table.rendered.definitions);
         const fields = resolved.found.map(({ item: definition, row: found, ...claimed }) => ({ definition, found, ...claimed }));
         const renames = fields.flatMap(({ definition, found }) => Option.toArray(Option.filter(found, ({ name }) => name !== definition.name)).map(({ name }) => ({ from: name, to: definition.name })));
@@ -284,9 +277,9 @@ const diff = <L extends Live, C extends Live>(
                     const moved = entry.fields.filter((field) => entry.owned && field.owned && !field.definition.retype && parts.drifted(entry, field)).map(({ definition }) => definition.name);
                     return findings(entry.declared.name, moved, { _tag: 'Retype' });
                 }),
-                ...kept.flatMap((row) => references(row).flatMap(({ columns: linked, target }) => findings(row.name, dropped.includes(target) ? linked : [], { _tag: 'RetainedReference', target }))),
+                ...kept.flatMap((row) => row.references.flatMap(({ columns: linked, target }) => findings(row.name, dropped.includes(target) ? linked : [], { _tag: 'RetainedReference', target }))),
                 ...matched.flatMap((entry) =>
-                    references(entry.live)
+                    entry.live.references
                         .filter(({ columns: linked, target }) => removed.includes(target) && Array.isReadonlyArrayEmpty(Array.intersection(linked, entry.dropping.map(Struct.get('name')))))
                         .map((reference) => ({ ...reference, columns: Array.map(reference.columns, entry.renamed) }))
                         .filter(({ columns: linked }) => !entry.rendered.links.some((link) => Equal.equals(link.columns, linked)))
@@ -307,7 +300,7 @@ const diff = <L extends Live, C extends Live>(
                 session: parts.session,
                 undeclared: { tables: kept.map(({ name }) => name), columns: matched.flatMap(({ declared, retained }) => retained.map(({ name }) => ({ table: declared.name, column: name }))), ...parts.undeclared },
             };
-            return Array.match(all, { onEmpty: () => Effect.succeed(planned), onNonEmpty: (raised) => Effect.fail(ReconcileError.make({ findings: raised })) });
+            return Effect.as(ReconcileError.raise(all), planned);
         },
     };
 };

@@ -2,16 +2,15 @@ import { useAtomSet } from '@effect/atom-react';
 import { MenuButton } from '@rasm/ui/collection/menu-button';
 import { ReorderableList } from '@rasm/ui/collection/reorderable-list';
 import { Choice } from '@rasm/ui/form/choice';
-import { Array, Optic, String, Struct } from 'effect';
+import { Array, Optic, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
-import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { PlacementFields } from '#/editor/placement-fields.tsx';
 import { draft, hero, updateEntry } from '#/editor/state.ts';
 import { CompositionGrid } from '#/media/composition-grid.tsx';
-import { choice, compositionLabel, entryTitle, format, placementTitle } from '#/media/labels.ts';
+import { choice, compositionLabel, entryTitle, format, options, placementTitle } from '#/media/labels.ts';
 import type { Assets } from '#/model/asset.ts';
 import { Composition, CompositionId, type Placement } from '#/model/placement.ts';
 import type { Entry } from '#/model/portfolio.ts';
@@ -21,33 +20,29 @@ import type { Entry } from '#/model/portfolio.ts';
 const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof Assets.Service; readonly entry: typeof Entry.Type; readonly item: typeof Composition.Type }) => {
     const setDraft = useAtomSet(draft);
     const [first, second] = item.items;
-    const update = (change: (compositions: readonly (typeof Composition.Type)[]) => readonly (typeof Composition.Type)[]) => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.evolve({ compositions: change }))));
+    const update = (change: (compositions: readonly (typeof Composition.Type)[]) => readonly (typeof Composition.Type)[]) => setDraft(updateEntry(entry.id, Struct.evolve({ compositions: change })));
     const replace = (...values: readonly (typeof Composition.Type)[]) => update(Array.flatMap((candidate) => (candidate.id === item.id ? values : [candidate])));
-    const promote = (placement: typeof Placement.Type) => (
-        <div className="actions">
-            <button className="button button-outline" onClick={() => setDraft(AsyncResult.map(Optic.replace(hero, placement)))} type="button">
-                Use as hero
-            </button>
-            <button className="button button-outline" onClick={() => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.assign({ cover: placement }))))} type="button">
-                Use as cover
-            </button>
-        </div>
+    const fields = (placement: typeof Placement.Type, items: (next: typeof Placement.Type) => (typeof Composition.Type)['items']) => (
+        <PlacementFields assets={assets} onChange={(next) => replace({ ...item, items: items(next) })} value={placement}>
+            <div className="actions">
+                <button className="button button-outline" onClick={() => setDraft(Optic.replace(hero, placement))} type="button">
+                    Use as hero
+                </button>
+                <button className="button button-outline" onClick={() => setDraft(updateEntry(entry.id, Struct.assign({ cover: placement })))} type="button">
+                    Use as cover
+                </button>
+            </div>
+        </PlacementFields>
     );
     return (
         <div className="flex min-w-0 flex-col gap-4.5 outline-none" id={item.id} tabIndex={-1}>
             <CompositionGrid active={true} composition={item} presentation="preview" renderMedia={true} />
             <div className="field-pair">
-                <Choice {...choice} label="Scale" onChange={({ id }) => replace({ ...item, scale: id })} options={Composition.fields.scale.schema.to.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={item.scale} />
-                <Choice {...choice} label="Alignment" onChange={({ id }) => replace({ ...item, align: id })} options={Composition.fields.align.schema.to.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={item.align} />
+                <Choice {...choice} label="Scale" onChange={({ id }) => replace({ ...item, scale: id })} options={options(Composition.fields.scale.schema.to.literals)} value={item.scale} />
+                <Choice {...choice} label="Alignment" onChange={({ id }) => replace({ ...item, align: id })} options={options(Composition.fields.align.schema.to.literals)} value={item.align} />
             </div>
-            <PlacementFields assets={assets} onChange={(placement) => replace({ ...item, items: second === undefined ? [placement] : [placement, second] })} value={first}>
-                {promote(first)}
-            </PlacementFields>
-            {second && (
-                <PlacementFields assets={assets} onChange={(placement) => replace({ ...item, items: [first, placement] })} value={second}>
-                    {promote(second)}
-                </PlacementFields>
-            )}
+            {fields(first, (next) => (second === undefined ? [next] : [next, second]))}
+            {second && fields(second, (next) => [first, next])}
             <div className="actions">
                 {second === undefined ? (
                     <MenuButton
@@ -93,7 +88,7 @@ const Compositions = ({
         <>
             <div className="actions">
                 <h3 className="max-editor:w-full mr-auto text-xl tracking-tight">
-                    Sequence <span className="text-muted ml-2.5 text-sm">{format.quantity(entry.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
+                    Sequence <span className="text-muted ml-2.5 text-sm">{format.quantity(entry.compositions.length, { one: (shown) => `${shown} composition`, other: (shown) => `${shown} compositions` })}</span>
                 </h3>
                 <button className="button button-outline" onClick={onUpload} type="button">
                     Add files
@@ -110,15 +105,15 @@ const Compositions = ({
                     <ReorderableList
                         actions={(keys) => (
                             <ConfirmDialog
-                                label={`Remove ${format.quantity(keys.size, { one: (count) => `${count} selected composition`, other: (count) => `${count} selected compositions` })}`}
-                                onConfirm={() => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.evolve({ compositions: Array.filter((candidate) => !keys.has(candidate.id)) }))))}
+                                label={format.quantity(keys.size, { one: (shown) => `Remove ${shown} selected composition`, other: (shown) => `Remove ${shown} selected compositions` })}
+                                onConfirm={() => setDraft(updateEntry(entry.id, Struct.evolve({ compositions: Array.filter((candidate) => !keys.has(candidate.id)) })))}
                             />
                         )}
                         aria-label={`${entryTitle(entry)} compositions`}
                         className="editor-sequence"
                         items={entry.compositions}
                         moveLabel="Move"
-                        onChange={(reordered) => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.assign({ compositions: reordered }))))}
+                        onChange={(reordered) => setDraft(updateEntry(entry.id, Struct.assign({ compositions: reordered })))}
                         textValue={compositionLabel}
                     >
                         {(candidate) => (

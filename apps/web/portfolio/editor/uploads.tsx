@@ -9,7 +9,7 @@ import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
 import { Destination, nextDestination, pendingUploads, preprocessing, queue, uppy } from '#/editor/uploader.ts';
 import { choice, details, entryTitle, format } from '#/media/labels.ts';
-import { Asset, type AssetId, type Assets, mediaTypes, uploadLimit } from '#/model/asset.ts';
+import { Asset, type AssetId, type Assets, uploadLimit } from '#/model/asset.ts';
 import type { Entry, EntryId } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -51,7 +51,7 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                             {...choice}
                             label="File destination"
                             onChange={(option) => uploader.setFileMeta(selectedFile.id, { destination: option.target })}
-                            options={options.map((option) => ({ ...option, isDisabled: Destination.$is('Hero')(option.target) && files.some((item) => item.id !== selectedFile.id && Destination.$is('Hero')(item.meta.destination) && item.progress.uploadComplete !== true) }))}
+                            options={options.map((option) => ({ ...option, isDisabled: Destination.$is('Hero')(option.target) && !Destination.$is('Hero')(selectedFile.meta.destination) && pending.some(Destination.$is('Hero')) }))}
                             value={key(selectedFile.meta.destination)}
                         />
                     ) : (
@@ -63,7 +63,7 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                 <p className="hint mb-3">
                     {details([
                         format.list(
-                            mediaTypes.map((type) => type.slice(type.indexOf('/') + 1).toUpperCase()),
+                            Asset.mediaTypes.map((type) => type.slice(type.indexOf('/') + 1).toUpperCase()),
                             'disjunction',
                         ),
                         `Up to ${format.bytes(uploadLimit)} per file`,

@@ -3,7 +3,7 @@ import { McpSchema, McpServer, Tool } from 'effect/ai';
 import { Url, UrlParams } from 'effect/http';
 import type { Rpc, RpcGroup } from 'effect/rpc';
 import { Resource } from '#/resource';
-import { complete, partial, Route } from '#/route';
+import { Route } from '#/route';
 import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -54,8 +54,7 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
         Effect.fnUntraced(function* ([rpc, { description, completion, report }]) {
             const routing = route(rpc._tag);
             const uri = server.uri(rpc._tag);
-            const [base, store] = yield* Effect.all([Effect.fromResult(Url.fromString(uri)), Resource.make({ schema: rpc.successSchema, changes: Stream.empty })]);
-            const descriptor = { name: rpc._tag, description, mimeType: store.mimeType };
+            const [base, store] = yield* Effect.all([Effect.fromResult(Url.fromString(uri)), Resource.make({ name: rpc._tag, description, schema: rpc.successSchema, changes: Stream.empty })]);
             const fields = { ...routing.fields, ...rpc.payloadSchema.fields };
             const query = Schema.Struct({ route: Schema.RecordFromUrlParams.pipe(Schema.decodeTo(Schema.toCodecStringTree(Schema.Struct(routing.fields)))), payload: Schema.RecordFromUrlParams.pipe(Schema.decodeTo(Schema.toCodecStringTree(rpc.payloadSchema))) });
             const decoded = (values: UrlParams.UrlParams) => Schema.decodeEffect(query)({ route: values, payload: values }, { errors: 'all' });
@@ -71,20 +70,15 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
                     Effect.flatMap(({ key, content }) => store.read(key, at, content)),
                     Effect.provideContext(services),
                 );
-            const decodeRoute = partial(routing.fields);
-            const selected = (select: (success: Rpc.Success<Rpcs>) => readonly string[]) => (_: string, parsed: typeof query.Type) =>
-                located(parsed).pipe(
-                    Effect.flatMap(({ key, content }) => store.cached(key, content)),
-                    Effect.map(select),
-                );
+            const completing = Route.complete(routing.fields);
             const completions = {
-                ...Record.map(Record.filter(routing.completion, Predicate.isNotUndefined), (completing) => flow(complete(decodeRoute, completing), answered)),
-                ...Record.map(Record.filter(completion, Predicate.isNotUndefined), (select) => flow(complete(flow(UrlParams.fromInput, decoded), selected(select)), answered)),
+                ...Record.map(Record.filter(routing.completion, Predicate.isNotUndefined), (handle) => flow(completing(handle), answered)),
+                ...Record.map(Record.filter(completion, Predicate.isNotUndefined), (select) => (_: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => decoded(UrlParams.fromInput(context?.arguments ?? {})).pipe(Effect.flatMap(located), Effect.flatMap(store.cached), Effect.map(select), answered)),
             };
-            yield* Schema.is(Schema.toEncoded(Schema.Struct(fields)))({}) ? registry.addResource({ resource: McpSchema.Resource.make({ ...descriptor, uri }), annotations: group.annotations, handle: Effect.catchTag(readUri(uri), 'InvalidParams', Effect.die) }) : Effect.void;
+            yield* Schema.is(Schema.toEncoded(Schema.Struct(fields)))({}) ? registry.addResource({ resource: McpSchema.Resource.make({ ...store.descriptor, uri }), annotations: group.annotations, handle: Effect.catchTag(readUri(uri), 'InvalidParams', Effect.die) }) : Effect.void;
             yield* Array.match(Record.keys(fields), {
                 onEmpty: () => Effect.void,
-                onNonEmpty: (keys) => registry.addResourceTemplate({ template: McpSchema.ResourceTemplate.make({ ...descriptor, uriTemplate: `${uri}{?${keys.join(',')}}` }), routerPath: uri.replace(':', '::'), annotations: group.annotations, completions, handle: readUri }),
+                onNonEmpty: (keys) => registry.addResourceTemplate({ template: McpSchema.ResourceTemplate.make({ ...store.descriptor, uriTemplate: `${uri}{?${keys.join(',')}}` }), routerPath: uri.replace(':', '::'), annotations: group.annotations, completions, handle: readUri }),
             });
             return (chosen: Chosen, routed: Schema.Struct.Type<Fields>) => (routing.serves(chosen) ? [store.depend(Schema.encodeEffect(query.fields.route)(routed).pipe(Effect.orDie, Effect.flatMap(decoded), Effect.flatMap(located), Effect.provideContext(services)))({ report })] : []);
         }),

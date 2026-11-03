@@ -70,26 +70,18 @@ const project =
                 ],
                 { concurrency: 'unbounded' },
             );
-            const configs = [
-                ...Option.toArray(Option.fromNullishOr(app?.config)),
+            return [
+                ...Array.fromNullishOr(app?.config),
                 base,
                 config,
                 ...Option.toArray(Option.map(stories, ({ storybookTest }) => ({ test: { projects: [{ plugins: [storybookTest({ configDir: storybook })], test: { name: 'storybook', dir: storybook, browser: { enabled: true }, api: { allowWrite: true } } }] } }))),
-            ];
-            return configs.reduce((merged: ViteUserConfig, next) => mergeConfig(merged, next), {});
+            ].reduce((merged: ViteUserConfig, next) => mergeConfig(merged, next), {});
         }).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);
 
 const rootConfig: () => Promise<ViteUserConfig> = Effect.fnUntraced(
     function* () {
-        const [base, { packages }] = yield* Effect.all([defaults(ROOT), decodeFile(Workspace, ROOT, 'pnpm-workspace.yaml')], { concurrency: 'unbounded' });
-        return {
-            ...base,
-            test: {
-                ...base.test,
-                coverage: { ...base.test.coverage, include: Array.cartesianWith(packages, base.test.coverage.include, (glob, pattern) => `${glob}/${pattern}`) },
-                projects: Array.map(packages, (glob) => `${glob}/vitest.config.ts`),
-            },
-        };
+        const [{ test }, { packages }] = yield* Effect.all([defaults(ROOT), decodeFile(Workspace, ROOT, 'pnpm-workspace.yaml')], { concurrency: 'unbounded' });
+        return { test: { ...test, coverage: { ...test.coverage, include: Array.cartesianWith(packages, test.coverage.include, (glob, pattern) => `${glob}/${pattern}`) }, projects: Array.map(packages, (glob) => `${glob}/vitest.config.ts`) } };
     },
     Effect.provide(NodeServices.layer),
     Effect.runPromise,

@@ -101,7 +101,7 @@
         { "includes": [ "**/*.config.ts", "**/server/worker.ts", "tools/nx/release.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js", "libs/typescript/creative-cloud/{aftereffects,illustrator}/host.ts" ], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         {
             "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/host.ts" ],
-            "linter": { "rules": { "nursery": { "useStringStartsEndsWith": "off" }, "style": { "useAtIndex": "off", "useNumberNamespace": "off" }, "suspicious": { "noForIn": "off", "noPrototypeBuiltins": "off", "useGuardForIn": "off" } } }
+            "linter": { "rules": { "nursery": { "useStringStartsEndsWith": "off" }, "style": { "useAtIndex": "off", "useNamedCaptureGroup": "off", "useNumberNamespace": "off", "useUnicodeRegex": "off" }, "suspicious": { "noForIn": "off", "noPrototypeBuiltins": "off", "useGuardForIn": "off" } } }
         },
         { "includes": [ "**/.storybook/*.stories.tsx" ], "linter": { "rules": { "style": { "useComponentExportOnlyModules": "off" } } } },
         { "includes": [ "**/cloudflare.config.ts" ], "linter": { "rules": { "performance": { "noNamespaceImport": "off" } } } },

@@ -71,33 +71,28 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
     const busy = operation.waiting || deletion.waiting || reloading.waiting;
     const current = state.portfolio.entries.find((item) => item.id === selected);
     const show = (name: 'entries' | 'files' | 'identity') => setTab(`${idPrefix}${name}`);
-    const openEntry = (id: typeof EntryId.Type, target = `${idPrefix}entry`) => {
+    const open = (id: typeof EntryId.Type, view: 'entry' | 'place' = 'entry', target = `${idPrefix}${view}`) => {
         setSelected(id);
-        setWorkspace('entry');
+        setTarget(Destination.Entry({ id }));
+        setWorkspace(view);
+        show('entries');
         focus(target);
     };
     const place = (entryId: typeof EntryId.Type, placed: typeof AssetId.Type) => {
-        setSelected(entryId);
-        setTarget(Destination.Entry({ id: entryId }));
         setAssetId(Option.some(placed));
-        setWorkspace('place');
-        show('entries');
-        focus(`${idPrefix}place`);
+        open(entryId, 'place');
     };
     const create = (kind: typeof Entry.Type.kind) => {
         const created = Entry.make({ id: EntryId.make(SecureRandom.uuidV7Unsafe()), kind });
-        setDraft(AsyncResult.map(portfolio.key('entries').modify(Array.append(created))));
-        setSelected(created.id);
-        setWorkspace('entry');
-        setTarget(Destination.Entry({ id: created.id }));
-        focus(`${idPrefix}title`);
+        setDraft(portfolio.key('entries').modify(Array.append(created)));
+        open(created.id, 'entry', `${idPrefix}title`);
     };
     const locate = ([head, entryIndex, part, compositionIndex]: readonly PropertyKey[], snapshot: typeof Portfolio.Type) => {
         const entry = head === 'entries' && Predicate.isNumber(entryIndex) ? Array.get(snapshot.entries, entryIndex) : Option.none();
         const failing = part === 'compositions' && Predicate.isNumber(compositionIndex) ? Option.flatMap(entry, ({ compositions }) => Array.get(compositions, compositionIndex)) : Option.none();
         const target = Option.match(failing, { onNone: () => `${idPrefix}${part === 'title' ? 'title' : 'entry'}`, onSome: Struct.get('id') });
         show(head === 'entries' ? 'entries' : 'identity');
-        Option.match(entry, { onNone: () => (head === 'entries' ? setWorkspace('entries') : focus(`${idPrefix}${String(head)}`)), onSome: ({ id }) => openEntry(id, target) });
+        Option.match(entry, { onNone: () => (head === 'entries' ? setWorkspace('entries') : focus(`${idPrefix}${String(head)}`)), onSome: ({ id }) => open(id, 'entry', target) });
         Option.map(failing, ({ id }) => setComposition(id));
     };
     const status = Match.value({ reloading: reloading.waiting, saving: operation.waiting, changed: state.portfolio !== state.saved, saved: AsyncResult.value(operation) }).pipe(
@@ -146,7 +141,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                     .orNull()}
                 {pending.length > 0 && (
                     <p className="text-caption text-muted w-full" id={`${idPrefix}uploads`}>
-                        {format.quantity(pending.length, { one: (count) => `${count} file`, other: (count) => `${count} files` })} not uploaded. Upload or remove before publishing or reloading{' '}
+                        {format.quantity(pending.length, { one: (shown) => `${shown} file not uploaded`, other: (shown) => `${shown} files not uploaded` })}. Upload or remove before publishing or reloading{' '}
                         <button className="quiet-link" onClick={() => show('files')} type="button">
                             View uploads
                         </button>
@@ -174,7 +169,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                         <h3 className="text-xl tracking-tight wrap-anywhere outline-none" id={`${idPrefix}place`} tabIndex={-1}>
                                             Add to {entryTitle(entry)}
                                         </h3>
-                                        <button className="button button-ghost" onClick={() => openEntry(entry.id)} type="button">
+                                        <button className="button button-ghost" onClick={() => open(entry.id)} type="button">
                                             <ArrowLeft className="size-4" />
                                             Back to entry
                                         </button>
@@ -186,7 +181,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                         key={Option.getOrUndefined(assetId)}
                                         onAdd={(id) => {
                                             setComposition(id);
-                                            openEntry(entry.id);
+                                            open(entry.id);
                                         }}
                                         onSelect={setAssetId}
                                     />
@@ -206,10 +201,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                     <Compositions
                                         assets={state.assets}
                                         entry={entry}
-                                        onPlace={() => {
-                                            setWorkspace('place');
-                                            focus(`${idPrefix}place`);
-                                        }}
+                                        onPlace={() => open(entry.id, 'place')}
                                         onSelect={setComposition}
                                         onUpload={() => {
                                             setTarget(Destination.Entry({ id: entry.id }));
@@ -229,15 +221,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                             New study
                                         </button>
                                     </div>
-                                    <EntryList
-                                        entries={state.portfolio.entries}
-                                        onRemove={() => focus(`${idPrefix}new`)}
-                                        onSelect={(item) => {
-                                            openEntry(item.id);
-                                            setTarget(Destination.Entry({ id: item.id }));
-                                        }}
-                                        selected={selected}
-                                    />
+                                    <EntryList entries={state.portfolio.entries} onRemove={() => focus(`${idPrefix}new`)} onSelect={({ id }) => open(id)} selected={selected} />
                                     {state.portfolio.entries.length === 0 && <p className="hint py-8">Create a project or study to add files</p>}
                                 </>
                             )),

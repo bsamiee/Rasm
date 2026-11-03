@@ -8,9 +8,9 @@ const Daemon = Schema.Struct({ run: Schema.OptionFromOptionalKey(Schema.String),
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const decodeFile = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, directory: string, file: string) {
+const decodeFile = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, ...segments: readonly string[]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    return yield* Effect.flatMap(fs.readFileString(path.join(directory, file)), Schema.decodeEffect(schema));
+    return yield* Effect.flatMap(fs.readFileString(path.join(...segments)), Schema.decodeEffect(schema));
 });
 const manifest = <A>(file: string, schema: Schema.Codec<A, string>) => ({ file, read: (directory: string) => decodeFile(schema, directory, file) });
 

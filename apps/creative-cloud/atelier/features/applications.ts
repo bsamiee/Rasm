@@ -1,10 +1,10 @@
-import { Installation, Perform, Pid, Screenshot } from '@rasm/automation/applications';
+import { Installation, Launched, Perform, Screenshot } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
 import { HostError } from '@rasm/automation/requests';
 import { Content } from '@rasm/mcp/content';
 import { Resource } from '@rasm/mcp/resource';
 import { Route } from '@rasm/mcp/route';
-import { registerTool } from '@rasm/mcp/tool';
+import { Server } from '@rasm/mcp/server';
 import { Context, Effect, FileSystem, Path, Schema, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { imageSize } from 'image-size';
@@ -44,12 +44,12 @@ const launch = ({ application }: Effect.Success<ReturnType<typeof routes>>, { re
             fields: { application: application.listed },
             resolve: ({ application: given }) => Effect.flatMap(application.named(given), ({ url }) => automation.launch({ url })),
             depends: ({ pid }) => Effect.succeed([reported(pid)]),
-            annotations: Context.omit(registerTool.Visible)(application.annotations),
+            annotations: Context.omit(Server.Visible)(application.annotations),
         })(
             Tool.make('launch', {
-                description: 'Opens application hidden in background beside other versions until quit, returns pid once launching ends or a dialog requires an answer',
+                description: 'Opens application hidden in background beside other versions until quit, returns pid and whether launch created it once launching ends or a dialog requires an answer',
                 parameters: Schema.Struct({}),
-                success: Schema.Struct({ pid: Pid }),
+                success: Launched,
             }).annotateMerge(Context.make(Tool.Idempotent, true).pipe(Context.add(Tool.Destructive, false))),
             (_, launched) => Effect.succeed(launched),
         ),

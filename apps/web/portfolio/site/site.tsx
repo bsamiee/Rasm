@@ -2,13 +2,15 @@ import { useAtomValue } from '@effect/atom-react';
 import { User } from '@rasm/hosting/user';
 import { ModalOverlay } from '@rasm/ui/dialog/overlay';
 import { flow, Option, Schema } from 'effect';
+import { UrlParams } from 'effect/http';
+import { Atom } from 'effect/reactivity';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
-import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import type { Bootstrap } from '#/model/bootstrap.ts';
+import type { Bootstrap } from '#/model/api.ts';
 import type { PortfolioData } from '#/model/portfolio.ts';
 import { sites } from '#/model/sites.ts';
 import { Chapter } from '#/site/chapter.tsx';
@@ -17,23 +19,16 @@ import { StickyBar, WorkIndex } from '#/site/work-index.tsx';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const edit = 'edit';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Editing = Schema.fromURLSearchParams(Schema.Struct({ [edit]: Schema.String }));
+const edit = { name: 'edit', value: 'true' } as const;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+const editing = Atom.searchParam(edit.name, { schema: Schema.Literal(edit.value) }).pipe(Atom.withServerValue(() => Option.none()));
 const Editor = lazy(() => import('#/editor/editor.tsx').then((module) => ({ default: module.Editor })));
 const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
     const [published, setPublished] = useState(served);
     const [preview, setPreview] = useState(Option.none<typeof PortfolioData.Type>());
-    const requested = useSyncExternalStore(
-        () => () => undefined,
-        () => session === 'owner' && Option.isSome(Schema.decodeOption(Editing)(new URLSearchParams(location.search))),
-        () => false,
-    );
+    const requested = Option.isSome(useAtomValue(editing)) && session === 'owner';
     const [toggled, setToggled] = useState(Option.none<boolean>());
     const open = Option.getOrElse(toggled, () => requested);
     const modalOpen = useAtomValue(ModalOverlay.open, (count) => count > 0);
@@ -101,7 +96,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                         )}
                     </DialogTrigger>
                 ) : (
-                    <a className="quiet-link" href={session === 'signedIn' ? User.href(sites, 'signout', '/') : User.href(sites, 'signin', `/?${edit}`)} target="_top">
+                    <a className="quiet-link" href={session === 'signedIn' ? User.href(sites, 'signout', '/') : User.href(sites, 'signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
                         {session === 'signedIn' ? 'Sign out' : 'Owner sign-in'}
                     </a>
                 )}

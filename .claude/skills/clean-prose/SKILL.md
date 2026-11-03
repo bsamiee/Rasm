@@ -160,7 +160,7 @@ Sections follow work or dependency order under `## [NN]-[NOUN]` headings with no
 - Sentences that restate what their file, heading, code, or previous sentence supplies at the same scope go
 - Paths and names that locate what a sentence acts on stay
 - Phrasings that differ in subject, scope, or value are separate facts or one wrong fact, the owning source's phrasing stays
-- Facts a deleted sentence alone held move to the sentence that holds their topic
+- Facts a deleted sentence alone held join a rewrite of the sentence holding their topic
 - Opening sentences state their scope as one category, every other sentence about the file, section, or skill goes
 - Pointers to another file or skill are one line, `Use <name> for <purpose>`, a sentence that `<name>` owns a topic takes the pointer form
 - Pointers name the file and its purpose alone, a section, heading, row, line, or category inside it drifts
@@ -170,7 +170,6 @@ Sections follow work or dependency order under `## [NN]-[NOUN]` headings with no
 - External URLs outside a package page, download, or tool document go, the fact they cited is stated
 - Tree and index lines with a list as their fact keep the list
 - Guidance that enumerates code members, quirks, or one tool's configuration rows drifts, one rule for the category replaces it
-- New cases widen the category of the line holding their rule, an appended clause or item restates that rule
 - Prose names a command, identifier, file, directory, section, diagram node, or reference with its purpose, contents and steps stay in the thing
 - Steps that name a command hold one reading that decides what follows
 - Paragraphs hold one topic on one line, parallel cases sit in one list or table, or in one sentence when each case is a phrase
@@ -236,7 +235,9 @@ Rewrite of an existing file:
 7. Rewrite each remaining sentence to state one fact in its section
 8. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
 
-New text follows the same rules from its first draft. Every run reads each file under `references/` whole before its first edit.
+Edits to a skill, guidance file, workflow, or message replace, rewrite, or delete the line owning a fact, widen its category for a new case, and leave text reading as written whole. Appended clauses and lines restating another are regressions. New text follows every rule from its first draft and states its fact or action in clearest positive form, unframed and free of validation or checking language.
+
+Every run reads each file under `references/` whole before its first edit.
 
 `check` reports findings in named files and folders, `fix` writes fixable ones and reports the rest:
 

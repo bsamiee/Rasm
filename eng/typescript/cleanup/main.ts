@@ -3,7 +3,7 @@ import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { cacheDir, getOutputsForTargetAndConfiguration, readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
 import { Array, Cause, Config, Console, Effect, Fiber, FileSystem, flow, identity, Match, Option, Path, type PlatformError, Predicate, Record, Result, Schedule, Schema, Struct, Tuple } from 'effect';
 import { accumulate } from '#/eng/typescript/accumulate';
-import { Package } from '#/eng/typescript/manifest';
+import { decodeFile, Package } from '#/eng/typescript/manifest';
 import { fromString, Plist, Yaml } from '#/eng/typescript/parsed';
 import { records, run, SHOWN } from '#/eng/typescript/process';
 import manifest from '#/package.json' with { type: 'json' };
@@ -46,7 +46,6 @@ const entries = Effect.fn('entries')(function* (directory: string) {
     const names = yield* fs.readDirectory(directory).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed([])));
     return names.map((name) => ({ name, path: path.join(directory, name) }));
 });
-const plist = (file: string) => Effect.flatMap(FileSystem.FileSystem, (fs) => fs.readFileString(file)).pipe(Effect.flatMap(Schema.decodeEffect(Plist)));
 const metadata = (cwd: string) => run('cargo', ['metadata', '--no-deps', '--format-version', '1'], { cwd }).pipe(Effect.flatMap(Schema.decodeEffect(CargoMetadata)));
 const listing = records('\n', 'ps', ['-axww', '-o', 'pid=,ppid=,uid=,stat=,tty=,lstart=,command='], { env: { LC_ALL: 'C' }, extendEnv: true }).pipe(Effect.flatMap(Schema.decodeEffect(Schema.Array(PsRow))));
 const signal = (pid: number, value: NodeJS.Signals | 0) =>
@@ -92,10 +91,7 @@ Effect.gen(function* () {
     const { graph, languages, worktrees, installed, developer, agents, launched, daemons, toolchains, products, own } = yield* Effect.all(
         {
             graph: Effect.try(readCachedProjectGraph),
-            languages: fs.readFileString(path.join(root, 'sgconfig.yml')).pipe(
-                Effect.flatMap(Schema.decodeEffect(SgConfig)),
-                Effect.map(({ customLanguages }) => Object.values(customLanguages).map(({ libraryPath }) => path.resolve(root, libraryPath))),
-            ),
+            languages: Effect.map(decodeFile(SgConfig, root, 'sgconfig.yml'), ({ customLanguages }) => Object.values(customLanguages).map(({ libraryPath }) => path.resolve(root, libraryPath))),
             worktrees: records('\0\0', 'git', ['worktree', 'list', '--porcelain', '-z']).pipe(Effect.map((blocks) => Array.getSomes(blocks.flatMap((block) => (block.includes('\0prunable') ? [] : block.split('\0'))).map((field) => Schema.decodeUnknownOption(Worktree)(field))).map(Tuple.get(1)))),
             installed: run('mise', ['ls', '--installed', '--json']).pipe(
                 Effect.flatMap(Schema.decodeEffect(MiseInstalls)),
@@ -109,7 +105,7 @@ Effect.gen(function* () {
                   )
                 : Effect.succeed(new Map<string, boolean>()),
             launched: entries(path.join(home, 'Library', 'LaunchAgents')).pipe(
-                Effect.flatMap((found) => Effect.forEach(found.filter(flow(Struct.get('name'), Schema.is(AgentFile))), ({ path: file }) => Effect.map(plist(file), Schema.decodeUnknownOption(LaunchdPlist)), { concurrency: 'unbounded' })),
+                Effect.flatMap((found) => Effect.forEach(found.filter(flow(Struct.get('name'), Schema.is(AgentFile))), ({ path: file }) => Effect.map(decodeFile(Plist, file), Schema.decodeUnknownOption(LaunchdPlist)), { concurrency: 'unbounded' })),
                 Effect.map((plists) => Array.getSomes(plists).filter(({ WorkingDirectory }) => WorkingDirectory === root)),
             ),
             daemons: run('mise', ['daemons', 'ls', '--json']).pipe(Effect.flatMap(Schema.decodeEffect(MiseDaemons))),
@@ -191,7 +187,7 @@ Effect.gen(function* () {
         ),
     );
     const workspace = (entry: string) =>
-        plist(path.join(entry, 'info.plist')).pipe(
+        decodeFile(Plist, entry, 'info.plist').pipe(
             Effect.map(flow(Schema.decodeUnknownOption(DerivedInfo), Option.exists(flow(Struct.get('WorkspacePath'), under(worktrees))))),
             Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(false)),
         );

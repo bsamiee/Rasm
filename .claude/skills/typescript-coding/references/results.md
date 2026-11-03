@@ -13,7 +13,7 @@ const escalation = Effect.fn('escalation')(function* (id: CustomerId) {
 ```
 
 - `Effect.fromNullishOr` enters a nullable host value into the same chain
-- `Effect.fromOption(option, onNone)` fails with the `onNone` error (a `SchemaIssue`, lookup candidates), a rebuilt `NoSuchElementError` restating it
+- `Effect.fromOption(option, onNone)` fails with the `onNone` error (a `SchemaIssue`, lookup candidates, a `NoSuchElementError` naming the absent value)
 - `Effect.filterOrFail(lookup, Predicate.isTupleOf(1), onOther)` fails an exactly-one lookup, `Array.isReadonlyArrayNonEmpty` an at-least-one lookup
 - `Array.headNonEmpty(String.split(text, separator))` reads the first part with no absent case, a `split(...)[0] ?? text` restating it
 - `UndefinedOr.match(x, { onUndefined, onDefined })` and `UndefinedOr.map` fold an optional field, a conversion to `Option` restating them

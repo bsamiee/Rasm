@@ -16,12 +16,14 @@ type Client<F, Q> = Parameters<typeof Catalog.layer<never, F, Q>>[1];
 
 const parents = Relation.make('parents', { id: Schema.String, label: Schema.String, state: Schema.Literals(['open', 'closed']) });
 const children = Relation.make('children', { id: Schema.String, parentId: Schema.String, rank: Schema.Int }, { references: [{ columns: ['parentId'], table: parents, onDelete: 'CASCADE' }] });
-const renamed = Relation.make('parents', { id: Schema.String, title: Schema.String, state: parents.schema.fields.state }, { renamed: { title: 'label' }, indexes: [{ columns: ['title'], unique: true }] });
-const extended = Relation.make('parents', { ...renamed.schema.fields, extra: Schema.NullOr(Schema.String) }, { renamed: { title: 'label' }, indexes: [{ columns: ['title'], unique: true }] });
-const retired = Relation.make('parents', renamed.schema.fields, { renamed: { title: 'label' }, indexes: [{ columns: ['title'], unique: true }], retired: ['extra'] });
-const revived = Relation.make('parents', { ...renamed.schema.fields, extra: Schema.NullOr(Schema.Int) }, { renamed: { title: 'label' }, indexes: [{ columns: ['title'], unique: true }], retired: ['extra'] });
-const kids = Relation.make('kids', children.schema.fields, { renamedFrom: 'children', references: [{ columns: ['parentId'], table: renamed, onDelete: 'CASCADE' }] });
-const retyped = Relation.make('kids', { ...children.schema.fields, rank: Schema.Finite }, { renamedFrom: 'children', references: [{ columns: ['parentId'], table: renamed, onDelete: 'CASCADE' }], retype: ['rank'] });
+const titled = { renamed: { title: 'label' }, indexes: [{ columns: ['title'], unique: true }] } as const;
+const renamed = Relation.make('parents', { id: Schema.String, title: Schema.String, state: parents.schema.fields.state }, titled);
+const moved = { renamedFrom: 'children', references: [{ columns: ['parentId'], table: renamed, onDelete: 'CASCADE' }] } as const;
+const extended = Relation.make('parents', { ...renamed.schema.fields, extra: Schema.NullOr(Schema.String) }, titled);
+const retired = Relation.make('parents', renamed.schema.fields, { ...titled, retired: ['extra'] });
+const revived = Relation.make('parents', { ...renamed.schema.fields, extra: Schema.NullOr(Schema.Int) }, { ...titled, retired: ['extra'] });
+const kids = Relation.make('kids', children.schema.fields, moved);
+const retyped = Relation.make('kids', { ...children.schema.fields, rank: Schema.Finite }, { ...moved, retype: ['rank'] });
 const reopened = Relation.make('parents', { ...parents.schema.fields, state: Schema.Literals(['open', 'closed', 'archived']) }, { retype: ['state'] });
 const annotated = Relation.make('parents', { ...parents.schema.fields, note: Schema.NullOr(Schema.String) });
 const required = Relation.make('parents', { ...parents.schema.fields, owner: Schema.String });
@@ -55,9 +57,10 @@ const accounts = Relation.make(
         ],
     },
 );
-const notes = Relation.make('notes', { id: Schema.Int, title: Schema.String, body: Schema.String }, { search: { columns: ['title', 'body'], tokenizer: { configuration: 'simple', filters: ['unaccent'], tokenize: 'unicode61 remove_diacritics 2' } } });
-const fragments = Relation.make('fragments', notes.schema.fields, { search: { columns: ['title', 'body'], tokenizer: 'trigram' } });
-const textNotes = Relation.make('notes', { ...notes.schema.fields, id: Column.Uuid }, { search: { columns: ['title', 'body'], tokenizer: { configuration: 'simple', filters: ['unaccent'], tokenize: 'unicode61 remove_diacritics 2' } } });
+const words = { columns: ['title', 'body'], tokenizer: { configuration: 'simple', filters: ['unaccent'], tokenize: 'unicode61 remove_diacritics 2' } } as const;
+const notes = Relation.make('notes', { id: Schema.Int, title: Schema.String, body: Schema.String }, { search: words });
+const fragments = Relation.make('fragments', notes.schema.fields, { search: { ...words, tokenizer: 'trigram' } });
+const textNotes = Relation.make('notes', { ...notes.schema.fields, id: Column.Uuid }, { search: words });
 const ledgers = Relation.make('ledgers', { id: Column.Uuid, tenant: Schema.String, amount: Schema.Int }, { tenant: { column: 'tenant', setting: 'app.tenant' } });
 const legacy = Relation.make('legacy', { id: Schema.String, count: Schema.Int, body: Schema.fromJsonString(Schema.Struct({ camelKey: Schema.Finite })) }, { retype: ['count', 'body'] });
 

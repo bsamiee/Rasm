@@ -51,8 +51,7 @@ class Format extends Data.Class<{ readonly locales?: Intl.LocalesArgument; reado
         return this.#relative.format(Math.round(amount(offset)), unit);
     }
     duration(value: Duration.Duration) {
-        const { days, hours, minutes, seconds, millis, nanos } = Duration.parts(value);
-        return this.#duration.format({ days, hours, minutes, seconds, milliseconds: millis, nanoseconds: nanos });
+        return this.#duration.format(Struct.renameKeys(Duration.parts(value), { millis: 'milliseconds', nanos: 'nanoseconds' }));
     }
 }
 

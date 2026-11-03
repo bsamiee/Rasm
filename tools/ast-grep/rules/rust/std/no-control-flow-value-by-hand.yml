@@ -35,8 +35,8 @@ utils:
                     - {kind: identifier, pattern: $OTHER}
                     - kind: call_expression
                       all:
-                          - has: {field: function, kind: 'identifier, scoped_identifier'}
-                          - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $OTHER}}, {not: {has: {nthChild: 2}}}]}
+                        - has: {field: function, kind: 'identifier, scoped_identifier'}
+                        - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $OTHER}}, {not: {has: {nthChild: 2}}}]}
 rule:
     any:
         - kind: or_pattern

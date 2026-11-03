@@ -2671,9 +2671,6 @@ importers:
       '@rasm/automation':
         specifier: workspace:*
         version: link:../../libs/typescript/creative-cloud/automation
-      '@rasm/search':
-        specifier: workspace:*
-        version: link:../../libs/typescript/data/search
       '@swc/core':
         specifier: 'catalog:'
         version: 1.16.21(@swc/helpers@0.5.23)

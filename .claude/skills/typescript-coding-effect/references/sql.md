@@ -64,4 +64,6 @@ Driver layers provide the driver tag and `SqlClient` with their own `Reactivity`
 - `D1Client` runs no transactions, and `D1Client.batch([a, b])` writes statements atomically with a tuple typed per statement
 - `D1Client.batch` lists end in a `SELECT` of the written state, read through `Array.lastNonEmpty`
 - `sql.onDialect` takes the `sqlite` arm on D1 and SQLite, and `Effect.serviceOption(D1Client.D1Client)` selects `batch` or `sql.withTransaction`
-- Live schema reads `pragma_table_list`, `pragma_table_xinfo`, and `pragma_index_list` on SQLite, `information_schema` and `pg_catalog` on PostgreSQL
+- Live schema reads `pragma_table_list`, `pragma_table_xinfo`, `pragma_index_list`, `sqlite_sequence`, `information_schema`, and `pg_catalog`
+- Facts a catalog states come from it, a match on stored DDL text restating it
+- Renamed tables and columns keep their identity on the object, a PostgreSQL `COMMENT ON` or a `/* */` comment in SQLite's stored `CREATE` text

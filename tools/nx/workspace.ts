@@ -1,11 +1,9 @@
 import { layerPosix } from '@effect/platform-node/NodePath';
 import { layer } from '@effect/platform-node/NodeServices';
-import { type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency, type TargetConfiguration, type Tree } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, readNxJsonFromDisk, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option, Path, Record, Result, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
-import type { SyncGenerator } from 'nx/src/utils/sync-generators';
-import { multiGlobWithWorkspaceContext } from 'nx/src/utils/workspace-context';
 import { parseSync } from 'vite';
 import { decodeFile, Mise, Package } from '#/eng/typescript/manifest';
 import { fromString, Toml, Yaml } from '#/eng/typescript/parsed';
@@ -24,10 +22,9 @@ const PYPROJECT = 'pyproject.toml';
 const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
 const TESTS = 'tests';
 const CONTAINERS = /^(?:testcontainers|@testcontainers\/.+)$/u;
-const DEPLOYMENT_ROWS = {
-    'Xcode.xcconfig': [/^MACOSX_DEPLOYMENT_TARGET = .+$/mu, (version: string) => `MACOSX_DEPLOYMENT_TARGET = ${version}`],
-    '.swiftlint.yml': [/^ {4}macOS_deployment_target: .+$/mu, (version: string) => `    macOS_deployment_target: '${version}'`],
-} as const;
+const DOTNET = '{workspaceRoot}/.artifacts/dotnet';
+const VERSIONS = new Intl.Collator('en', { numeric: true });
+const DEPLOYMENT_TARGETS = { 'Xcode.xcconfig': /(?<=^MACOSX_DEPLOYMENT_TARGET = ).+$/mu, '.swiftlint.yml': /(?<=^ {4}macOS_deployment_target: (?<quote>['"]?))[^'"\n]+(?=\k<quote>$)/mu } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -132,7 +129,7 @@ class InferenceError extends Schema.TaggedError<InferenceError, { readonly brand
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [READS]
-const glob = (root: string, patterns: string[]) => Effect.tryPromise(() => globWithWorkspaceContext(root, patterns));
+const glob = (root: string, patterns: string[], exclude?: string[]) => Effect.tryPromise(() => globWithWorkspaceContext(root, patterns, exclude));
 const owning = Effect.fnUntraced(function* (root: string, dir: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const folders = [...dir.split(path.sep).map((_, at, segments) => segments.slice(0, segments.length - at).join(path.sep)), '.'];
@@ -152,11 +149,14 @@ const extendedConfigs: (root: string, file: string, config: typeof TsConfig.Type
 // --- [WORKSPACE]
 const readPyproject = Effect.fnUntraced(function* (root: string) {
     const [path, { tool }] = yield* Effect.all([Path.Path, decodeFile(Root, root, PYPROJECT)]);
-    const { members } = tool.uv.workspace;
-    const manifests = yield* Effect.forEach(members, (member) => decodeFile(Member, root, path.join(member, PYPROJECT)));
-    const moduleRoots = Array.zip(members, manifests).flatMap(([member, manifest]) => manifest.tool.hatch.build.devModeDirs.map((folder) => path.join(member, folder)));
-    const commands = Array.filterMap(Array.zip(members, manifests), ([member, manifest]) => (Record.isEmptyRecord(manifest.project.scripts) ? Result.failVoid : Result.succeed(member)));
-    return { moduleRoots, commands, requirements: tool.uv.requirements, dataFile: tool.coverage.run.dataFile, ...tool.pytest };
+    const members = yield* Effect.forEach(tool.uv.workspace.members, (member) => Effect.map(decodeFile(Member, root, path.join(member, PYPROJECT)), (manifest) => ({ member, ...manifest })));
+    return {
+        moduleRoots: members.flatMap(({ member, tool: { hatch } }) => hatch.build.devModeDirs.map((folder) => path.join(member, folder))),
+        commands: members.filter(({ project }) => !Record.isEmptyRecord(project.scripts)).map(Struct.get('member')),
+        requirements: tool.uv.requirements,
+        dataFile: tool.coverage.run.dataFile,
+        ...tool.pytest,
+    };
 });
 const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot: root, nxJsonConfiguration }: CreateNodesContext) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -207,28 +207,13 @@ const tagPrefix = Effect.fnUntraced(function* ({ release }: Workspace, tags: rea
 const suitePath = (path: Path.Path, base: string, dir: string) => path.join(base, ...dir.split(path.sep).filter((segment) => segment !== path.basename(base)));
 const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyproject, hosts }: Workspace) {
     const [path, { pythonFiles, testPaths, dataFile }, folders] = yield* Effect.all([Path.Path, pyproject, hosts]);
-    const testDirs = testPaths.map((testPath) => suitePath(path, testPath, dir));
-    const found = yield* Effect.tryPromise(() =>
-        multiGlobWithWorkspaceContext(
-            root,
-            testDirs.map((testDir) => `${testDir}/**/{${pythonFiles.join(',')}}`),
-        ),
+    const suites = yield* Effect.filter(
+        testPaths.map((testPath) => suitePath(path, testPath, dir)),
+        (suite) => Effect.map(glob(root, [`${suite}/**/{${pythonFiles.join(',')}}`]), Array.isArrayNonEmpty),
     );
-    const suites = Array.zip(testDirs, found)
-        .filter(([, files]) => files.length > 0)
-        .map(([testDir]) => testDir);
-    const covered = !folders.some((host) => dir.split(path.sep).includes(host));
     const coverage = `${dataFile}.{projectName}`;
-    return suites.length > 0
-        ? {
-              check: {},
-              test: {
-                  command: 'pytest',
-                  inputs: suites.map((suite) => `{workspaceRoot}/${suite}/**/*`),
-                  ...(covered ? { options: { args: [...suites, '--cov'], env: { COVERAGE_FILE: coverage } }, outputs: [`{workspaceRoot}/${coverage}`] } : { options: { args: suites }, outputs: [] }),
-              },
-          }
-        : {};
+    const pytest = folders.some((host) => dir.split(path.sep).includes(host)) ? { options: { args: suites }, outputs: [] } : { options: { args: [...suites, '--cov'], env: { COVERAGE_FILE: coverage } }, outputs: [`{workspaceRoot}/${coverage}`] };
+    return Array.match(suites, { onEmpty: () => ({}), onNonEmpty: () => ({ check: {}, test: { command: 'pytest', inputs: suites.map((suite) => `{workspaceRoot}/${suite}/**/*`), ...pytest } }) });
 });
 const suiteInput = (...suites: readonly string[]) => ({ namedInputs: { default: ['{projectRoot}/**/*', ...suites.map((suite) => `{workspaceRoot}/${suite}/**/*`)] } });
 const suiteInputs = Effect.fnUntraced(function* (language: string, dir: string, root: string) {
@@ -248,12 +233,12 @@ const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
     tags: ['language:swift', ...tags],
     targets: { check: {}, ...Record.fromIterableWith(['build', 'lint:periphery', ...targets], (target) => [target, {}]) },
 });
-const binlog = (target: string) => `{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/${target.replaceAll(':', '-')}.binlog`;
+const binlog = (target: string) => `${DOTNET}/binlog/{projectName}/${target.replaceAll(':', '-')}.binlog`;
 const markers = {
     '*.csproj': Effect.fnUntraced(function* ({ dir }, { file, root }) {
         const [{ Project }, windows] = yield* Effect.all([decodeFile(MSBuildProject, root, file), Effect.map(glob(root, [`${dir}/**/Windows/**/*.cs`]), Array.isArrayNonEmpty)]);
         const plugin = Project.PropertyGroup.some(({ TargetExt }) => TargetExt === '.rhp');
-        const outputs = (target: string, configuration: string) => [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}/${configuration}*`, binlog(target), ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/{projectName}_${configuration}*`] : [])];
+        const outputs = (target: string, configuration: string) => [`${DOTNET}/{bin,obj}/{projectName}/${configuration}*`, binlog(target), ...(plugin ? [`${DOTNET}/{bin,obj}/*/{projectName}_${configuration}*`] : [])];
         return {
             tags: ['language:dotnet', ...(plugin ? ['output:rhp'] : []), ...(windows ? ['platform:windows'] : [])],
             targets: {
@@ -263,7 +248,7 @@ const markers = {
                     ? {
                           'build:windows': {
                               options: { cwd: '{projectRoot}', args: ['--runtime', 'win-x64', '"-p:ArtifactsPath=$NX_WORKSPACE_ROOT/.artifacts/dotnet/windows"'] },
-                              outputs: ['{workspaceRoot}/.artifacts/dotnet/windows/{bin,obj}/{projectName}', binlog('build:windows')],
+                              outputs: [`${DOTNET}/windows/{bin,obj}/{projectName}`, binlog('build:windows')],
                           },
                       }
                     : {}),
@@ -279,15 +264,15 @@ const markers = {
             tags: ['language:dotnet'],
             targets: {
                 ...Record.fromIterableWith(['build', 'format'], (step) => [step, { executor: 'nx:noop', dependsOn: [{ target: `${step}:*${ext}`, params: 'forward' as const }] }]),
-                [`restore:${base}`]: { outputs: [`{workspaceRoot}/.artifacts/dotnet/obj/${base}/project.assets.json`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*.nuget.*`, binlog(`restore:${base}`)], options: { args: [file] } },
-                [`build:${base}`]: { dependsOn: [`restore:${base}`], inputs: ['default'], outputs: [`{workspaceRoot}/.artifacts/dotnet/bin/${base}`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*/**/*`, binlog(`build:${base}`)], options: { args: [file, '--no-restore'] } },
+                [`restore:${base}`]: { outputs: [`${DOTNET}/obj/${base}/project.assets.json`, `${DOTNET}/obj/${base}/*.nuget.*`, binlog(`restore:${base}`)], options: { args: [file] } },
+                [`build:${base}`]: { dependsOn: [`restore:${base}`], inputs: ['default'], outputs: [`${DOTNET}/bin/${base}`, `${DOTNET}/obj/${base}/*/**/*`, binlog(`build:${base}`)], options: { args: [file, '--no-restore'] } },
                 [`run:${base}`]: { dependsOn: [`build:${base}`], options: { args: [file, '--no-build', '--'] } },
                 [`format:${base}`]: { options: { args: [file, '--no-restore'] }, dependsOn: [`restore:${base}`] },
                 check: {},
             },
         };
     }),
-    '.swcrc': () => Effect.succeed({ tags: ['host:extendscript'], targets: { build: {} } }),
+    '.swcrc': { tags: ['host:extendscript'], targets: { build: {} } },
     [CARGO_MANIFEST]: Effect.fnUntraced(function* ({ dir }, { file, root, crates, mise }) {
         const [all, { daemons }, suite] = yield* Effect.all([crates, mise, suiteInputs('rust', dir, root)], { concurrency: 'unbounded' });
         const crate = yield* Effect.fromOption(Array.findFirst(all, ({ manifest }) => manifest === file));
@@ -361,10 +346,13 @@ const markers = {
             concurrency: 'unbounded',
         });
         const named = owner === dir ? {} : { name: path.join(manifest.name, path.relative(owner, dir)) };
-        const building = (folder: string) => (configFiles.some((held) => held.startsWith(`${folder}${path.sep}`) && path.dirname(held) !== folder) ? { dependsOn: [{ projects: [`directory:${folder}/**`], target: 'build' }] } : {});
-        const runs = [...entries.filter((entry) => !configFiles.some((held) => path.dirname(held) === path.dirname(entry))).map((entry) => [entry, `node ${entry}`] as const), ...hosts.map((entry) => [entry, `node ${path.join(dir, 'main.ts')} ${path.basename(path.dirname(entry))}`] as const)].map(
-            ([entry, command]) => [path.basename(path.dirname(entry)), { command, ...building(path.dirname(entry)) }] as const,
-        );
+        const runs = [
+            ...entries
+                .map(path.dirname)
+                .filter((folder) => !configFiles.some((held) => path.dirname(held) === folder))
+                .map((folder) => [folder, `node ${path.join(folder, 'main.ts')}`] as const),
+            ...hosts.map(path.dirname).map((folder) => [folder, `node ${path.join(dir, 'main.ts')} ${path.basename(folder)}`] as const),
+        ].map(([folder, command]) => [path.basename(folder), { command, ...(configFiles.some((held) => held.startsWith(`${folder}${path.sep}`) && path.dirname(held) !== folder) ? { dependsOn: [{ projects: [`directory:${folder}/**`], target: 'build' }] } : {}) }] as const);
         const integration = Array.match(containers, { onEmpty: () => ({}), onNonEmpty: (tests) => ({ test: { options: { args: tests.map((test) => `--exclude='**/${test}'`) } }, 'test:integration': { options: { args: tests } } }) });
         return {
             ...suite,
@@ -380,22 +368,22 @@ const markers = {
         };
     }),
     'vite.config.ts': ({ dir }, { configFiles }) => Effect.map(Path.Path, (path) => configFiles.includes(path.join(dir, CLOUDFLARE_CONFIG))).pipe(Effect.map((hosted) => ({ tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {}, ...(hosted ? { hosting: {} } : {}) } }))),
-    ...Record.fromIterableWith(['uxp', 'cep'] as const, (host) => [`${host}.config.ts` as const, () => Effect.succeed({ tags: [`host:${host}`], targets: { build: {}, pack: {}, install: {} } })]),
-    'script.config.ts': () => Effect.succeed({ tags: ['output:script'], targets: { build: {} } }),
-    'sea.config.ts': () => Effect.succeed({ tags: ['output:sea'], targets: { pack: {} } }),
-    [CLOUDFLARE_CONFIG]: () => Effect.succeed({ targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } }),
-    '.storybook/main.ts': () => Effect.succeed({ targets: { storybook: {} } }),
+    ...Record.fromIterableWith(['uxp', 'cep'] as const, (host) => [`${host}.config.ts` as const, { tags: [`host:${host}`], targets: { build: {}, pack: {}, install: {} } }]),
+    'script.config.ts': { tags: ['output:script'], targets: { build: {} } },
+    'sea.config.ts': { tags: ['output:sea'], targets: { pack: {} } },
+    [CLOUDFLARE_CONFIG]: { targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } },
+    '.storybook/main.ts': { targets: { storybook: {} } },
     'hooks/hooks.json': Effect.fnUntraced(function* (_, { file, root }) {
         yield* Effect.fromOption(Schema.decodeOption(Hooks)(yield* decodeFile(Schema.String, root, file)));
         return { tags: ['host:claude'] };
     }),
-} as const satisfies Record<string, (file: Path.Path.Parsed, workspace: Workspace & { readonly file: string; readonly configFiles: readonly string[] }) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, unknown, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>>;
+} as const satisfies Record<string, Optional<ProjectConfiguration, 'root'> | ((file: Path.Path.Parsed, workspace: Workspace & { readonly file: string; readonly configFiles: readonly string[] }) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, unknown, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>)>;
 const infer = Effect.fnUntraced(
     function* (file: string, workspace: Workspace & { readonly configFiles: readonly string[] }) {
         const path = yield* Path.Path;
         const parsed = path.parse(file);
         const [marker, configure] = yield* Effect.fromOption(Array.findFirst(Object.entries(markers), ([key]) => [parsed.base, path.join(path.basename(parsed.dir), parsed.base), `*${parsed.ext}`].includes(key)));
-        const { root: directory = marker.split('/').reduce((at) => path.dirname(at), file), tags = [], ...configuration }: Optional<ProjectConfiguration, 'root'> = yield* configure(parsed, { ...workspace, file });
+        const { root: directory = marker.split('/').reduce((at) => path.dirname(at), file), tags = [], ...configuration }: Optional<ProjectConfiguration, 'root'> = Predicate.isFunction(configure) ? yield* configure(parsed, { ...workspace, file }) : configure;
         const hosted = Array.intersection(directory.split('/'), yield* workspace.hosts).map((host) => `host:${host}`);
         return { projects: { [directory]: { ...configuration, root: directory, tags: Array.union(tags, hosted) } } };
     },
@@ -407,10 +395,11 @@ const infer = Effect.fnUntraced(
 const pythonVersions = Effect.fnUntraced(function* ({ root, hosts, pyproject, python }: Workspace) {
     const [path, folders, { pythonFiles, testPaths, moduleRoots, requirements }] = yield* Effect.all([Path.Path, hosts, pyproject]);
     const claimed = moduleRoots.flatMap((moduleRoot) => testPaths.map((testPath) => suitePath(path, testPath, moduleRoot)));
-    const unclaimed = (yield* glob(
+    const unclaimed = yield* glob(
         root,
         testPaths.flatMap((testPath) => pythonFiles.map((pattern) => `${testPath}/**/${pattern}`)),
-    )).filter((file) => !claimed.some((testDir) => !path.relative(testDir, file).startsWith('..')));
+        claimed.map((testDir) => `${testDir}/**`),
+    );
     const [{ versions }, scopes, rules] = yield* Effect.all(
         [
             python,
@@ -434,7 +423,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, hosts, pyproject, py
         { concurrency: 'unbounded' },
     );
     const [interpreter] = versions;
-    const reaches = (version: string) => (release: string) => version.localeCompare(release, 'en', { numeric: true }) >= 0;
+    const reaches = (version: string) => (release: string) => VERSIONS.compare(version, release) >= 0;
     const runs =
         (version: string) =>
         ({ metadata: { below, from } }: (typeof rules)[number]) =>
@@ -457,14 +446,9 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, hosts, pyproject, py
     const walk = (flags: readonly string[]) => scan(['--no-ignore hidden', "--globs '!pnpm-lock.yaml'", "--globs '!tools/*/examples/**'", ...flags]);
     const offs = off.map(({ id }) => `--off=${id}`);
     const tree = walk(['--error=no-suppress-all', ...offs]);
-    const rooted = off.filter(runs(interpreter));
-    const hosted = Object.fromEntries([
-        ...(rooted.length > 0 ? [['root', walk([ids(rooted), ...scopes.map(({ scope }) => `--globs '!${scope}/**'`)])] as const] : []),
-        ...groups.flatMap(({ version, scoped }) => {
-            const running = off.filter(runs(version));
-            return running.length > 0 ? [[version, scan([ids(running), scoped])] as const] : [];
-        }),
-    ]);
+    const hosted = Record.filterMap({ root: [interpreter, (filter: string) => walk([filter, ...scopes.map(({ scope }) => `--globs '!${scope}/**'`)])] as const, ...Object.fromEntries(groups.map(({ version, scoped }) => [version, [version, (filter: string) => scan([filter, scoped])] as const])) }, ([version, command]) =>
+        Array.match(off.filter(runs(version)), { onEmpty: () => Result.failVoid, onNonEmpty: (running) => Result.succeed(command(ids(running))) }),
+    );
     const lock = `python -c "import fcntl, subprocess, sys; lock = open(sys.argv[1], 'w'); fcntl.flock(lock, fcntl.LOCK_EX); sys.exit(subprocess.call(sys.argv[2:]))" .cache/ast-grep/rewrite.lock`;
     const split = (target: string, children: Readonly<Record<string, string>>) => {
         const [lead, ...rest] = Object.keys(children).map((child) => `${target}:${child}`);
@@ -612,11 +596,11 @@ const createDependencies: CreateDependencies = Effect.fnUntraced(
     rendered,
     (effect) => runtime.runPromise(effect),
 );
-const deploymentTarget: SyncGenerator = Effect.fnUntraced(
-    function* (tree) {
+const deploymentTarget = Effect.fnUntraced(
+    function* (tree: Tree) {
         const { platforms } = yield* (yield* openWorkspace({ workspaceRoot: tree.root, nxJsonConfiguration: readNxJsonFromDisk(tree.root) })).swift;
         const { version } = yield* Effect.fromOption(Array.findFirst(platforms, ({ name }) => name === 'macos'));
-        const rows = yield* Effect.forEach(Object.entries(DEPLOYMENT_ROWS), ([file, [pattern, row]]) => Effect.map(Effect.fromNullishOr(tree.read(file, 'utf-8')), (text) => ({ file, text, next: text.replace(pattern, row(version)) })));
+        const rows = yield* Effect.forEach(Object.entries(DEPLOYMENT_TARGETS), ([file, pattern]) => Effect.map(Effect.fromNullishOr(tree.read(file, 'utf-8')), (text) => ({ file, text, next: text.replace(pattern, version) })));
         const drifted = rows.filter(({ text, next }) => next !== text);
         yield* Effect.forEach(drifted, ({ file, next }) => Effect.sync(() => tree.write(file, next)), { discard: true });
         return Array.match(drifted, { onEmpty: () => undefined, onNonEmpty: (changed) => ({ outOfSyncMessage: `macOS deployment target differs from ${SWIFT_MANIFEST} ${version}`, outOfSyncDetails: changed.map(Struct.get('file')) }) });

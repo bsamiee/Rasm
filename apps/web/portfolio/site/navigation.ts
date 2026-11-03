@@ -15,6 +15,7 @@ const Fragment = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const line = () => Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
 const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLElement | null>, sticky: RefObject<HTMLDivElement | null>, foreground: boolean) => {
     const hash = useSyncExternalStore(
         (notify) => {
@@ -51,7 +52,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     const track = useEffectEvent((records: readonly IntersectionObserverEntry[], entries: readonly (typeof Entry.Type)[]) => {
         records.forEach(({ isIntersecting, target: { id } }) => intersections.current[isIntersecting ? 'add' : 'delete'](id));
         const entry = entries.findLast(({ id }) => intersections.current.has(id));
-        const page = work.current !== null && work.current.getBoundingClientRect().top > Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) ? Fragment.top : Fragment.work;
+        const page = work.current !== null && work.current.getBoundingClientRect().top > line() ? Fragment.top : Fragment.work;
         const held = Option.exists(current, ({ entry: shown }) => {
             const section = document.getElementById(shown.id);
             return section !== null && section.getBoundingClientRect().top < globalThis.innerHeight && Math.ceil(globalThis.scrollY + globalThis.innerHeight) >= document.documentElement.scrollHeight;
@@ -86,8 +87,8 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
         const events = new AbortController();
         let observer: IntersectionObserver | undefined;
         const observe = () => {
-            const line = Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
-            const next = new IntersectionObserver((records) => track(records, portfolio.entries), { rootMargin: `${-line}px 0px ${line + 1 - globalThis.innerHeight}px 0px` });
+            const top = line();
+            const next = new IntersectionObserver((records) => track(records, portfolio.entries), { rootMargin: `${-top}px 0px ${top + 1 - globalThis.innerHeight}px 0px` });
             observer?.disconnect();
             intersections.current.clear();
             [section, ...section.querySelectorAll(':scope > section')].forEach(next.observe, next);

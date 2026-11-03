@@ -1,11 +1,11 @@
 import { NodeHttpClient, NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Effect, FileSystem, Layer, Option, Predicate, Schema, String } from 'effect';
+import { Cause, Effect, FileSystem, Layer, Option, Predicate, Schema, String } from 'effect';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 import { findMaxSatisfying, isValid } from 'verkit';
 import { CST, Parser } from 'yaml';
 import { Yaml } from '#/eng/typescript/parsed';
 import { run } from '#/eng/typescript/process';
-import { NoRelease, newest } from '#/eng/typescript/upgrade/newest';
+import { newest } from '#/eng/typescript/upgrade/newest';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -39,7 +39,10 @@ Effect.gen(function* () {
         [
             HttpClient.get(`https://raw.githubusercontent.com/Effect-TS/tsgo/@effect/tsgo@${catalog['@effect/tsgo']}/_packages/tsgo/upstream.json`).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk), Effect.flatMap(HttpClientResponse.schemaBodyJson(Upstream))),
             newest(`https://github.com/${repository}`, Option.liftPredicate(Predicate.and(isValid, String.endsWith('-with-generated-files')))),
-            Effect.flatMap(run('pnpm', ['view', 'typescript', 'versions', '--json']), Schema.decodeEffect(Versions)).pipe(Effect.flatMap((versions) => Effect.fromOption(Option.fromNullishOr(findMaxSatisfying(versions, range)), () => NoRelease.make({ subject: `npm typescript ${range}` })))),
+            run('pnpm', ['view', 'typescript', 'versions', '--json']).pipe(
+                Effect.flatMap(Schema.decodeEffect(Versions)),
+                Effect.flatMap((versions) => Effect.fromOption(Option.fromNullishOr(findMaxSatisfying(versions, range)), () => new Cause.NoSuchElementError(`npm typescript ${range} lists no release`))),
+            ),
         ],
         { concurrency: 'unbounded' },
     );

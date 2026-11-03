@@ -3,14 +3,13 @@ import { MenuButton } from '@rasm/ui/collection/menu-button';
 import { Field } from '@rasm/ui/form/field';
 import { Array, Option, Record, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
-import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import { CheckboxGroup } from 'react-aria-components';
 import { draft, updateEntry } from '#/editor/state.ts';
 import { details, format, sheetLabel } from '#/media/labels.ts';
 import { MediaFigure } from '#/media/media-figure.tsx';
 import type { AssetId, Assets } from '#/model/asset.ts';
-import { Composition, CompositionId, placementsFor } from '#/model/placement.ts';
+import { Composition, CompositionId, Placement } from '#/model/placement.ts';
 import type { EntryId } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -31,12 +30,12 @@ const PlaceFile = ({
     const setDraft = useAtomSet(draft);
     const [order, setOrder] = useState<string[]>([]);
     const file = Option.flatMap(assetId, (id) => Record.get(assets, id));
-    const placements = Option.toArray(file).flatMap(placementsFor);
+    const placements = Option.toArray(file).flatMap(Placement.fromAsset);
     const pages = placements.filter((placement) => placement.kind === 'pdf');
     const chosen = pages.length > 0 ? Array.getSomes(order.map((number) => Array.findFirst(pages, ({ page }) => String(page.number) === number))) : placements;
     const add = () => {
         const compositions = chosen.map((placement) => Composition.make({ id: CompositionId.make(SecureRandom.uuidV7Unsafe()), items: [placement] }));
-        setDraft(AsyncResult.map(updateEntry(entryId, Struct.evolve({ compositions: Array.appendAll(compositions) }))));
+        setDraft(updateEntry(entryId, Struct.evolve({ compositions: Array.appendAll(compositions) })));
         onSelect(Option.none());
         Option.map(Array.head(compositions), ({ id }) => onAdd(id));
     };
@@ -47,9 +46,9 @@ const PlaceFile = ({
                 {Option.match(file, { onNone: () => 'Select file', onSome: Struct.get('name') })}
             </MenuButton>
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="hint">{details([format.quantity(chosen.length, { other: (count) => `${count} selected` }), pages.length > 0 ? format.quantity(pages.length, { one: (count) => `${count} sheet`, other: (count) => `${count} sheets` }) : undefined])}</p>
+                <p className="hint">{details([format.quantity(chosen.length, { other: (shown) => `${shown} selected` }), pages.length > 0 ? format.quantity(pages.length, { one: (shown) => `${shown} sheet`, other: (shown) => `${shown} sheets` }) : undefined])}</p>
                 <button className="button button-outline" disabled={chosen.length === 0} onClick={add} type="button">
-                    Add {format.quantity(chosen.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}
+                    {format.quantity(chosen.length, { one: (shown) => `Add ${shown} composition`, other: (shown) => `Add ${shown} compositions` })}
                 </button>
             </div>
             {pages.length > 0 ? (

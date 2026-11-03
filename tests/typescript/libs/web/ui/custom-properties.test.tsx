@@ -6,6 +6,13 @@ import { render } from 'vitest-browser-react';
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _scoped = (text: string, properties: ComponentProps<typeof CustomProperties>['properties']) => <CustomProperties properties={properties}>{(scope) => <p {...scope}>{text}</p>}</CustomProperties>;
+const _hoisted = (names: readonly string[], values: readonly string[]) => {
+    const declared = [...document.styleSheets]
+        .flatMap(({ cssRules }) => [...cssRules])
+        .filter((rule) => rule instanceof CSSStyleRule)
+        .flatMap(({ style }) => names.map((name) => style.getPropertyValue(name)));
+    return values.map((value) => declared.filter((candidate) => candidate === value).length);
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -28,11 +35,7 @@ it('keeps scopes with different declarations apart and hoists one shared rule fo
             {_scoped('Third', { '--ratio': 0.5 })}
         </>,
     );
-    const declared = [...document.styleSheets]
-        .flatMap(({ cssRules }) => [...cssRules])
-        .filter((rule) => rule instanceof CSSStyleRule)
-        .map(({ style }) => style.getPropertyValue('--ratio'));
-    expect([declared.filter((ratio) => ratio === '2').length, declared.filter((ratio) => ratio === '0.5').length, ...['First', 'Second', 'Third'].map((text) => getComputedStyle(screen.getByText(text).element()).getPropertyValue('--ratio'))]).toEqual([1, 1, '2', '2', '0.5']);
+    expect([..._hoisted(['--ratio'], ['2', '0.5']), ...['First', 'Second', 'Third'].map((text) => getComputedStyle(screen.getByText(text).element()).getPropertyValue('--ratio'))]).toEqual([1, 1, '2', '2', '0.5']);
 });
 it('follows changed declarations on rerender', async () => {
     const screen = await render(_scoped('Figure', { '--media-ratio': 1.5, '--media-focus': '50% 50%' }));
@@ -48,11 +51,7 @@ it('hoists one rule per declaration whatever the key order or the other declarat
             {_scoped('Third', { '--ratio': 3, '--tone': 'green' })}
         </>,
     );
-    const declared = [...document.styleSheets]
-        .flatMap(({ cssRules }) => [...cssRules])
-        .filter((rule) => rule instanceof CSSStyleRule)
-        .flatMap(({ style }) => [style.getPropertyValue('--ratio'), style.getPropertyValue('--tone')]);
-    expect(['3', 'blue', 'green'].map((value) => declared.filter((candidate) => candidate === value).length)).toEqual([1, 1, 1]);
+    expect(_hoisted(['--ratio', '--tone'], ['3', 'blue', 'green'])).toEqual([1, 1, 1]);
 });
 it('keeps braces, semicolons, and markup inside the declaration value', async () => {
     const screen = await render(_scoped('Escaped', { '--tone': 'red;--other:1}p{outline:solid}</style><b>' }));

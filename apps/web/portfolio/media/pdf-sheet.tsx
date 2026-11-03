@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { PdfDocument } from '@rasm/media/pdf/document';
 import { PdfViewer } from '@rasm/media/pdf/viewer';
-import { Array, HashSet, Match, Option } from 'effect';
+import { Array, HashSet, Match, Option, Record } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -26,7 +26,6 @@ const RenderFailure = ({ viewer, page, asset }: { viewer: Option.Option<PdfViewe
 const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocumentProxy; placement: Extract<typeof Placement.Type, { kind: 'pdf' }>; layoutId: string; url: string }) => {
     const [query, setQuery] = useState('');
     const [pan, setPan] = useState(false);
-    const matches = { one: (count: string) => `${count} match`, other: (count: string) => `${count} matches` };
     const pages = placement.asset.sheets;
     const viewer = PdfViewer.useViewer(document, { ...sheet(placement.page.number), link: { externalLinkTarget: LinkTarget.BLANK }, pinch: { drawingDelay: '400 millis' } });
     const live = AsyncResult.value(viewer.state);
@@ -36,16 +35,11 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
             {AsyncResult.builder(viewer.state)
                 .onSuccess((state) => (
                     <ZoomControls
-                        fit={
-                            <>
-                                <ToggleButton className="button button-ghost" isSelected={state.currentScaleValue === 'page-fit'} onPress={() => PdfViewer.assign(state, { currentScaleValue: 'page-fit' })}>
-                                    Fit page
-                                </ToggleButton>
-                                <ToggleButton className="button button-ghost" isSelected={state.currentScaleValue === 'page-width'} onPress={() => PdfViewer.assign(state, { currentScaleValue: 'page-width' })}>
-                                    Fit width
-                                </ToggleButton>
-                            </>
-                        }
+                        fit={Record.collect({ 'page-fit': 'Fit page', 'page-width': 'Fit width' } as const, (scale, label) => (
+                            <ToggleButton className="button button-ghost" isSelected={state.currentScaleValue === scale} key={scale} onPress={() => PdfViewer.assign(state, { currentScaleValue: scale })}>
+                                {label}
+                            </ToggleButton>
+                        ))}
                         href={`${url}#page=${page.number}`}
                         zoomIn={() => state.pdfViewer.increaseScale()}
                         zoomOut={() => state.pdfViewer.decreaseScale()}
@@ -108,8 +102,8 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                                 <span className="text-muted basis-full text-xs" role="status">
                                     {Match.value({ query, ...state.matchesCount }).pipe(
                                         Match.when({ query: '' }, () => 'Search drawing numbers or text'),
-                                        Match.when({ total: 0 }, ({ total }) => format.quantity(total, matches)),
-                                        Match.orElse(({ current, total }) => `${current} of ${format.quantity(total, matches)}`),
+                                        Match.when({ total: 0 }, ({ total }) => format.quantity(total, { one: (shown) => `${shown} match`, other: (shown) => `${shown} matches` })),
+                                        Match.orElse(({ current, total }) => format.quantity(total, { one: (shown) => `${current} of ${shown} match`, other: (shown) => `${current} of ${shown} matches` })),
                                     )}
                                 </span>
                             </div>

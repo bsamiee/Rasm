@@ -137,13 +137,13 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             }),
         };
     };
-    static readonly observe = (sql: SqlClient.SqlClient, excludedPrefixes: readonly string[]) =>
-        Effect.flatMap(sql`SELECT name FROM pragma_table_list WHERE schema = 'main' AND name = 'sqlite_sequence'`, (listed) =>
-            SqlSchema.findOne({
-                Request: Schema.fromJsonString(Schema.Array(Schema.String)),
-                Result: Schema.Struct({ observed: Schema.fromJsonString(Sqlite) }),
-                execute: (prefixes) =>
-                    sql`WITH relations AS (SELECT l.name, l.type, l.strict, l.wr, m.sql FROM pragma_table_list l JOIN sqlite_schema m ON m.name = l.name WHERE l.schema = 'main' AND l.name NOT GLOB 'sqlite_*' AND NOT EXISTS (SELECT 1 FROM json_each(${prefixes}) p WHERE instr(l.name, p.value) = 1))
+    static readonly plan: Engine['Service']['plan'] = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog) {
+        const listed = yield* sql`SELECT name FROM pragma_table_list WHERE schema = 'main' AND name = 'sqlite_sequence'`;
+        const { observed: live } = yield* SqlSchema.findOne({
+            Request: Schema.fromJsonString(Schema.Array(Schema.String)),
+            Result: Schema.Struct({ observed: Schema.fromJsonString(Sqlite) }),
+            execute: (prefixes) =>
+                sql`WITH relations AS (SELECT l.name, l.type, l.strict, l.wr, m.sql FROM pragma_table_list l JOIN sqlite_schema m ON m.name = l.name WHERE l.schema = 'main' AND l.name NOT GLOB 'sqlite_*' AND NOT EXISTS (SELECT 1 FROM json_each(${prefixes}) p WHERE instr(l.name, p.value) = 1))
                     SELECT json_object(
                         'tables', (SELECT json_group_array(json_object('name', r.name, 'strict', r.strict, 'withoutRowid', r.wr, 'sql', r.sql,
                             'columns', (SELECT json_group_array(json_object('name', x.name, 'type', x.type, 'required', x."notnull", 'default', x.dflt_value, 'hidden', x.hidden)) FROM pragma_table_xinfo(r.name) x),
@@ -156,12 +156,9 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                         'virtual', (SELECT json_group_array(json_object('name', r.name, 'sql', r.sql)) FROM relations r WHERE r.type = 'virtual'),
                         'sequences', ${Array.isReadonlyArrayNonEmpty(listed) ? sql`(SELECT json_group_array(json_object('name', s.name, 'seq', s.seq)) FROM sqlite_sequence s)` : sql.literal('json_array()')}
                     ) AS observed`,
-            })(excludedPrefixes),
-        ).pipe(Effect.map(({ observed }) => ({ tables: observed.tables.map(Sqlite.identities), virtual: observed.virtual, sequences: observed.sequences })));
-    static readonly plan: Engine['Service']['plan'] = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog) {
-        const live = yield* Sqlite.observe(sql, catalog.excludedPrefixes);
+        })(catalog.excludedPrefixes);
         const rendered = catalog.tables.map((declared) => ({ declared, rendered: Reconcile.render(sql, Sqlite, catalog, declared) }));
-        const resolved = Reconcile.diff(sql, catalog, rendered, { tables: live.tables, columns: ({ columns }) => columns, references: ({ references }) => references });
+        const resolved = Reconcile.diff(sql, catalog, rendered, live.tables.map(Sqlite.identities));
         const populated = yield* resolved.populated;
         const quoted = (name: string) => sql`${sql(name)}`;
         const analyze = (entry: (typeof resolved.matched)[number]) => {

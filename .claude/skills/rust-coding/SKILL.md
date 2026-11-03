@@ -65,6 +65,8 @@ Functions are total when each declared input produces a declared output, and a p
 - Clamps hiding an input the callee rejects (`.max(0.0)` before an asserting call) become an input type excluding it, a clamp the domain defines staying
 - Values a callee gives a meaning (a `0.0` tolerance as the subject's own, a `0.0` epsilon as an exact test) stay reachable as `None`
 - Inputs a dependency asserts on (a cone's dimension, an oversized raster) are refused at construction or before the call, naming each refused subject
+- Package members hold for the whole input range and size at the cost their operation states, an empty input reaching its empty result
+- Counts a dependency replaces with a process-global setting below a floor (a revolve's segment count) are a bounded integer above it
 - Associated constants a dependency panics on (a zero period) take `const { assert!(..) }` in the generic body, failing at monomorphization
 
 ### [01.2]-[PURITY]
@@ -201,6 +203,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 - Integer windows reaching their type's maximum (a Sobol index through `u16::MAX`) are a nutype over `RangeInclusive<u16>` refusing `start > last`, never a half-open range or a count
 - Public fields hold values no rule across fields constrains, each field's own type validating it
 - Constructors test each quantity the invariant states (an unsigned volume tests extent, not orientation), never a diagnostic agreeing on some inputs
+- Package results enter a constrained type through its constructor checks, never on the package's documented behavior
 - Invariants consumers read (a finite path) are a type each operation takes and returns, never a per-entry check, emptying guard, or predicate walk
 - Tokens a value issues hold an invariant `'id` brand its scoped constructor binds, and another issuer's token fails to compile
 
@@ -432,6 +435,7 @@ Pure functions hold the domain, async functions hold I/O, and the binary's `main
 - Blocking calls in a future raced against cancellation (a prompt) run as an awaited `spawn_blocking` task, the cancelling owner restoring held state (raw mode)
 - Tasks spawn inside a scope that awaits them: `JoinQueue` in spawn order, `JoinSet` in completion order, `TaskTracker`, or `AbortOnDropHandle`
 - `CancellationToken` stops a scope, `run_until_cancelled` races a future against it, and `timeout` bounds one future
+- Cancellation tokens and progress reporters a package call takes are parameters of each public operation reaching it, never a crate's own `None`
 - `tokio::select!` races futures, each branch producing its value, `biased;` ranking branches ready together, `OptionFuture` disabling an absent future
 - Blocking or CPU-bound work runs on `spawn_blocking` or the `rayon` thread pool, a runtime worker runs futures alone
 - Futures a blocking thread drives through `executor::block_on` race the cancellation signal as awaited futures do

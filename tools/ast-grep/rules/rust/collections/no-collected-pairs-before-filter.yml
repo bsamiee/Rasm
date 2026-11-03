@@ -12,15 +12,15 @@ utils:
               has: {field: macro, pattern: $PAIR, regex: '^iproduct$'}
             - kind: call_expression
               has:
-                  field: function
-                  any:
-                      - kind: field_expression
+                field: function
+                any:
+                    - kind: field_expression
+                      any: [{has: {field: field, matches: pair-method}}, {has: {field: value, matches: pair-stream}}]
+                    - kind: generic_function
+                      has:
+                        field: function
+                        kind: field_expression
                         any: [{has: {field: field, matches: pair-method}}, {has: {field: value, matches: pair-stream}}]
-                      - kind: generic_function
-                        has:
-                            field: function
-                            kind: field_expression
-                            any: [{has: {field: field, matches: pair-method}}, {has: {field: value, matches: pair-stream}}]
 rule:
     kind: call_expression
     has:

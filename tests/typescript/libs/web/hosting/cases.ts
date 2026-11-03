@@ -1,6 +1,6 @@
 import { assert, type Vitest } from '@effect/vitest';
 import { ObjectStorage } from '@rasm/hosting/storage';
-import { Array, ByteSize, Bytes, Context, Deferred, Duration, Effect, Fiber, Function, Layer, Option, Record, type Scope, Stream } from 'effect';
+import { Array, ByteSize, Bytes, Context, Deferred, Duration, Effect, Fiber, Function, Layer, Option, Record, type Scope, Stream, Struct } from 'effect';
 import { HttpServerRequest, HttpServerResponse, Multipart } from 'effect/http';
 import { isObjectNotFoundError } from 'partial-content';
 import { checkObjectStore, checkResumableWriteStore, formatConformanceReport, tallyConformance } from 'partial-content/conformance';
@@ -27,18 +27,17 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
         const response = HttpServerResponse.toWeb(yield* ObjectStorage.serve({ key, mime: media.mime }, media.options).pipe(Effect.provideService(HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(new Request(`https://storage.test/${key}`, init)))));
         return { status: response.status, headers: response.headers, body: yield* Effect.promise(() => response.bytes()) };
     });
-    const status = (key: string) => Effect.map(read(key), (response) => response.status);
+    const status = (key: string) => Effect.map(read(key), Struct.get('status'));
     const held = Effect.fn('held')(
         function* (key: string) {
             const { objects } = yield* ObjectStorage;
             const { body } = yield* Effect.tryPromise(() => objects.getObject(key));
-            return Option.some(yield* Effect.promise(() => new Response(body).bytes()));
+            return yield* Effect.promise(() => new Response(body).bytes());
         },
         Effect.catchIf(
             ({ cause }) => isObjectNotFoundError(cause),
-            () => Effect.succeedNone,
+            () => Effect.undefined,
         ),
-        Effect.map(Option.getOrUndefined),
     );
     const reopened = Effect.map(Layer.build(Layer.fresh(storage)), (built) => Context.get(built, ObjectStorage).uploads);
     const discarded = (uploadToken: string) => ObjectStorage.use(({ uploads }) => Effect.tryPromise(() => uploads.getUploadState(uploadToken)).pipe(Effect.match({ onFailure: ({ cause }) => isUploadNotFoundError(cause), onSuccess: Function.constFalse })));

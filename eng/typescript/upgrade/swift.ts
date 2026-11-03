@@ -1,9 +1,10 @@
 import type { Rule } from '@ast-grep/napi';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Array, Effect, FileSystem, flow, Option, Path, Record, Result, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, flow, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import { compare, normalizeFull } from 'verkit';
 import { stringify } from 'yaml';
 import { accumulate } from '#/eng/typescript/accumulate';
+import { decodeFile } from '#/eng/typescript/manifest';
 import { Yaml } from '#/eng/typescript/parsed';
 import { records, run } from '#/eng/typescript/process';
 import { newest } from '#/eng/typescript/upgrade/newest';
@@ -22,17 +23,10 @@ const Remote = Schema.Struct({ kind: Schema.Literal('remote'), repository: Schem
 const Member = Schema.Struct({ package: Schema.String, 'product-name': Schema.String, 'build-phase': Schema.Struct({ 'build-phase': Schema.Literal('frameworks') }) });
 const Project = Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.Union([Remote, Schema.JsonObject])), targets: Schema.Array(Schema.Struct({ name: Schema.String, 'package-product-members': Schema.Array(Member).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })) })));
 
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class Unsupported extends Schema.TaggedError<Unsupported, { readonly brand: unique symbol }>()('Unsupported', { repository: Schema.String, requirement: Schema.Array(Schema.String) }) {
-    override get message(): string {
-        return `${this.repository} requires ${this.requirement.join(', ')}, upgrade moves ${MAJOR} alone`;
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const requirement = (url: string, from: string) => `.package(url: "${url}", from: "${from}")`;
+const unsupported = (repository: string, stated: readonly string[]) => new Cause.IllegalArgumentError(`${repository} requires ${stated.join(', ')}, upgrade moves ${MAJOR} alone`);
 const scan = (rules: readonly { readonly id: string; readonly rule: Rule; readonly fix?: string }[], args: readonly string[]) => run('ast-grep', ['scan', '--inline-rules', rules.map((rule) => stringify({ language: 'swiftlang', severity: 'info', ...rule })).join('---\n'), '--custom-languages', 'allow', ...args]);
 const project = Effect.fn('project')(function* (file: string, { packages, targets }: typeof Project.Type, releases: Record.ReadonlyRecord<string, string>) {
     const path = yield* Path.Path;
@@ -42,7 +36,7 @@ const project = Effect.fn('project')(function* (file: string, { packages, target
         packages.filter(Schema.is(Remote)),
         Effect.fnUntraced(function* ({ repository, version }: typeof Remote.Type) {
             const identity = path.basename(repository, '.git').toLowerCase();
-            const [current, tag] = yield* Effect.all([Effect.fromOption(Option.fromUndefinedOr(version[MAJOR]), () => Unsupported.make({ repository, requirement: Object.keys(version) })), Effect.fromOption(Record.get(releases, repository))]);
+            const [current, tag] = yield* Effect.all([Effect.fromOption(Option.fromUndefinedOr(version[MAJOR]), () => unsupported(repository, Object.keys(version))), Effect.fromOption(Record.get(releases, repository))]);
             const remove = xcodeproj('pkg', 'remove', identity);
             const linked = Effect.forEach(
                 links.filter((link) => link.identity === identity),
@@ -59,7 +53,7 @@ const project = Effect.fn('project')(function* (file: string, { packages, target
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 Effect.gen(function* () {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const path = yield* Path.Path;
     const listed = Array.groupBy(yield* records('\0', 'git', ['ls-files', '--cached', '--others', '--exclude-standard', '--deduplicate', '-z', '--', ':(glob)**/Package.swift', ':(glob)**/project.xcproj']), (file) => path.basename(file));
     const [manifests, projects] = [listed['Package.swift'] ?? [], listed['project.xcproj'] ?? []];
     const major = { pattern: requirement('$URL', '$FROM') };
@@ -79,14 +73,12 @@ Effect.gen(function* () {
                         Schema.decodeEffect(Matches),
                     ),
             }),
-            Effect.validate(projects, (file) => Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(Project)), { concurrency: 'unbounded' }),
+            Effect.validate(projects, (file) => decodeFile(Project, file), { concurrency: 'unbounded' }),
         ],
         { concurrency: 'unbounded' },
     );
-    const [requirements, unsupported] = Array.partition(matches, (match) =>
-        match.ruleId === 'major' ? Result.succeed({ url: match.metaVariables.single.URL.text, from: match.metaVariables.single.FROM.text }) : Result.fail(Unsupported.make({ repository: match.metaVariables.single.URL.text, requirement: [match.text] })),
-    );
-    yield* accumulate(unsupported, Effect.fail);
+    const [requirements, refused] = Array.partition(matches, (match) => (match.ruleId === 'major' ? Result.succeed({ url: match.metaVariables.single.URL.text, from: match.metaVariables.single.FROM.text }) : Result.fail(unsupported(match.metaVariables.single.URL.text, [match.text]))));
+    yield* accumulate(refused, Effect.fail);
     const urls = Array.dedupe([...requirements.map(Struct.get('url')), ...documents.flatMap((document) => document.packages.filter(Schema.is(Remote)).map(Struct.get('repository')))]);
     const releases = Record.fromEntries(yield* Effect.validate(urls, (url) => Effect.map(newest(url, flow(normalizeFull, Option.fromNullOr)), (tag) => [url, tag] as const), { concurrency: 'unbounded' }));
     const stale = Record.fromEntries(Array.getSomes(requirements.map(({ url, from }) => Option.flatMap(Option.all([Record.get(releases, url), Option.fromNullOr(normalizeFull(from))]), ([tag, held]) => (compare(tag, held) > 0 ? Option.some([requirement(url, from), requirement(url, tag)] as const) : Option.none())))));

@@ -11,6 +11,7 @@ const choice = { orientation: 'horizontal', radios: 3 } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const options = <const T extends string>(literals: readonly T[]) => literals.map((id) => ({ id, label: String.capitalize(id) }));
 const text = (value: string | undefined) => Option.fromUndefinedOr(value).pipe(Option.map(String.trim), Option.filter(String.isNonEmpty));
 const details = (parts: readonly (string | undefined)[]) => Array.getSomes(parts.map(text)).join(' · ');
 const sheetLabel = ({ number, label }: typeof Sheet.Type, total: number) => details([`Sheet ${number} of ${total}`, label]);
@@ -22,4 +23,4 @@ const compositionLabel = (composition: typeof Composition.Type) => format.list(c
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { choice, compositionLabel, descriptionLabel, details, entryTitle, format, placementAlt, placementTitle, sheetLabel };
+export { choice, compositionLabel, descriptionLabel, details, entryTitle, format, options, placementAlt, placementTitle, sheetLabel };

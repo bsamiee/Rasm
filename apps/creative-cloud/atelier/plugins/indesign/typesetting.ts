@@ -1,8 +1,8 @@
 import { Adjust, Typeset } from '@rasm/automation/typesetting';
 import type { host } from '@rasm/indesign/host';
 import { Model } from '@rasm/indesign/model';
+import { requests } from '@rasm/indesign/requests';
 import { HostSettings } from '@rasm/indesign/settings';
-import { adjust, typeset } from '@rasm/indesign/typesetting';
 import { Settings } from '@rasm/typography/settings';
 import { Array, Cause, Effect, Number, Option, Record, Schema, Struct } from 'effect';
 
@@ -33,11 +33,11 @@ const picker = <A>(options: readonly (readonly [string, A])[]) => {
 
 // --- [REQUESTS]
 
-const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(Model.selection, (item) => typeset(Typeset.make({ target: item.toSpecifier(), settings })));
+const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(Model.selection, (item) => requests.typeset(Typeset.make({ target: item.toSpecifier(), settings })));
 const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof Steps.Type) => Adjust['deltas']>, multiple: number) {
     const [{ app }, item, delta] = yield* Effect.all([Model, Model.selection, Effect.fromOption(deltas)]);
     const steps = yield* Model.read(Steps, 'text preferences', () => ({ kerning: multiple * app.textPreferences.kerningKeyIncrement, baselineShift: multiple * app.textPreferences.baselineShiftKeyIncrement }));
-    yield* adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
+    yield* requests.adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
     return Option.none();
 });
 

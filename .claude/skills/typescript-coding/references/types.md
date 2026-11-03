@@ -85,4 +85,3 @@ class Channel<const O extends Options = Options> extends Data.Class<{ readonly n
 
 `Channel.calibrated(Channel.make('strain', { unit: 'µε' }), raw)` fails to compile, where an `Option` field read through `Effect.fromOption` fails the call at run time:
 - `const` type parameters keep each literal option on the instance type, and a static's bound reads it
-- Functions `Object.assign` puts onto a value restate the class

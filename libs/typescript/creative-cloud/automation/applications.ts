@@ -72,6 +72,22 @@ const usage = {
     ),
     usageFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Usage read failure' })),
 };
+const Step = Schema.Struct({});
+const next = {
+    next: Schema.optionalKey(
+        Schema.Union([
+            Schema.Struct({ wait: Step }),
+            Schema.Struct({ drive: Step }),
+            Schema.Struct({ answer: Schema.Struct({ id: ElementID, accept: Schema.optionalKey(ElementID), cancel: Schema.optionalKey(ElementID) }) }),
+            Schema.Struct({ capture: Schema.Struct({ windows: Schema.Array(WindowID) }) }),
+            Schema.Struct({ resume: Step }),
+            Schema.Struct({ force: Step }),
+            Schema.Struct({ grant: Step }),
+            Schema.Struct({ report: Schema.Struct({ url: Schema.URL }) }),
+        ]).annotate({ description: 'Action state calls for: wait, drive, answer element through accept or cancel control, capture windows, resume stopped process, force quit, grant Accessibility, or read crash report' }),
+    ),
+};
+const runningFields = { ...usage, ...next };
 const unresponsive = {
     process: Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread state, sleeping while waiting, stopped by signal or debugger' }),
     windows: Schema.Array(Window).annotate({ description: 'Every CoreGraphics window, modal alerts included' }),
@@ -82,36 +98,38 @@ const exit = {
     statusFailure: Schema.optionalKey(Schema.String),
     report: Schema.optionalKey(Schema.Struct({ url: Schema.URL, pid: Pid, bundleIdentifier: Schema.optionalKey(Schema.String), exception: Schema.optionalKey(Schema.String) })),
     reportFailure: Schema.optionalKey(Schema.String),
+    ...next,
 };
+const failure = { reason: Schema.String.annotate({ description: 'Failure case' }), subject: Schema.String, message: Schema.optionalKey(Schema.String), ...next };
 const State = Schema.Union([
-    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ launching: Schema.Struct({}) }), ...usage }) }).pipe(
+    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ launching: Step }), ...runningFields }) }).pipe(
         Schema.decodeTo(
-            Schema.toType(Schema.TaggedStruct('Launching', usage)),
+            Schema.toType(Schema.TaggedStruct('Launching', runningFields)),
             SchemaTransformation.transform({
-                decode: ({ running }) => ({ _tag: 'Launching' as const, ...Struct.pick(running, Struct.keys(usage)) }),
-                encode: (launching) => ({ running: { status: { launching: {} }, ...Struct.pick(launching, Struct.keys(usage)) } }),
+                decode: ({ running }) => ({ _tag: 'Launching' as const, ...Struct.pick(running, Struct.keys(runningFields)) }),
+                encode: (launching) => ({ running: { status: { launching: {} }, ...Struct.pick(launching, Struct.keys(runningFields)) } }),
             }),
         ),
     ),
-    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ responding: Schema.Struct(elements) }), ...usage }) }).pipe(
+    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ responding: Schema.Struct(elements) }), ...runningFields }) }).pipe(
         Schema.decodeTo(
-            Schema.toType(Schema.TaggedStruct('Responding', { ...elements, ...usage, answering: Schema.Boolean.annotate({ description: 'An element requires an answer' }) })),
+            Schema.toType(Schema.TaggedStruct('Responding', { ...elements, ...runningFields, answering: Schema.Boolean.annotate({ description: 'An element requires an answer' }) })),
             SchemaTransformation.transform({
-                decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding, answering: running.status.responding.elements.some(Struct.get('requiresAnswer')), ...Struct.pick(running, Struct.keys(usage)) }),
-                encode: (responding) => ({ running: { status: { responding: Struct.pick(responding, ['elements', 'windows']) }, ...Struct.pick(responding, Struct.keys(usage)) } }),
+                decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding, answering: running.status.responding.elements.some(Struct.get('requiresAnswer')), ...Struct.pick(running, Struct.keys(runningFields)) }),
+                encode: (responding) => ({ running: { status: { responding: Struct.pick(responding, ['elements', 'windows']) }, ...Struct.pick(responding, Struct.keys(runningFields)) } }),
             }),
         ),
     ),
-    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ unresponsive: Schema.Struct(unresponsive) }), ...usage }) }).pipe(
+    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ unresponsive: Schema.Struct(unresponsive) }), ...runningFields }) }).pipe(
         Schema.decodeTo(
-            Schema.toType(Schema.TaggedStruct('Unresponsive', { ...unresponsive, ...usage })),
+            Schema.toType(Schema.TaggedStruct('Unresponsive', { ...unresponsive, ...runningFields })),
             SchemaTransformation.transform({
-                decode: ({ running }) => ({ _tag: 'Unresponsive' as const, ...running.status.unresponsive, ...Struct.pick(running, Struct.keys(usage)) }),
-                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, ['process', 'windows']) }, ...Struct.pick(value, Struct.keys(usage)) } }),
+                decode: ({ running }) => ({ _tag: 'Unresponsive' as const, ...running.status.unresponsive, ...Struct.pick(running, Struct.keys(runningFields)) }),
+                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, ['process', 'windows']) }, ...Struct.pick(value, Struct.keys(runningFields)) } }),
             }),
         ),
     ),
-    Schema.Struct({ failed: Schema.Struct({ reason: Schema.String }) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Failed', { reason: Schema.String }), SchemaTransformation.transform({ decode: ({ failed }) => ({ _tag: 'Failed' as const, ...failed }), encode: (failed) => ({ failed: Struct.omit(failed, ['_tag']) }) }))),
+    Schema.Struct({ failed: Schema.Struct(failure) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Failed', failure), SchemaTransformation.transform({ decode: ({ failed }) => ({ _tag: 'Failed' as const, ...failed }), encode: (failed) => ({ failed: Struct.omit(failed, ['_tag']) }) }))),
     Schema.Struct({ exited: Schema.Struct(exit) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Exited', exit), SchemaTransformation.transform({ decode: ({ exited }) => ({ _tag: 'Exited' as const, ...exited }), encode: (value) => ({ exited: Struct.omit(value, ['_tag']) }) }))),
 ])
     .annotate({ description: 'Elements and undescribed windows while responding, process state and every window when unresponsive past Accessibility timeout, failed on status read' })
@@ -120,6 +138,10 @@ const Perform = Schema.Struct({
     actions: Schema.NonEmptyArray(
         Schema.Union([Schema.Struct({ perform: Schema.Struct({ element: ElementID, action: Schema.String.annotate({ description: 'Element action except AXRaise' }) }) }), Schema.Struct({ set: Schema.Struct({ element: ElementID, value: Schema.String.annotate({ description: 'Text written to AXValue' }) }) })]),
     ).annotate({ description: 'Run in order until one fails' }),
+});
+const Launched = Schema.Struct({
+    pid: Pid.annotate({ description: 'Process ID once launch finishes' }),
+    created: Schema.Boolean.annotate({ description: 'Launch started the instance, false when it reused a running one' }),
 });
 class RunningInstance extends Schema.Class<RunningInstance, { readonly brand: unique symbol }>('RunningInstance')({
     pid: Pid,
@@ -147,4 +169,4 @@ class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbo
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Installation, LongestSide, Perform, Pid, RunningInstance, Screenshot, State, Window };
+export { Installation, Launched, LongestSide, Perform, Pid, RunningInstance, Screenshot, State, Window };

@@ -67,6 +67,7 @@ const prices = Optic.id<readonly (typeof Item.Type)[]>().forEach((item) => item.
 - `Optic.id` copies plain objects and arrays, the values `Schema.Struct`, `Schema.TaggedUnion`, and `Data.taggedEnum` build
 - `Schema.toIso(X)` focuses a class instance through class encode and decode, and a replaced value failing a check throws
 - `Optic.some`, `Optic.success`, and `Optic.entries` focus inside an `Option`, a `Result`, and a record's entries
+- Wrappers no constructor focuses (an `AsyncResult`) take `refine` on their success case composed with a `makeLens` onto its value, one path every edit writes through
 - Plain objects changing one level deep take a spread or `Struct.evolve`, an optic stands where a path crosses a level or a case
 
 ## [05]-[ORDER_AND_EQUIVALENCE]

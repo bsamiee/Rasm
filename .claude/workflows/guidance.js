@@ -1,46 +1,77 @@
 export const meta = {
   name: 'guidance',
-  description: 'Map the tree and its history, then write or rebuild the folder CLAUDE.md files that earn their place, each challenged in place',
-  whenToUse: 'Once the tree settles after a round of rebuilds; args.areas the top-level folders to map. It edits only CLAUDE.md files outside the root and their AGENTS.md links.',
+  description: 'Map the tree and its history, then write or rebuild folder CLAUDE.md files holding facts no level above states, each challenged in place',
+  whenToUse: 'After a committed round of rebuilds; args.areas the top-level folders to map; edits only CLAUDE.md files outside the root and their AGENTS.md links',
   phases: [
-    { title: 'Basis', detail: 'the standard a folder guidance file meets, and the guidance that exists' },
+    { title: 'Basis', detail: 'existing folder guidance, line by line' },
     { title: 'Map', detail: 'one reader per area over its code and history' },
-    { title: 'Select', detail: 'one judge picks the levels that earn a file' },
-    { title: 'Write', detail: 'per chosen file a writer, then an adversary rewriting it in place' },
+    { title: 'Select', detail: 'one judge picks levels needing a file' },
+    { title: 'Write', detail: 'per chosen file a writer, then an adversary judging every line in place' },
     { title: 'Close', detail: 'one pass across every file' },
   ],
 }
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const DIR = `${REPO}/.artifacts/workflows/guidance`
-const STANDARD = `${DIR}/STANDARD.md`
+const STANDARD = `${REPO}/.claude/skills/agent-builder/references/folder-guidance.md`
+const EXISTING = `${DIR}/EXISTING.md`
 const SELECTION = `${DIR}/SELECTION.md`
-const BASIS = `Load Skill(clean-prose) first. A folder CLAUDE.md loads for every task under its folder, so each line must change how an agent builds there. ${STANDARD} states what a good one holds. The root CLAUDE.md, README.md and the skills already state repository-wide rules; a folder file never restates them. Edit nothing outside the files your step names.`
+const BASIS = `Load Skill(clean-prose) and read the folder CLAUDE.md standard ${STANDARD} first.`
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const FOUND = { type: 'object', properties: { findings: { type: 'array', items: { type: 'string' } } }, required: ['findings'] }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+if (!Array.isArray(args?.areas) || args.areas.length === 0 || !args.areas.every((area) => typeof area === 'string')) throw new Error(`args.areas takes the top-level folders to map, got ${JSON.stringify(args?.areas ?? null)}`)
+const relative = (path) => path.replace(`${REPO}/`, '').replace(/^\.\//, '').replace(/\/+$/, '')
+const live = (results, role) => {
+  const dead = results.filter((result) => !result).length
+  if (dead > 0) log(`${dead} ${role} returned nothing`)
+  return results.filter(Boolean)
+}
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Basis')
-await parallel([
-  () => agent(`Write ${STANDARD}: what a folder CLAUDE.md holds for current Claude models, from the Claude Code documentation (claudeCodeDocs MCP: memory, nested files, AGENTS.md). Content that earns a line: the folder's role and boundaries, the shape its code takes and why, recurring mistakes its history shows with the principle that prevents each, and settled decisions that look arbitrary. Content that earns none: what the root, README or a skill states, the obvious, file listings and counts, and today's names stated as law. Form: at most 125 lines in the repository's divider and label style. A level earns a file only for what the level above cannot say. Return at most 8 lines.`, { label: 'basis:standard', phase: 'Basis' }),
-  () => agent(`Read the root CLAUDE.md, README.md, every skill's headings, and every CLAUDE.md and AGENTS.md outside the root. Write ${DIR}/EXISTING.md: per folder file, each line another file already states, each line the code contradicts, and what in it is folder-specific. Return at most 6 lines.`, { label: 'basis:existing', phase: 'Basis' }),
-])
+const existing = await agent(`${BASIS}
+Read every skill's headings and every CLAUDE.md and AGENTS.md outside the root. Write ${EXISTING}: per folder file, each line the root CLAUDE.md, README.md or a skill states, each line the code contradicts, and what in it is folder-specific. Return at most 6 lines.`, { label: 'basis:existing', phase: 'Basis' })
+if (!existing) throw new Error(`basis agent returned nothing, ${EXISTING} is unwritten`)
 
 phase('Map')
-const maps = await parallel(args.areas.map((area) => () => agent(`${BASIS}
-Reader for ${area}. Read ${STANDARD}, ${DIR}/EXISTING.md, the code under ${area} and \`git log --stat -- ${area}\`, with \`git show\` of commits that rebuilt, reverted or fixed something there. Per folder level, state the principle that would have prevented the repeated fixes, what a file there would hold, and what share a level above covers. Report only levels with guidance the root, README and skills lack. Edit nothing. Return (structured) the findings.`, { label: `map:${area}`, phase: 'Map', schema: { type: 'object', properties: { findings: { type: 'array', items: { type: 'string' } } }, required: ['findings'] } }).then((m) => m && `## ${area}\n${m.findings.map((f) => `- ${f}`).join('\n')}`)))
+const maps = live(await pipeline(args.areas,
+  (area) => agent(`${BASIS}
+Reader for ${area}. Read ${EXISTING}, the code under ${area} and \`git log --stat -- ${area}\`, with \`git show\` of commits that rebuilt, reverted or fixed something there. Per folder level, state the principle preventing the repeated fixes, what a file there holds, and what share a level above covers. Report each level holding guidance the root, README and skills lack. Edit nothing. Return (structured) the findings.`, { label: `map:${area}`, phase: 'Map', schema: FOUND }),
+  (map, area) => map && `## ${area}\n${map.findings.map((finding) => `- ${finding}`).join('\n')}`,
+), 'readers')
+if (maps.length === 0) throw new Error(`every reader of ${args.areas.join(', ')} returned nothing`)
 
 phase('Select')
 const chosen = await agent(`${BASIS}
-Judge. From these maps, write ${SELECTION}: the folders that get a CLAUDE.md with the outline each holds, and the existing files to delete because a level above covers them. Choose the highest level that covers a group.
-${maps.filter(Boolean).join('\n\n')}
-Return (structured) the folders to write and the files to delete.`, { label: 'select', phase: 'Select', schema: { type: 'object', properties: { write: { type: 'array', items: { type: 'string' } }, remove: { type: 'array', items: { type: 'string' } } }, required: ['write', 'remove'] } })
+Judge. From ${EXISTING} and the maps below write ${SELECTION}: the folders that get a CLAUDE.md with the outline each holds, and the existing files to delete.
+${maps.join('\n\n')}
+Return (structured) the folders to write and the files to delete, as paths from the repository root.`, {
+  label: 'select',
+  phase: 'Select',
+  schema: { type: 'object', properties: { write: { type: 'array', items: { type: 'string' } }, remove: { type: 'array', items: { type: 'string' } } }, required: ['write', 'remove'] },
+})
+if (!chosen) throw new Error('select agent returned nothing')
+const folders = [...new Set(chosen.write.map(relative))].filter(Boolean)
+const removed = chosen.remove.map(relative)
 
 phase('Write')
-await pipeline(chosen?.write ?? [],
+const written = live(await pipeline(folders,
   (folder) => agent(`${BASIS}
-Write ${REPO}/${folder}/CLAUDE.md whole from its outline in ${SELECTION}, within 125 lines, and make ${folder}/AGENTS.md a relative symlink to it. Return at most 4 lines.`, { label: `write:${folder}`, phase: 'Write' }),
-  (_, folder) => agent(`${BASIS}
-Adversary for ${REPO}/${folder}/CLAUDE.md. Cut each line that restates another file, states the obvious, freezes today's names or counts, or that the code contradicts, and sharpen each principle in place. Return at most 4 lines.`, { label: `challenge:${folder}`, phase: 'Write' }),
-)
+Write ${REPO}/${folder}/CLAUDE.md whole from its outline in ${SELECTION}, and make ${folder}/AGENTS.md a relative symlink to it. Return at most 4 lines.`, { label: `write:${folder}`, phase: 'Write' }),
+  (wrote, folder) => wrote && agent(`${BASIS}
+Adversary for ${REPO}/${folder}/CLAUDE.md. Read the file whole and the code under ${folder}, and judge every line against the standard and the code: cut each line the standard gives no place, rewrite each the code contradicts, and sharpen each principle in place. Return at most 4 lines.`, { label: `challenge:${folder}`, phase: 'Write' }),
+), 'writers and adversaries')
+log(`${written.length} of ${folders.length} folder files written and challenged`)
 
 phase('Close')
-return agent(`${BASIS}
-Delete ${(chosen?.remove ?? []).join(', ') || 'no files'} with their AGENTS.md links and any AGENTS.md link that points nowhere. Read every folder CLAUDE.md with the root CLAUDE.md and keep each point once, at the highest level that holds it. Return at most 6 lines: the final file set with line counts.`, { label: 'close', phase: 'Close' })
+const closed = await agent(`${BASIS}
+${removed.length > 0 ? `Delete ${removed.join(', ')} with their AGENTS.md links. ` : ''}Delete each dangling AGENTS.md link. Read every folder CLAUDE.md with the root CLAUDE.md and place each fact as the standard places it. Return at most 6 lines: the final file set with line counts.`, { label: 'close', phase: 'Close' })
+return closed ?? 'close agent returned nothing'

@@ -30,12 +30,9 @@ const open = Effect.fn('open')(function* (source: DocumentInitParameters, subjec
     return yield* Effect.tryPromise({
         try: () => task.promise,
         catch: Match.type<unknown>().pipe(
-            Match.when(Match.instanceOf(PasswordException), (cause) => MediaError.make({ reason: { _tag: 'Protected' }, subject, cause })),
-            Match.when(Match.instanceOf(InvalidPDFException), (cause) => MediaError.make({ reason: { _tag: 'Unreadable' }, subject, cause })),
-            Match.when(
-                (cause: unknown) => cause instanceof ResponseException && cause.missing === true,
-                (cause) => MediaError.make({ reason: { _tag: 'Missing' }, subject, cause }),
-            ),
+            Match.when(Match.instanceOf(PasswordException), MediaError.of('Protected', subject)),
+            Match.when(Match.instanceOf(InvalidPDFException), MediaError.of('Unreadable', subject)),
+            Match.when((cause: unknown) => cause instanceof ResponseException && cause.missing, MediaError.of('Missing', subject)),
             Match.orElse((cause) => new Cause.UnknownError(cause)),
         ),
     });

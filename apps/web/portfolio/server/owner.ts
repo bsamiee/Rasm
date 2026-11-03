@@ -5,7 +5,6 @@ import { Array, Context, Effect, Layer, Option } from 'effect';
 import { HttpMethod, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import { Owner } from '#/model/api.ts';
-import type { Session } from '#/model/bootstrap.ts';
 import { sites } from '#/model/sites.ts';
 import { owner } from '#/server/store/catalog.ts';
 
@@ -16,15 +15,14 @@ const address = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'ac
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class OwnerAccount extends Context.Service<OwnerAccount, { readonly email: string }>()('@rasm/portfolio/server/owner/OwnerAccount') {
-    static readonly layer = (email: string) => Layer.succeed(OwnerAccount, { email });
     static readonly session = Effect.gen(function* () {
         const [{ email }, user] = yield* Effect.all([OwnerAccount, User.current(sites)]);
         return yield* Option.match(user, {
-            onNone: () => Effect.succeed<typeof Session.Type>('signedOut'),
+            onNone: () => Effect.succeed('signedOut' as const),
             onSome: Effect.fnUntraced(function* (signed) {
                 const enrolled = Option.map(Array.head(yield* Relation.select(owner, { email: [email] })), ({ userId }) => userId);
                 const ownerId = Option.isNone(enrolled) && Option.exists(signed.email, (value) => address.compare(value, email) === 0) ? Option.some((yield* Relation.ensure(owner, [{ email, userId: signed.id }]))[0].userId) : enrolled;
-                return (Option.contains(ownerId, signed.id) ? 'owner' : 'signedIn') satisfies typeof Session.Type;
+                return Option.contains(ownerId, signed.id) ? ('owner' as const) : ('signedIn' as const);
             }),
         });
     }).pipe(Effect.catchTag(['SqlError', 'SchemaError'], unavailable), Effect.withSpan('OwnerAccount.session'));

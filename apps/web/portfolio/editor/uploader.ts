@@ -5,11 +5,11 @@ import { Array, ByteSize, Cause, Data, Effect, Equivalence, Function, Match, Opt
 import { SecureRandom } from 'effect/crypto';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { HttpApiClient } from 'effect/http-api';
-import { AsyncResult, Atom } from 'effect/reactivity';
+import { Atom } from 'effect/reactivity';
 import { assets, draft, hero, recoveryRequest, updateEntry } from '#/editor/state.ts';
 import { Api, UploadRefused, uploadField } from '#/model/api.ts';
-import { Asset, AssetJson, mediaTypes, PdfAsset, uploadLimit, VideoAsset } from '#/model/asset.ts';
-import { Composition, CompositionId, placementsFor } from '#/model/placement.ts';
+import { Asset, PdfAsset, uploadLimit, VideoAsset } from '#/model/asset.ts';
+import { Composition, CompositionId, Placement } from '#/model/placement.ts';
 import type { EntryId } from '#/model/portfolio.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -32,7 +32,7 @@ const Destination = Data.taggedEnum<Destination>();
 const nextDestination = Atom.make<Destination>(Destination.Library()).pipe(Atom.keepAlive);
 const uppy = Atom.make((get) => {
     const uploader: Uppy<UploadMeta, Body> = new Uppy<UploadMeta, Body>({
-        restrictions: { maxFileSize: ByteSize.toNumberUnsafe(uploadLimit), allowedFileTypes: [...mediaTypes] },
+        restrictions: { maxFileSize: ByteSize.toNumberUnsafe(uploadLimit), allowedFileTypes: [...Asset.mediaTypes] },
         onBeforeFileAdded: (file, queued) => {
             const target = get.registry.get(nextDestination);
             if (Destination.$is('Hero')(target) && Object.values(queued).some((item) => Destination.$is('Hero')(item.meta.destination) && item.progress.uploadComplete !== true)) {
@@ -69,13 +69,11 @@ const uppy = Atom.make((get) => {
             const stored = assets.modify(Record.set(asset.id, asset));
             get.registry.update(
                 draft,
-                AsyncResult.map(
-                    Destination.$match(file.meta.destination, {
-                        Library: () => stored,
-                        Hero: () => Function.flow(stored, Optic.replace(hero, Array.headNonEmpty(placementsFor(asset)))),
-                        Entry: ({ id }) => Function.flow(stored, updateEntry(id, Struct.evolve({ compositions: (current) => [...Array.takeWhile(current, preceding), ...compositions, ...Array.dropWhile(current, preceding)] }))),
-                    }),
-                ),
+                Destination.$match(file.meta.destination, {
+                    Library: () => stored,
+                    Hero: () => Function.flow(stored, Optic.replace(hero, Array.headNonEmpty(Placement.fromAsset(asset)))),
+                    Entry: ({ id }) => Function.flow(stored, updateEntry(id, Struct.evolve({ compositions: (current) => [...Array.takeWhile(current, preceding), ...compositions, ...Array.dropWhile(current, preceding)] }))),
+                }),
             );
             uploader.setFileMeta(file.id, { ...file.meta, [uploadField.renditions]: [] });
         }
@@ -94,9 +92,9 @@ const prepare = Effect.fnUntraced(
         const { inspectFile } = yield* Effect.tryPromise(() => import('#/editor/inspect-file.ts'));
         const random = yield* SecureRandom.SecureRandom;
         const { asset, renditions } = yield* inspectFile(new File([data], name, { type }), yield* random.uuidV7());
-        const placements = Destination.$is('Entry')(destination) && !Asset.guards.pdf(asset) ? placementsFor(asset) : [];
+        const placements = Destination.$is('Entry')(destination) && !Asset.guards.pdf(asset) ? Placement.fromAsset(asset) : [];
         const compositions = yield* Effect.forEach(placements, (placement) => Effect.map(random.uuidV7(), (id) => Composition.make({ id: CompositionId.make(id), items: [placement] })));
-        return { [uploadField.asset]: yield* Schema.encodeEffect(AssetJson)(asset), prepared: { asset, compositions }, [uploadField.renditions]: renditions };
+        return { [uploadField.asset]: yield* Schema.encodeEffect(Asset.json)(asset), prepared: { asset, compositions }, [uploadField.renditions]: renditions };
     },
     (effect, { type }) =>
         Effect.mapError(

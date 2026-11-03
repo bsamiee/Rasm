@@ -21,7 +21,7 @@ const optional = <Chosen, Fields extends Schema.Struct.Fields, R>(route: Route<C
     fields: route.fields,
     resolve: (given) => (Object.values(given).every((value) => Option.isOption(value) && Option.isNone(value)) ? Effect.succeedNone : Effect.asSome(route.resolve(given))),
     depends: (chosen, given) => Option.match(chosen, { onNone: () => Effect.succeed([]), onSome: (picked) => route.depends(picked, given) }),
-    annotations: Context.omit(registerTool.Visible)(route.annotations),
+    annotations: Context.omit(Server.Visible)(route.annotations),
 });
 const register =
     <Chosen, Fields extends Schema.Struct.Fields, RR>(route: Route<Chosen, Fields, RR>) =>
@@ -60,20 +60,19 @@ const register =
             }, Effect.scoped),
         );
     };
-const complete =
-    <Given, Values, RD, R>(decode: (resolved: Readonly<Record<string, string>>) => Effect.Effect<Given, Error, RD>, completing: (input: string, given: Given) => Effect.Effect<Values, Error, R>) =>
-    (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
-        Effect.flatMap(decode(context?.arguments ?? {}), (given) => completing(input, given));
-const partial = <Fields extends Schema.Struct.Fields, Given = Schema.Struct.Type<Fields>>(fields: Fields) => {
-    const decoders = Record.map(fields, (_, key) => Schema.decodeUnknownEffect(Schema.toCodecStringTree(Schema.Struct(Struct.pick(fields, [key])))));
-    return (resolved: Readonly<Record<string, string>>): Effect.Effect<Partial<Given>, never, Schema.Struct<Fields>['DecodingServices']> =>
+const complete = <Fields extends Schema.Struct.Fields, Given = Schema.Struct.Type<Fields>>(fields: Fields) => {
+    const decoders = Object.values(Record.map(fields, (_, key) => Schema.decodeUnknownEffect(Schema.toCodecStringTree(Schema.Struct(Struct.pick(fields, [key]))))));
+    const decode = (resolved: Readonly<Record<string, string>>): Effect.Effect<Partial<Given>, never, Schema.Struct<Fields>['DecodingServices']> =>
         Effect.map(
-            Effect.forEach(Object.values(decoders), (decode) => Effect.option(decode(resolved))),
+            Effect.forEach(decoders, (decoder) => Effect.option(decoder(resolved))),
             (picked) => Object.assign({}, ...Array.getSomes(picked)),
         );
+    return <Values, R>(completing: (input: string, given: Partial<Given>) => Effect.Effect<Values, Error, R>) =>
+        (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
+            Effect.flatMap(decode(context?.arguments ?? {}), (given) => completing(input, given));
 };
-const Route = { optional, register };
+const Route = { complete, optional, register };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { complete, partial, Route };
+export { Route };

@@ -2,7 +2,7 @@ import { useAtomSet } from '@effect/atom-react';
 import { User } from '@rasm/hosting/user';
 import { Field } from '@rasm/ui/form/field';
 import { Optic } from 'effect';
-import { AsyncResult, type Atom } from 'effect/reactivity';
+import type { Atom } from 'effect/reactivity';
 import { PlacementFields } from '#/editor/placement-fields.tsx';
 import { draft, hero, portfolio } from '#/editor/state.ts';
 import { MediaFigure } from '#/media/media-figure.tsx';
@@ -12,7 +12,7 @@ import { sites } from '#/model/sites.ts';
 
 const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof draft>, 'assets' | 'portfolio'> & { readonly idPrefix: string; readonly onChooseHero: () => void }) => {
     const setDraft = useAtomSet(draft);
-    const field = (name: 'name' | 'introduction' | 'email') => ({ id: `${idPrefix}${name}`, name, value: state.portfolio[name], onChange: (value: string) => setDraft(AsyncResult.map(Optic.replace(portfolio.key(name), value))) });
+    const field = (name: 'name' | 'introduction' | 'email') => ({ id: `${idPrefix}${name}`, name, value: state.portfolio[name], onChange: (value: string) => setDraft(Optic.replace(portfolio.key(name), value)) });
     return (
         <>
             <Field {...field('name')} label="Display name" placeholder="Name or studio" />
@@ -33,8 +33,8 @@ const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof
                     <div className="media-h-80 flex justify-center">
                         <MediaFigure active={true} placement={state.portfolio.hero} presentation="full" priority={false} renderMedia={true} />
                     </div>
-                    <PlacementFields assets={state.assets} onChange={(placement) => setDraft(AsyncResult.map(Optic.replace(hero, placement)))} value={state.portfolio.hero}>
-                        <button className="button button-outline self-start" onClick={() => setDraft(AsyncResult.map(Optic.replace(hero, undefined)))} type="button">
+                    <PlacementFields assets={state.assets} onChange={(placement) => setDraft(Optic.replace(hero, placement))} value={state.portfolio.hero}>
+                        <button className="button button-outline self-start" onClick={() => setDraft(Optic.replace(hero, undefined))} type="button">
                             Clear hero
                         </button>
                     </PlacementFields>

@@ -19,10 +19,17 @@ const runtime = () => {
             return undefined;
         }
     };
-    const keys = (value: object): string[] => {
+    const map = <A, B>(list: readonly A[], each: (item: A) => B): B[] => {
+        const out: B[] = [];
+        for (const item of list) {
+            out.push(each(item));
+        }
+        return out;
+    };
+    const keys = (value: Readonly<Record<string, unknown>>): string[] => {
         const found: string[] = [];
         for (const key in value) {
-            if (Object.prototype.hasOwnProperty.call(value, key)) {
+            if (Object.prototype.hasOwnProperty.call(value, key) && value[key] !== undefined) {
                 found.push(key);
             }
         }
@@ -32,16 +39,9 @@ const runtime = () => {
     const unmatched = (subject: string, query: string, candidates: readonly string[]): Replied<'Unmatched'> => ({ _tag: 'Unmatched', subject, query, candidates });
     const illegal = (text: string): Replied<'IllegalArgument'> => ({ _tag: 'IllegalArgument', message: text });
     const escaped = (text: string): string => {
-        const control = 0x20;
         const hex = 16;
         const digits = -4;
-        let out = '';
-        for (let at = 0; at < text.length; at += 1) {
-            const code = text.charCodeAt(at);
-            const character = text.charAt(at);
-            out += code < control || character === '"' || character === '\\' ? `\\u${`000${code.toString(hex)}`.slice(digits)}` : character;
-        }
-        return `"${out}"`;
+        return `"${text.replace(/[^ !#-[\]-￿]/g, (character) => `\\u${`000${character.charCodeAt(0).toString(hex)}`.slice(digits)}`)}"`;
     };
     const encoded = (value: unknown, specifier: (value: object) => string | undefined): string => {
         if (typeof value === 'string') {
@@ -53,32 +53,17 @@ const runtime = () => {
         if (value === null || value === undefined || typeof value === 'number') {
             return 'null';
         }
-        if (isList(value) || isPlain(value)) {
-            return joined(value, specifier);
+        if (isList(value)) {
+            return `[${map(value, (item) => encoded(item, specifier)).join(',')}]`;
         }
-        return described(value, specifier);
+        return isPlain(value) ? `{${map(keys(value), (key) => `${escaped(key)}:${encoded(value[key], specifier)}`).join(',')}}` : described(value, specifier);
     };
     const described = (value: unknown, specifier: (value: object) => string | undefined): string => {
         const at = isRecord(value) ? specifier(value) : undefined;
         const [type, name] = [read(read(value, 'reflect'), 'name'), read(value, 'name')];
-        return at === undefined ? escaped(String(value)) : joined({ type: typeof type === 'string' ? type : String(value), specifier: at, name: typeof name === 'string' ? name : undefined, valid: true }, specifier);
+        return at === undefined ? escaped(String(value)) : encoded({ type: typeof type === 'string' ? type : String(value), specifier: at, name: typeof name === 'string' ? name : undefined, valid: true }, specifier);
     };
-    const joined = (value: Readonly<Record<string, unknown>> | readonly unknown[], specifier: (value: object) => string | undefined): string => {
-        const parts: string[] = [];
-        if (isList(value)) {
-            for (const item of value) {
-                parts.push(encoded(item, specifier));
-            }
-            return `[${parts.join(',')}]`;
-        }
-        for (const key of keys(value)) {
-            if (value[key] !== undefined) {
-                parts.push(`${escaped(key)}:${encoded(value[key], specifier)}`);
-            }
-        }
-        return `{${parts.join(',')}}`;
-    };
-    const reply = (answer: () => unknown, specifier: (value: object) => string | undefined, evaluated: (thrown: unknown) => boolean): string => {
+    const reply = (answer: () => unknown, specifier = (_value: object): string | undefined => undefined, evaluated = (_thrown: unknown): boolean => true): string => {
         try {
             return encoded({ _tag: 'Value' satisfies Replied<'Value'>['_tag'], value: answer() }, specifier);
         } catch (thrown) {
@@ -89,7 +74,7 @@ const runtime = () => {
             return encoded({ _tag: 'Thrown', message: message(thrown), number: finite(read(thrown, 'number')), line } satisfies Omit<Replied<'Thrown'>, 'number' | 'line'> & Record<'number' | 'line', number | undefined>, specifier);
         }
     };
-    return { isRecord, isList, isPlain, finite, message, attempt, keys, read, unmatched, illegal, escaped, reply };
+    return { isRecord, isList, isPlain, finite, message, attempt, map, keys, read, unmatched, illegal, escaped, reply };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

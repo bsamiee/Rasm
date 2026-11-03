@@ -12,13 +12,14 @@ type Where<F extends Fields> = { readonly [K in Field<F>]?: null | Constants<F[K
 type Kind = 'text' | 'uuid' | 'json' | 'instant' | 'integer' | 'decimal' | 'real' | 'boolean' | 'blob';
 type Projection = Data.TaggedEnum<{
     Path: { readonly from: string; readonly path: Array.NonEmptyReadonlyArray<string>; readonly jsonPath: string };
-    Where: { readonly where: readonly { readonly column: string; readonly predicate: Exclude<Where<Fields>[string], undefined> }[] };
+    Where: { readonly where: readonly { readonly column: string; readonly negated: boolean; readonly values: Option.Option<Constants<Fields[string]>> }[] };
 }>;
+type Limit = number | bigint | Date;
+type Range = { readonly [K in 'minimum' | 'maximum' | 'minCodePoints' | 'maxCodePoints']?: Limit | undefined } & { readonly [K in 'exclusiveMinimum' | 'exclusiveMaximum']?: Limit | true | undefined };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const uuidVersion = 7;
-const byteMaximum = 255;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -34,7 +35,7 @@ class Column extends Data.Class<{
     readonly nullable: boolean;
     readonly literals: readonly SchemaAST.LiteralValue[];
     readonly bounds: readonly Data.TaggedEnum<{
-        Compare: { readonly op: '>' | '>=' | '<' | '<='; readonly value: number | bigint | Date; readonly subject: 'value' | 'codePoints' };
+        Compare: { readonly op: '>' | '>=' | '<' | '<='; readonly value: Limit; readonly subject: 'value' | 'codePoints' };
         MultipleOf: { readonly divisor: number };
         Cased: { readonly case: 'lower' | 'upper' };
     }>[];
@@ -47,9 +48,19 @@ class Column extends Data.Class<{
     static readonly transforms = { transformQueryNames: String.camelToSnake, transformResultNames: String.snakeToCamel, transformJson: false };
     static readonly Projection = Data.taggedEnum<Projection>();
     static readonly Bound = Data.taggedEnum<Column['bounds'][number]>();
-    static readonly Bytes = Schema.Union([Schema.Uint8Array, Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: byteMaximum })))]).pipe(Schema.decodeTo(Schema.Uint8Array, { decode: SchemaGetter.transform((bytes) => new Uint8Array(bytes)), encode: SchemaGetter.passthroughSubtype() }));
+    static readonly Bytes = Schema.Union([Schema.Uint8Array, Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 0xff })))]).pipe(Schema.decodeTo(Schema.Uint8Array, { decode: SchemaGetter.transform((bytes) => new Uint8Array(bytes)), encode: SchemaGetter.passthroughSubtype() }));
     static readonly Uuid = Schema.String.check(Schema.isUUID(uuidVersion), Schema.isLowercased());
-    static readonly conditions = (where: Where<Fields>) => Record.collect(where, (field, predicate) => (predicate === undefined ? [] : [{ column: String.camelToSnake(field), predicate }])).flat();
+    static readonly conditions = (where: Where<Fields>) =>
+        Record.collect(where, (field, predicate) =>
+            Option.toArray(Option.fromUndefinedOr(predicate)).map((rule) => ({
+                column: String.camelToSnake(field),
+                ...Match.value(rule).pipe(
+                    Match.when({ not: null }, () => ({ negated: true, values: Option.none() })),
+                    Match.when({ not: Match.defined }, ({ not }) => ({ negated: true, values: Option.some(not) })),
+                    Match.orElse((values) => ({ negated: false, values: Option.fromNullOr(values) })),
+                ),
+            })),
+        ).flat();
     static readonly make = <F extends Fields>(field: Field<F>, schema: F[Field<F>], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[]) => {
         const flat = (node: SchemaRepresentation.Representation): readonly SchemaRepresentation.Representation[] => (node._tag === 'Union' ? node.types.flatMap(flat) : [node]);
         const walk = (ast: SchemaAST.AST) => Array.partition(flat(SchemaRepresentation.toRepresentation(ast, { referencePolicy: () => undefined }).representation), Filter.tagged<SchemaRepresentation.Representation>()('Null'));
@@ -58,7 +69,7 @@ class Column extends Data.Class<{
         const leaves = (check: SchemaRepresentation.Check): readonly SchemaRepresentation.Check[] => (check._tag === 'FilterGroup' ? check.checks.flatMap(leaves) : [check]);
         const payloads =
             (nodes: readonly SchemaRepresentation.Representation[]) =>
-            <P>({ id, payloadSchema }: SchemaRepresentation.FilterReviver<P>) =>
+            <P>({ id, payloadSchema }: Pick<SchemaRepresentation.FilterReviver<P>, 'id' | 'payloadSchema'>) =>
                 Array.flatMapNullishOr(
                     nodes.flatMap((node) => (node._tag === 'Reference' ? [] : node.checks.flatMap(leaves))),
                     Struct.get('representation'),
@@ -67,31 +78,29 @@ class Column extends Data.Class<{
         const [stored, typed] = [payloads(values), payloads(decoded)];
         const numbers = textual ? typed : stored;
         const has = flow(stored, Array.isReadonlyArrayNonEmpty);
-        const limits = <P, B>(read: typeof stored, reviver: SchemaRepresentation.FilterReviver<P>, ...bounds: ReadonlyArray<(payload: P) => B>) => read(reviver).flatMap((payload) => bounds.map((bound) => bound(payload)));
-        const compare = (subject: 'value' | 'codePoints') => (op: '>' | '>=' | '<' | '<=', limit: number | bigint | Date) => Column.Bound.Compare({ op, value: limit, subject });
-        const [value, points] = [compare('value'), compare('codePoints')];
-        const lower = (bound: typeof value) => (payload: { readonly minimum: number | bigint | Date; readonly exclusiveMinimum?: true | undefined }) => bound(payload.exclusiveMinimum === true ? '>' : '>=', payload.minimum);
-        const upper = (bound: typeof value) => (payload: { readonly maximum: number | bigint | Date; readonly exclusiveMaximum?: true | undefined }) => bound(payload.exclusiveMaximum === true ? '<' : '<=', payload.maximum);
-        const storage = (node: SchemaRepresentation.Representation): readonly string[] =>
+        const side = (subject: 'value' | 'codePoints', op: '>' | '<', inclusive: Limit | undefined, exclusive: Limit | true | undefined) =>
+            Array.fromNullishOr(exclusive === undefined || exclusive === true ? inclusive : exclusive).map((value) => Column.Bound.Compare({ op: exclusive === undefined ? (`${op}=` as const) : op, value, subject }));
+        const ranges = (read: typeof stored, subject: 'value' | 'codePoints', revivers: readonly Pick<SchemaRepresentation.FilterReviver<Range>, 'id' | 'payloadSchema'>[]) =>
+            revivers.flatMap(read).flatMap((range) => [...side(subject, '>', range.minimum ?? range.minCodePoints, range.exclusiveMinimum), ...side(subject, '<', range.maximum ?? range.maxCodePoints, range.exclusiveMaximum)]);
+        const members = (node: SchemaRepresentation.Representation) =>
             Match.value(node).pipe(
-                Match.tag('Literal', ({ literal: member }) => [typeof member]),
-                Match.tag('Enum', ({ enums }) => enums.map(([, member]) => typeof member)),
-                Match.tag('String', 'TemplateLiteral', () => ['string']),
-                Match.tag('Number', () => ['number']),
-                Match.tag('Declaration', 'Arrays', () => ['blob']),
-                Match.orElse(({ _tag }) => [_tag]),
+                Match.tag('Literal', ({ literal }) => [literal]),
+                Match.tag('Enum', ({ enums }) => enums.map(([, member]) => member)),
+                Match.option,
             );
+        const storage = (node: SchemaRepresentation.Representation): readonly string[] =>
+            Option.match(members(node), {
+                onSome: Array.map((member) => typeof member),
+                onNone: () =>
+                    Match.value(node._tag).pipe(
+                        Match.when(Match.is('String', 'TemplateLiteral'), () => ['string']),
+                        Match.when('Number', () => ['number']),
+                        Match.when(Match.is('Declaration', 'Arrays'), () => ['blob']),
+                        Match.orElse((tag) => [tag]),
+                    ),
+            });
         const boolean = decoded.some(({ _tag }) => _tag === 'Boolean');
-        const literals =
-            boolean || !values.every(({ _tag }) => _tag === 'Literal' || _tag === 'Enum')
-                ? []
-                : values.flatMap((node) =>
-                      Match.value(node).pipe(
-                          Match.tag('Literal', ({ literal: member }) => [member]),
-                          Match.tag('Enum', ({ enums }) => enums.map(([, member]) => member)),
-                          Match.orElse(() => []),
-                      ),
-                  );
+        const literals = boolean ? [] : Option.match(Option.all(values.map(members)), { onNone: () => [], onSome: Array.flatten });
         const numeric = Array.isReadonlyArrayNonEmpty(literals) && literals.every((member) => typeof member === 'number');
         const integer = Array.isReadonlyArrayNonEmpty(numbers(SchemaRepresentation.isIntReviver)) || (numeric && literals.every(Number.isInteger));
         const finite = Array.isReadonlyArrayNonEmpty(numbers(SchemaRepresentation.isFiniteReviver));
@@ -124,28 +133,14 @@ class Column extends Data.Class<{
             nullable: Array.isReadonlyArrayNonEmpty(nulls),
             literals,
             bounds: [
-                limits(numbers, SchemaRepresentation.isGreaterThanReviver, ({ exclusiveMinimum }) => value('>', exclusiveMinimum)),
-                limits(numbers, SchemaRepresentation.isGreaterThanOrEqualToReviver, lower(value)),
-                limits(numbers, SchemaRepresentation.isLessThanReviver, ({ exclusiveMaximum }) => value('<', exclusiveMaximum)),
-                limits(numbers, SchemaRepresentation.isLessThanOrEqualToReviver, upper(value)),
-                limits(numbers, SchemaRepresentation.isBetweenReviver, lower(value), upper(value)),
-                integer ? limits(numbers, SchemaRepresentation.isMultipleOfReviver, ({ divisor }) => Column.Bound.MultipleOf({ divisor })) : [],
-                limits(stored, SchemaRepresentation.isMinCodePointsReviver, ({ minCodePoints }) => points('>=', minCodePoints)),
-                limits(stored, SchemaRepresentation.isMaxCodePointsReviver, ({ maxCodePoints }) => points('<=', maxCodePoints)),
-                limits(stored, SchemaRepresentation.isBetweenCodePointsReviver, lower(points), upper(points)),
-                limits(typed, SchemaRepresentation.isGreaterThanBigIntReviver, ({ exclusiveMinimum }) => value('>', exclusiveMinimum)),
-                limits(typed, SchemaRepresentation.isGreaterThanOrEqualToBigIntReviver, lower(value)),
-                limits(typed, SchemaRepresentation.isLessThanBigIntReviver, ({ exclusiveMaximum }) => value('<', exclusiveMaximum)),
-                limits(typed, SchemaRepresentation.isLessThanOrEqualToBigIntReviver, upper(value)),
-                limits(typed, SchemaRepresentation.isBetweenBigIntReviver, lower(value), upper(value)),
-                limits(typed, SchemaRepresentation.isGreaterThanDateReviver, ({ exclusiveMinimum }) => value('>', exclusiveMinimum)),
-                limits(typed, SchemaRepresentation.isGreaterThanOrEqualToDateReviver, lower(value)),
-                limits(typed, SchemaRepresentation.isLessThanDateReviver, ({ exclusiveMaximum }) => value('<', exclusiveMaximum)),
-                limits(typed, SchemaRepresentation.isLessThanOrEqualToDateReviver, upper(value)),
-                limits(typed, SchemaRepresentation.isBetweenDateReviver, lower(value), upper(value)),
-                limits(stored, SchemaRepresentation.isLowercasedReviver, () => Column.Bound.Cased({ case: 'lower' })),
-                limits(stored, SchemaRepresentation.isUppercasedReviver, () => Column.Bound.Cased({ case: 'upper' })),
-            ].flat(),
+                ...ranges(numbers, 'value', [SchemaRepresentation.isGreaterThanReviver, SchemaRepresentation.isGreaterThanOrEqualToReviver, SchemaRepresentation.isLessThanReviver, SchemaRepresentation.isLessThanOrEqualToReviver, SchemaRepresentation.isBetweenReviver]),
+                ...(integer ? numbers(SchemaRepresentation.isMultipleOfReviver).map(Column.Bound.MultipleOf) : []),
+                ...ranges(stored, 'codePoints', [SchemaRepresentation.isMinCodePointsReviver, SchemaRepresentation.isMaxCodePointsReviver, SchemaRepresentation.isBetweenCodePointsReviver]),
+                ...ranges(typed, 'value', [SchemaRepresentation.isGreaterThanBigIntReviver, SchemaRepresentation.isGreaterThanOrEqualToBigIntReviver, SchemaRepresentation.isLessThanBigIntReviver, SchemaRepresentation.isLessThanOrEqualToBigIntReviver, SchemaRepresentation.isBetweenBigIntReviver]),
+                ...ranges(typed, 'value', [SchemaRepresentation.isGreaterThanDateReviver, SchemaRepresentation.isGreaterThanOrEqualToDateReviver, SchemaRepresentation.isLessThanDateReviver, SchemaRepresentation.isLessThanOrEqualToDateReviver, SchemaRepresentation.isBetweenDateReviver]),
+                ...stored(SchemaRepresentation.isLowercasedReviver).map(() => Column.Bound.Cased({ case: 'lower' })),
+                ...stored(SchemaRepresentation.isUppercasedReviver).map(() => Column.Bound.Cased({ case: 'upper' })),
+            ],
             default: Schema.decodeUnknownOption(Default)(defaults?.[field]),
             projection: Option.map(Option.fromUndefinedOr(projections?.[field]), (projection: NonNullable<NonNullable<RelationOptions<Fields>['projections']>[string]>) =>
                 Match.value(projection).pipe(

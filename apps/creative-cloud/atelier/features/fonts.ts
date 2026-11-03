@@ -24,9 +24,9 @@ const Specimen = Schema.Struct({
 
 const applicationFont = Effect.fnUntraced(function* (client: Effect.Success<ReturnType<Effect.Success<typeof listening>['call']>>, name: string, text: string) {
     const files = yield* FileSystem.FileSystem;
-    const { view, source } = yield* client('font', { name, text, file: yield* files.makeTempFileScoped({ suffix: '.otf' }) });
+    const { font, source } = yield* client('font', { name, text, file: yield* files.makeTempFileScoped({ suffix: '.otf' }) });
     const read = Option.map(source, ({ file, postscriptName }) => Effect.map(files.readFile(file), (data): typeof Source.Type => ({ data, postscriptName })));
-    return { view, source: yield* Effect.transposeOption(read) };
+    return { font, source: yield* Effect.transposeOption(read) };
 }, Effect.scoped);
 const composed = Effect.fnUntraced(function* (source: typeof Source.Type, instance: typeof Face.Instance.Type, run: typeof ShapedText.Run.Type, width: Option.Option<number>, settings: Settings) {
     const face = yield* Face.open(source, instance);
@@ -39,7 +39,7 @@ const faces = Automation.use((automation) => Resource.register({ name: 'faces', 
 const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType<typeof routes>>) {
     const [automation, route] = [yield* Automation, serving('font')];
     const tool = Tool.make(route.tag, {
-        description: 'Shapes text in CoreText face or instance by name, or returns application font view with its specimen when application is given',
+        description: 'Shapes text in CoreText face or instance by name, or returns application font with its specimen when application is given',
         parameters: Face.Instance.pipe(
             Schema.fieldsAssign({
                 ...ShapedText.Run.fields,
@@ -49,14 +49,14 @@ const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType
                 settings: Settings.Partial.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
             }),
         ),
-        success: Schema.Union([Schema.Struct({ ...AvailableFace.fields, specimen: Specimen }), Schema.Struct({ ...Font.Result.fields.view.fields, specimen: Schema.OptionFromOptionalKey(Specimen) })]),
+        success: Schema.Union([Schema.Struct({ ...AvailableFace.fields, specimen: Specimen }), Schema.Struct({ ...Font.fields, specimen: Schema.OptionFromOptionalKey(Specimen) })]),
     }).annotate(Tool.Readonly, true);
     const typeset = Effect.fnUntraced(function* ({ name, variations, size, width, settings: given, ...run }: Tool.Parameters<typeof tool>, chosen: Option.Option<Effect.Success<ReturnType<typeof route.resolve>>>) {
         const settings = yield* Settings.merge(Settings.make({}), given);
         const shaped = (source: typeof Source.Type) => composed(source, { variations, size }, run, width, settings);
         const native = Effect.fnUntraced(function* ({ client }: Effect.Success<ReturnType<typeof route.resolve>>) {
-            const { view, source } = yield* applicationFont(client, name, run.text);
-            return { ...view, specimen: yield* Effect.transposeOption(Option.map(source, shaped)) };
+            const applied = yield* applicationFont(client, name, run.text);
+            return { ...applied.font, specimen: yield* Effect.transposeOption(Option.map(applied.source, shaped)) };
         });
         const shaping = Effect.gen(function* () {
             const found = yield* automation.face({ name });

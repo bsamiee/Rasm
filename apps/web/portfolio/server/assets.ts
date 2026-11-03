@@ -5,9 +5,9 @@ import { Array, ByteSize, Cause, Data, Effect, Exit, Option, Schema, SchemaIssue
 import { SecureRandom } from 'effect/crypto';
 import { Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
-import { SqlClient, SqlSchema, type Statement } from 'effect/sql';
+import { SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
 import { Api, Recovery, UploadRefused, uploadField } from '#/model/api.ts';
-import { Asset, type AssetId, AssetJson } from '#/model/asset.ts';
+import { Asset, type AssetId } from '#/model/asset.ts';
 import { OwnerAccount } from '#/server/owner.ts';
 import { assets, projectedPaths, references, UploadAttempt } from '#/server/store/catalog.ts';
 
@@ -74,6 +74,12 @@ const beginUpload = Effect.fn('beginUpload')(
     Effect.map(({ objectKey }) => Option.isSome(objectKey)),
     Effect.catchTag(['SqlError', 'SchemaError'], unavailable, () => Effect.fail(HttpApiError.Conflict.make())),
 );
+const claimed = <A, R>(statement: Effect.Effect<readonly A[], SqlError.SqlError, R>) =>
+    statement.pipe(
+        Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => HttpApiError.Conflict.make()),
+        Effect.asVoid,
+        Effect.catchTag('SqlError', unavailable),
+    );
 const attachUpload = Effect.fn('attachUpload')(
     (assetId: typeof AssetId.Type, key: string, uploadId: string) =>
         SqlClient.SqlClient.use(
@@ -83,9 +89,7 @@ const attachUpload = Effect.fn('attachUpload')(
                 SELECT 1 FROM json_each(uploads) u, json_each(u.value, '$.objects') o WHERE u.value ->> '$.discard' = 0 AND o.value ->> '$.key' = ${key}
             ) RETURNING id`,
         ),
-    Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => HttpApiError.Conflict.make()),
-    Effect.asVoid,
-    Effect.catchTag('SqlError', unavailable),
+    claimed,
 );
 const completeUpload = Effect.fn('completeUpload')(
     (assetId: typeof AssetId.Type, attempt: string) =>
@@ -94,9 +98,7 @@ const completeUpload = Effect.fn('completeUpload')(
                 SELECT 1 FROM json_each(uploads) u WHERE u.value ->> '$.id' = ${attempt} AND (u.value ->> '$.discard' = 0 OR ${sql('objectKey')} IS NOT NULL)
             ) RETURNING id`,
         ),
-    Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => HttpApiError.Conflict.make()),
-    Effect.asVoid,
-    Effect.catchTag('SqlError', unavailable),
+    claimed,
 );
 const receive = Effect.fnUntraced(function* (assetId: typeof AssetId.Type, stored: boolean, expected: ReturnType<typeof objects>, index: number, part: Multipart.Part) {
     const object = yield* Effect.mapError(Effect.fromOption(Array.get(expected, index)), () => UploadRefused.make({ reason: { _tag: 'Count', expected: expected.length, received: index + 1 } }));
@@ -182,7 +184,7 @@ const assetGroup = HttpApiBuilder.group(Api, 'assets', (handlers) =>
                     Option.filter(({ key }) => key === uploadField.asset),
                     Effect.fromOption,
                     Effect.mapError(() => UploadRefused.make({ reason: { _tag: 'Order' } })),
-                    Effect.flatMap(({ value }) => Schema.decodeEffect(AssetJson)(value)),
+                    Effect.flatMap(({ value }) => Schema.decodeEffect(Asset.json)(value)),
                     Effect.catchTag('SchemaError', ({ issue }) => UploadRefused.make({ reason: { _tag: 'Metadata', ...SchemaIssue.makeFormatterStandardSchemaV1()(issue) } })),
                 );
                 const attempt = yield* SecureRandom.SecureRandom.use((random) => random.uuidV7());

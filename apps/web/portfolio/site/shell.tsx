@@ -2,7 +2,7 @@ import { RegistryProvider } from '@effect/atom-react';
 import { Shell } from '@rasm/hosting/page/shell';
 import { Option, String } from 'effect';
 import { details } from '#/media/labels.ts';
-import { Bootstrap } from '#/model/bootstrap.ts';
+import { Bootstrap } from '#/model/api.ts';
 import { Site } from '#/site/site.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

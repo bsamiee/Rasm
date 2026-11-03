@@ -2,6 +2,7 @@
 id: no-array-ensure-by-hand
 language: tsx
 severity: error
+ignores: ['.claude/workflows/*.js']
 utils:
     flattened:
         any:

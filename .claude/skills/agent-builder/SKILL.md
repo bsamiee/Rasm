@@ -10,6 +10,7 @@ Agent definitions hold one role with its discovery steps, procedure, and owned f
 
 [REFERENCES]:
 - [01]-[TOOL_FORMS](references/tool-forms.md): Forms and facts per CLI tool, MCP tool, and Nx target
+- [02]-[FOLDER_GUIDANCE](references/folder-guidance.md): Folder `CLAUDE.md` files and their `AGENTS.md` links
 
 ## [01]-[DIVIDE]
 

@@ -1,4 +1,4 @@
-import { Cause, Context, Effect, Layer, Option, type Schema } from 'effect';
+import { Array, Cause, Context, Effect, Layer, Option, type Schema } from 'effect';
 import { SqlClient, type SqlConnection, type SqlError, type Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import type { Column, Kind, Projection } from '#/column';
@@ -12,7 +12,6 @@ import type { Relation } from '#/relation';
 
 type Method = Relation['indexes'][number]['method'];
 interface Shape {
-    readonly dialect: Statement.Dialect;
     readonly types: Readonly<Record<Kind, string>>;
     readonly member: (sql: SqlClient.SqlClient, field: string) => Statement.Fragment;
     readonly element: (sql: SqlClient.SqlClient, entry: Column, text: Statement.Fragment) => Statement.Fragment;
@@ -62,7 +61,7 @@ interface Shape {
 class Engine extends Context.Service<Engine, Shape>()('@rasm/database/engine') {
     static readonly layer = Layer.effect(
         Engine,
-        SqlClient.SqlClient.use((sql) => sql.onDialect({ sqlite: () => Effect.succeed<Shape>(Sqlite), pg: () => Effect.succeed<Shape>(Pg), mysql: () => absent('mysql'), mssql: () => absent('mssql'), clickhouse: () => absent('clickhouse') })),
+        SqlClient.SqlClient.use((sql) => sql.onDialectOrElse({ sqlite: () => Effect.succeed<Shape>(Sqlite), pg: () => Effect.succeed<Shape>(Pg), orElse: () => Effect.fail(new Cause.IllegalArgumentError(`${sql.driver} has no engine`)) })),
     );
     static readonly fragments = (sql: SqlClient.SqlClient, engine: Shape, { name, columns, key }: Pick<Relation, 'name' | 'columns' | 'key'>) => {
         const all = Object.values(columns);
@@ -75,7 +74,6 @@ class Engine extends Context.Service<Engine, Shape>()('@rasm/database/engine') {
             sql,
             engine,
             name,
-            written,
             owner,
             prefix: sql`${owner}${sql.literal('.')}`,
             unqualified,
@@ -86,17 +84,19 @@ class Engine extends Context.Service<Engine, Shape>()('@rasm/database/engine') {
             keys,
             reads: (scope: Statement.Fragment, ...extra: readonly (string | Statement.Fragment)[]) => sql.csv([...all.map((entry) => engine.read(sql, entry, scope)), ...extra]),
             inserting: (body: string, conflict: Statement.Fragment, returning: Statement.Fragment) => sql`INSERT INTO ${owner} (${sql.csv(written.map((entry) => sql`${sql(entry.name)}`))}) SELECT ${sql.csv(written.map(element))} FROM ${engine.insertion(sql, body, order)} ${conflict} RETURNING ${returning}`,
-            matching: (entry: Column, body: string) => {
-                const column = sql`${sql(entry.name)}`;
-                return sql`(${column} IN (SELECT ${engine.element(sql, entry, sql.literal('e.value'))} FROM ${engine.texts(sql, body)}) OR (${column} IS NULL AND EXISTS (SELECT 1 FROM ${engine.texts(sql, body)} WHERE e.value IS NULL)))`;
-            },
+            where: (rules: { readonly [field: string]: string | { readonly not: string } | undefined }) =>
+                sql.and(
+                    all.flatMap((entry) =>
+                        Array.fromNullishOr(rules[entry.field]).map((rule) => {
+                            const [column, body] = [sql`${sql(entry.name)}`, typeof rule === 'string' ? rule : rule.not];
+                            const matched = sql`(${column} IN (SELECT ${engine.element(sql, entry, sql.literal('e.value'))} FROM ${engine.texts(sql, body)}) OR (${column} IS NULL AND EXISTS (SELECT 1 FROM ${engine.texts(sql, body)} WHERE e.value IS NULL)))`;
+                            return typeof rule === 'string' ? matched : sql`(${matched}) IS NOT TRUE`;
+                        }),
+                    ),
+                ),
         };
     };
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const absent = (dialect: Statement.Dialect) => Effect.fail(new Cause.IllegalArgumentError(`${dialect} has no engine`));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

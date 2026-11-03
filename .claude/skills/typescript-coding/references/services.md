@@ -106,6 +106,7 @@ Api.pipe(Layer.provide(Store), Layer.provide([NodeHttpClient.layerUndici, Config
 ```
 
 `Api` is a server layer reading `Checkout`, and `runMain` interrupts its program on `SIGINT` or `SIGTERM`, releasing every resource:
+- Workers read bindings through `ConfigProvider.fromUnknown(env)` over the `cloudflare:workers` export, building once at module scope
 - Host events pass their `AbortSignal` as `signal`, and a canceled event interrupts its run
 - Host callbacks are one `Effect.fnUntraced(body, Effect.scoped, (effect) => runtime.runPromise(effect))` typed by the callback type
 - Hosts running a thunk they own call `Effect.runPromiseWith(yield* Effect.context<R>())(program)`, modules exporting the program as an `Effect`

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-concept
+language: tsx
+severity: error
+utils:
+    schema-class:
+        kind: member_expression
+        regex: '\.(Class|Error|TaggedClass|TaggedError)$'
+        matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(Class|Error|TaggedClass|TaggedError)$'}}}
+    data-class:
+        kind: member_expression
+        regex: '\.Tagged(Class|Error)$'
+        matches: {effect-module-member: {module: {regex: '\bData$'}, member: {regex: '^Tagged(Class|Error)$'}}}
+rule:
+    kind: class_declaration
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has:
+            kind: class_heritage
+            has:
+                kind: extends_clause
+                has:
+                    field: value
+                    kind: call_expression
+                    any:
+                        - has:
+                            field: function
+                            kind: call_expression
+                            all:
+                                - has: {field: arguments, has: {nthChild: 1, kind: string, has: {kind: string_fragment, pattern: $ID}}}
+                                - has: {field: function, matches: schema-class}
+                        - all:
+                            - has: {field: arguments, has: {nthChild: 1, kind: string, has: {kind: string_fragment, pattern: $ID}}}
+                            - has:
+                                field: function
+                                kind: call_expression
+                                all:
+                                    - not: {has: {field: arguments, has: {kind: string}}}
+                                    - has: {field: function, regex: '\.Tagged', matches: schema-class}
+                        - all:
+                            - has: {field: arguments, has: {nthChild: 1, kind: string, has: {kind: string_fragment, pattern: $ID}}}
+                            - has: {field: function, matches: data-class}
+        - not: {has: {field: name, pattern: $ID}}
+message: '`$NAME` renames schema `$ID`, one concept under two names'
+note: 'Name the class after its identifier and hold every schema and operation of the concept as its members'

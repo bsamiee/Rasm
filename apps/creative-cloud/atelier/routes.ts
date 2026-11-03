@@ -1,7 +1,7 @@
 import { Installation, Pid } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
 import { Route } from '@rasm/mcp/route';
-import { registerTool } from '@rasm/mcp/tool';
+import { Server } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Link } from '@rasm/uxp/link';
 import { Array, Context, Effect, Match, Option, Schema, Struct, SubscriptionRef } from 'effect';
@@ -58,7 +58,7 @@ const routes = Effect.fnUntraced(function* ({ answering }: Effect.Success<typeof
         const depends = ({ pid }: Chosen) => Effect.succeed([answering(pid)]);
         const annotations = Context.make(Tool.OpenWorld, false).pipe(
             Context.add(
-                registerTool.Visible,
+                Server.Visible,
                 Effect.map(current, ({ installed, instances, peers }) => installed.some((row) => holds(row, peers) && instances.some(Installation.runs(row)))),
             ),
         );

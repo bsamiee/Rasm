@@ -23,7 +23,7 @@ class Invoice extends Model.Class<Invoice>('Invoice')({
 - `Model.DateTimeUpdate` stamps each write, and `Model.FieldOption` decodes a `null` column and a missing JSON key to one `Option`
 - Boundaries besides SQL and JSON declare variants in `VariantSchema.make({ variants, defaultVariant })` with `Class`, `Field`, and `FieldExcept`
 - Variants derive through `X.mapFields` with `Struct.assign`, `omit`, `pick`, or `map(Schema.optionalKey)`, a `...X.fields` spread restating them
-- `Schema.fieldsAssign(fields)` adds fields to each struct member of a union through `mapMembers`
+- `Schema.fieldsAssign(fields)` takes a `Struct` alone, adding fields to each struct member of a union through `mapMembers`
 - Fields sharing one schema spread from `Struct.Record(keys, S)`, the keys a literal list or `X.literals`
 - Relations no getter derives are one struct `Schema.makeFilter` returning `{ path, issue }` at each field a reader fixes
 - Whole-value fixes decode with `{ errors: 'all' }`, `SchemaIssue.makeFormatterStandardSchemaV1()(error.issue).issues` listing one message per path
@@ -102,6 +102,7 @@ const Manifest = fromText('TOML', TOML.parse).pipe(Schema.decodeTo(Schema.Struct
 - `encodeKeys`, `extendTo`, `withDecodingDefault*`, `tagDefaultOmit`, and `TemplateLiteralParser` hold their own transformation
 - `decodeTo(to)` without a transformation composes schemas, `Schema.decode(t)` targets `Schema.toType(source)` and keeps source checks on output
 - Transformations shared by more than one schema are one value, `composeTransformation` chains transformations in place of an intermediate schema
+- Ids naming a record decode to it through a `transformEffect` lookup and encode back to the id, a stored and a resolved schema pair restating them
 - `Schema.StringFromUriComponent` as a `TemplateLiteralParser` part escapes each URI path segment on encode
 - Services a transformation reads join `DecodingServices` and `EncodingServices`, and the decode effect requires them
 - JSON side output is a `toCodecJson` annotation whose encode getter writes through an `Output` reference, every derived codec writing it

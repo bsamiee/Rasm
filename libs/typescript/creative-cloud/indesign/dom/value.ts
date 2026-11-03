@@ -1,4 +1,4 @@
-import { Predicate, Record, Schema, Struct } from 'effect';
+import { Predicate, type Record, Schema } from 'effect';
 import { Specifier } from '#/dom/specifier';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -25,13 +25,6 @@ const Value = Object.assign(Codec, {
     Enumerated,
     Located,
     plainObject: (value: unknown): value is Record.ReadonlyRecord<string, unknown> => Predicate.isObject(value) && Object.getPrototypeOf(value) === Object.prototype,
-    picked:
-        <F extends Schema.Struct.Fields>(fields: F) =>
-        (object: object): Record.ReadonlyRecord<string, unknown> =>
-            Record.fromIterableWith(
-                Struct.keys(fields).filter((key) => key in object),
-                (key) => [key, Reflect.get(object, key)],
-            ),
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

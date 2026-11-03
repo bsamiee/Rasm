@@ -1,6 +1,6 @@
 import { SourceMap } from 'node:module';
 import { AfterEffects } from '@rasm/aftereffects/contract';
-import type { Installation } from '@rasm/automation/applications';
+import { type Installation, Launched } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
 import { ExecuteScript, HostError, ObjectModel, Reference, Render } from '@rasm/automation/requests';
 import { answered, Reply } from '@rasm/cep/contract';
@@ -44,6 +44,7 @@ const Entry = Schema.Struct({ originalLine: Schema.Int });
 const Diagnostic = Schema.Struct({ message: Schema.TemplateLiteralParser(['  x ', Schema.String, '\n   ,-[', Schema.Int, ':', Schema.Int, ']', Schema.String]) });
 const Scripted = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Reply)));
 const Result = Schema.toCodecJson(ExecuteScript.Result);
+const Opened = Reference.mapFields(Struct.assign({ launched: Schema.OptionFromOptionalKey(Launched.annotate({ description: 'Instance open launched' })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -70,9 +71,10 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
     const [automation, path] = yield* Effect.all([Automation, Path.Path]);
     const [opened, rendered] = [serving('open'), serving('render')];
     const launched = (installation: Installation) =>
-        automation
-            .launch({ url: installation.url })
-            .pipe(Effect.andThen(Stream.runHead(Stream.filter(links.changes, Array.some(Link.serves(installation.url))))), Effect.timeoutOrElse({ duration: LINK_WAIT, orElse: () => Effect.fail(HostError.refused(`link from ${installation.name} within ${Duration.format(LINK_WAIT)}`)()) }));
+        automation.launch({ url: installation.url }).pipe(
+            Effect.tap(() => Stream.runHead(Stream.filter(links.changes, Array.some(Link.serves(installation.url))))),
+            Effect.timeoutOrElse({ duration: LINK_WAIT, orElse: () => Effect.fail(HostError.refused(`link from ${installation.name} within ${Duration.format(LINK_WAIT)}`)()) }),
+        );
     const opener = Effect.fnUntraced(function* (file: URL) {
         const [rows, peers] = yield* Effect.all([automation.opening(file), links.peers]);
         const candidates = rows.filter(
@@ -82,18 +84,21 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
             ),
         );
         const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.make({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(rows, Struct.get('name')) }));
-        const installation = yield* Option.match(
+        const [installation, launch] = yield* Option.match(
             Array.findFirst(candidates, (row) => peers.some(Link.serves(row.url))),
-            { onSome: Effect.succeed, onNone: () => Effect.as(launched(first), first) },
+            {
+                onSome: (linked) => Effect.succeed([linked, Option.none()] as const),
+                onNone: () => Effect.map(launched(first), (instance) => [first, Option.some(instance)] as const),
+            },
         );
-        return yield* links.call(installation.url);
+        return { client: yield* links.call(installation.url), launched: launch };
     });
     const replying = yield* Effect.sync(() => transformSync(`var runtime = ${String(runtime)};`, { jsc: { target: ExtensionManifest.target, parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } } }).code);
     const scripted = Effect.fnUntraced(function* (code: string, { pid }: { readonly pid: number }) {
         const { source, relined } = yield* lowered(code, ExtensionManifest.target, false);
         const { reply } = yield* automation.script({
             pid,
-            direct: `(function (self) { var body = ${source}\n${replying}\nreturn encodeURIComponent(runtime().reply(function () { return { result: body.call(self) }; }, function () { return undefined; }, function () { return true; }));\n})(this)`,
+            direct: `(function (self) { var body = ${source}\n${replying}\nreturn encodeURIComponent(runtime().reply(function () { return { result: body.call(self) }; }));\n})(this)`,
         });
         return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(answered(Result, ExecuteScript.make({ code: source }).label)), Effect.catchTag('HostError', relined));
     });
@@ -124,12 +129,12 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
         Tool.make(opened.tag, {
             description: 'Opens document without dialogs and returns its reference, without window where application allows, launching the picked application when none runs and waiting for its link. After Effects replaces its open project',
             parameters: Schema.Struct({ file: AbsolutePath.annotate({ description: 'Document path' }) }),
-            success: Reference,
+            success: Opened,
         }),
         Effect.fnUntraced(function* ({ file }, chosen) {
             const url = yield* path.toFileUrl(file);
-            const client = yield* Option.match(chosen, { onSome: (picked) => Effect.succeed(picked.client), onNone: () => opener(url) });
-            return yield* client(opened.tag, { file: url });
+            const opening = yield* Option.match(chosen, { onSome: ({ client }) => Effect.succeed({ client, launched: Option.none() }), onNone: () => opener(url) });
+            return { ...(yield* opening.client(opened.tag, { file: url })), launched: opening.launched };
         }),
     );
     yield* Route.register(rendered)(

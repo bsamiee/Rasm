@@ -137,9 +137,8 @@ const sea =
     () =>
         Effect.gen(function* () {
             const [{ name, port }, identifier, program] = yield* Effect.all([daemon(directory), IDENTIFIER, Config.String(executable)]);
-            const load = createRequire(join(directory, Package.file));
             const addon = `@swc/core-${process.platform}-${process.arch}`;
-            const binding = createRequire(load.resolve('@swc/core')).resolve(addon);
+            const binding = createRequire(createRequire(join(directory, Package.file)).resolve('@swc/core')).resolve(addon);
             const label = `${identifier}.server`;
             const agent = build({
                 Label: label,
@@ -160,7 +159,7 @@ const sea =
                         generateBundle: {
                             order: 'post',
                             handler(this: Rolldown.PluginContext, _options, output): void {
-                                const outDir = located('.artifacts', directory);
+                                const { outDir } = this.environment.config.build;
                                 const folders = Array.dedupe(Object.values(output).flatMap((file) => (file.type === 'chunk' ? file.moduleIds.filter(isAbsolute).map(dirname) : [])));
                                 const assets = Record.fromEntries(Array.flatMap(folders, (folder) => globSync('*.wasm', { cwd: folder }).map((file) => [file, join(folder, file)] as const)));
                                 this.emitFile({ type: 'asset', fileName: 'sea.json', source: `${JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets }, null, 4)}\n` });

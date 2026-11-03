@@ -40,7 +40,7 @@ class Catalog extends Data.Class<{
 
 const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: Option.Option<string>, after: (planned: Effect.Success<ReturnType<Engine['Service']['plan']>>) => Effect.Effect<unknown, E, R>) {
     const [client, engine, d1] = yield* Effect.all([SqlClient.SqlClient, Engine, Effect.serviceOption(D1Client.D1Client)]);
-    yield* Array.match([...catalog.tables.flatMap(Reconcile.refusals), ...catalog.tables.flatMap(engine.refusals)], { onEmpty: () => Effect.void, onNonEmpty: (findings) => Effect.fail(ReconcileError.make({ findings })) });
+    yield* ReconcileError.raise([...catalog.tables.flatMap(Reconcile.refusals), ...catalog.tables.flatMap(engine.refusals)]);
     const steps = engine.plan(client.withoutTransforms(), catalog, runtime);
     const applied = Effect.tap(steps, after);
     return yield* Option.isNone(d1)

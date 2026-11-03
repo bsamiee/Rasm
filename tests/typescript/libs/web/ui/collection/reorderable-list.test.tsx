@@ -7,6 +7,12 @@ import { Default, Single } from '#/libs/typescript/web/ui/.storybook/reorderable
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const _targets = () =>
+    page
+        .getByRole('menuitem')
+        .elements()
+        .filter((item) => item.getAttribute('aria-disabled') !== 'true')
+        .map(({ textContent }) => textContent);
 const _sheets = async () => {
     const onChange = vi.fn<NonNullable<ComponentProps<typeof Default.Component>['onChange']>>();
     const screen = await render(<Default.Component onChange={onChange} />);
@@ -57,15 +63,7 @@ it('gathers non-contiguous selection into one block placed by its first row and 
     await select('Plan');
     await select('Detail');
     await opened(2);
-    await expect
-        .poll(() =>
-            page
-                .getByRole('menuitem')
-                .elements()
-                .filter((item) => item.getAttribute('aria-disabled') !== 'true')
-                .map(({ textContent }) => textContent),
-        )
-        .toEqual(['Section']);
+    await expect.poll(_targets).toEqual(['Section']);
     await page.getByRole('menuitem', { name: 'Section' }).click();
     expect(order()).toEqual(['section', 'plan', 'detail']);
 });
@@ -135,15 +133,7 @@ it('drops selection of items the owner removes and lists only present targets', 
     await screen.rerender(list(items.filter(({ id }) => id !== 'detail')));
     await expect.element(screen.getByRole('status')).toHaveTextContent('1 selected');
     await screen.getByRole('button', { name: 'Move' }).first().click();
-    await expect
-        .poll(() =>
-            page
-                .getByRole('menuitem')
-                .elements()
-                .filter((item) => item.getAttribute('aria-disabled') !== 'true')
-                .map(({ textContent }) => textContent),
-        )
-        .toEqual(['Section']);
+    await expect.poll(_targets).toEqual(['Section']);
 });
 it('exposes grid, rows, and row controls by role and name', async () => {
     const { screen } = await _sheets();

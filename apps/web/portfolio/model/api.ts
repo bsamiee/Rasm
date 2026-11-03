@@ -12,6 +12,7 @@ const uploadField = { asset: 'asset', renditions: 'renditions', file: 'file' } a
 const Recovery = Schema.Struct({ id: AssetId, name: Schema.NonEmptyString, status: Schema.Literals(['incomplete', 'cleanup', 'removing']) });
 const Revision = Schema.TemplateLiteralParser(['"', Schema.Natural, '"']).pipe(Schema.decodeTo(Schema.Natural, SchemaTransformation.transform({ decode: ([, revision]) => revision, encode: (revision) => ['"', revision, '"'] as const })));
 const draftEtag = { 'draft-etag': Revision };
+const Bootstrap = Schema.Struct({ published: PortfolioData, session: Schema.Literals(['owner', 'signedIn', 'signedOut']) });
 const Refusal = Schema.TaggedUnion({
     Order: {},
     Metadata: Schema.StandardSchemaV1FailureResult.fields,
@@ -90,4 +91,4 @@ const assetUrl = (asset: typeof Asset.Type, width?: number) => urls.assets.read(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Api, assetUrl, Owner, PlacementConflict, PreconditionFailed, Recovery, UploadRefused, uploadField };
+export { Api, assetUrl, Bootstrap, Owner, PlacementConflict, PreconditionFailed, Recovery, UploadRefused, uploadField };
