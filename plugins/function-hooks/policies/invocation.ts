@@ -19,12 +19,15 @@ interface Program {
     readonly informational?: readonly string[];
     readonly singleDashLong?: true;
     readonly wraps?: readonly (readonly string[])[] | '--';
+    readonly module?: string;
     readonly execs?: readonly string[];
     readonly walks?: { readonly when?: readonly string[]; readonly paths?: readonly string[]; readonly base?: readonly string[]; readonly before?: readonly string[] };
     readonly previews?: readonly [string, ...string[]];
     readonly headless?: readonly string[];
     readonly flags?: readonly string[];
     readonly selectors?: readonly string[];
+    readonly subcommandless?: true;
+    readonly inert?: readonly string[];
     readonly timer?: true | readonly string[];
     readonly endless?: true | readonly string[];
     readonly exitStatus?: true;
@@ -45,6 +48,7 @@ const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const OPTION = /^-./u;
 const TILDE = /^~(?<user>[^/]*)/u;
 const DIRNAME = /^.*\//su;
+const PACKAGES = /^.*\./su;
 const HELP: readonly string[] = ['--help', '--version'];
 const PROGRAMS: ReadonlyMap<string, Program> = new Map(
     Object.entries<Program>({
@@ -420,7 +424,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         set: { valueOptions: ['-o', '+o'] },
         cd: { chdir: ['~'] },
         pushd: { aliases: ['popd'], chdir: [] },
-        python: { aliases: ['python3'], valueOptions: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] },
+        python: { aliases: ['python3'], valueOptions: ['-W', '-X'], module: '-m', stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] },
         bash: { aliases: ['sh', 'zsh', 'dash', 'ksh'], valueOptions: ['-o', '-O'], stdin: 'default', shell: ['-c'] },
         sqlite3: { aliases: ['duckdb'], valueOptions: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'], leading: 1, stdin: 'default', stdinless: ['-c', '-s', '-f', '-no-stdin'], informational: ['-h', '-help', '-version'], singleDashLong: true },
         nx: { exitStatus: true, valueOptions: ['-c', '--configuration', '-t', '--targets', '--target', '-p', '--projects', '--exclude', '--outputStyle', '--output-style', '--runner', '--base', '--head', '--files', '--parallel', '--tuiAutoExit', '--type', '--withTarget', '--sep'] },
@@ -519,6 +523,51 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             ],
             selectors: [],
         },
+        mypy: {
+            valueOptions: [
+                '-O',
+                '--output',
+                '--config-file',
+                '--python-version',
+                '--python-executable',
+                '--platform',
+                '--always-true',
+                '--always-false',
+                '--untyped-calls-exclude',
+                '--deprecated-calls-exclude',
+                '--disable-error-code',
+                '--enable-error-code',
+                '--cache-dir',
+                '--custom-typing-module',
+                '--custom-typeshed-dir',
+                '-n',
+                '--num-workers',
+                '--any-exprs-report',
+                '--cobertura-xml-report',
+                '--html-report',
+                '--linecount-report',
+                '--linecoverage-report',
+                '--lineprecision-report',
+                '--txt-report',
+                '--xml-report',
+                '--xslt-html-report',
+                '--xslt-txt-report',
+                '--junit-xml',
+                '--find-occurrences',
+                '--exclude',
+                '-m',
+                '--module',
+                '-p',
+                '--package',
+                '-c',
+                '--command',
+            ],
+            arities: { '--shadow-file': 2 },
+            selectors: [],
+            subcommandless: true,
+            inert: ['--cache-dir', '--no-pretty', '--config-file=pyproject.toml'],
+        },
+        refurb: { valueOptions: ['--ignore', '--load', '--enable', '--disable', '--config-file', '--python-version', '--format', '--sort', '--timing-stats', '--explain'], informational: ['-h', '--explain'], selectors: [], subcommandless: true },
         osascript: { valueOptions: ['-e', '-l', '-s'] },
         open: { valueOptions: ['-a', '-b', '-s', '-u', '-i', '-o', '--env', '--stdin', '--stdout', '--stderr', '--arch', '--url'] },
         xed: { valueOptions: ['-l', '--line'], informational: ['-h', '-v'] },
@@ -659,7 +708,10 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
         }
         return pending.some((path) => path.length === 0) ? words.slice(row.leading ?? 0) : [];
     };
-    const inner = row.wraps === '--' ? rest.slice(rest.includes('--') ? rest.indexOf('--') + 1 : rest.length) : innerWords(rest, row.wraps ?? []);
+    const operand = firstOperand([program, ...rest]) - 1;
+    const [module, ...args] = row.module !== undefined && rest.slice(0, operand).includes(row.module) ? rest.slice(operand) : [];
+    const wrapped = row.wraps === '--' ? rest.slice(rest.includes('--') ? rest.indexOf('--') + 1 : rest.length) : innerWords(rest, row.wraps ?? []);
+    const inner = module === undefined ? wrapped : [module.replace(PACKAGES, ''), ...args];
     return [[program, ...rest.slice(0, rest.length - inner.length)], ...invocations(inner)];
 };
 

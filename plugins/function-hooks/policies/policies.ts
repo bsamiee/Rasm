@@ -862,7 +862,7 @@ const programRewrites = (invocation: Invocation, words: readonly Word[]): readon
             return optionRespellings(program, rest, { '-a': '', '--all': '', '--noreport': '', '--dirsfirst': '--group-directories-first' });
         case 'refurb': {
             const text = 'python -m tools.refurb';
-            return [edit(head.span.start, head.span.end, text, Option.some(`refurb became ${text} to read the mypy cache`))];
+            return basename(head.text) === program ? [edit(head.span.start, head.span.end, text, Option.some(`refurb became ${text} to read the mypy cache`))] : [];
         }
         case 'nx':
             return nxCacheFlags(invocation, rest);
@@ -919,7 +919,22 @@ const ownerProject = async ({ system, project }: Call, selectors: readonly strin
     return guessed.values.some((candidate) => candidate.name === name) ? guessed : shown(name);
 };
 
+const runScope = (invocation: Invocation, subcommanded: boolean, cwd: Option<string>, home: Option<string>) => {
+    const cut = invocation.indexOf('--');
+    const extra = cut < 0 ? [] : invocation.slice(cut + 1);
+    const { inputs } = operands(invocation);
+    return { places: inputs.slice(Number(subcommanded), inputs.length - extra.length).flatMap((word) => resolvePath(word, cwd, home).values), extra };
+};
+
+const launches = ([program, ...args]: Invocation): boolean => {
+    const { wraps, module } = programRow(program);
+    return (module !== undefined && args.at(-1) === module) || wraps === '--' || (wraps ?? []).some((path) => path.length > 0 && path.every((step) => args.includes(step)));
+};
+
+const coveredBy = (places: readonly string[], folders: readonly string[]): boolean => places.every((place) => folders.some((folder) => isInside(place, folder)));
+
 const checkerRuns = async ({ system }: Call, graph: Readonly<Record<string, Target>>, program: string, subcommand: string | undefined) => {
+    const { subcommandless } = programRow(program);
     const listed = Object.entries(graph).flatMap(([target, { options }]) => {
         const tool = CHECK_TARGET.exec(target)?.groups?.tool;
         const texts = [options?.command, ...(options?.commands ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.command))];
@@ -933,23 +948,23 @@ const checkerRuns = async ({ system }: Call, graph: Readonly<Record<string, Targ
                 .flatMap(({ commands }) => invocationsOf(commands, program))
                 .map((ran) => ({ target, ran })),
         )
-        .flatMap(({ target, ran }) => (operands(ran).inputs[0] === subcommand ? [{ target, keys: optionKeys(ran), options: operands(ran).options }] : []));
+        .flatMap(({ target, ran }) => (subcommandless === true || operands(ran).inputs[0] === subcommand ? [{ target, keys: optionKeys(ran), options: operands(ran).options, ...runScope(ran, subcommandless !== true, system.root, system.home) }] : []));
 };
 
 const forwardedArguments = (program: string, words: readonly Word[], dropped: ReadonlySet<string>, subcommand: boolean) => {
     const listed = argumentGroups(program, words);
     const first = listed.findIndex(({ names }) => names.length === 0);
-    return listed.filter(({ names }, at) => (names.length === 0 ? !subcommand || at !== first : !new Set(names).isSubsetOf(dropped)));
+    return listed.filter(({ names, words: group }, at) => (names.length === 0 ? !subcommand || at !== first : !(new Set(names).isSubsetOf(dropped) || dropped.has(group.map(({ text }) => text).join('=')))));
 };
 
 const checkerTarget = async (call: Call, { cwd, hasInput }: Command, invocation: Invocation, words: readonly Word[]): Promise<Option<{ readonly run: string; readonly passed: readonly string[] }>> => {
     const [program] = invocation;
-    const { selectors } = programRow(program);
+    const { selectors, subcommandless, inert = [] } = programRow(program);
     const { home } = call.system;
     const [root] = call.system.root.values;
     const [folder] = cwd.values;
     const { options, inputs } = operands(invocation);
-    if (selectors === undefined || root === undefined || folder === undefined || !isInside(folder, root) || hasInput || informational(program, options) || words.some(({ text }) => text === '--')) {
+    if (selectors === undefined || root === undefined || folder === undefined || !isInside(folder, root) || hasInput || informational(program, options)) {
         return Option.none;
     }
     const [project] = (await ownerProject(call, selectors, invocation, folder, root)).values;
@@ -957,22 +972,24 @@ const checkerTarget = async (call: Call, { cwd, hasInput }: Command, invocation:
         return Option.none;
     }
     const { name, targets } = project;
-    const [subcommand] = inputs;
+    const [subcommand] = subcommandless === true ? [] : inputs;
+    const { places, extra } = runScope(invocation, subcommandless !== true, cwd, home);
     const found = await checkerRuns(call, targets, program, subcommand);
     const known = new Set(found.flatMap((ran) => ran.options));
     const wanted = optionKeys(invocation, (flag) => known.has(flag));
-    const fitting = found.filter(({ keys }) => wanted.isSubsetOf(keys));
+    const fitting = found.filter((ran) => wanted.isSubsetOf(ran.keys) && extra.every((word) => ran.extra.includes(word)) && (ran.places.length === 0 || (places.length > 0 && coveredBy(places, ran.places))));
     const fewest = Math.min(...fitting.map(({ keys }) => keys.size));
-    const [target, ...others] = [...new Set(fitting.filter(({ keys }) => keys.size === fewest).map((ran) => groupTarget(targets, ran.target)))];
+    const [target, ...others] = [...new Set(fitting.filter(({ keys }) => keys.size === fewest).map((ran) => (ran.places.length > 0 ? ran.target : groupTarget(targets, ran.target))))];
+    const scoped = fitting.some((ran) => ran.target === target && ran.places.length > 0);
     const aggregate = !found.some((ran) => ran.target === target);
-    const kept = forwardedArguments(program, words.slice(1), new Set([...known, ...selectors]), subcommand !== undefined);
+    const kept = forwardedArguments(program, words.slice(1), new Set([...known, ...selectors, ...inert]), subcommand !== undefined);
     const switched = kept.some(({ names }) => names.length > 0);
     const moved = selectors.length === 0 && folder !== root;
-    const passed = kept.flatMap((item) => item.words).map((word) => (moved ? rootRelative(word, folder, root, home) : [word.raw]));
-    if (target === undefined || others.length > 0 || (aggregate && (wanted.size > 0 || switched)) || (moved && switched) || passed.some((argument) => argument.length === 0)) {
+    const passed = scoped ? [] : kept.flatMap((item) => item.words).map((word) => (moved ? rootRelative(word, folder, root, home) : [word.raw]));
+    if (target === undefined || others.length > 0 || (aggregate && (wanted.size > 0 || switched)) || ((moved || scoped) && switched) || passed.some((argument) => argument.length === 0) || !coveredBy(places, [root]) || (!scoped && words.some(({ text }) => text === '--'))) {
         return Option.none;
     }
-    return Option.some({ run: `${name}:${target}`, passed: [...passed.flat(), ...(moved && passed.length === 0 ? [quote(folder.slice(root.length + 1))] : [])] });
+    return Option.some({ run: `${name}:${target}`, passed: [...passed.flat(), ...(moved && !scoped && passed.length === 0 ? [quote(folder.slice(root.length + 1))] : [])] });
 };
 
 // --- [DECISION]
@@ -1002,7 +1019,8 @@ const commandRewrites = async (call: Call, command: Command): Promise<readonly V
         return programRewrites(last, words);
     }
     const { run, passed } = found;
-    return [edit(head.span.start, tail.span.end, [`nx run ${run}`, ...(passed.length > 0 ? ['--', ...passed] : [])].join(' '), Option.some(`${last[0]} became nx run ${run}`))];
+    const [start = head] = command.parts[command.invocations.findLastIndex((invocation, at) => at < command.invocations.length - 1 && !launches(invocation)) + 1]?.words ?? [];
+    return [edit(start.span.start, tail.span.end, [`nx run ${run}`, ...(passed.length > 0 ? ['--', ...passed] : [])].join(' '), Option.some(`${last[0]} became nx run ${run}`))];
 };
 
 const scriptDecision = async (system: System, source: Uint8Array, script: Script, project: string, request: Request): Promise<Decision> => {

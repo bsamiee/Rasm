@@ -690,7 +690,6 @@ analysis = { replace-imports-with-any = ["uharfbuzz"] }                         
 files                   = [".", ".claude"]
 mypy_path               = ["libs/python"]
 cache_dir               = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
-num_workers             = 8                                                                                                                                                                                                                                                                                                                                                                                     # mypy's `auto` cap, the schema tombi reads refuses `auto`
 strict                  = true
 warn_unreachable        = true
 explicit_package_bases  = true

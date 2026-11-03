@@ -71,7 +71,13 @@
             "includes": [ "**" ],
             "linter": {
                 "rules": {
-                    "complexity": { "noExcessiveLinesPerFunction": "off", "noExcessiveNestedCallbacks": { "level": "error", "options": { "max": 2 } }, "noForEach": "off", "useMaxParams": { "level": "error", "options": { "max": 10 } } },
+                    "complexity": {
+                        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 20 } },
+                        "noExcessiveLinesPerFunction": "off",
+                        "noExcessiveNestedCallbacks": { "level": "error", "options": { "max": 2 } },
+                        "noForEach": "off",
+                        "useMaxParams": { "level": "error", "options": { "max": 10 } }
+                    },
                     "correctness": {
                         "noNodejsModules": "off",
                         "noReactNativeRawText": "off",

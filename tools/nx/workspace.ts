@@ -495,7 +495,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, hosts, pyproject, py
                         commands(Record.map({ tree: walk(offs), ...hosted }, (command) => `${lock} ${command} --update-all`)),
                     ),
                     ...versioned('typecheck:ty', `ty check ${scopes.map(({ scope }) => `--exclude "${scope}"`).join(' ')}`, ({ version, scoped }) => `ty check --python-version ${version} ${scoped}`, { options: { env: { TY_UV: '1', UV_LOCKED: '1' } } }),
-                    ...versioned('typecheck:mypy', `mypy ${excluded}`, ({ version, environment, scoped }) => `mypy --python-version ${version} --python-executable ${environment}/bin/python ${scoped}`),
+                    ...versioned('typecheck:mypy', `mypy --num-workers auto ${excluded}`, ({ version, environment, scoped }) => `mypy --num-workers auto --python-version ${version} --python-executable ${environment}/bin/python ${scoped}`),
                     ...versioned('lint:refurb', `python -m tools.refurb --quiet -- ${excluded}`, ({ version, environment, scoped }) => `python -m tools.refurb --quiet --python-version ${version} ${scoped} -- --python-executable ${environment}/bin/python`, {}, 'typecheck:mypy'),
                     ...Array.match(deptryRuns, { onEmpty: () => ({}), onNonEmpty: (checks) => ({ 'lint:deptry': { dependsOn: [{ target: 'lint:deptry:*', params: 'forward' as const }] }, ...Object.fromEntries(checks) }) }),
                     ...(unclaimed.length > 0 ? { test: { command: 'pytest', options: { args: [...testPaths, ...claimed.map((testDir) => `--ignore=${testDir}`)] }, inputs: ['python', 'pythonFiles'] } } : {}),
