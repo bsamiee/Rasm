@@ -38,7 +38,7 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 1. **Rust:** six runs at once, three rows in RUST.md order and three depth runs, each landing freeing its slot; `rust-tune` from `24ede74fc` after 2 to 3 land, and again every few landings.
 2. **InPage:** depth pass, clean prose, `typescript-tune` and the manual audit (`2a7c018e2`, PLAN.md `[17]-[DESKTOP_MANUAL]`) landed.
 3. **Then:** `typescript-sweep` from `2a7c018e2` runs, folding the split-concept defect. Depth order: `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`, then each landed row not yet deepened.
-4. **InPage depth rerun:** once the sweep and all other TypeScript work land (it may overlap the extension planning), rerun the depth pass from `.artifacts/workflows/typescript-extension/inpage/depth-prompt.md` (one Fable agent), its prompt extended with every finding and naivety fix recorded since, the matching `docs/research` notes, and deeper fontkit, HarfBuzz and catalog package use only where it replaces hand logic or adds real capability.
+4. **InPage depth rerun:** once the sweep lands and before extension phases 4 to 7, rerun the depth pass from `.artifacts/workflows/typescript-extension/inpage/depth-prompt.md` (one Fable agent), its prompt extended with every finding and naivety fix recorded since, the plan's `[16]` and `[17]-[DESKTOP_MANUAL]` rows, the matching `docs/research` notes, and deeper fontkit, HarfBuzz and catalog package use only where it replaces hand logic or adds real capability; then one adversary confirms the InPage work full, derived and collapsed, fixing in place.
 5. **Folder guidance:** once the sweep and the Rust queue settle.
 
 ### Open defects
