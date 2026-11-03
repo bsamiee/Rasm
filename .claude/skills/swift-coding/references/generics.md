@@ -66,7 +66,7 @@ let priced: [(String, Int, Decimal)] = projected(lines, \.sku, \.quantity.rawVal
 Integer generic parameters state a length shared across positions: the compiler infers `N` from argument types and rejects mismatched lengths. `[N of T]` holds its elements inline with no allocation. A result of the same length builds each element from its index through `InlineArray.init(_:)`:
 
 ```swift
-func blended<let N: Int>(_ from: [N of Double], _ to: [N of Double], at fraction: Double = 0.5) -> [N of Double] {
+func blended<let N: Int>(_ from: [N of Double], _ to: [N of Double], at fraction: Double) -> [N of Double] {
     InlineArray { index in from[index] + (to[index] - from[index]) * fraction }
 }
 ```

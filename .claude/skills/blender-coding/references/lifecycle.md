@@ -27,7 +27,7 @@ File loads drop non-`persistent` handlers and timers, msgbus subscriptions, and 
 
 ## [03]-[DEFERRED_WORK]
 
-Handler, msgbus, update, and render-thread bodies hand ID writes to a main-thread timer step waiting for an unlocked interface and a ready predicate. Steps push an undo step named for a write that changed data, unpushed timer writes leaving `is_dirty` false and dropping at the next undo. Background runs hold no event loop and write at the call with no undo step:
+Handler, msgbus, update, and render-thread bodies hand ID writes to a main-thread timer step polling every `interval` seconds for an unlocked interface and a ready predicate. Steps push an undo step named for a write that changed data, unpushed timer writes leaving `is_dirty` false and dropping at the next undo. Background runs hold no event loop and write at the call with no undo step:
 
 ```python
 class Write[**P](Protocol):
@@ -36,11 +36,11 @@ class Write[**P](Protocol):
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> bool: ...
 
 
-def scheduled[**P](ready: Callable[[], bool], write: Write[P], /, *args: P.args, **kwargs: P.kwargs) -> None:
+def scheduled[**P](ready: Callable[[], bool], interval: float, write: Write[P], /, *args: P.args, **kwargs: P.kwargs) -> None:
     def step() -> float | None:
         manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         if manager.is_interface_locked or not ready():
-            return 0.1
+            return interval
         if write(*args, **kwargs):
             bpy.ops.ed.undo_push(message=bpy.path.display_name(write.__name__))
         return None
@@ -51,7 +51,7 @@ def scheduled[**P](ready: Callable[[], bool], write: Write[P], /, *args: P.args,
         bpy.app.timers.register(step)
 ```
 
-`depsgraph_update_post` handlers copy each transformed original's `session_uid` and call `scheduled(lambda: True, grounded, uids)`. The step pushes a `Grounded` undo step when `grounded` lifts a sunk object to `z = 0` and returns `True`.
+`depsgraph_update_post` handlers copy each transformed original's `session_uid` and call `scheduled(lambda: True, interval, grounded, uids)`. The step pushes a `Grounded` undo step when `grounded` lifts a sunk object to `z = 0` and returns `True`.
 
 Writes end their own update cycle:
 - Update callbacks fire on every assignment, equal values included, and writes assign only differing values
@@ -63,9 +63,9 @@ Writes end their own update cycle:
 Work outlasting one callback runs as a `sys.executable` process (bundled Python without `bpy`), its result applied as a write once the process exits:
 
 ```python
-def spawned(argv: tuple[str, ...], applied: Write[[subprocess.Popen[bytes]]], /) -> None:
+def spawned(argv: tuple[str, ...], interval: float, applied: Write[[subprocess.Popen[bytes]]], /) -> None:
     worker = subprocess.Popen((sys.executable, *argv))
-    scheduled(lambda: worker.poll() is not None, applied, worker)
+    scheduled(lambda: worker.poll() is not None, interval, applied, worker)
 ```
 
 `applied` reads its result file and calls `worker.wait()`, returning at once in a timer step and blocking a background run until exit. Process pools (`multiprocessing`, `concurrent.futures`) fail before work starts, each child re-running `__main__` from `__file__` (`<blender string>`, a `--python` script).

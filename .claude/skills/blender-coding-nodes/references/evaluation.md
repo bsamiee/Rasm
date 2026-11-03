@@ -17,7 +17,7 @@ Tree edits reach every user's next evaluation, nested groups included:
 Evaluate stock nodes (Noise, Voronoi, Map Range, Color Ramp, Math) for their values in place of a numpy port. Shader texture and converter nodes run in geometry trees, an unlinked texture `Vector` reading `Position`, over one scratch point cloud in one depsgraph pass:
 
 ```python
-def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Callable[[bpy.types.NodeTree], bpy.types.NodeSocket], /, *, name: str = ".sampled") -> Option[Buffer]:
+def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Callable[[bpy.types.NodeTree], bpy.types.NodeSocket], /) -> Option[Buffer]:
     def copied(stored: bpy.types.Attribute) -> Option[Buffer]:
         rna: bpy.types.Struct = stored.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         values: Elements[bpy.types.Struct] = stored.data  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
@@ -27,6 +27,7 @@ def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Call
             case _:
                 return Nothing
 
+    name = f".{sampled.__name__}"
     cloud = bpy.data.pointclouds.new(name)
     tree: bpy.types.GeometryNodeTree = bpy.data.node_groups.new(name, bpy.types.GeometryNodeTree.__name__)  # type: ignore[arg-type, assignment]  # ty: ignore[invalid-argument-type, invalid-assignment]
     holder = bpy.data.objects.new(name, cloud)

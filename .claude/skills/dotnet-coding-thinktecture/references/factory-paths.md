@@ -78,14 +78,19 @@ internal sealed partial class Location {
 Length presets and strategies:
 - `Configuration.NoMaxLength` is the preset that skips the length step for both families
 - Default and no-op strategies expose one `Instance`
-- `FixedSmartEnumMaxLengthStrategy(32)` and `FixedKeyedValueObjectMaxLengthStrategy(32)` set one length
+- `FixedSmartEnumMaxLengthStrategy` and `FixedKeyedValueObjectMaxLengthStrategy` set the one length an external schema states
 - `CustomSmartEnumMaxLengthStrategy` takes a `Func<Type, Type, IReadOnlyList<ISmartEnumItem>, MaxLengthChange>`
 - `CustomKeyedValueObjectMaxLengthStrategy` takes a `Func<Type, Type, MaxLengthChange>`
 - `MaxLengthChange.None` leaves a column alone
 - Strategy's second constructor argument `overwriteExistingMaxLength` replaces a length `HasMaxLength` set before
 
 ```csharp
-Configuration fixedWidth = new() { SmartEnums = new SmartEnumConfiguration { MaxLengthStrategy = new FixedSmartEnumMaxLengthStrategy(32) } };
+Configuration keyWidth = new() {
+    SmartEnums = new SmartEnumConfiguration {
+        MaxLengthStrategy = new CustomSmartEnumMaxLengthStrategy(static (_, keyType, items) =>
+            keyType == typeof(string) ? items.Max(static item => ((string)item.Key).Length) : MaxLengthChange.None),
+    },
+};
 ```
 
 ## [03]-[MULTIPLE_FACTORIES]

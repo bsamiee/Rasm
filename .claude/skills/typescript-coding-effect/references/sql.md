@@ -29,16 +29,17 @@
 `sql.withTransaction` runs an effect in one transaction, a nested call in a savepoint, and the outermost call owns the retry of a contended write:
 
 ```ts
-const rebalance = SqlClient.SqlClient.use((sql) =>
-    Effect.all([release, claim]).pipe(
-        sql.withTransaction,
-        Effect.provideService(SqlClient.BeginTransaction, 'BEGIN ISOLATION LEVEL SERIALIZABLE'),
-        Effect.retry({ schedule: Schedule.exponential('10 millis').pipe(Schedule.jittered), times: 5, while: (error) => SqlError.isSqlError(error) && (error.reason._tag === 'SerializationError' || error.reason._tag === 'DeadlockError') }),
-    ),
-);
+const rebalance = (base: Duration.Input, retries: number) =>
+    SqlClient.SqlClient.use((sql) =>
+        Effect.all([release, claim]).pipe(
+            sql.withTransaction,
+            Effect.provideService(SqlClient.BeginTransaction, 'BEGIN ISOLATION LEVEL SERIALIZABLE'),
+            Effect.retry({ schedule: Schedule.exponential(base).pipe(Schedule.jittered), times: retries, while: (error) => SqlError.isSqlError(error) && (error.reason._tag === 'SerializationError' || error.reason._tag === 'DeadlockError') }),
+        ),
+    );
 ```
 
-`rebalance` runs writes `release` and `claim` that move a shard lease between nodes in one serializable transaction, and reruns both after a conflict the database rolled back:
+`rebalance(base, retries)` runs writes `release` and `claim` that move a shard lease between nodes in one serializable transaction, and reruns both after a conflict the database rolled back:
 - `SqlError.reason` is a tagged union, and `Effect.catchReason('SqlError', 'UniqueViolation', f)` recovers one
 - `D1Client` fails every statement with an `UnknownError` reason, where SQLite and PostgreSQL drivers classify each failure
 - `isRetryable` on a `SqlError` holds for connection, deadlock, serialization, lock, and statement timeouts, and a connection lost during `COMMIT` leaves its outcome unknown

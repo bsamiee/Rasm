@@ -144,7 +144,7 @@ Ordinary functions compose when their shapes line up (`A -> B` then `B -> C`), a
 `Reader<Env, A>` stores a function that cannot run until `Run(env)` supplies its environment, a complete workflow is built before a database connection or other shared input exists and runs once that input arrives, and the environment type is the smallest structure the workflow reads. `Reader.ask<Env>()` and `Reader.asks` read the environment or a projection, and `Reader.local` and the instance `With<Env1>(Func<Env1, Env>)` are the `local` and `with` forms:
 
 ```csharp
-internal sealed record Settings(string Target, int Timeout);
+internal sealed record Settings(string Target, Duration Timeout);
 internal sealed record AppSettings(string Name, Settings Database);
 
 internal static partial class Environments {
@@ -152,8 +152,8 @@ internal static partial class Environments {
     public static Reader<Settings, string> Described =>
         from settings in Reader.ask<Settings>()
         from target in Target
-        select string.Create(CultureInfo.InvariantCulture, $"{target} within {settings.Timeout}s");
-    public static Reader<Settings, string> Patient => Reader.local(static settings => settings with { Timeout = settings.Timeout * 2 }, Described);
+        select string.Create(CultureInfo.InvariantCulture, $"{target} within {settings.Timeout}");
+    public static Reader<Settings, string> Patient(int factor) => Reader.local(settings => settings with { Timeout = settings.Timeout * factor }, Described);
     public static Reader<AppSettings, string> FromApp => Described.With(static (AppSettings app) => app.Database);
 }
 ```
@@ -162,11 +162,11 @@ Each bind wraps another deferred transformation, the environment type stays fixe
 
 ```csharp
 internal static partial class Environments {
-    public static ReaderT<Settings, IO, int> Queried(Atom<int> queries) =>
+    public static ReaderT<Settings, IO, Duration> Queried(Atom<int> queries) =>
         from settings in ReaderT.ask<IO, Settings>()
         from count in IO.lift(() => queries.Swap(static n => n + 1))
-        select count * settings.Timeout;
-    public static ReaderT<AppSettings, IO, int> QueriedFromApp(Atom<int> queries) => ReaderT.with(static (AppSettings app) => app.Database, Queried(queries));
+        select settings.Timeout * count;
+    public static ReaderT<AppSettings, IO, Duration> QueriedFromApp(Atom<int> queries) => ReaderT.with(static (AppSettings app) => app.Database, Queried(queries));
 }
 ```
 

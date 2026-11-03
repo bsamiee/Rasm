@@ -140,7 +140,7 @@ const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effe
 });
 ```
 
-`commit` runs in a script context and returns the body's value or rolled-back typed failure. `Deferred.fail` completes `done` only when `doScript` refused before the body ran. Documents a rolled-back step opened close, found by id difference. Plugins hold one step open with repeated ExtendScript `$.sleep(5)` until a peer call enters it and runs inside the sleep.
+`commit` runs in a script context and returns the body's value or rolled-back typed failure. `Deferred.fail` completes `done` only when `doScript` refused before the body ran. Documents a rolled-back step opened close, found by id difference. Plugins hold one step open with repeated ExtendScript `$.sleep` calls until a peer call enters it and runs inside the sleep.
 
 - Nested `doScript` calls are savepoints inside their outer step, where `document.undo()` throws
 - `document.undoHistory` lists step names newest first
@@ -249,22 +249,18 @@ class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Ex
 Export reads app-wide preferences another script left, fails with no throw under `NEVER_INTERACT`, and writes nothing for an input it rejects. `rendered` holds every key a page export reads and decides success from the written bytes:
 
 ```ts
-import type { Page } from 'adobe:indesign';
+import type { Page, PNGExportPreference } from 'adobe:indesign';
 
-const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number, range: { readonly minimum: number; readonly maximum: number }) {
-    const [{ app, ExportFormat, PNGColorSpaceEnum, PNGExportRangeEnum, PNGQualityEnum }, { fs }, { top, left, bottom, right }, path] = yield* Effect.all([Model, Uxp, Extent.of(page), temporary('render.png')]);
+const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number, range: { readonly minimum: number; readonly maximum: number }, request: Pick<PNGExportPreference, 'useDocumentBleeds' | 'pngColorSpace' | 'pngQuality' | 'transparentBackground' | 'antiAlias' | 'simulateOverprint'>) {
+    const [{ app, ExportFormat, PNGExportRangeEnum }, { fs }, { top, left, bottom, right }, path] = yield* Effect.all([Model, Uxp, Extent.of(page), temporary(`${page.parent.parent.id}-${page.id}.png`)]);
     const refused = HostError.refused(`export of ${page.toSpecifier()}`);
     yield* preserve(app.pngExportPreferences, {
+        ...request,
         pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
         pageString: `+${page.documentOffset + 1}`,
         exportingSpread: false,
         exportingHiddenSpread: true,
         exportResolution: Number.clamp((pixels * 72) / Math.max(right - left, bottom - top), range),
-        useDocumentBleeds: false,
-        pngColorSpace: PNGColorSpaceEnum.RGB,
-        pngQuality: PNGQualityEnum.MAXIMUM,
-        transparentBackground: false,
-        antiAlias: true,
         pngSuffix: '',
     });
     yield* Effect.try({ try: () => page.parent.parent.exportFile(ExportFormat.PNG_FORMAT, path), catch: refused });
@@ -272,7 +268,7 @@ const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number, ra
 }, Effect.scoped);
 ```
 
-`temporary` reads a path under ExtendScript `Folder.temp`, and scope release removes the file through `File(<path>).remove()`, synchronous in plugins and scripts. `range` holds the `exportResolution` bounds the scripting dictionary states for `PNGExportPreference`. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` over 72.
+`temporary` reads a path under ExtendScript `Folder.temp`, and scope release removes the file through `File(<path>).remove()`, synchronous in plugins and scripts. `range` holds the `exportResolution` bounds the scripting dictionary states for `PNGExportPreference`, and `request` the image fields the caller decides. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` over 72.
 
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
@@ -339,7 +335,7 @@ import type { Font } from 'adobe:indesign';
 
 const source = Effect.fn('source')(function* (face: Font, characters: string) {
     const { FontStatus } = yield* Model;
-    const subset = temporary('font.otf').pipe(
+    const subset = temporary(`${face.postscriptName}.otf`).pipe(
         Effect.tap((path) => Effect.try({ try: () => face.createSubsetFont(characters, path), catch: HostError.refused(path) })),
         Effect.flatMap(bytes),
     );

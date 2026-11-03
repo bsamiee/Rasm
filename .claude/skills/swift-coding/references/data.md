@@ -18,11 +18,11 @@ enum Connection: Equatable, Sendable {
     case connected(session: UUID)
     case failed(attempts: Int)
 
-    func applying(_ event: Event, maxAttempts: Int = 3) -> Self? {
+    func applying(_ event: Event, limit: Int) -> Self? {
         switch (self, event) {
             case (.idle, .dial), (.failed, .dial), (.connected, .dropped): .connecting(attempt: 1)
             case (.connecting, .opened(let session)): .connected(session: session)
-            case (.connecting(let attempt), .dropped) where attempt < maxAttempts: .connecting(attempt: attempt + 1)
+            case (.connecting(let attempt), .dropped) where attempt < limit: .connecting(attempt: attempt + 1)
             case (.connecting(let attempt), .dropped): .failed(attempts: attempt)
             case (.connecting, .close), (.connected, .close): .idle
             case (.idle, _), (.connecting, _), (.connected, _), (.failed, _): nil
@@ -33,7 +33,7 @@ enum Connection: Equatable, Sendable {
 
 - Last arm lists each state with a wildcard event in place of `default`
 - Callers hold the state and event that name a rejection
-- `events.reductions(Connection.idle) { state, event in state.applying(event) ?? state }.removeDuplicates()` streams accepted states
+- `events.reductions(Connection.idle) { state, event in state.applying(event, limit: limit) ?? state }.removeDuplicates()` streams accepted states
 
 ## [02]-[GRAPH_WALKS]
 

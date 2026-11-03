@@ -104,7 +104,7 @@ def versions[K: SupportsLessThanAndHash, V](start: Map[K, V], edits: Iterable[tu
 `counts` chains each text's dependent steps, each text stops at its first fault, and the batch reports every text's fault:
 
 ```python
-def counts(texts: Iterable[str], /, *, limit: int = 100) -> Outcome[tuple[int, ...]]:
+def counts(texts: Iterable[str], /, *, limit: int) -> Outcome[tuple[int, ...]]:
     return accumulated(
         catch(int, exception=ValueError)(text)
         .map_error(partial(Fault.of, Reason.INVALID, repr(text)))
@@ -113,10 +113,10 @@ def counts(texts: Iterable[str], /, *, limit: int = 100) -> Outcome[tuple[int, .
     )
 ```
 
-`counts(("3", "x", "500"))` fails with the `INVALID` fault for `"x"` and the `OUTSIDE` fault for `500`:
+`counts(("3", "x", "500"), limit=100)` fails with the `INVALID` fault for `"x"` and the `OUTSIDE` fault for `500`:
 - `pipeline(f, g)(x)` is `f(x).bind(g)`, overloads type up to six steps, and `expression.extra.option.pipeline` composes option steps
 - `traverse(f, block)` and `sequence` call `f` on every item from last to first and return the first item's fault in input order
-- `pipeable(f, *rest)` binds `rest` after `f`'s first parameter, and `compose(str.strip, pipeable(textwrap.shorten, 40))` keeps each step typed
+- `pipeable(f, *rest)` binds `rest` after the subject, and `compose(str.strip, pipeable(textwrap.shorten, width))` types each step at any `width`
 - `catch` keeps a wrapped function's `Result` flat while checkers type it `Result[Result[T, F], E]`, and result steps catch their raising call inside
 
 ## [06]-[BOUNDARIES]

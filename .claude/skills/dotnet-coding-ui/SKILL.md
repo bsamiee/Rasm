@@ -170,14 +170,14 @@ internal sealed class Outline : IDisposable {
     }
 }
 
-internal static class Effects {
-    private const string Source = "uniform float2 size; layout(color) uniform half4 tint; half4 main(float2 p) { float2 q = p / size - 0.5; half4 c = tint * half(dot(q, q)); return half4(c.rgb * c.a, c.a); }";
-    private static readonly SKRuntimeShaderBuilder Vignette = SKRuntimeEffect.BuildShader(Source);
+internal readonly record struct Vignette(SKSize Size, SKColorF Tint) {
+    private const string Source = $$"""uniform float2 {{nameof(Size)}}; layout(color) uniform half4 {{nameof(Tint)}}; half4 main(float2 p) { float2 q = p / {{nameof(Size)}} - 0.5; half4 c = {{nameof(Tint)}} * half(dot(q, q)); return half4(c.rgb * c.a, c.a); }""";
+    private static readonly SKRuntimeShaderBuilder Builder = SKRuntimeEffect.BuildShader(Source);
 
-    public static SKShader Build(SKSize size, SKColorF tint, SKMatrix placement) {
-        using SKRuntimeEffectUniforms uniforms = new(Vignette.Effect) { ["size"] = size, ["tint"] = tint };
-        using SKRuntimeEffectChildren children = new(Vignette.Effect);
-        return Vignette.Effect.ToShader(uniforms, children, placement);
+    public SKShader Build(SKMatrix placement) {
+        using SKRuntimeEffectUniforms uniforms = new(Builder.Effect) { [nameof(Size)] = Size, [nameof(Tint)] = Tint };
+        using SKRuntimeEffectChildren children = new(Builder.Effect);
+        return Builder.Effect.ToShader(uniforms, children, placement);
     }
 }
 ```

@@ -33,11 +33,11 @@ class Grade(IntEnum):
     FAIL = 2
 
 
-def graded(errors: Iterable[float], /, *, breaks: tuple[float, float] = (0.5, 0.9)) -> Grade:
+def graded(errors: Iterable[float], /, *, breaks: tuple[float, float]) -> Grade:
     return max((Grade(bisect(breaks, error)) for error in errors), default=Grade.PASS)
 ```
 
-`Grade` values count the breaks below each grade, `breaks` types one break per member past the first, and empty input grades `PASS` through `default`. Tables keyed by a tuple of members hold every combination, `TABLE[kind, tier]` reads one, and a missing pair raises `KeyError` as a defect.
+`Grade` values count the breaks below each grade, `breaks` types one caller break per member past the first (a stated tolerance, a quantile of a measured baseline), and empty input grades `PASS` through `default`. Tables keyed by a tuple of members hold every combination, `TABLE[kind, tier]` reads one, and a missing pair raises `KeyError` as a defect.
 
 ## [03]-[ITERATION]
 
@@ -54,11 +54,11 @@ Select the member by the operation:
 `filled` repeats each reading across the ticks before the next one, each adjacent pair bounding one `range`:
 
 ```python
-def filled[V](readings: Sequence[tuple[int, V]], /, *, step: int = 1) -> tuple[tuple[int, V], ...]:
+def filled[V](readings: Sequence[tuple[int, V]], /, *, step: int) -> tuple[tuple[int, V], ...]:
     return (*((tick, value) for (start, value), (end, _) in pairwise(readings) for tick in range(start, end, step)), *readings[-1:])
 ```
 
-`filled(((0, 1.0), (3, 2.0)))` returns `((0, 1.0), (1, 1.0), (2, 1.0), (3, 2.0))`. `readings[-1:]` closes with the last reading, or nothing for empty input.
+`filled(((0, 1.0), (3, 2.0)), step=1)` returns `((0, 1.0), (1, 1.0), (2, 1.0), (3, 2.0))`. `readings[-1:]` closes with the last reading, or nothing for empty input.
 
 ## [04]-[TOPOLOGICAL_ORDER]
 

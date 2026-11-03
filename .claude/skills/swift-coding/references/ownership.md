@@ -75,12 +75,12 @@ Spans lend contiguous storage to a call without a copy or an escaping pointer an
 |  [04]   | Fill uninitialized storage | `OutputSpan` from `withTemporaryAllocation`, `Array(capacity:initializingWith:)` |
 
 ```swift
-func values<Value: FixedWidthInteger & ConvertibleFromBytes>(in bytes: RawSpan, order: ByteOrder = .bigEndian) -> [Value] {
+func values<Value: FixedWidthInteger & ConvertibleFromBytes>(in bytes: RawSpan, order: ByteOrder) -> [Value] {
     let width: Int = MemoryLayout<Value>.size
     return (0..<bytes.byteCount / width).map { index in bytes.load(fromByteOffset: index * width, as: Value.self, order) }
 }
 
-let levels: [Int16] = values(in: frame.bytes)
+let levels: [Int16] = values(in: frame.bytes, order: .littleEndian)
 ```
 
 `frame` is a `Data`. `load(fromByteOffset:as:_:)` checks bounds, reads at any alignment, and takes byte order as a value. One function decodes every fixed-width integer in either order, and the binding's type picks `Value`. `Data` lends `bytes`, `Array` and `InlineArray` lend `span.bytes`. Writers state the order through `storeBytes(of:toByteOffset:as:_:)` on `Data.mutableBytes`.

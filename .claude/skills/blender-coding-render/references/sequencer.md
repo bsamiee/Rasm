@@ -36,7 +36,7 @@ Cut lists place each source by in frame and length in scene frames, end to end o
 type Clip = tuple[Path, int, int]
 
 
-def cut(add: Callable[[str, str, int, int], bpy.types.Strip], clips: Sequence[Clip], /, *, start: int = 1, channel: int = 1, blend: int = 0) -> tuple[bpy.types.Strip, ...]:
+def cut(add: Callable[[str, str, int, int], bpy.types.Strip], clips: Sequence[Clip], /, *, start: int, channel: int, blend: int = 0) -> tuple[bpy.types.Strip, ...]:
     def placed(index: int, clip: Clip, at: int) -> bpy.types.Strip:
         path, first, length = clip
         strip = add(path.stem, str(path), channel + (index % 2 if blend else 0), at - first)
@@ -46,7 +46,7 @@ def cut(add: Callable[[str, str, int, int], bpy.types.Strip], clips: Sequence[Cl
     return tuple(map(placed, count(), clips, accumulate((length - blend for *_, length in clips), initial=start)))
 ```
 
-`cut(editor.strips.new_movie, clips, blend=12)` and `cut(editor.strips.new_sound, clips, channel=4, blend=12)` place picture and sound on one timing. Each `pairwise` picture pair takes `new_effect(name=..., type="CROSS", channel=3, frame_start=incoming.left_handle, input1=outgoing, input2=incoming)`, a 12-frame cross. An `add` conforming each strip `new_movie` returns retimes every movie at placement, before its handle writes and while every earlier strip holds keys.
+`cut(editor.strips.new_movie, clips, start=scene.frame_start, channel=channel, blend=blend)` and `cut(editor.strips.new_sound, clips, start=scene.frame_start, channel=channel + 3, blend=blend)` place picture and sound on one timing, `blend = round(seconds * rate)` for a cross of `seconds`. Each `pairwise` picture pair takes `new_effect(name=..., type="CROSS", channel=channel + 2, frame_start=incoming.left_handle, input1=outgoing, input2=incoming)` above both picture channels. An `add` conforming each strip `new_movie` returns retimes every movie at placement, before its handle writes and while every earlier strip holds keys.
 
 ## [03]-[TIMING]
 

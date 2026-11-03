@@ -117,22 +117,20 @@ Report pipelines read one text, split it into records, parse typed values, group
 single text -> records -> typed values -> groups -> totals -> lines -> single report
 ```
 
-Text enters as a `string` argument, `At` reads each field as an `Option`, `parseInt` parses the numbers, `Traverse` turns the records into `Option<Seq<Record>>`, one failed parse makes the whole input `None`, and `Fold` into a `Map<int, ...>` groups the records with `AddOrUpdate` adding each to its group total:
+Text enters as a `string` argument with its delimiter, `ReplaceLineEndings` reads every line break the text holds, a list pattern binds the fields in `Record`'s declared order, tuple `Apply` joins the independent `parseInt` results, `Traverse` turns the records into an `Option<Seq<Record>>` that one failed parse makes `None`, and `Fold` into a `Map<int, ...>` groups the records with `AddOrUpdate` adding each to its group total:
 
 ```csharp
 internal sealed record Record(int Group, string Name, int Count, int Missing);
 
 internal static class Summary {
-    public static Option<Record> Parse(string line) {
-        Seq<string> fields = toSeq(line.Split(','));
-        return from key in fields.At(0).Bind(static field => parseInt(field))
-               from name in fields.At(1)
-               from count in fields.At(2).Bind(static field => parseInt(field))
-               from missing in fields.At(3).Bind(static field => parseInt(field))
-               select new Record(key, name, count, missing);
-    }
-    public static Option<Seq<Record>> Records(string text) =>
-        toSeq(text.Split(Environment.NewLine)).Traverse(static line => Parse(line)).As();
+    public static Option<Record> Parse(string line, char delimiter) =>
+        line.Split(delimiter) switch {
+            [var groupText, var name, var countText, var missingText] =>
+                (parseInt(groupText), parseInt(countText), parseInt(missingText)).Apply((group, count, missing) => new Record(group, name, count, missing)).As(),
+            _ => None,
+        };
+    public static Option<Seq<Record>> Records(string text, char delimiter) =>
+        toSeq(text.ReplaceLineEndings().Split(Environment.NewLine)).Traverse(line => Parse(line, delimiter)).As();
     public static Map<int, (int Count, int Missing)> Totals(Seq<Record> records) =>
         records.Fold(
             Map<int, (int Count, int Missing)>(),
@@ -140,18 +138,17 @@ internal static class Summary {
                 record.Group,
                 total => (total.Count + record.Count, total.Missing + record.Missing),
                 (record.Count, record.Missing)));
-    public static decimal MissingShare(int missing, int count) =>
-        count is 0 ? 0m : (decimal)missing / count * 100m;
-    public static Seq<string> Lines(Map<int, (int Count, int Missing)> totals) =>
-        totals.ToSeq().Map(static total => string.Create(
+    public static Option<decimal> MissingShare(int missing, int count) =>
+        count is 0 ? None : Some((decimal)missing / count * 100m);
+    public static Seq<string> Lines(Map<int, (int Count, int Missing)> totals, char delimiter) =>
+        totals.ToSeq().Map(total => string.Create(
             CultureInfo.InvariantCulture,
-            $"{total.Key},{total.Value.Count},{total.Value.Missing},{MissingShare(total.Value.Missing, total.Value.Count)}"));
-    public static Option<string> Render(string text) =>
-        Records(text).Map(static records => {
-            const string header = "Group,Count,Missing,Percentage Missing";
-            return $"{header}{Environment.NewLine}{string.Join(Environment.NewLine, Lines(Totals(records)))}";
-        });
+            $"{total.Key}{delimiter}{total.Value.Count}{delimiter}{total.Value.Missing}{delimiter}{MissingShare(total.Value.Missing, total.Value.Count).Match(Some: static share => share.ToString(CultureInfo.InvariantCulture), None: static () => string.Empty)}"));
+    public static Option<string> Render(string text, char delimiter) =>
+        Records(text, delimiter).Map(records => string.Join(
+            Environment.NewLine,
+            [string.Join(delimiter, nameof(Record.Group), nameof(Record.Count), nameof(Record.Missing), nameof(MissingShare)), .. Lines(Totals(records), delimiter)]));
 }
 ```
 
-Empty lines parse to `None`, the text cannot end with a newline, and the parser handles no quoted fields or embedded commas.
+Empty lines and lines of another field count parse to `None`, the text cannot end with a line break, and the parser handles no quoted fields or embedded delimiters. Header columns are the `nameof` of the members they report, and a group with no count has no share and renders an empty field.

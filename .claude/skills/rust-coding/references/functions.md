@@ -18,20 +18,32 @@ where K: Ord {
 
 ## [02]-[RULES]
 
-Threshold rules are one `match` over a tuple of readings:
+Threshold rules are one `match` over a tuple of readings, each guard testing a bound of the caller's validated record:
 
 ```rust
+#[nutype(
+    validate(predicate = |band| !band.is_empty()),
+    derive(Debug, Clone, Copy, PartialEq, Eq, Deref)
+)]
+pub struct Warning(Range<Celsius>);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Bands {
+    pub heat: Warning,
+    pub humidity: Percent,
+}
+
 #[must_use]
-pub const fn level(reading: &Reading) -> Level {
+pub fn level(reading: &Reading, bands: &Bands) -> Level {
     match (reading.celsius, reading.humidity) {
-        (Celsius(60..), _) => Level::Critical,
-        (Celsius(40..), _) | (_, Percent(90..)) => Level::Warning,
-        (Celsius(..40), Percent(..90)) => Level::Normal,
+        (celsius, _) if celsius >= bands.heat.end => Level::Critical,
+        (celsius, humidity) if celsius >= bands.heat.start || humidity >= bands.humidity => Level::Warning,
+        (_, _) => Level::Normal,
     }
 }
 ```
 
-`Celsius` and `Percent` wrap an integer in a public field, and a threshold edit that opens a gap between arms fails the exhaustiveness check. Findings a report collects without failing are an enum with one variant per kind rendering its message. `VariantArray` lists the variants, one `match` holds each predicate, and a new variant fails to compile until its predicate exists:
+`Celsius` and `Percent` are `Copy` integer wrappers deriving `Ord`, `Range` is the `core::range` type, and `Warning` refuses a critical bound at or below its warning bound, so every constructible `Bands` leaves a warning band between `Normal` and `Critical`. Findings a report collects without failing are an enum with one variant per kind rendering its message. `VariantArray` lists the variants, one `match` holds each predicate, and a new variant fails to compile until its predicate exists:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::VariantArray, derive_more::Display)]

@@ -29,14 +29,14 @@ Ordered literals are one `Schema.Literals` in rank order, and every value a rank
 const Durability = Schema.Literals(['zonal', 'regional', 'global']);
 
 const placement =
-    <A>(regions: readonly A[], replicaBase = 3) =>
+    <A>(regions: readonly A[], replicaBase: number) =>
     (durability: typeof Durability.Type) => {
         const rank = Durability.literals.indexOf(durability) + 1;
         return { replicas: replicaBase * rank, regions: Array.take(regions, rank) };
     };
 ```
 
-`Region` is a literal schema of deployment regions, and `placement(Region.literals)` gives each durability level a replica count from one base and every region up to its rank. New levels are one literal at their rank:
+`Region` is a literal schema of deployment regions, and `placement(Region.literals, replicaBase)` gives each durability level a replica count from one base and every region up to its rank. New levels are one literal at their rank:
 - `Durability.pick(['regional', 'global'])` derives a subset schema with its own decoder and type
 - Ordered literals holding data no rule decides are `as const` table rows, `Struct.keys(table)` returning cases in rank order
 - `Schema.TemplateLiteral([Durability, ':', Region])` joins case axes into one encoded key typed as their cross product, with a decoder checking each part

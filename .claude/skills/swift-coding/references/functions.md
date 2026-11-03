@@ -33,7 +33,7 @@ References keep their typed throw, and `map` keeps `OrderError` through both ste
 Rules a consumer stores, compares, or shows are package values: `ClosedRange` or `Set` tests membership, `KeyPathComparator` orders. Rules nobody reads back are closures:
 
 ```swift
-func alarms(in readings: [Reading], outside band: ClosedRange<Int>, by order: [KeyPathComparator<Reading>] = [KeyPathComparator(\Reading.level, order: .reverse)]) -> [Reading] {
+func alarms(in readings: [Reading], outside band: ClosedRange<Int>, by order: [KeyPathComparator<Reading>]) -> [Reading] {
     readings.filter { reading in !band.contains(reading.level) }.sorted(using: order)
 }
 ```
@@ -42,7 +42,7 @@ func alarms(in readings: [Reading], outside band: ClosedRange<Int>, by order: [K
 
 ## [04]-[DEPENDENCIES]
 
-Libraries own their host calls and take each value an application decides as a defaulted parameter. Read-modify-write of one record is one requirement taking a `sending` transition closure that the conformance runs as one isolated step:
+Libraries own their host calls and take each value an application decides as a parameter. Read-modify-write of one record is one requirement taking a `sending` transition closure that the conformance runs as one isolated step:
 
 ```swift
 protocol Store<Record>: Sendable {

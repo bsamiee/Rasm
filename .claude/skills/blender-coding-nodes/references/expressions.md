@@ -40,7 +40,7 @@ class Expr(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def key(self) -> str:
         operands = tuple((operand.key, operand.output) if isinstance(operand, Expr) else operand for operand in self.inputs)
-        return blake2b(msgspec.msgpack.encode((self.kind.__name__, operands, self.settings), enc_hook=lambda block: block.name_full), digest_size=8).hexdigest()
+        return blake2b(msgspec.msgpack.encode((self.kind.__name__, operands, self.settings), enc_hook=lambda block: block.name_full)).hexdigest()
 ```
 
 `position * 2.0 + Expr(kind=bpy.types.ShaderNodeCombineXYZ, inputs=(None, None, abs(height) + 1))` over `position = Expr(kind=bpy.types.GeometryNodeInputPosition)` and `height = Expr(kind=bpy.types.ShaderNodeSeparateXYZ, inputs=(position,), output=2)` is one graph value:

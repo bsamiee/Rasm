@@ -21,8 +21,9 @@ class Pricing extends Context.Service<Pricing>()('@app/pricing', {
 - Facts the composition fixes (a driver's dialect, a host version) resolve in `make`, and an unsupported one fails the layer build in place of each call
 - Programs bind a service through `yield*`, and a call reaching one member uses `Pricing.use`
 - Service members hold operations reading a resource, a service, or a host value, and computations over arguments stay functions
-- `Context.Reference` with `defaultValue` holds a value every fiber reads with a default (a locale, a flag)
+- `Context.Reference` with `defaultValue` holds a value every fiber reads with a default a host or standard states (`Intl.DateTimeFormat().resolvedOptions().locale`)
 - `Layer.succeed(reference, value)` overrides a reference for a graph, `Effect.provideService` for one effect
+- `Context.Reference` keys an annotation on a contract (`Tool`, `RpcGroup`), and `Context.get(x.annotations, Key)` reads it with its default
 
 ## [02]-[CONFIGURATION]
 

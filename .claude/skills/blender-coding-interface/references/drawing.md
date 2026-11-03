@@ -1,6 +1,5 @@
 # [DRAWING]
 
-
 ## [01]-[HANDLERS]
 
 Draw handler types decide coordinates, and a region the space lacks or `args=None` raises `TypeError`:
@@ -87,7 +86,7 @@ Shader and batch calls refuse or crash by input:
 Handlers draw the batch their `args` hold and read theme color and line scale at each draw:
 
 ```python
-def stroked(batch: gpu.types.GPUBatch, /, *, width: float = 2.0, alpha: float = 1.0, color: Callable[[bpy.types.ThemeUserInterface], Color] = lambda ui: ui.gizmo_primary) -> None:
+def stroked(batch: gpu.types.GPUBatch, /, *, width: float, alpha: float = 1.0, color: Callable[[bpy.types.ThemeUserInterface], Color]) -> None:
     preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
     with ExitStack() as scope:
@@ -99,7 +98,7 @@ def stroked(batch: gpu.types.GPUBatch, /, *, width: float = 2.0, alpha: float = 
         batch.draw(shader)
 ```
 
-`SpaceView3D.draw_handler_add(stroked, (batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), "LINE_STRIP", {"pos": points}),), "WINDOW", "POST_VIEW")` draws a world-space line, and `partial(stroked, width=3.0, color=lambda ui: ui.gizmo_hi)` another weight and theme color. `scope` restores the entry blend mode after a raise.
+`SpaceView3D.draw_handler_add(partial(stroked, width=<pixels>, color=lambda ui: ui.<member>), (batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), "LINE_STRIP", {"pos": points}),), "WINDOW", "POST_VIEW")` draws a world-space line at a caller's interface-pixel width in a theme color. `scope` restores the entry blend mode after a raise.
 
 ## [05]-[CUSTOM_SHADERS]
 
@@ -172,10 +171,10 @@ Offscreen buffers draw outside a window:
 - `draw_view3d(scene, view_layer, view3d, region, view_matrix, projection_matrix, do_color_management=<bool>)` uses `view3d` shading and overlays
 - Camera views take `camera.calc_matrix_camera(depsgraph, x=<width>, y=<height>)` as projection and `matrix_world.normalized().inverted()` as view
 
-Panels show a custom drawing as a preview icon drawn offscreen, its pixels bottom row first as preview buffers store them:
+Panels show a custom drawing as a preview icon drawn offscreen at Blender's preview and icon render sizes, its pixels bottom row first as preview buffers store them:
 
 ```python
-def pictured(previews: bpy.utils.previews.ImagePreviewCollection, name: str, draw: Callable[[], None], /, *, size: int = 128) -> int:
+def rendered(draw: Callable[[], None], extent: float, size: int, /) -> NDArray[np.float32]:
     offscreen = gpu.types.GPUOffScreen(size, size)
     with ExitStack() as scope:
         scope.callback(offscreen.free)
@@ -185,14 +184,17 @@ def pictured(previews: bpy.utils.previews.ImagePreviewCollection, name: str, dra
         framebuffer = gpu.state.active_framebuffer_get()
         framebuffer.clear(color=(0.0, 0.0, 0.0, 0.0))
         gpu.matrix.load_identity()
-        gpu.matrix.load_projection_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / size, 2.0 / size, 1.0, 1.0)))
+        gpu.matrix.load_projection_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / extent, 2.0 / extent, 1.0, 1.0)))
         draw()
-        pixels = np.asarray(framebuffer.read_color(0, 0, size, size, 4, 0, "FLOAT"), np.float32).ravel()
+        return np.asarray(framebuffer.read_color(0, 0, size, size, 4, 0, "FLOAT"), np.float32).ravel()
+
+
+def pictured(previews: bpy.utils.previews.ImagePreviewCollection, name: str, draw: Callable[[], None], extent: float, /) -> int:
     preview: bpy.types.ImagePreview = previews.get(name) or previews.new(name)
-    preview.image_size = preview.icon_size = (size, size)  # type: ignore[assignment]
-    preview.image_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
-    preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
+    preview.image_size, preview.icon_size = (bpy.app.render_preview_size,) * 2, (bpy.app.render_icon_size,) * 2  # type: ignore[assignment]
+    preview.image_pixels_float.foreach_set(rendered(draw, extent, bpy.app.render_preview_size))  # type: ignore[arg-type]
+    preview.icon_pixels_float.foreach_set(rendered(draw, extent, bpy.app.render_icon_size))  # type: ignore[arg-type]
     return preview.icon_id
 ```
 
-Panel `draw` calls `pictured(previews, <name>, partial(stroked, batch))` once per change of drawn data or interface scale and shows the returned id through `layout.template_icon(icon_value=<id>, scale=<n>)`. Pixel projection maps `POST_PIXEL` coordinates as a region does, and both matrix stacks return to caller values, a draw handler's included.
+Panel `draw` calls `pictured(previews, <name>, partial(stroked, batch, width=<pixels>, color=lambda ui: ui.<member>), <extent>)` once per change of drawn data or interface scale and shows the returned id through `layout.template_icon(icon_value=<id>, scale=<n>)`. Projection maps drawing coordinates over `[0, extent]` on both axes onto each buffer, and both matrix stacks return to caller values, a draw handler's included.

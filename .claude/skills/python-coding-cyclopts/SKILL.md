@@ -72,22 +72,22 @@ Bounds are `cyclopts.types` aliases or `validators` members. `Parameter` options
 
 ## [03]-[USER_CLASSES]
 
-Shared options go in one pydantic model under `@Parameter(name="*")`, each field an option with `Attributes` help, required without a default:
+Shared options go in one pydantic model under `@Parameter(name="*")`, each field an option with `Attributes` help:
 
 ```python
-@Parameter(name="*", group=Group("Remote", sort_key=1))
+@Parameter(name="*", group=Group.create_ordered("Remote"))
 class Remote(BaseModel, frozen=True):
     """Server every remote command reaches.
 
     Attributes:
         scheme: Transport the server speaks.
         host: Server host name.
-        port: Server port.
+        port: Server port, absent for the scheme's default port.
     """
 
     scheme: Literal["https", "http"] = "https"
     host: str
-    port: Annotated[int, Field(ge=1, le=65535)] = 443
+    port: Annotated[int, Field(ge=1, le=65535)] | None = None
 
 
 def locate(path: str, /, *, remote: Remote) -> Outcome[str]:
@@ -99,10 +99,11 @@ def locate(path: str, /, *, remote: Remote) -> Outcome[str]:
     Returns:
         Server address of the path.
     """
-    return Ok(urljoin(f"{remote.scheme}://{remote.host}:{remote.port}", path))
+    authority: str = remote.host if remote.port is None else f"{remote.host}:{remote.port}"
+    return Ok(urljoin(f"{remote.scheme}://{authority}", path))
 ```
 
-`locate /a --host <host>` returns `https://<host>:443/a`, `--port 0` exits 2 with pydantic's message, and help shows `Remote` fields in one panel. Class kind decides which library coerces and validates:
+`locate /a --host <host>` returns `https://<host>/a`, `--port 0` exits 2 with pydantic's message, and help shows `Remote` fields in one panel placed by creation order among `Group.create_ordered` panels. Class kind decides which library coerces and validates:
 
 | [INDEX] | [CLASS]          | [BINDING]                                                                   |
 | :-----: | :--------------- | :-------------------------------------------------------------------------- |
@@ -140,8 +141,8 @@ Validators take `(type_, value)`, `type_` without `Annotated`, and return `None`
 Meta apps own options every command shares and the scope each command runs in. `session` binds its options, `parse_args` binds the rest to an uncalled command, `ignored` maps `parse=False` parameters to types `session` supplies:
 
 ```python
-app = App(name="tool", result_action=(exited, "sys_exit"))
-app.meta.group_parameters = Group("Session", sort_key=0)
+app = App(result_action=(exited, "sys_exit"))
+app.meta.group_parameters = Group.create_ordered("Session")
 
 
 @app.meta.default
@@ -191,7 +192,8 @@ if __name__ == "__main__":
 `App(config=...)` takes a source or a sequence, values resolve from command line, `env_var=`, each source in order, then signature default:
 
 ```python
-app = App(name="tool", config=(config.Env("TOOL_", command=True), config.Toml("tool.toml", search_parents=True)))
+package: str = Path(__file__).parent.name
+app = App(config=(config.Env(f"{package.upper()}_", command=True), config.Toml(f"{package}.toml", search_parents=True)))
 ```
 
 | [INDEX] | [SOURCE]                      | [KEYS]                                      |
@@ -250,13 +252,14 @@ Entry-point modules hold one `App`, one registration by import path per command 
 ```python
 """Run host executables in prepared folders."""
 
+from pathlib import Path
 lazy import sys
 
 from cyclopts import App, Parameter, config
 lazy from expression import Result
 lazy import msgspec
 
-lazy from tool.faults import Outcome
+lazy from .faults import EXITS, Outcome
 
 
 def exited(result: Outcome[object] | None, /) -> int:
@@ -270,13 +273,14 @@ def exited(result: Outcome[object] | None, /) -> int:
             return 0
         case Result(error=faults):
             sys.stderr.writelines(f"{fault.message}\n" for fault in faults)
-            return 1
+            return EXITS[faults[0].reason]
 
 
-app = App(name="tool", help=__doc__, result_action=(exited, "sys_exit"), config=config.Env("TOOL_", command=False), default_parameter=Parameter(negative=()))
-app.command("tool.runs:launch", help="Run the host executable inside a folder.")
-app.command("tool.remote:locate", help="Print the address of a server path.")
-app.command("tool.entries:remove", help="Remove one file under a folder.")
+package: str = Path(__file__).parent.name
+app = App(help=__doc__, result_action=(exited, "sys_exit"), config=config.Env(f"{package.upper()}_", command=False), default_parameter=Parameter(negative=()))
+app.command(f"{package}.runs:launch", help="Run the host executable inside a folder.")
+app.command(f"{package}.remote:locate", help="Print the address of a server path.")
+app.command(f"{package}.entries:remove", help="Remove one file under a folder.")
 app.register_install_completion_command()
 
 if __name__ == "__main__":

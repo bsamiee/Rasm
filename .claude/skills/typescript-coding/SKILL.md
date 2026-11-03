@@ -31,7 +31,7 @@ One declaration states each concept, and every other form derives from it:
 class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')({
     sku: Sku,
     price: Schema.BigDecimal.check(Schema.isGreaterThanBigDecimal(BigDecimal.fromBigInt(0n))),
-    quantity: Schema.Int.check(Schema.isGreaterThan(0)).pipe(Schema.withConstructorDefault(Effect.succeed(1))),
+    quantity: Schema.Int.check(Schema.isGreaterThan(0)),
 }) {
     get total() {
         return BigDecimal.multiply(this.price, BigDecimal.fromNumberUnsafe(this.quantity));
@@ -44,9 +44,9 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 - Cases differing in data are field sets of one tagged union, cases differing in values no rule decides are rows of an `as const` table
 - Tables crossing varying axes are one `Array.cartesianWith` over the axes, each row computed from its pair
 - Members differing in a number, flag, literal, or applied function are one member taking it as a parameter
-- Parameters with a dominant value take a default, callers state what varies
+- Parameters default to a value an owner states (a host's resolved option, a standard), and every other parameter is required
 - Declarations read once sit inline, a value read twice is a `const` named for its fact
-- Numbers Biome's `noMagicNumbers` refuses come from the package member stating them, else a `const` local to their one reader
+- Numbers Biome's `noMagicNumbers` refuses come from the package member, standard, or measured property stating them, else from a parameter
 - Schemas declare at module scope, and each parser caches by its schema's AST
 
 ## [02]-[FUNCTIONS]
@@ -78,7 +78,7 @@ Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no
 - Native array members state a direct `filter`, `every`, `join`, or `reduce`, and `Array`, `Record`, `Struct`, and `Iterable` functions every other traversal
 - `Record.collect(record, (key, value) => ...)` maps entries to an array and `Record.filterMap` keeps the entries a lookup finds, key-value pairs from `Object.entries` restating both
 - Named reductions (`BigDecimal.sumAll`, `Array.max`, `Array.groupBy`) state their fold
-- `reduce` with a seed folds a reduction no member names
+- `reduce` with a seed folds a reduction no member names, `Array.mapAccum(xs, seed, (state, x) => [next, y])` maps under a running state
 - `Array.makeBy`, `Array.range`, and `Array.unfold` generate sequences from a length, bounds, or a seed
 - Relations between neighbors map the adjacent pairs `Array.window(values, 2)` returns, a gap filling from `Array.range` over its pair
 - Callbacks nest one level, a deeper step becomes a `yield*` step or a function named for its result
@@ -232,7 +232,7 @@ Quantities with a unit are values of their module, a plain number holds a count 
 - `DateTime` holds instants and zoned times, `Date` appears at an API taking one
 - `BigDecimal` holds money and exact decimal arithmetic, `ByteSize` holds sizes
 - `SecureRandom.SecureRandom` service's `uuidV7` creates identifiers, module `uuidV7Unsafe` where code reads no service (an event handler)
-- `Intl` formats numbers, dates, lists, and plurals for display, each formatter built once outside the function reading it
+- `Intl` instances segment words and format numbers, dates, lists, and plurals in a caller locale, else the host's, each built once outside its reader
 - Plural forms are a record over `Intl.LDMLPluralRule` with a required `other`, indexed by the category `select(count)` returns in place of comparing a count or category with one value
 - `Intl.Collator(locale, { usage: 'search', sensitivity: 'accent' }).compare(a, b) === 0` states name equality ignoring case alone
 

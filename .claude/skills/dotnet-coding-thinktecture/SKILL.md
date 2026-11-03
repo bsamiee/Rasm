@@ -45,14 +45,8 @@ internal sealed partial class Bounds {
     public decimal Lower { get; }
     public decimal Upper { get; }
 
-    static partial void ValidateFactoryArguments(ref Fault? validationError, ref decimal lower, ref decimal upper) {
-        if (lower > upper) {
-            validationError = new Fault(string.Create(CultureInfo.InvariantCulture, $"(lower, upper) = ({lower}, {upper})"), Reason.Invalid);
-            return;
-        }
-        lower = Math.Round(lower, 2, MidpointRounding.ToEven);
-        upper = Math.Round(upper, 2, MidpointRounding.ToEven);
-    }
+    static partial void ValidateFactoryArguments(ref Fault? validationError, ref decimal lower, ref decimal upper) =>
+        validationError = lower <= upper ? null : new Fault(string.Create(CultureInfo.InvariantCulture, $"(lower, upper) = ({lower}, {upper})"), Reason.Invalid);
 }
 ```
 
@@ -97,20 +91,23 @@ Declaration rules the analyzer enforces:
 
 Trailing parameters after the members are declared by value without a default (076):
 - Generator then emits `private static TError? ValidateCore(members, extras, out T? obj)` and `private static T CreateCore(members, extras)`
-- Public `Validate` passes `default` for every extra, a hand-written factory delegates to `CreateCore`
+- Generated entry points pass `default` for every extra, a hand-written factory delegates to `CreateCore`
 
 ```csharp
 [ValueObject<decimal>(MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<Fault>]
 internal sealed partial class Amount {
+    private const int MinorUnit = 2;
+
     static partial void ValidateFactoryArguments(ref Fault? validationError, ref decimal value, MidpointRounding rounding) =>
-        (validationError, value) = value < 0 ? (new Fault(value.ToString(CultureInfo.InvariantCulture), Reason.Invalid), value) : (null, decimal.Round(value, 2, rounding));
+        (validationError, value) = value < 0 ? (new Fault(value.ToString(CultureInfo.InvariantCulture), Reason.Invalid), value) : (null, decimal.Round(value, MinorUnit, rounding));
 
     public static Amount Create(decimal value, MidpointRounding rounding) => CreateCore(value, rounding);
 }
 ```
 
-- Rounding runs once inside the hook whichever factory is called
+- Rounding runs once inside the hook whichever factory is called, at `MinorUnit`, the ISO 4217 minor unit of the type's currency (EUR)
+- Facts of the type are members the hook reads, extras hold call-site choices
 - Multiplication by `decimal` stays disabled, the product needs a rounding decision
 - Hooks declared `private static partial TValue ValidateFactoryArguments(...)` with a non-void `TValue` return a value for the instance
 - Generated factories pass that value to instance method `partial void FactoryPostInit(TValue factoryArgumentsValidationError)`
@@ -150,15 +147,15 @@ Smart enums declare a fixed set of items as `public static readonly` fields of a
 ```csharp
 [SmartEnum<string>(MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 internal sealed partial class Kind {
-    public static readonly Kind Standard = new("standard", rate: 0.5m, static amount => decimal.Round(amount, 2, MidpointRounding.ToEven));
-    public static readonly Kind Express = new("express", rate: 0.75m, static amount => decimal.Round(amount, 2, MidpointRounding.ToPositiveInfinity));
+    public static readonly Kind Standard = new("standard", rate: 0.5m, static (amount, scale) => decimal.Round(amount, scale, MidpointRounding.ToEven));
+    public static readonly Kind Express = new("express", rate: 0.75m, static (amount, scale) => decimal.Round(amount, scale, MidpointRounding.ToPositiveInfinity));
 
     private readonly decimal _rate;
 
     public decimal Price(decimal weight) => weight * _rate;
 
     [UseDelegateFromConstructor]
-    public partial decimal Round(decimal amount);
+    public partial decimal Round(decimal amount, int scale);
 
     static partial void ValidateConstructorArguments(ref string key, ref decimal rate) {
         if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("key is blank", nameof(key));

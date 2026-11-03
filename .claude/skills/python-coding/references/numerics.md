@@ -112,18 +112,21 @@ def stream(key: bytes, /, *path: int) -> np.random.Generator:
 
 ## [06]-[TABLES]
 
-Module-level arrays lock with `setflags(write=False)` once built, and a tier table holds one row per tier a pass indexes with a whole array of keys. `np.digitize` returns each reading's tier from the floor column, and `weighted` reads its weight from column 1:
+Tables lock with `setflags(write=False)` once built, and a tier table holds one row per tier a pass indexes with a whole array of keys. `np.digitize` returns each reading's tier from the floor column, and `weighted` reads its weight from column 1:
 
 ```python
-TIERS: Samples = np.array(((-np.inf, 0.0), (3.2, 0.5), (3.6, 1.0)))
-TIERS.setflags(write=False)
+def locked(*columns: Samples) -> Samples:
+    table = np.column_stack(columns)
+    table.setflags(write=False)
+    return table
 
 
-def weighted(volts: Samples, /) -> Samples:
-    return TIERS[:, 1][np.digitize(volts, TIERS[:, 0]) - 1]
+def weighted(tiers: Samples, volts: Samples, /) -> Samples:
+    return tiers[:, 1][np.digitize(volts, tiers[:, 0]) - 1]
 ```
 
-`weighted` maps each reading to its tier weight in one pass, and a value on a floor falls in that floor's tier:
+`weighted(locked(floors, weights), volts)` maps each reading to its tier weight from the caller's table in one pass, and a value on a floor falls in that floor's tier:
+- Floors open at `-np.inf`, a reading below the first floor indexes row `-1` and reads the top tier's weight
 - `NaN` readings sort past every floor and read the top tier's weight
 - Writes into a locked table or its views raise `ValueError` from item assignment, `out=`, `fill`, and `setflags(write=True)` alike
 - `weighted` returns a writable copy its caller owns

@@ -134,7 +134,7 @@ internal static class Recovery {
     public static IO<Item> Fallback(IO<Item> primary, IO<Item> secondary) => primary | secondary;
     public static Fin<Quantity> Rebound(Fin<Quantity> quantity) => quantity.BindFail(static error => error.HasCode(ErrorCodes.ValidationFailed) ? Zero : error);
     public static Fin<Quantity> WithContext(Fin<Quantity> quantity) => quantity.MapFail(static error => new Fault("quantity", Reason.Invalid, Inner: error));
-    public static int AtHost(Fin<int> result) => result.IfFail(static _ => -1);
+    public static int AtHost(Fin<int> result, int failure) => result.IfFail(_ => failure);
 
     private static Fin<Quantity> Zero => Quantity.Validated(0);
 }
@@ -257,7 +257,7 @@ internal static class Recursion {
             session.HasExited
                 ? IO.pure(Next.Done<Session, Session>(session))
                 : readMove.Map(move => Next.Loop<Session, Session>(session.Apply(move)))).As();
-    public static IO<int> Poll(Atom<int> polls) => IO.lift(() => polls.Swap(static n => n + 1)).RepeatUntil(static n => n >= 3);
+    public static IO<int> Poll(Atom<int> polls, int limit) => IO.lift(() => polls.Swap(static n => n + 1)).RepeatUntil(n => n >= limit);
 }
 ```
 
@@ -271,13 +271,13 @@ internal static class Recursion {
 - When one side is a transformer, both operators apply it
 - Transformers passed alone convert to `Schedule.Forever` with the transformer applied
 - `Retry(Schedule)` reruns a deferred effect that failed, `Repeat(Schedule)` reruns a successful one
-- `Repeat(Schedule.recurs(2))` runs the effect once and then twice more
+- `Repeat(Schedule.recurs(n))` runs the effect once and then `n` more times
 
 ```csharp
 internal static class Schedules {
-    public static Schedule Backoff => Schedule.exponential(Duration.FromMilliseconds(1).ToTimeSpan()) | Schedule.recurs(3) | Schedule.jitter();
-    public static Schedule Capped => Schedule.exponential(Duration.FromMilliseconds(1).ToTimeSpan()) & Schedule.maxDelay(Duration.FromMilliseconds(4).ToTimeSpan());
-    public static Schedule Replayed => Schedule.spaced(Duration.FromMilliseconds(1).ToTimeSpan()) | Schedule.recurs(2) | Schedule.repeat(2);
+    public static Schedule Backoff(Duration seed, int attempts) => Schedule.exponential(seed.ToTimeSpan()) | Schedule.recurs(attempts) | Schedule.jitter();
+    public static Schedule Capped(Duration seed, Duration ceiling) => Schedule.exponential(seed.ToTimeSpan()) & Schedule.maxDelay(ceiling.ToTimeSpan());
+    public static Schedule Replayed(Duration spacing, int attempts, int passes) => Schedule.spaced(spacing.ToTimeSpan()) | Schedule.recurs(attempts) | Schedule.repeat(passes);
 }
 ```
 
@@ -396,7 +396,7 @@ Collection types, their purpose, and their construction:
 
 ```csharp
 internal static class Folds {
-    public static int WhileUnderTen(Seq<int> values) => values.FoldWhile(0, static (sum, x) => sum + x, static pair => pair.State < 10);
+    public static int WhileUnder(Seq<int> values, int limit) => values.FoldWhile(0, static (sum, x) => sum + x, pair => pair.State < limit);
     public static Option<string> Joined(Seq<int> values) =>
         values.FoldM("", static (text, x) => Some(string.Create(CultureInfo.InvariantCulture, $"{text}{x}"))).As();
 }

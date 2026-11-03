@@ -89,7 +89,7 @@ internal static class RuleTables {
 
 `Seq.Find` returns an `Option`, the missing case is `None`, and its `Match` selects the fallback without a null check. A staged design that infers no match by comparing the transformed value with `default(TOutput)` fails, a matching transform can return `0`, `false`, or `null`. Rule tables match values with predicates, a fixed decision over types is a native switch expression, and `KeyValuePair` in place of tuples adds syntax without changing the mechanism.
 
-Returned functions capture the original value in a closure and expose one operation: `number => names.Find(number).IfNone("unknown")` narrows a `HashMap<int, string>` to one lookup, keeps the map in scope, converts an absent key into a fallback, and prevents the caller from enumerating, modifying, or otherwise querying the map. Repeated parsing branches move into focused conversion functions, `parseInt(text).IfNone(fallback)` collapses missing and invalid input into one fallback for a caller that need not distinguish them. `parseInt` and `HashMap.Find` preserve every outcome, `IfNone` applies at the boundary that selects the fallback.
+Returned functions capture the original value in a closure and expose one operation: `number => names.Find(number)` narrows a `HashMap<int, string>` to one lookup returning `Option<string>`, keeps the map in scope, and prevents the caller from enumerating, modifying, or otherwise querying the map. Repeated parsing branches move into focused conversion functions, `parseInt(text).IfNone(value)` collapses missing and invalid input into one value for a caller that need not distinguish them. `parseInt` and `HashMap.Find` preserve every outcome, `IfNone` applies at the boundary that states the value.
 
 ## [03]-[SPECIALIZATION]
 
@@ -111,7 +111,7 @@ internal static class Parsing {
 
 internal static class Partials {
     public static readonly Func<string, Seq<Record>> ParseUnixComma = par(Parsing.ParseRecords, Parsing.KeepHeader, "\n", ",");
-    public static readonly Func<string, string, Seq<Record>> ParseWindows = par(Parsing.ParseRecords, Parsing.SkipHeader, Environment.NewLine);
+    public static readonly Func<string, string, Seq<Record>> ParseWindows = par(Parsing.ParseRecords, Parsing.SkipHeader, "\r\n");
     public static readonly Func<string, Seq<Record>> ParseWindowsComma = par(ParseWindows, ",");
 }
 ```
@@ -122,7 +122,7 @@ internal static class Partials {
 internal static class Families {
     public static readonly Func<bool, Func<string, Func<string, Func<string, Seq<Record>>>>> Curried = curry(Parsing.ParseRecords);
     public static readonly Func<string, Func<string, Func<string, Seq<Record>>>> WithHeader = Curried(true);
-    public static readonly Func<string, Func<string, Seq<Record>>> WindowsWithHeader = WithHeader(Environment.NewLine);
+    public static readonly Func<string, Func<string, Seq<Record>>> WindowsWithHeader = WithHeader("\r\n");
     public static readonly Func<string, Seq<Record>> WindowsComma = WindowsWithHeader(",");
     public static readonly Func<string, Seq<Record>> WindowsPipe = WindowsWithHeader("|");
     public static readonly Func<decimal, Func<decimal, decimal>> Add = curry(static (decimal x, decimal y) => x + y);

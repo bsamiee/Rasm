@@ -32,8 +32,8 @@ Records state each default on its field, a nested record defaults to its own `..
 ```rust
 #[derive(Debug, Clone, Default)]
 pub struct Wrap {
-    pub width: u16 = 100,
-    pub indent: u8 = 4,
+    pub width: Option<NonZero<u16>> = None,
+    pub indent: u8 = 0,
 }
 
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ pub struct Layout {
 }
 ```
 
-`Layout { title, wrap: Wrap { width: 72, .. }, .. }` sets a title and wrap width. Crates writing a `..` literal of a foreign record enable `default_field_values`.
+`Layout { title, wrap: Wrap { width: Some(columns), .. }, .. }` sets a title and wraps at the `columns` the caller read from its terminal, and `Wrap { .. }` neither wraps nor indents. Crates writing a `..` literal of a foreign record enable `default_field_values`.
 - Required fields (`title`) appear in every literal, and their record derives no `Default` to fill them with an empty value
 - `#[derive(Default)]` reads each declared default: `Wrap::default()` and a container-level `#[serde(default)]` decode agree with `Wrap { .. }`
 - Defaults are constant expressions, text no caller builds at run time is `&'static str`, and text a caller can own defaults through `Cow::Borrowed`

@@ -64,7 +64,7 @@ internal static class Stages {
 }
 ```
 
-- Small scratch is a constant-size `stackalloc` before any loop, and lengths over the constant take `SpanOwner<T>` through one conditional
+- Scratch with a length its format or type states is one `stackalloc` before any loop, a length the data decides takes `SpanOwner<T>`
 - Rented arrays hold their previous renter's data, `AllocationMode.Clear` serves a buffer a pass reads before writing every element
 - Output of unknown length fills an `ArrayPoolBufferWriter<T>` (`Utf8JsonWriter`, `TryFormat` into `GetSpan`) its scope reads as `WrittenSpan`
 - Neighbor passes hold state in a padded two-row `Span2D<T>` ring, `line & 1` selects its current row, boundary taps read padding with no bounds test
@@ -265,13 +265,13 @@ public sealed partial class Response {
 
 ## [08]-[SPAN_TEXT]
 
-Parsers read ranges of their source span and allocate their result alone. `SplitAny` fills a pooled `System.Range` buffer, and generic parsing writes each token into its slot of the result:
+Parsers read ranges of their source span and allocate their result alone. `SplitAny` over empty separators splits at Unicode whitespace into a pooled `System.Range` buffer, and generic parsing writes each token into its slot of the result:
 
 ```csharp
 internal static class Numbers {
     public static Option<T[]> Parsed<T>(ReadOnlySpan<char> text) where T : struct, INumberBase<T> {
         using SpanOwner<System.Range> tokens = SpanOwner<System.Range>.Allocate(text.Length + 1);
-        T[] values = new T[text.SplitAny(tokens.Span, " \t\r\n", StringSplitOptions.RemoveEmptyEntries)];
+        T[] values = new T[text.SplitAny(tokens.Span, ReadOnlySpan<char>.Empty, StringSplitOptions.RemoveEmptyEntries)];
         int at = 0;
         while (at < values.Length && T.TryParse(text[tokens.Span[at]], NumberStyles.Float, CultureInfo.InvariantCulture, out values[at]))
             at++;

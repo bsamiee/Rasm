@@ -30,7 +30,7 @@ internal abstract partial record Event {
 
     public Guid EntryId { get; }
 
-    internal sealed record Created(Guid EntryId, string Code) : Event(EntryId);
+    internal sealed record Created(Guid EntryId, string Code, decimal Limit) : Event(EntryId);
     internal sealed record Credited(Guid EntryId, decimal Amount) : Event(EntryId);
     internal sealed record Debited(Guid EntryId, decimal Amount, string Target) : Event(EntryId);
     internal sealed record Frozen(Guid EntryId) : Event(EntryId);
@@ -65,7 +65,7 @@ Transitions after creation are pure functions `Snapshot -> Event -> Snapshot`, a
 
 ```csharp
 internal static partial class Entry {
-    public static Snapshot Create(Event.Created created) => new(Status.Active, created.Code, 0m, 0m);
+    public static Snapshot Create(Event.Created created) => new(Status.Active, created.Code, 0m, created.Limit);
     public static Snapshot Apply(Snapshot snapshot, Event evt) =>
         evt.Switch(
             snapshot,

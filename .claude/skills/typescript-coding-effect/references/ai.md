@@ -28,7 +28,7 @@ const Authenticated = McpServer.middleware<{ provides: Caller }>()(Tokens.useSyn
 
 const Server = McpServer.layerHttp({
     name: 'ledger',
-    version: '1.0.0',
+    version,
     path: '/mcp',
     protocols: [McpProtocol.v2025_11_25],
     registrations: Layer.mergeAll(
@@ -38,7 +38,7 @@ const Server = McpServer.layerHttp({
 });
 ```
 
-`LedgerError` is the package error, `Accounts` holds `balance` and `freeze`, and `Tokens.resolve` reads a token to a `Caller` or fails with an `McpSchema.McpErrorBase` error. `Server` requires `HttpRouter`, `Accounts`, and `Tokens` alone, the middleware discharging every `Caller` marker:
+`LedgerError` is the package error, `version` the package version, `Accounts` holds `balance` and `freeze`, and `Tokens.resolve` reads a token to a `Caller` or fails with an `McpSchema.McpErrorBase` error. `Server` requires `HttpRouter`, `Accounts`, and `Tokens` alone, the middleware discharging every `Caller` marker:
 - Services a handler reads become `McpServer.McpRequest<'Requires', S>` markers that middleware or the transport discharges and `Layer.provide` leaves in place
 - `registrations` build before the transport copies its options, and server `instructions` read every registration made while the layer builds
 - Middleware wraps `tools/call`, `resources/read`, `prompts/get`, and `completion/complete` and reads `{ method, target, payload, headers, sessionId }`
@@ -51,6 +51,10 @@ const Server = McpServer.layerHttp({
 - Tool results send `structuredContent` with one JSON text block, and a tool returns a struct
 - `McpServer.resource` and its template form take typed `McpSchema.param` segments, and completion handlers return typed values the server encodes and counts
 - `McpServer.prompt({ name, parameters, content })` derives argument requirement from field optionality and description from annotations
+- `McpSchema.ProgressToken` decodes `requestMetadata.progressToken` of `Effect.serviceOption(McpSchema.McpRequestContext)`
+- Handlers send each progress step through `server.notifications['notifications/progress']` and drain steps when a caller sends no token
+- `Layer.effect(McpServer.McpServer)` returning `McpServer.McpServer.of({ ...server, addTool })` decorates every registration below it
+- Effects that decorated tools share run once under `Effect.cached`
 - `McpServer.elicit({ message, schema })` decodes an answer and requires the `McpServerClient` a tuple of sessionful protocols supplies
 - `McpServer.layerStdio` with `References.LogToStderr` set `true`, `layerHttp` checking `Origin`, and `layerHttpRequestScoped` for sessionless hosts are the transports
 - `McpTest.makeClient(registrations, { protocols })` runs a client against the server in memory over real encoding

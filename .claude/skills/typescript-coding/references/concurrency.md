@@ -27,6 +27,7 @@ const restarting = Effect.fn('restarting')(function* <K, E, R>(keys: Stream.Stre
 - `onlyIfMissing: true` on `FiberMap.run` or `FiberHandle.run` keeps the running fiber and discards the new run
 - `FiberSet.makeRuntime<R>()` returns a run function a synchronous host callback calls, every fiber it starts ending with the set's scope
 - `Effect` forks take `{ uninterruptible: true }` for a run that leaves state inconsistent when stopped midway, and `{ startImmediately: true }` runs the fiber to its first suspension before the fork returns
+- Writes outliving a canceled caller fork `Deferred.complete(done, write)` through `Effect.forkIn(scope, { uninterruptible: true })`, and the caller awaits `Effect.raceFirst(Deferred.await(done), Deferred.await(earlyResult))` under `Effect.interruptible` with `Effect.onInterrupt` recording the unfinished write
 - `Exit.hasInterrupts(yield* Fiber.await(fiber))` holds when an interrupt reached the fiber, and a fiber that finished before `Fiber.interrupt` exits with success
 
 ## [02]-[STREAMS]
@@ -49,7 +50,7 @@ const sizes = Stream.callback<DOMRectReadOnly>((queue) =>
 `Stream.callback` forks the registration into the stream scope, and the release disconnects `viewport`'s observer when the stream ends, in place of an `Effect.ensuring(Effect.never, release)` holding a fiber open. `ResizeObserver` reports once on `observe` for an element with a nonzero size. `Queue.offerUnsafe` drops the new item when the buffer is full, or the oldest under `strategy: 'sliding'`. Effectful producers offer through `Queue.offer`, suspending while the buffer is full:
 
 ```ts
-const entries = Stream.callback<Entry, WalkError>((queue) => walk(root, (entry) => Queue.offer(queue, entry)).pipe(Queue.into(queue)), { bufferSize: 64 });
+const entries = (root: string, bufferSize: number) => Stream.callback<Entry, WalkError>((queue) => walk(root, (entry) => Queue.offer(queue, entry)).pipe(Queue.into(queue)), { bufferSize });
 ```
 
 `walk` is a host traversal calling its callback per entry under `root` and failing with `WalkError`. `Queue.into` ends the stream when `walk` succeeds and fails it with `walk`'s error:
@@ -86,7 +87,7 @@ const lend = (from: TxRef.TxRef<number>, to: TxRef.TxRef<number>, permits: numbe
 `from` and `to` hold free permits of rate-limit partitions. `Effect.txRetry` suspends `lend` until `from` changes, and both updates commit together once `from` holds `permits`. Keyed resources share one acquisition per key:
 
 ```ts
-const clients = (idleTimeToLive: Duration.Input = Duration.minutes(1)) => RcMap.make({ lookup: (peer: Peer) => Effect.acquireRelease(connect(peer), close), idleTimeToLive });
+const clients = (idleTimeToLive: Duration.Input) => RcMap.make({ lookup: (peer: Peer) => Effect.acquireRelease(connect(peer), close), idleTimeToLive });
 ```
 
 `Peer` is the key type, `connect` and `close` are host calls. `RcMap.get(map, peer)` inside `Effect.scoped` lends every concurrent caller one connection per peer, closed `idleTimeToLive` after its last caller. Keyed reads share one query per batch:
@@ -107,13 +108,13 @@ const nodeOf = Effect.map(SqlClient.SqlClient, (sql) => SqlResolver.request(SqlR
 
 ## [04]-[SCHEDULES]
 
-Recurrence policies are `Schedule` values composed once and read by `Effect.retry`, `Effect.repeat`, and `Stream.retry`:
+Recurrence policies are `Schedule` values composed once at the composition root and read by `Effect.retry`, `Effect.repeat`, and `Stream.retry`:
 
 ```ts
-const backoff = Schedule.min([Schedule.exponential(Duration.seconds(1)), Schedule.spaced(Duration.seconds(10))]).pipe(Schedule.jittered, Schedule.upTo({ times: 5 }));
+const backoff = (base: Duration.Input, cap: Duration.Input, retries: number) => Schedule.min([Schedule.exponential(base), Schedule.spaced(cap)]).pipe(Schedule.jittered, Schedule.upTo({ times: retries }));
 ```
 
-`Schedule.min` waits the shorter delay while either schedule recurs, capping the doubling delay at the spacing. `read` fails with `StoreError`, and `read.pipe(Effect.retry({ schedule: backoff, while: (error) => error.reason._tag === 'Unavailable' }))` retries the reasons a later attempt can clear and fails at once with every other reason:
+`Schedule.min` waits the shorter delay while either schedule recurs, capping the doubling delay at `cap`. The root reads `base`, `cap`, and `retries` through `Config`. `read` fails with `StoreError`, and `read.pipe(Effect.retry({ schedule: backoff(base, cap, retries), while: (error) => error.reason._tag === 'Unavailable' }))` retries the reasons a later attempt can clear and fails at once with every other reason:
 - Initial runs precede the schedule, `times` counts retries after the first run
 - `Schedule.while` stops on a step's `attempt`, `elapsed`, `input`, or `output`, and the retried effect reads the same fields from `Schedule.CurrentMetadata`
 - `ExecutionPlan.make` lists layers with their own `attempts` and `schedule`, and `Effect.withExecutionPlan` reruns an effect across them

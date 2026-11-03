@@ -70,7 +70,7 @@ func attachment(_ name: FilePath, under root: FileDescriptor) throws(OrderError)
 
 ```swift
 extension PlatformOptions {
-    static func session(grace: Duration = .seconds(2)) -> Self {
+    static func session(grace: Duration) -> Self {
         var options: Self = Self()
         options.createSession = true
         options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: grace)]
@@ -79,7 +79,7 @@ extension PlatformOptions {
 }
 
 extension Configuration {
-    func reduceLines<Value: Sendable>(into initial: Value, limit: Int = 1 << 16, _ update: @Sendable (inout Value, String) -> Void) async throws(OrderError) -> Value {
+    func reduceLines<Value: Sendable>(into initial: Value, limit: Int, _ update: @Sendable (inout Value, String) -> Void) async throws(OrderError) -> Value {
         let subject: String = "\(executable) \(arguments)"
         let result: ExecutionResult<Value, SequenceOutput, StringOutput<UTF8>>
         do {
@@ -96,11 +96,11 @@ extension Configuration {
     }
 }
 
-let log: Configuration = .init(executable: .name("git"), arguments: ["log", "--format=%H"], workingDirectory: directory, platformOptions: .session())
-let revisions: [String] = try await log.reduceLines(into: []) { hashes, hash in hashes.append(hash) }
+let log: Configuration = .init(executable: .name("git"), arguments: ["log", "--format=%H"], workingDirectory: directory, platformOptions: .session(grace: grace))
+let revisions: [String] = try await log.reduceLines(into: [], limit: limit) { hashes, hash in hashes.append(hash) }
 ```
 
-`directory` is a `FilePath`.
+`directory` is a `FilePath`, `grace` a `Duration`, and `limit` an `Int`.
 
 - `run` throws `SubprocessError` with a `code` when a process fails to start or its I/O fails
 - Failed exits of a started process keep `terminationStatus` and standard error whole in `exited(TerminationStatus, standardError: String)`

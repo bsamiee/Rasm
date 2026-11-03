@@ -83,9 +83,7 @@ Steps returning an `Outcome` take span, status, duration, and log entry from one
 ```python
 def traced[**P, T](step: Callable[P, Outcome[T]], /) -> Callable[P, Outcome[T]]:
     tracer, log = trace.get_tracer(step.__module__), structlog.get_logger(step.__module__)
-    durations = metrics.get_meter(step.__module__).create_histogram(
-        "step.duration", unit="s", explicit_bucket_boundaries_advisory=[mantissa * 10.0**exponent for exponent in range(-3, 2) for mantissa in (1.0, 2.5, 5.0)]
-    )
+    durations = metrics.get_meter(step.__module__).create_histogram("step.duration", unit="s")
 
     @wraps(step)
     def run(*args: P.args, **kwargs: P.kwargs) -> Outcome[T]:
@@ -136,8 +134,8 @@ Roots call `limited` once per resource, and each collection reads borrowed token
 - Callbacks run on the collecting thread (a periodic reader's worker), read state safe across threads, and await nothing
 - Repeated `create_*` calls of one name on one meter return the first instrument, and every `@traced` step in a module feeds one `step.duration`
 - Repeated `create_observable_*` calls of one name drop their callbacks unreported
-- Default histogram boundaries run from 0 to 10000 for milliseconds, and `traced` boundaries span 1 ms to 50 s for a histogram in `s`
-- `View(instrument_type=Histogram, aggregation=ExponentialBucketHistogramAggregation())` fits buckets to any scale and replaces an advisory
+- Default histogram boundaries run from 0 to 10000 for milliseconds, and a view aggregation overrides them and `explicit_bucket_boundaries_advisory`
+- `View(instrument_type=Histogram, aggregation=ExponentialBucketHistogramAggregation())` fits buckets to each stream's measured scale
 - SDK metric streams aggregate at most 2000 attribute sets per collection and fold further sets into one `otel.metric.overflow=true` point
 - Metric attributes hold low-cardinality values (an `error.type`, a state), and ids go on spans and log fields
 - Views with `attribute_keys` merge series over the keys they keep, and each view matching an instrument adds its own stream

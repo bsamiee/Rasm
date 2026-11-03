@@ -6,7 +6,7 @@ Host APIs delivering values over time return their own async sequence (`Notifica
 
 ```swift
 func values<Value: Sendable, Token: Sendable>(
-    bufferingPolicy: AsyncStream<Value>.Continuation.BufferingPolicy = .bufferingNewest(1),
+    bufferingPolicy: AsyncStream<Value>.Continuation.BufferingPolicy,
     observe: (@escaping @Sendable (Value) -> Void) -> Token,
     remove: @escaping @Sendable (Token) -> Void,
 ) -> AsyncStream<Value> {
@@ -17,7 +17,7 @@ func values<Value: Sendable, Token: Sendable>(
 }
 ```
 
-- `values(observe: monitor.observe, remove: monitor.remove)` registers at the call, and the stream holds the token until its consumer stops
+- `values(bufferingPolicy: .bufferingNewest(1), observe: monitor.observe, remove: monitor.remove)` registers at the call, and the stream holds the token until its consumer stops
 - Wake signals are an `AsyncStream<Void>` at `.bufferingNewest(1)`, and wakes arriving between reads coalesce into one
 - C callbacks take `Unmanaged.passUnretained(owner).toOpaque()` as context and yield through `fromOpaque(_:).takeUnretainedValue()`, the owner removing the source in `deinit`
 - `yield` returns `.terminated` after the consumer stops, and a producer on a thread of its own reads it to stop producing
@@ -50,7 +50,7 @@ Pipelines are one expression from sources to consumed values. Operators hold the
 ```swift
 func overdrafts(
     of amounts: some AsyncSequence<Decimal, Never>,
-    opening: Decimal = 0,
+    opening: Decimal,
     limit: Decimal = 0,
 ) -> some AsyncSequence<Decimal, Never> {
     chain([opening].async, amounts.reductions(opening, +))
@@ -130,7 +130,7 @@ Async sequences serve one consumer, and `AsyncStream` traps on a second concurre
 ```swift
 func split<Element: Sendable>(
     _ source: AsyncStream<Element>,
-    bufferingPolicy: AsyncBufferSequencePolicy = .bounded(1),
+    bufferingPolicy: AsyncBufferSequencePolicy,
     alarming isAlarm: @escaping @Sendable (Element) -> Bool,
 ) -> (alarms: some AsyncSequence<Element, Never>, log: some AsyncSequence<Element, Never>) {
     let shared: some AsyncSequence<Element, Never> & Sendable = source.share(bufferingPolicy: bufferingPolicy)

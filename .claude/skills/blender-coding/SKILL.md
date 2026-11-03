@@ -218,13 +218,34 @@ Original geometry holds no modifier result, and each read or write takes its pat
 
 ## [04]-[PROPERTIES]
 
-Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes. Properties take Blender's keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`), a `use_<name>` `BoolProperty` beside each value it switches. Copies of an RNA enum take its name, description, default, and items as 5-tuples keeping each item's RNA `value`. Update callbacks act on `self.id_data` in place of the active item:
+Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes. Properties take Blender's keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`), a `use_<name>` `BoolProperty` beside each value it switches. Copies of an RNA member take every keyword its RNA states, enum items as 5-tuples keeping each item's RNA `value`. Update callbacks act on `self.id_data` in place of the active item:
 
 ```python
 def mirrored(owner: type[Struct], member: str, /, *, update: Callable[[bpy.types.PropertyGroup, bpy.types.Context], None] | None = None) -> bpy.props._PropertyDeferred:
-    rna: bpy.types.EnumProperty = owner.bl_rna.properties[member]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    items = tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in rna.enum_items)
-    return bpy.props.EnumProperty(name=rna.name, description=rna.description, items=items, default=rna.default, update=update)
+    rna: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    match rna.properties[member]:
+        case bpy.types.EnumProperty() as described:
+            items = tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in described.enum_items)
+            return bpy.props.EnumProperty(name=described.name, description=described.description, items=items, default=described.default, update=update)
+        case bpy.types.BoolProperty(array_length=0) as described:
+            return bpy.props.BoolProperty(name=described.name, description=described.description, default=described.default, update=update)
+        case bpy.types.FloatProperty(array_length=0) as described:
+            return bpy.props.FloatProperty(
+                name=described.name,
+                description=described.description,
+                subtype=described.subtype,
+                unit=described.unit,
+                min=described.hard_min,
+                max=described.hard_max,
+                soft_min=described.soft_min,
+                soft_max=described.soft_max,
+                step=described.step,
+                precision=described.precision,
+                default=described.default,
+                update=update,
+            )
+        case described:
+            raise TypeError(f"{owner.__name__}.{member} is a {described.type} property")
 
 
 def retagged(self: bpy.types.PropertyGroup, _context: bpy.types.Context, /) -> None:
@@ -234,11 +255,11 @@ def retagged(self: bpy.types.PropertyGroup, _context: bpy.types.Context, /) -> N
 
 class Lamp(bpy.types.PropertyGroup):
     kind: mirrored(bpy.types.Light, "type", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_reach: bpy.props.BoolProperty(name="Reach", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    reach: bpy.props.FloatProperty(name="Reach", subtype="DISTANCE", min=0.0, soft_max=100.0, default=10.0, update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    use_reach: mirrored(bpy.types.Light, "use_custom_distance", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    reach: mirrored(bpy.types.Light, "cutoff_distance", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 ```
 
-`kind` starts at `POINT` and stores `AREA` as its `Light.type` value 4, where 3-tuples store position 3. `mirrored(<class>, <member>)` copies any RNA enum.
+`kind` starts at `POINT` and stores `AREA` as its `Light.type` value 4, where 3-tuples store position 3. `mirrored(<class>, <member>)` copies any RNA enum, boolean, or scalar float.
 
 `bpy.props` definitions take the form the host registers:
 - `poll` and `update` take function objects with exact positional arity, defaulted parameters counted, and a factory returns the closure

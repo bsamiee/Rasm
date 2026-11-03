@@ -354,7 +354,7 @@ Hosts read the date once from a `TimeProvider` argument (`time.ToZonedClock().Ge
 
 Failure policies are distinct operations:
 - Fallback runs a lower-priority effect after the preferred one fails, `primary | secondary`, or `primary | @catch(predicate, f)` for one classified error
-- Retry reruns a transient failure on a schedule, `Retry(Schedule.exponential(delay) | Schedule.recurs(3))`
+- Retry reruns a transient failure on a schedule, `Retry(Schedule.exponential(delay) | Schedule.recurs(attempts))`
 - Recovery maps a final error to a value at the host, `IfFail` on the `Fin<A>`
 
 Libraries return their result type with their own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation. The dependency structure and the concurrency bound select the traversal:
@@ -385,7 +385,7 @@ Delivery shape selects the construct:
 Numeric facts come from the package that states them, and a sample loop reads only spans and SIMD lanes:
 - Roots, quadrature, splines, fits, quantiles, factorizations, antiderivatives, and gradients are members of the referenced numerics packages
 - Hand loops that converge, bisect, or sum a series are a defect
-- Root searches pass a signed margin to `TryFindRoot` and return a missed root as a failure
+- Root searches pass `TryFindRoot` a signed margin, a measured bracket, caller accuracy, and the halvings from bracket width to `double.Epsilon`, a missed root is a failure
 - Per-sample passes lift a matrix or curve once into `Vector256<double>` or `Vector4` lanes and allocate nothing, `Matrix<double>`, quantities, and `BigInteger` stay outside the loop
 - Conversions every pass needs (a host buffer's 2D view, a matrix to lanes) sit once at the type that owns them
 - Exact integer-plus-fraction arithmetic on a hot path is fixed-point on `long` or `Int128`, a shift for the cell and a mask for the local part

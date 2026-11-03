@@ -5,7 +5,7 @@
 Data-last package steps take their element type from the value before them. Reusable pipelines over a collection type their subject and pass it to `pipe`, `flow` composes steps that type their own input (`String.trim`, a declared function):
 
 ```ts
-const podium = (entries: readonly Entry[], places = 3) =>
+const podium = (entries: readonly Entry[], places: number) =>
     pipe(
         entries,
         Array.groupBy((entry) => entry.player),
@@ -22,19 +22,19 @@ const podium = (entries: readonly Entry[], places = 3) =>
 
 ## [02]-[DUAL_SIGNATURES]
 
-`Function.dual` builds one function dispatching on its arguments: a call holding the subject runs the body data-first, and a call without it returns a data-last step. Trailing optional parameters make argument count ambiguous, and a predicate on the first argument selects the form:
+`Function.dual` builds one function dispatching on its data-first parameter count: a call holding the subject runs the body data-first, and a call without it returns a data-last step:
 
 ```ts
-const hedged = Function.dual<(after?: Duration.Input) => <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>, <A, E, R>(self: Effect.Effect<A, E, R>, after?: Duration.Input) => Effect.Effect<A, E, R>>(
-    (args) => Effect.isEffect(args[0]),
-    (self, after = '200 millis') => Effect.race(self, Effect.delay(self, after)),
+const hedged = Function.dual<(after: Duration.Input) => <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>, <A, E, R>(self: Effect.Effect<A, E, R>, after: Duration.Input) => Effect.Effect<A, E, R>>(
+    2,
+    (self, after) => Effect.race(self, Effect.delay(self, after)),
 );
 ```
 
-`hedged(request)` and `request.pipe(hedged('1 second'))` run one body, racing the request against a copy started after `after` and keeping the first success:
+`hedged(request, p95)` and `request.pipe(hedged(p95))` run one body, racing the request against a copy started after `p95`, the caller's observed latency percentile, and keeping the first success:
 - Type arguments state both signatures once, generic signatures included, and body parameters take their types from the data-first one
-- Arity in place of the predicate counts data-first parameters where every parameter is required
-- Callbacks passing an element index take the applied form (`hedged()`) or a lambda, an unapplied function receives the index as its next parameter
+- Trailing optional parameters make argument count ambiguous, and a predicate on the arguments (`(args) => Effect.isEffect(args[0])`) selects the form
+- Callbacks passing an element index take the applied form (`hedged(p95)`) or a lambda, an unapplied function receives the index as its next parameter
 - Exported functions consumers call both directly and in a pipeline are duals, a module-private step stays data-last
 
 ## [03]-[PARTIAL_APPLICATION]
@@ -46,14 +46,15 @@ const matching = (query: string, locale?: string) =>
     pipe(
         query,
         String.toLocaleLowerCase(locale),
-        String.split(' '),
-        Array.map((term) => String.includes(term)),
+        (lowered) => new Intl.Segmenter(locale, { granularity: 'word' }).segment(lowered),
+        Array.filter((word) => word.isWordLike === true),
+        Array.map(({ segment }) => String.includes(segment)),
         Predicate.every,
         Predicate.mapInput(String.toLocaleLowerCase(locale)),
     );
 ```
 
-`matching(query)` lowercases and splits the query once and returns a `Predicate<string>`. Each tested text lowercases once before every term checks it, and `titles.filter(matching(query))` keeps titles holding every term:
+`matching(query)` lowercases the query once, keeps the word segments `isWordLike` marks at the locale's word boundaries, and returns a `Predicate<string>`. Each tested text lowercases once before every term checks it, and `titles.filter(matching(query))` keeps titles holding every term:
 - Failures fixed arguments decide return at their application as `Option` or `Result`, and the returned function stays total
 
 ## [04]-[FILTERS]
@@ -73,6 +74,7 @@ const matched = (invoices: HashMap.HashMap<string, Invoice>) =>
 - `Filter.compose` feeds one filter's pass to the next, `Filter.or` runs the second on the input the first rejects, and `Filter.zip` pairs both passes
 - Schema `guards` take `unknown` and leave the remainder `unknown`, `Filter.tagged<A>()` fixes the input type
 - `Effect.catchFilter` without a fallback replaces `E` with the remainder, and `Effect.filterMapOrFail` builds its error from the remainder
+- `Array.flatMap` callbacks returning `[x]` or `[]` restate `Array.filterMap`
 
 ## [05]-[DISPATCH_TABLES]
 
@@ -85,6 +87,7 @@ const Casing = Schema.Literals(['camelCase', 'constantCase', 'kebabCase', 'pasca
 `String[casing]` types as the union of the accepted members, each `(self: string) => string`, and `Array.map(rows, Record.mapKeys(String[casing]))` renames every row's keys through the member a decoded `Casing` selects. `satisfies` checks each name against the module, and a new casing is one name in the list:
 - Rows hold a function or module where behavior differs by case, rows of data one shared function reads are a lookup table
 - Rows no module holds are an `as const` object keyed by the encoded token, with typed handles as values
+- `satisfies Record<Extract<keyof typeof Enum, Uppercase<string>>, A>` requires a row per host enumeration member, and `Extract` drops reverse-mapped numeric keys
 
 ## [06]-[EFFECTFUL_FUNCTIONS]
 

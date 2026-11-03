@@ -143,7 +143,7 @@ type Ref = Annotated[str, AfterValidator(known)]
 
 ## [04]-[SERIALIZERS]
 
-Types with a pydantic wire form take no serializer: `Decimal` with `Field(decimal_places=2)` holds exact cents, round-trips JSON text, reads numbers. Serializers for output no type states attach in `Annotated` as `PlainSerializer(fn, return_type=, when_used=)` or `WrapSerializer(fn)`. `WrapSerializer` functions take `(value, handler, info)` and branch on `info.mode_is_json()`. Set dump order follows per-process string hashing, and `Names` writes sorted JSON:
+Types with a pydantic wire form take no serializer: `Decimal` holds exact amounts, round-trips JSON text, and reads numbers. `Field(decimal_places=<n>)` bounds one currency's amounts at its ISO 4217 minor unit (2 for `EUR`, 0 for `JPY`). Serializers for output no type states attach in `Annotated` as `PlainSerializer(fn, return_type=, when_used=)` or `WrapSerializer(fn)`. `WrapSerializer` functions take `(value, handler, info)` and branch on `info.mode_is_json()`. Set dump order follows per-process string hashing, and `Names` writes sorted JSON:
 
 ```python
 type Names = Annotated[frozenset[str], PlainSerializer(sorted, return_type=list[str], when_used="json")]
@@ -277,7 +277,10 @@ Validation cost sits in one schema build per type and one Rust pass per call, an
 Composition roots read settings through one `BaseSettings` class composing nested `BaseModel` groups. `settings_cached()` builds one instance per process, returns `Self`, and leaves a failed build uncached:
 
 ```python
-class Settings(BaseSettings, frozen=True, env_prefix="APP_", env_nested_delimiter="__", toml_file="settings.toml"):
+_PACKAGE: str = __name__.partition(".")[0]
+
+
+class Settings(BaseSettings, frozen=True, env_prefix=f"{_PACKAGE.upper()}_", env_nested_delimiter="__", toml_file=f"{_PACKAGE}.toml"):
     token: SecretStr
     store: Store
 
@@ -298,7 +301,7 @@ def settings() -> Outcome[Settings]:
     return catch(Settings.settings_cached, exception=ValueError)().map_error(faulted)
 ```
 
-`Store` holds `host` and a `port` bounded by `Field(gt=0, lt=65536)`. TOML `[store] host` and `APP_STORE__PORT=70000` return `store.port is invalid. Input should be less than 65536` and `Settings holds no token`:
+`Store` holds `host` and a `port` bounded by `Field(gt=0, lt=65536)`. Under package `app`, `app.toml` `[store] host` and `APP_STORE__PORT=70000` return `store.port is invalid. Input should be less than 65536` and `Settings holds no token`:
 - `settings_customise_sources` returns sources highest priority first, a source left out of the tuple reads nothing
 - File sources (TOML, pyproject, JSON, YAML) enter through the hook alone, a file key without its source warns and goes unread
 - `BaseSettings` defaults to `extra="forbid"` and `validate_default=True`

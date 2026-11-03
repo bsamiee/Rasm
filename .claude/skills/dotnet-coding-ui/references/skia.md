@@ -170,14 +170,14 @@ Each SkSL effect kind has its own entry signature, builder, and color handling:
 - Image shaders return premultiplied color, `SKImage.ToRawShader` skips conversion and premultiplication for data images
 
 ```csharp
-internal static class Grades {
-    private const string Source = "uniform half strength; uniform half3 luma; uniform shader source; half4 main(float2 p) { half4 c = source.eval(p); half l = dot(c.rgb, luma); return half4(mix(c.rgb, half3(l), strength), c.a); }";
-    private static readonly SKRuntimeShaderBuilder Desaturate = SKRuntimeEffect.BuildShader(Source);
+internal readonly record struct Desaturation(SKShader Image, float Strength, SKPoint3 Luma) {
+    private const string Source = $$"""uniform half {{nameof(Strength)}}; uniform half3 {{nameof(Luma)}}; uniform shader {{nameof(Image)}}; half4 main(float2 p) { half4 c = {{nameof(Image)}}.eval(p); half l = dot(c.rgb, {{nameof(Luma)}}); return half4(mix(c.rgb, half3(l), {{nameof(Strength)}}), c.a); }""";
+    private static readonly SKRuntimeShaderBuilder Builder = SKRuntimeEffect.BuildShader(Source);
 
-    public static SKShader Build(SKShader source, float strength, SKPoint3 luma) {
-        using SKRuntimeEffectUniforms uniforms = new(Desaturate.Effect) { ["strength"] = strength, ["luma"] = luma };
-        using SKRuntimeEffectChildren children = new(Desaturate.Effect) { ["source"] = source };
-        return Desaturate.Effect.ToShader(uniforms, children);
+    public SKShader Build() {
+        using SKRuntimeEffectUniforms uniforms = new(Builder.Effect) { [nameof(Strength)] = Strength, [nameof(Luma)] = Luma };
+        using SKRuntimeEffectChildren children = new(Builder.Effect) { [nameof(Image)] = Image };
+        return Builder.Effect.ToShader(uniforms, children);
     }
 }
 ```
@@ -238,6 +238,7 @@ Raster and GPU backends differ in snapshot cost, thread affinity, and read-back:
 - `SKSurface.Create(info)` owns raster pixels, each `Create` overload has an `SKSurfaceProperties` form
 - `SKSurface.Create(GRContext, GRBackendRenderTarget, origin, colorType, colorspace, props)` wraps a host framebuffer
 - `SKSurface.Create(context, budgeted, info, sampleCount, props)` allocates a GPU offscreen, the `origin` overload takes `shouldCreateWithMips`
+- `GRContext.GetMaxSurfaceSampleCount(colorType)` bounds `sampleCount`, a count above it answers `null`
 - `Snapshot()` shares pixels copy-on-write, `Snapshot(bounds)` copies a window
 - `SKSurface.Draw(canvas, point, sampling, paint)` blits a retained panel surface onto another canvas without a snapshot
 - `PeekPixels()` exposes raster memory until the next canvas call
@@ -267,7 +268,9 @@ Raster and GPU backends differ in snapshot cost, thread affinity, and read-back:
 internal sealed class Gpu(nint device, nint queue) : IDisposable {
     private readonly GRContext context = GRContext.CreateMetal(new GRMtlBackendContext { DeviceHandle = device, QueueHandle = queue });
 
-    public SKSurface Offscreen(SKImageInfo info, SKSurfaceProperties properties) => SKSurface.Create(context, budgeted: true, info, sampleCount: 1, properties);
+    public Fin<SKSurface> Offscreen(SKImageInfo info, int sampleCount, SKSurfaceProperties properties) =>
+        Optional(SKSurface.Create(context, budgeted: true, info, sampleCount, properties))
+            .ToFin(new Fault(string.Create(CultureInfo.InvariantCulture, $"{info.Width}x{info.Height} {info.ColorType} at {sampleCount} samples, {context.GetMaxSurfaceSampleCount(info.ColorType)} supported"), Reason.Refused));
 
     public SKImage Uploaded(SKImage raster) => raster.ToTextureImage(context, mipmapped: true, budgeted: true);
 

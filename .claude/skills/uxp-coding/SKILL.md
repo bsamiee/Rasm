@@ -7,6 +7,8 @@ description: "Use when writing or reviewing code that runs in an Adobe UXP host,
 
 UXP runs each plugin and script in one V8 context inside an Adobe host.
 
+Ranges, enumerations, and localized names come from the running host, extents from the measured item, unit ratios from their standard, names of created files from their target, and every other value from the caller.
+
 [REFERENCES]:
 - [01]-[INDESIGN](references/indesign.md): InDesign's synchronous DOM: object model, transactions, GREP, export, and plugin load
 - [02]-[PHOTOSHOP](references/photoshop.md): Photoshop's modal scopes, history, descriptors, DOM members, events, export, fonts, and plugin load
@@ -162,6 +164,7 @@ const written = (target: object, values: Record.ReadonlyRecord<string, unknown>)
 - `catch` names the refused step from arguments of the failed call
 - Lookups fail with their candidates, and independent writes accumulate every refusal in one cause
 - Consumers decode a host code from `cause` where they branch on it
+- Throws in evaluated source read their `isEval()` frame's line from `.stack` under an `Error.prepareStackTrace` restored in `finally`
 - Boundaries log a cause once, plugins through `Cause.pretty` to the UXP console, MCP servers through `Cause.prettyErrors` with `Formatter.format`
 - Host calls are typed source the compiler checks, with arguments passed as data
 
@@ -190,6 +193,7 @@ Each host groups changes into one undo step through one call, and every state ch
 
 - One call holds one user-visible change, named in the undo menu
 - Bodies hold host calls alone, and network, file, and decode work finishes before a body starts and enters as values
+- Evaluated source is `Effect<Effect<A, HostError>, HostError | IllegalArgumentError>`, compiled before a step and run inside by `yield* yield*`
 - Values and typed failures leave a body as data
 - Awaited work inside a synchronous body runs after its unit closed, where a later rejection rolls back no change
 - Reads needing no undo step run outside these calls where their host allows
@@ -232,7 +236,13 @@ Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) 
             setup.call(entrypoints, {
                 plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() },
                 commands: Record.map({ relink, preflight }, (work) => () => runtime.runPromise(Effect.tapCause(work, logged))),
-                panels: { links: Record.map({ show: shown, hide: hidden }, (work) => () => runtime.runPromise(Effect.asVoid(Effect.forkDetach(Effect.tapCause(work, logged))))) },
+                panels: Record.map({ links }, (work) => {
+                    const held = Effect.runSync(Scope.provide(ScopedRef.fromAcquire(Effect.void), runtime.scope));
+                    return {
+                        show: (root: unknown) => runtime.runPromise(Effect.flatMap(Schema.decodeUnknownEffect(Schema.instanceOf(HTMLElement))(root), (element) => ScopedRef.set(held, work(element).pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly), logged), Effect.forkScoped, Effect.asVoid)))),
+                        hide: () => runtime.runPromise(ScopedRef.set(held, Effect.void)),
+                    };
+                }),
             } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>),
         ),
     ),
@@ -241,7 +251,7 @@ Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) 
 );
 ```
 
-`MainLayer` is the plugin's layer reading `Uxp` and `Plugin`, `relink` and `preflight` the effects its manifest's commands name, and `shown` and `hidden` the work of panel `links`. `hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder, and a failed read fails `PlatformError`, the error Effect's `FileSystem.readFileString` raises. `Layer.provideMerge` keeps services in runtime context, where `Layer.provide` feeds the layer alone and `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, and its throw logs as a defect. `runFork` calls `setup` before `main` returns. `ManagedRuntime` builds its layer before any entry's work runs. `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed command to the UXP console before `runPromise` rejects. Panel promises resolve once `Effect.forkDetach` forks their work. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
+`MainLayer` is the plugin's layer reading `Uxp` and `Plugin`, `relink` and `preflight` the effects its manifest's commands name, and `links` the `(root: HTMLElement) => Effect<void, E, Scope | ...>` panel `links` runs while shown. `hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder, and a failed read fails `PlatformError`, the error Effect's `FileSystem.readFileString` raises. `Layer.provideMerge` keeps services in runtime context, where `Layer.provide` feeds the layer alone and `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, and its throw logs as a defect. `runFork` calls `setup` before `main` returns. `ManagedRuntime` builds its layer before any entry's work runs. `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed command to the UXP console before `runPromise` rejects. Each panel holds its running work's scope in one `ScopedRef` under `runtime.scope`. `show` replaces the scope and `hide` closes it, where `Effect.forkDetach` fibers outlive `dispose`. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`

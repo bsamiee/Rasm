@@ -36,17 +36,17 @@ Function signatures are contracts, parameter types state every value a function 
 - Async callbacks take `impl AsyncFn(A) -> B`, a closure returning its callee's future (`|id| fetch(id)`) or an `async` closure holding more work supplies it
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
 - Members and local `macro_rules!` differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic, each caller passing the value from where it holds it
-- Defaults sit on one options struct under `default_field_values`, an optional input taking an `Option` field unless its type's default means absent, and a default tree-sitter-rust parses no form of (a struct literal) or no const context builds (a fidget `CancelToken`) an `Option` field the body resolves (`unwrap_or_default`)
+- Defaults sit on one options struct under `default_field_values`, each stated by its owner (a standard, a dependency constant, absence), a caller's choice being a required field and an optional input an `Option` field unless its type's default means absent, and a default tree-sitter-rust parses no form of (a struct literal) or no const context builds (a fidget `CancelToken`) an `Option` field the body resolves (`unwrap_or_default`)
 - Values and types differing per platform or build configuration (`panic = "abort"`) are one `cfg_select!` around the part that differs (`SelectAll<cfg_select! { unix => A, windows => B }>`), an element, variant, or arm one platform alone holds takes `#[cfg]` on itself, and a share, lock, import, or nightly feature only one configuration reads sits under its `cfg` or `cfg_attr`, the plain owned value standing elsewhere
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
 - Facts a dependency or the build states come from it, a protocol version from its package's constant and a crate name from `env!("CARGO_PKG_NAME")`
 - Field defaults a dependency states only on a value with drop glue (`Stroke::new(width).join`) stay literals, a const default being unable to drop it
-- Values an input already holds (a mesh's cached `local_aabb`) are read from it by the step that uses it, never recomputed, and the value read is the one the step names, never a summary beside it (a filter's root level, not its most verbose directive)
+- Values an input already holds (a mesh's cached `local_aabb`) are read from it by the step that uses it, never recomputed, and the value read is the one the step names, never a summary beside it (a filter's root level, not its most verbose directive, a mesh's vertex extent along a cut plane's normal, not the corners of its box, which straddle a plane the mesh never crosses)
 - Values describing an output (a resampled rate) derive from the output produced, never from the request it rounds
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from its owner (a type, a member, a clap `Arg`)
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
-- Helpers one function reads are closures inside it, a nested `fn` holding its own generic, a `const fn`, a return borrowing a parameter, or self-recursion, and a rule several functions read is one private `fn` each calls, never an inline copy per function, and a type with operations of its own (a session, a sink) is a module item with those operations as private functions beside it, never a local item of one body
+- Helpers one function reads are closures inside it, a nested `fn` holding its own generic, a `const fn`, a return borrowing a parameter, or self-recursion, a constant one function reads sits in its body, and a rule several functions read is one private `fn` each calls, never an inline copy per function, and a type with operations of its own (a session, a sink) is a module item with those operations as private functions beside it, never a local item of one body
 - Helpers adding a fact to a package call serve only calls needing it
 
 ### [01.1]-[TOTAL_FUNCTIONS]
@@ -162,7 +162,7 @@ pub enum Delivery {
 - Shapes a package enum states take that enum (`EitherOrBoth` for one side or both, `Either` for a plain choice), each side holding the value a consumer reads (a station along both paths) in place of a package record's raw fields, `Result` holding failure alone, a refused input ignored with a warning included
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each, and an input owed once per element (a start per chain) arrives whole, a shortfall refused rather than filled by a callee draw the caller cannot see
-- Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant, and a foreign sentinel for absence (an id 0, an index -1, an empty name) becomes `None` where it enters (`u32::try_from(id).ok().and_then(NonZero::new)`)
+- Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token a caller chooses as a setting (`none`) stays a variant, and a foreign sentinel for an absent value (an id 0, an index -1, an empty name, a missing code, an `N/A` placeholder) becomes `None` where it enters (`u32::try_from(id).ok().and_then(NonZero::new)`)
 
 ### [03.2]-[CONSTRAINED_VALUES]
 
@@ -447,7 +447,7 @@ Numeric facts come from the type or package that states them:
 - Operators state float, dual, complex, and matrix arithmetic, `arithmetic-side-effects-allowed` rows list operand types in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)
 - Counts enter float arithmetic through `nalgebra::convert::<usize, f64>`, and `cmp::minmax_by(a, b, f64::total_cmp)` orders a float pair
-- Floats narrow by `cast::<f32>()` and `to_int_saturating`, `convert_unchecked` and integer `convert` being `as` casts
+- Floats narrow by `cast::<f32>()` and `to_int_saturating` under `#![feature(float_conversions)]` in the crate root, `convert_unchecked` and integer `convert` being `as` casts
 - Formulas a member names take it (`Point::lerp`, `f64::midpoint`, `Vector2::perp`, `Unit::try_new_and_get`), `mul_add` fusing a step none names
 
 Roots, quadrature, factorizations, derivatives, quantiles, and optimization are package members:

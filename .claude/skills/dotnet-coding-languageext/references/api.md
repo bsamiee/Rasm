@@ -375,7 +375,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [33]   | `ScheduleTransformer.Apply(Schedule)`                        | `instance`          | Only application member                   |
 |  [34]   | `operator +(ScheduleTransformer, ScheduleTransformer)`       | `operator`          | Transformer composition                   |
 
-- `IO.Retry(Schedule.recurs(3))` means `Forever.Take(3)`
+- `IO.Retry(Schedule.recurs(n))` means `Forever.Take(n)`
 - `maxCumulativeDelay` stops the schedule once the accumulated delay crosses its budget, `resetAfter` restarts the policy at that crossing
 - Each wall-clock constructor takes an optional `Func<DateTime>?` clock, `() => time.GetUtcNow().UtcDateTime` adapts the `TimeProvider` argument
 

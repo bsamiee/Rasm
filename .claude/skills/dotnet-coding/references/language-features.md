@@ -191,12 +191,12 @@ Labels derive from call text, `[CallerArgumentExpression]` naming an argument an
 
 ```csharp
 internal static class Searches {
-    public static Fin<double> Crossing(double level) => Root(level, x => (x * x) - level, 0d, 1d);
+    public static Fin<double> Crossing(double level, double accuracy) => Root(level, x => (x * x) - level, 0d, double.Max(1d, level), accuracy);
 
     private static Fin<double> Root<T>(
-        T subject, Func<double, double> margin, double lower, double upper,
+        T subject, Func<double, double> margin, double lower, double upper, double accuracy,
         [CallerArgumentExpression(nameof(subject))] string named = "", [CallerMemberName] string search = "") =>
-        Bisection.TryFindRoot(margin, lower, upper, 1e-9, 100, out double root)
+        Bisection.TryFindRoot(margin, lower, upper, accuracy, Math.ILogB(upper - lower) - Math.ILogB(double.Epsilon), out double root)
             ? root
             : new Fault(string.Create(CultureInfo.InvariantCulture, $"{search} at {named} = {subject} over [{lower}, {upper}]"), Reason.Invalid);
 }

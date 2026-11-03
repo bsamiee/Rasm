@@ -93,7 +93,10 @@ Stream schemas fill payload or success slots, the handler receiving or returning
 
 ```ts
 class Ledger extends Context.Service<Ledger>()('@app/ledger/Ledger', {
-    make: Effect.flatMap(Config.URL('LEDGER_URL'), (baseUrl) => HttpApiClient.make(Api, { baseUrl, transformClient: flow(HttpClient.timeout('5 seconds'), HttpClient.retryTransient({ schedule: Schedule.exponential('100 millis'), times: 3 })) })),
+    make: Effect.flatMap(
+        Config.schema(Schema.Struct({ baseUrl: Schema.URL, timeout: Schema.DurationFromString, base: Schema.DurationFromString, retries: Schema.Int }), 'ledger'),
+        ({ baseUrl, timeout, base, retries }) => HttpApiClient.make(Api, { baseUrl, transformClient: flow(HttpClient.timeout(timeout), HttpClient.retryTransient({ schedule: Schedule.exponential(base), times: retries })) }),
+    ),
 }) {
     static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(FetchHttpClient.layer));
 }

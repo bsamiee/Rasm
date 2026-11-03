@@ -21,7 +21,7 @@ Command.make(
     'format',
     {
         mode: Flag.Literals('mode', Mode.literals).pipe(Flag.withDefault(Mode.literals[0])),
-        jobs: Flag.Int('jobs').pipe(Flag.withSchema(Schema.Int.check(Schema.isGreaterThan(0))), Flag.withFallbackConfig(Config.Int('FORMAT_JOBS')), Flag.withDefault(4)),
+        jobs: Flag.Int('jobs').pipe(Flag.withSchema(Schema.Int.check(Schema.isGreaterThan(0))), Flag.withFallbackConfig(Config.Int('FORMAT_JOBS')), Flag.withDefault(Effect.sync(os.availableParallelism))),
         roots: Argument.Directory('root', { mustExist: true }).pipe(Argument.atLeast(1)),
     },
     ({ mode, jobs, roots }) => ChildProcessSpawner.ChildProcessSpawner.use((spawner) => Effect.forEach(roots, (root) => spawner.exitCode(ChildProcess.make('biome', [mode, root])), { concurrency: jobs })),

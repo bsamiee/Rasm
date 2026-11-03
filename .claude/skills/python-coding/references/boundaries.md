@@ -85,7 +85,7 @@ def reconciled(wanted: Mapping[Path, Path], live: Mapping[Path, Path], /) -> Out
 Commands compose the flow and return one outcome. `run` writes every decoded quota and combines the write with each line's outcome through `paired`:
 
 ```python
-def run(source: Path, target: Path, /, *, limit: PositiveInt = 4) -> Outcome[Path]:
+def run(source: Path, target: Path, /, *, limit: PositiveInt) -> Outcome[Path]:
     return content(source).map(partial(quotas, limit)).bind(partial(_kept, target))
 
 

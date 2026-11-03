@@ -151,7 +151,7 @@ Channels follow the layered action model:
 Keys replace a channel's keys through one `keyframe_points.add(count)`, `foreach_set` on `co` and `interpolation`, then `fcurve.update()`:
 
 ```python
-def keyed(action: bpy.types.Action, owner: bpy.types.ID, path: str, points: NDArray[np.float32], /, *, index: int = 0, interpolation: str = "LINEAR") -> Result[bpy.types.FCurve, RuntimeError]:
+def keyed(action: bpy.types.Action, owner: bpy.types.ID, path: str, points: NDArray[np.float32], interpolation: str, /, *, index: int = 0) -> Result[bpy.types.FCurve, RuntimeError]:
     modes: bpy.types.EnumProperty = bpy.types.Keyframe.bl_rna.properties["interpolation"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
     def filled(curve: bpy.types.FCurve) -> bpy.types.FCurve:
@@ -165,7 +165,7 @@ def keyed(action: bpy.types.Action, owner: bpy.types.ID, path: str, points: NDAr
     return catch(action.fcurve_ensure_for_datablock, exception=RuntimeError)(owner, path, index=index).map(filled)
 ```
 
-`keyed(action, light, "energy", points)` keys light energy from `(frames, 2)` frame and value pairs, returning `RuntimeError` for an action unassigned to `light`.
+`keyed(action, light, "energy", points, context.preferences.edit.keyframe_new_interpolation_type)` keys light energy from `(frames, 2)` frame and value pairs at the user's interpolation, returning `RuntimeError` for an action unassigned to `light`.
 
 ## [06]-[ARMATURES]
 

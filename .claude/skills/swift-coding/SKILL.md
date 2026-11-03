@@ -41,7 +41,7 @@ Function types state each effect of a call on the function that performs it:
 |  [06]   | `@isolated(any)`         | Keeps the isolation the closure was formed in                          |
 |  [07]   | `borrowing`, `consuming` | Reads the argument, or takes ownership of it                           |
 
-- Members differing only in a number, sign, flag, or applied function are one member with a defaulted parameter, overloads serve other input types
+- Members differing only in a number, sign, flag, or applied function are one member taking it as a parameter, overloads serve other input types
 - Declarations stay `internal` until another module calls them, `package` within one package, `public` for a product's API
 - `public import` names a module whose types a public signature states, every other import stays internal
 
@@ -81,17 +81,18 @@ Dependencies are operations a consumer reads, and their count over one resource 
 `switch` keeps recognition, extraction, guards, and results together. A tuple subject makes one table where each arm names a combination of its values:
 
 ```swift
-func retryDelay(status: Int, retryAfter: Duration?, attempt: Int, limit: Int = 5, base: Duration = .seconds(1)) -> Duration? {
-    switch (status, retryAfter, attempt < limit) {
-        case (429, let wait?, true): wait
-        case (429, nil, true), (500..<600, _, true): base * (1 << attempt)
+func retryDelay(status: Int, retryAfter: Duration?, attempt: Int, schedule: some Collection<Duration>) -> Duration? {
+    switch (status, retryAfter, schedule.dropFirst(attempt).first) {
+        case (429, let wait?, _?): wait
+        case (429, nil, let delay?), (500..<600, _, let delay?): delay
         default: nil
     }
 }
 ```
 
+- `schedule` holds the caller's delay per attempt and bounds attempts by its count (`(0..<5).lazy.map { step in Duration.seconds(1) * (1 << step) }`)
 - Switches over a module's own enum list every case, and a new case fails to compile until each switch handles it
-- Conditions every arm reads join the tuple subject, a `where` clause holds a test one pattern alone reads
+- Values every arm reads join the tuple subject, a `where` clause holds a test one pattern alone reads
 
 ### [02.2]-[RECURSION]
 
@@ -128,7 +129,7 @@ Values take the type that the standard library, Foundation, or a core package de
 - Enums declare a closed set, and each per-case fact is a computed property over the case
 - Kinds, keys, and states are enum cases and key paths, a string holds text a person reads or a token a wire fixes
 - `Comparable` synthesis orders the cases of an enum with no raw type, a `String` raw value holds an external spelling
-- Per-case values that follow a rule compute from case order and defaulted parameters:
+- Per-case values that follow a rule compute from case order and parameters the caller passes:
 
 ```swift
 enum Plan: CaseIterable, Comparable, Sendable {
@@ -136,14 +137,14 @@ enum Plan: CaseIterable, Comparable, Sendable {
     case team
     case enterprise
 
-    func seats(base: Int = 1, factor: Int = 10) -> Int {
+    func seats(base: Int, factor: Int) -> Int {
         repeatElement(factor, count: Self.allCases.count(where: { plan in plan < self })).reduce(base, *)
     }
 }
 ```
 
 - Feature gates read `plan >= required`, and a new case takes its seats from its position
-- Optional properties stand where absence is a state consumers read, a value with a usual default holds that default
+- Optional properties stand where absence is a state consumers read, and a default stands where a standard, the host, or a package states its value
 
 Choose collections by their most frequent operation:
 

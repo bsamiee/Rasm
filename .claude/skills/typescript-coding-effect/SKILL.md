@@ -35,13 +35,15 @@ Each runtime supplies the platform services a program reads through published la
 
 ```ts
 layer(Layer.mock(Store, { read: (key) => StoreError.make({ reason: { _tag: 'Unavailable' }, subject: key }) }))('Store', (it) => {
-    it.effect('fails with Unavailable once the backoff runs out', () =>
-        Effect.all([Effect.flip(retrying('order')), TestClock.adjust('1 minute')], { concurrency: 'unbounded' }).pipe(Effect.map(([error]) => assert.strictEqual(error.reason._tag, 'Unavailable'))),
-    );
+    it.effect('fails with Unavailable once the backoff runs out', () => {
+        const base = Duration.millis(100);
+        const retries = 3;
+        return Effect.all([Effect.flip(retrying('order', base, retries)), TestClock.adjust(Duration.times(base, 2 ** retries - 1))], { concurrency: 'unbounded' }).pipe(Effect.map(([error]) => assert.strictEqual(error.reason._tag, 'Unavailable')));
+    });
 });
 ```
 
-`Store` is a service with `read(key)` failing with `StoreError`, and `retrying` reads through it under a retry schedule. `Layer.mock` implements the members a case reads, and an omitted member dies when called:
+`Store` is a service with `read(key)` failing with `StoreError`, and `retrying(key, base, retries)` reads through it under `Schedule.exponential(base)` for `retries` retries, waiting `base × (2^retries − 1)` in total. `Layer.mock` implements the members a case reads, and an omitted member dies when called:
 - `TestClock` starts at epoch 0, a sleeping fiber resumes after `TestClock.adjust` or `setTime`, and a case runs the effect beside the adjustment
 - `it.effect(name, ({ task }) => ...)` receives Vitest's `TestContext`, and `task.name` names what a case writes
 - Shared suites take `Vitest.MethodsNonLive<R>` and call `it.effect` per case, a helper that registers cases hides their assertions from Biome's `useExpect`
@@ -58,7 +60,7 @@ Logs, spans, and metrics leave the process through one layer at the root:
 const Telemetry = Otlp.layerFromConfig().pipe(
     Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]),
     Layer.provideMerge(Logger.layer([Logger.consoleJson, Logger.tracerLogger])),
-    Layer.provideMerge(Layer.effect(References.MinimumLogLevel, Config.LogLevel('LOG_LEVEL').pipe(Config.withDefault('Info')))),
+    Layer.provideMerge(Layer.effect(References.MinimumLogLevel, Config.LogLevel('LOG_LEVEL').pipe(Config.withDefault(References.MinimumLogLevel.defaultValue())))),
 );
 ```
 

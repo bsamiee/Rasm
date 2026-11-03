@@ -117,16 +117,19 @@ def displayed(config: PyOpenColorIO.Config, pixels: NDArray[np.float32], /, *, d
 
 `display` and `view` come from the scene's `display_settings.display_device` and `view_settings.view_transform`, `config.getDefaultView("sRGB")` reading `Standard` where new scenes hold `AgX`.
 
-`Baker` writes a display, view, and looks as a LUT file in a format `Baker.getFormats()` lists, `setDisplayView` replacing its empty target space:
+`Baker` writes a display, view, and looks as a LUT file in a format `Baker.getFormats()` lists, raising at construction on any other, and `setDisplayView` replaces its empty target space:
 
 ```python
-def cubed(config: PyOpenColorIO.Config, space: str, path: Path, /, *, display: str, view: str, looks: str = "", size: int = 33, form: str = "resolve_cube") -> Outcome[Path]:
-    baker = PyOpenColorIO.Baker(config=config, format=form, inputSpace=space, targetSpace="", looks=looks, cubeSize=size)
-    baker.setDisplayView(display, view)
-    return catch(baker.bake, exception=PyOpenColorIO.Exception)(str(path)).map(lambda _: path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
+def cubed(config: PyOpenColorIO.Config, space: str, path: Path, /, *, display: str, view: str, form: str, looks: str = "", size: int = -1) -> Outcome[Path]:
+    def baked(baker: PyOpenColorIO.Baker) -> Outcome[Path]:
+        baker.setDisplayView(display, view)
+        return catch(baker.bake, exception=PyOpenColorIO.Exception)(str(path)).map(lambda _: path).map_error(partial(Fault.of, Reason.FAILED, str(path)))
+
+    made = catch(PyOpenColorIO.Baker, exception=PyOpenColorIO.Exception)(config=config, format=form, inputSpace=space, targetSpace="", looks=looks, cubeSize=size)
+    return made.map_error(partial(Fault.of, Reason.INVALID, form)).bind(baked)
 ```
 
-`looks` takes OCIO look names, Blender's `None` look baking as `""`.
+`looks` takes OCIO look names, Blender's `None` look baking as `""`, and `size` keeps `Baker`'s -1 default, the format's own cube size. Unknown spaces and looks and sizes below 2 raise at `bake`.
 
 LUT bakes hold the OCIO transform alone:
 - `view_settings.exposure`, `gamma`, white balance, and `curve_mapping` stay out of the cube
@@ -307,7 +310,7 @@ Multi-view renders follow `render.use_multiview` and `render.views`, each view w
 One scope adds a target node to every material, makes it active, and removes it after the bake on every path:
 
 ```python
-def baked(context: bpy.types.Context, item: bpy.types.Object, image: bpy.types.Image, /, *, kind: "rna_enums.BakePassTypeItems" = "COMBINED") -> Outcome[bpy.types.Image]:
+def baked(context: bpy.types.Context, item: bpy.types.Object, image: bpy.types.Image, /, *, kind: "rna_enums.BakePassTypeItems") -> Outcome[bpy.types.Image]:
     with ExitStack() as scope:
         for tree in {tree for slot in item.material_slots if slot.material is not None and (tree := slot.material.node_tree) is not None}:
             target: bpy.types.ShaderNodeTexImage = tree.nodes.new(bpy.types.ShaderNodeTexImage.__name__)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -317,6 +320,8 @@ def baked(context: bpy.types.Context, item: bpy.types.Object, image: bpy.types.I
         with context.temp_override(active_object=item, selected_objects=[item]):
             return catch(bpy.ops.object.bake, exception=RuntimeError)(type=kind, target="IMAGE_TEXTURES", save_mode="INTERNAL").map(lambda _: image).map_error(partial(Fault.of, Reason.FAILED, item.name))
 ```
+
+`baked(context, item, image, kind=context.scene.cycles.bake_type)` bakes the pass the Bake panel shows, an unset `type` baking `COMBINED` whatever the scene holds.
 
 ## [07]-[IMAGES]
 

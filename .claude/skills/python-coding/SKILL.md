@@ -29,8 +29,8 @@ Parameter types state every value a function accepts and return types every outc
 - `**P` captures a wrapped function's parameters, `*Ts` ties an argument tuple to them (`Callable[[*Ts], R]`), `*args: object` erases both
 - `Protocol` types a callable `Callable` cannot spell (keyword parameters, `__name__`, overloads) beside the consumer reading it
 - Modules pass as a `Protocol` of the members a body reads, a module constant as a `@property` member
-- Subjects take positional-only `/` parameters, and a value a caller varies is a keyword-only `*` parameter with its default
-- Choices a composition passes down are one record of defaulted fields, and a caller names the fields it changes
+- Subjects take positional-only `/` parameters, a value a caller varies is a keyword-only `*` parameter, required unless an owner states its default
+- Choices a composition passes down are one record its caller builds once
 - Members differing only in a number, flag, type, or applied function are one generic member taking it as a parameter
 
 `Field` states the operators a formula reads, and `smoothstep` returns its argument's type (numpy scalar or array of any shape) from one body:
@@ -316,14 +316,27 @@ def accepted(limit: int, taken: frozenset[str], entry: Entry, /) -> Outcome[Entr
 Values stay inside a result through a pipeline, and the entry point reads it once through `match`. `Result(tag="ok", ok=<name>)` binds the value and `Result(error=<name>)` the faults, an exhaustive pair:
 
 ```python
+EXITS: frozendict[StrEnum, int] = frozendict({
+    Reason.ABSENT: os.EX_DATAERR,
+    Reason.INVALID: os.EX_DATAERR,
+    Reason.OUTSIDE: os.EX_DATAERR,
+    Reason.UNREADABLE: os.EX_NOINPUT,
+    Reason.UNWRITABLE: os.EX_CANTCREAT,
+    Reason.EXPIRED: os.EX_TEMPFAIL,
+    Reason.FAILED: os.EX_UNAVAILABLE,
+})
+
+
 def exited(outcome: Outcome[int], /) -> int:
     match outcome:
         case Result(tag="ok", ok=code):
             return code
         case Result(error=faults):
             sys.stderr.writelines(f"{fault.message}\n" for fault in faults)
-            return 1
+            return EXITS[faults[0].reason]
 ```
+
+`EXITS` maps every reason the command's packages raise to its `sysexits` status, the first fault exits with its reason's status, and a reason with no row raises `KeyError` as a defect.
 
 ## [05]-[BOUNDARIES]
 

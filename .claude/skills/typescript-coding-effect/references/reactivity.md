@@ -32,7 +32,7 @@ class NotesClient extends AtomRpc.Service<NotesClient>()('@app/notes/NotesClient
 }) {}
 ```
 
-`Note` is a struct schema and `StoreError` the package error. `NotesClient.query('list', undefined, { reactivityKeys: ['notes'] })` and `NotesClient.mutation('save')` return atoms memoized per argument, and a save written with `reactivityKeys: ['notes']` reruns the list on success:
+`Note` is a struct schema that keys reads and writes through `Hash.hash`, and `StoreError` the package error. `NotesClient.query('list', undefined, { reactivityKeys: [Note] })` and `NotesClient.mutation('save')` return atoms memoized per argument, and a save written with the same `reactivityKeys` reruns the list on success:
 - `AtomHttpApi.Service<Self>()(id, { api, httpClient })` exposes `query(group, endpoint, { reactivityKeys })` and `mutation(group, endpoint)` over an `HttpApi`
 - `{ notes: [id] }` keys invalidate both `notes` and `notes:<id>`
 - `Atom.runtime(layer)` returns a runtime with `atom`, `fn`, `pull`, and `subscriptionRef` reading the layer's services

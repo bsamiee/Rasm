@@ -28,14 +28,14 @@ type Link = Data.TaggedEnum<{
 const Link = Data.taggedEnum<Link>();
 
 const dropped =
-    (now: DateTime.Utc, base = Duration.seconds(1)) =>
+    (base: Duration.Duration, factor: number, now: DateTime.Utc) =>
     (link: Link) => {
         const drops = Link.$match(link, { Up: () => 0, Down: ({ attempt }) => attempt });
-        return Link.Down({ attempt: drops + 1, retry: DateTime.addDuration(now, Duration.times(base, 2 ** drops)) });
+        return Link.Down({ attempt: drops + 1, retry: DateTime.addDuration(now, Duration.times(base, factor ** drops)) });
     };
 ```
 
-Each drop doubles the wait from `base`:
+Each drop multiplies the wait from `base` by `factor`:
 - Steps deciding a value beside the next state return `[value, next]` to `Ref.modify`, `Effect.flatten` running an effect value after the update
 - Loading states are `AsyncResult` from `effect/reactivity`, with a `waiting` flag on every case
 

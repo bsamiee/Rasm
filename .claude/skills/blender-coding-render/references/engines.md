@@ -16,7 +16,7 @@ Final renders construct the class twice per frame and keep one instance across t
 Stock property panels poll `context.engine in cls.COMPAT_ENGINES`, and engines show a stock engine's panels by joining their sets in `register` and leaving them with `apply=set.discard` in `unregister`:
 
 ```python
-def joined(engine: str, /, *, like: str = "BLENDER_EEVEE", apply: Callable[[set[str], str], None] = set.add) -> None:
+def joined(engine: str, /, *, like: str, apply: Callable[[set[str], str], None] = set.add) -> None:
     for panel in bpy.types.Panel.__subclasses__():
         if isinstance(engines := getattr(panel, "COMPAT_ENGINES", None), set) and like in engines:
             apply(engines, engine)

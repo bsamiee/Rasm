@@ -368,7 +368,7 @@ class LightEnergy(bpy.types.GizmoGroup):
         preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         ui = preferences.themes[0].user_interface
         arrow = self.gizmos.new("GIZMO_GT_arrow_3d")
-        arrow.color, arrow.color_highlight, arrow.alpha, arrow.alpha_highlight = ui.gizmo_primary, ui.gizmo_hi, 0.6, 1.0
+        arrow.color, arrow.color_highlight = ui.gizmo_primary, ui.gizmo_hi
         arrow.use_draw_value = True
 
     @override
