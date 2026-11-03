@@ -1,14 +1,16 @@
-#![feature(default_field_values)]
+#![feature(default_field_values, map_try_insert)]
 
 use core::num::NonZero;
 use std::{
-    collections::{BTreeMap, HashMap, hash_map::Entry},
+    collections::{BTreeMap, hash_map::OccupiedError},
+    iter,
     sync::Arc,
 };
 
 use enum_map::{EnumMap, enum_map};
 use imagesize::{ImageError, ImageSize, blob_size};
 use indexmap::IndexMap;
+use itertools::Itertools as _;
 use kurbo::{Affine, Point, Rect, Shape, Size};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
 use rasm_annotation::{AnnotationError, Style, text::Typesetter};
@@ -16,7 +18,10 @@ use rasm_linework::{
     Content, Element, LineworkError, Opacity, Placement, ToleranceError, Visibility,
     pages::{self, Destination, Link, Page},
 };
-use uom::si::{f64::LinearNumberDensity, linear_number_density::per_millimeter};
+use uom::{
+    fmt::DisplayStyle::Abbreviation,
+    si::{f64::LinearNumberDensity, linear_number_density::per_millimeter},
+};
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -57,19 +62,22 @@ impl Set {
             .iter()
             .enumerate()
             .flat_map(|(index, (key, sheet))| sheet.viewports.iter().enumerate().map(move |(position, (name, viewport))| (index, key, position, name, viewport)))
-            .map(|(index, key, position, name, viewport)| match targets.entry(Arc::clone(name)) {
-                Entry::Vacant(vacant) => {
-                    vacant.insert((
-                        enum_map! {
-                            references::Mention::Number => Arc::from(position.strict_add(1).to_string()),
-                            references::Mention::Sheet => Arc::clone(key),
-                        },
-                        Destination::Page { index, area: viewport.boundary.as_ref().map(Shape::bounding_box) },
-                    ));
-                    Ok(())
-                }
-                Entry::Occupied(held) => Err(SheetsError::Duplicate { name: Arc::clone(name), sheets: [Arc::clone(&held.get().0[references::Mention::Sheet]), Arc::clone(key)] }),
+            .filter_map(|(index, key, position, name, viewport)| {
+                targets
+                    .try_insert(
+                        Arc::clone(name),
+                        (
+                            enum_map! {
+                                references::Mention::Number => Arc::from(position.strict_add(1).to_string()),
+                                references::Mention::Sheet => Arc::clone(key),
+                            },
+                            Destination::Page { index, area: viewport.boundary.as_ref().map(Shape::bounding_box) },
+                        ),
+                    )
+                    .err()
+                    .map(|OccupiedError { entry, key: name, value: _ }| SheetsError::Duplicate { name, sheets: [Arc::clone(&entry.get().0[references::Mention::Sheet]), Arc::clone(key)] })
             })
+            .map(Err::<(), _>)
             .collect::<Validated<(), _>>();
         let containers = sheets
             .iter()
@@ -77,11 +85,9 @@ impl Set {
                 within(
                     Lookup::Sheet,
                     key,
-                    layers::unresolved(&layers, &targets, &sheet.layers)
-                        .map2(
-                            sheet.viewports.iter().map(|(name, viewport)| within(Lookup::Viewport, name, layers::unresolved(&layers, &targets, &viewport.layers).ok())).collect::<Validated<(), _>>(),
-                            |(), ()| (),
-                        )
+                    iter::once(layers::unresolved(&layers, &targets, &sheet.layers))
+                        .chain(sheet.viewports.iter().map(|(name, viewport)| within(Lookup::Viewport, name, layers::unresolved(&layers, &targets, &viewport.layers).ok())))
+                        .collect::<Validated<(), _>>()
                         .ok(),
                 )
             })
@@ -110,7 +116,7 @@ pub enum SheetsError {
     Image(#[from] ImageError),
     #[error("raster of {width} by {height} pixels spans no placeable extent")]
     Raster { width: usize, height: usize },
-    #[error("scan density {0:?} is not positive")]
+    #[error("scan density {} is not a positive normal value", .0.into_format_args(per_millimeter, Abbreviation))]
     Density(LinearNumberDensity),
     #[error("no {lookup} named {name}")]
     Unresolved { lookup: Lookup, name: Arc<str> },
@@ -150,16 +156,20 @@ pub fn compose(typesetter: &mut Typesetter, set: Set) -> Result<Vec<Page>, NEVec
             let viewed = placed.into_iter().map(|(name, viewport)| within(Lookup::Viewport, &name, viewports::drawn(typesetter, &style, &table, &targets, viewport))).collect::<Validated<Vec<_>, _>>();
             let page = paper.map2(viewed, |(linework, annotation, derived), views| {
                 let (flat, framed, linked) = views.into_iter().collect::<(Vec<_>, Vec<_>, Vec<_>)>();
-                let mut merged = framed.into_iter().flatten().chain(linework).chain(annotation).fold(HashMap::<Arc<str>, Vec<Element>>::new(), |mut merged, pages::Layer { name, print: _, view: _, elements }| {
-                    merged.entry(name).or_default().extend(elements);
-                    merged
-                });
+                let mut merged = framed.into_iter().flatten().chain(linework).chain(annotation).map(|pages::Layer { name, print: _, view: _, elements }| (name, elements)).into_group_map();
                 Page {
                     size,
                     viewports: flat,
                     layers: table
                         .iter()
-                        .filter_map(|(name, states)| merged.remove(name).map(|elements| pages::Layer { name: Arc::clone(name), print: states[layers::Usage::Print], view: states[layers::Usage::View], elements }))
+                        .filter_map(|(name, states)| {
+                            merged.remove(name).map(|groups| pages::Layer {
+                                name: Arc::clone(name),
+                                print: states[layers::Usage::Print],
+                                view: states[layers::Usage::View],
+                                elements: groups.into_iter().flatten().collect(),
+                            })
+                        })
                         .collect(),
                     links: links.into_iter().chain(linked.into_iter().flatten()).chain(derived).collect(),
                     fields,
@@ -171,11 +181,8 @@ pub fn compose(typesetter: &mut Typesetter, set: Set) -> Result<Vec<Page>, NEVec
         .ok()
 }
 
-pub(crate) fn within<T>(lookup: Lookup, name: &Arc<str>, result: Result<T, NEVec<SheetsError>>) -> Validated<T, SheetsError> {
-    result.map_or_else(
-        |errors| Validated::Fail(errors.into_nonempty_iter().map(|source| SheetsError::Within { lookup, name: Arc::clone(name), source: Box::new(source) }).collect()),
-        Validated::Good,
-    )
+fn within<T>(lookup: Lookup, name: &Arc<str>, result: Result<T, NEVec<SheetsError>>) -> Validated<T, SheetsError> {
+    result.map_or_else(|errors| Validated::Fail(errors.into_nonempty_iter().map(|source| SheetsError::Within { lookup, name: Arc::clone(name), source: Box::new(source) }).collect()), Validated::Good)
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -111,9 +111,9 @@ jsonschema = { version = "0.60.2", default-features = false, features = ["resolv
 schemars   = { version = "1.2.3", features = ["jiff02", "uuid1", "indexmap2", "url2", "semver1", "bytes1", "preserve_order"] } # JSON Schema derived from record types in field declaration order
 
 # --- [NEWTYPES]
-bounded-integer = { version = "0.6.2", features = ["std", "serde1", "schemars1"] } # Ranged integers with bounds that reach derived schema
-nutype          = { version = "0.8.0", features = ["serde", "regex"] }             # Validated newtypes with generated error enum per type
-ordered-float   = { version = "5.5.1", features = ["serde"] }                      # NaN-free floats usable as ordered keys
+bounded-integer = { version = "0.6.2", features = ["std", "serde1", "schemars1"] }     # Ranged integers with bounds that reach derived schema
+nutype          = { version = "0.8.0", features = ["serde", "regex", "rust_decimal"] } # Validated newtypes with generated error enum per type
+ordered-float   = { version = "5.5.1", features = ["serde"] }                          # NaN-free floats usable as ordered keys
 
 # --- [TIME]
 croner = { version = "4.0.2", default-features = false, features = ["jiff"] } # Cron expressions evaluated against passed-in instants, default `chrono` adds chrono beside jiff
@@ -637,7 +637,7 @@ rasm-linework   = { path = "libs/rust/drawing/linework", version = "1.0.0" }   #
 rasm-views      = { path = "libs/rust/drawing/views", version = "1.0.0" }      # Hidden-line views every Rasm drawing set composes: parallel frames with an oblique receding vector and perspective frames with a lens shift, crease, silhouette, boundary and cut edges classified visible or hidden, near-plane section regions, visible faces and sun shadows, strokes under per-class pens
 rasm-annotation = { path = "libs/rust/drawing/annotation", version = "1.0.0" } # Annotation every Rasm drawing set composes: text set from caller fonts into glyph runs and outlines, length and angle notation, dimensions, leaders, revision clouds, breaklines, arrows and scale bars, SVG symbols with text slots, legends and schedule tables, each with its text mask
 rasm-sheets     = { path = "libs/rust/drawing/sheets", version = "1.0.0" }     # Drawing sets every Rasm document export composes: sheets in set order with scaled and cropped viewports, one layer table stating print and view states and draw order, model and paper annotation trimming its container's linework under its text, cross-references resolved into callout slots and page links, rasters fitted from their header size
-rasm-pdf       = { path = "libs/rust/documents/pdf", version = "1.0.0" }      # PDF documents every Rasm app opens, authors, edits, reads and proofs: drawing sets from linework pages with layers, measure viewports, outlines, tags and PDF/A, UA and X standards, page fields, assembly, forms, redaction, revision overlays, PAdES signing, page walks, OCR, validation and tiled soft proofs
+rasm-pdf        = { path = "libs/rust/documents/pdf", version = "1.0.0" }      # PDF documents every Rasm app opens, authors, edits, reads and proofs: drawing sets from linework pages with layers, measure viewports, outlines, tags and PDF/A, UA and X standards, page fields, assembly, forms, redaction, revision overlays, PAdES signing, page walks, OCR, validation and tiled soft proofs
 rasm-site       = { path = "libs/rust/geospatial/site", version = "1.0.0" }    # Where a site is and how its coordinates convert: latitude, longitude and elevation, time zones, parcel boundaries, CRS transformations, grid convergence and scale, site frames anchored to a grid
 rasm-solar      = { path = "libs/rust/geospatial/solar", version = "1.0.0" }   # Sun every Rasm site consumer composes: SPA positions under the site's standard-atmosphere refraction beside their prepared Earth-Sun distance and declination and sky directions at an instant, rises, transits and sets over an interval, the windows above an apparent elevation and the lit sun path, Tregenza and Reinhart sky patches after the ground patch and the patch a direction falls in, incidence, sun hours and sky view through opaque and translucent obstacles, solar rights and collection envelopes
 rasm-dependency = { path = "libs/rust/graphs/dependency", version = "1.0.0" }  # Acyclic evaluation graph every Rasm consumer of a dependency order composes: batch connections, keyed order and layers, demand-limited propagation with failure blocking, transitive reduction, condensation, simple cycles, cost-ordered tearing into blocks, constrained critical path schedules
@@ -809,6 +809,12 @@ debug = "line-tables-only" # Backtraces show file and line with no variable or p
 
 [profile.dev.package."*"]
 debug = false # Non-member backtrace frames lack file and line
+
+[profile.clippy]
+inherits = "dev" # Clippy runs beside other Cargo commands, Cargo locks a build-dir profile folder for a whole run and its wrapper splits member units anyway
+
+[profile.dylint]
+inherits = "dev" # Dylint runs beside other Cargo commands, Cargo locks a build-dir profile folder for a whole run and its driver splits member units anyway
 
 [profile.dist]
 inherits        = "release" # `cargo dylint` builds lint libraries under unwinding `release`

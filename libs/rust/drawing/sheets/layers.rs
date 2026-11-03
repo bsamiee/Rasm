@@ -2,10 +2,10 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use enum_map::EnumMap;
 use indexmap::IndexMap;
-use kurbo::Shape;
+use kurbo::Affine;
 use linesweeper::BinaryOp;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use rasm_annotation::{Annotation, Drawing, Graphics, Style, draw, text::Typesetter};
+use rasm_annotation::{Annotation, Drawing, Graphics, Style, bounds, draw, text::Typesetter};
 use rasm_linework::{
     Element, Placement, Region, Side, Tolerance, Visibility, cleanup,
     pages::{self, Link},
@@ -39,10 +39,7 @@ pub(crate) fn unresolved(table: &IndexMap<Arc<str>, EnumMap<Usage, Visibility>>,
         .iter()
         .flat_map(|(name, Layer { elements: _, annotations: _, references })| {
             (!table.contains_key(name)).then(|| SheetsError::Unresolved { lookup: Lookup::Layer, name: Arc::clone(name) }).into_iter().chain(
-                references
-                    .iter()
-                    .filter(|reference| !targets.contains_key(&reference.view))
-                    .map(|reference| SheetsError::Unresolved { lookup: Lookup::Viewport, name: Arc::clone(&reference.view) }),
+                references.iter().filter(|reference| !targets.contains_key(&reference.view)).map(|reference| SheetsError::Unresolved { lookup: Lookup::Viewport, name: Arc::clone(&reference.view) }),
             )
         })
         .map(Err::<(), _>)
@@ -77,7 +74,7 @@ pub(crate) fn drawn(
                     .iter()
                     .skip(annotations.len())
                     .zip(destinations)
-                    .filter_map(|(Graphics { elements: _, masks }, destination)| masks.iter().map(Shape::bounding_box).reduce(|area, next| area.union(next)).map(|area| Link { area, destination }))
+                    .map(|(graphics, destination)| Link { area: bounds(graphics, Affine::IDENTITY), destination })
                     .collect::<Vec<_>>();
                 (name, states, elements, graphics.into_iter().flat_map(|Graphics { elements, masks: _ }| elements).collect::<Vec<_>>(), links, mask)
             })

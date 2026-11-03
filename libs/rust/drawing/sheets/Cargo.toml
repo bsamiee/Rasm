@@ -29,6 +29,7 @@ validated            = { workspace = true }
 derive_more          = { workspace = true }
 enum-map             = { workspace = true }
 indexmap             = { workspace = true }
+itertools            = { workspace = true }
 uom                  = { workspace = true }
 imagesize            = { workspace = true }
 kurbo                = { workspace = true }

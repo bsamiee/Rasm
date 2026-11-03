@@ -36,7 +36,7 @@ allowed-duplicate-crates = [
     "r-efi",                 # 5 under `getrandom` 0.3 beside 6 under `getrandom` 0.4
     "matchit",               # 0.8.4 pinned exactly by newest `axum` 0.8.9 beside 0.9 for resource URI routes
     "bitflags",              # 1 under newest `defmt` 1.2.0 through the weak `defmt?/alloc` of `jiff` 0.2.39 and `jiff-core` 0.1.2 (rust-clippy#16440), beside 2 under `nix`, `rustix`, `tower-http`, `meshopt`, and `parry3d-f64`
-    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.9, `opentelemetry-proto` 0.33.1, `typst-svg` 0.15.1, `krilla` 0.8.2, `usvg` 0.47.0, and `hayro-svg` 0.7.0 and 0.8.0 beside 0.23 under newest `hyper-util` 0.1.21, `reqwest`, `rmcp`, `merman-render` 0.10.0-alpha.1, and `pdf_oxide` 0.3.78
+    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.9, `opentelemetry-proto` 0.33.1, `typst-svg` 0.15.1, `krilla` 0.8.2, `usvg` 0.47.0, and `hayro-svg` 0.7.0 and 0.9.0 beside 0.23 under newest `hyper-util` 0.1.21, `reqwest`, `rmcp`, `merman-render` 0.10.0-alpha.1, and `pdf_oxide` 0.3.78
     "core-foundation",       # 0.9 under `system-configuration` 0.7, which newest `hyper-util` 0.1.21 pins, beside 0.10 under `security-framework` and `rustls-platform-verifier`
     "cpufeatures",           # 0.2 under newest `const-hex` 1.19.3 that `opentelemetry-proto` serde reads beside 0.3 under `chacha20` for `rand` 0.10
     "glam",                  # 0.30, 0.31, and 0.32 under newest `nalgebra` 0.35.0 through the weak `glam03x?/std` of its `std` feature (rust-clippy#16440), beside 0.33 under `glamx` and nalgebra `convert-glam033`
@@ -57,7 +57,7 @@ allowed-duplicate-crates = [
     "num-bigint",            # 0.5 under `arrow-buffer` 59.3.2, the release `datafusion` 55 and `deltalake` 1.1 link, beside 0.4 under `num-rational` of `nalgebra` 0.35 and `fraction` of `jsonschema` 0.60
     "zstd",                  # 0.13 under `arrow-ipc` and `parquet` 59.3.2, the `zstd` feature of `tiff` 0.11.3, and the default `zstd` of `zip` 8 that newest `fmi` 0.8.0 takes, beside 0.14 under `compression-codecs` of `async-compression`, which `tower-http` under `reqwest` 0.13 takes
     "zstd-safe",             # 7 under `zstd` 0.13 beside 8 under `zstd` 0.14 and `compression-codecs` of `async-compression`
-    "brotli",                # 8 under the `brotli` codec of `parquet` 59.3.2, which `datafusion` 55 and `deltalake` 1.1 take with its defaults, and under `hayro-cmap` of `hayro-interpret` 0.7 and 0.8, beside 9 under `compression-codecs` of `async-compression` under `reqwest` 0.13 and under `pdf_oxide` 0.3.78
+    "brotli",                # 8 under the `brotli` codec of `parquet` 59.3.2, which `datafusion` 55 and `deltalake` 1.1 take with its defaults, and under `hayro-cmap` of `hayro-interpret` 0.7 and 0.9, beside 9 under `compression-codecs` of `async-compression` under `reqwest` 0.13 and under `pdf_oxide` 0.3.78
     "brotli-decompressor",   # 5 under `brotli` 8 and `lopdf` 0.46.0 beside 6 under `brotli` 9
     "alloc-stdlib",          # 0.2 under `brotli` 8 beside 0.3 under `brotli` 9
     "alloc-no-stdlib",       # 2 under `alloc-stdlib` 0.2 beside 3 under `alloc-stdlib` 0.3
@@ -74,18 +74,21 @@ allowed-duplicate-crates = [
     "unicode-width",         # 0.1 under `codespan-reporting` 0.11 of typst-kit `emit-diagnostics` beside 0.2 under `annotate-snippets`, `ratatui-core`, `merman-core`, and `merman-render`
     "miniz_oxide",           # 0.8 under `png` 0.18, which `typst-library`, `krilla`, and `tiny-skia` take, and under `exr` 1.74, which the `rayon` feature of `image` 0.25.10 takes through the weak `exr?/rayon` (rust-clippy#16440), beside 0.9 under `flate2`
     "rand_chacha",           # 0.3 under `lipsum` 0.9 of `typst-library` and under `rand` 0.8 beside 0.9 under `rand` 0.9 and `rav1e` 0.8
-    "phf",                   # 0.13 under `typst-library` and `hayro-interpret` 0.7 and 0.8 beside 0.14 under the default `fast_match_color` of `cssparser` 0.38 that `merman-core` and `merman-render` take and under `pdf_oxide` 0.3.78
+    "phf",                   # 0.13 under `typst-library`, `htmlize` 1.1.0, `hayro-interpret` 0.7, and `hayro-font` 0.5 beside 0.14 under the default `fast_match_color` of `cssparser` 0.38 that `merman-core` and `merman-render` take and under `pdf_oxide` 0.3.78
     "phf_shared",            # 0.13 under `phf` 0.13 beside 0.14 under `phf` 0.14
     "phf_generator",         # 0.13 under `phf_macros` 0.13 beside 0.14 under `phf_macros` 0.14
     "phf_macros",            # 0.13 under `phf` 0.13 `macros` beside 0.14 under `phf` 0.14 `macros`
     "quick-xml",             # 0.38 under `citationberg` 0.7 of `hayagriva` beside 0.42 under `merman-render`
     "roxmltree",             # 0.20 under `fontconfig-parser` of the fontdb `fontconfig` krilla-svg turns on, on Linux and BSD, beside 0.21 under `usvg`, `typst-library`, and `merman-render`
-    "font-types",            # 0.11 under `read-fonts` 0.39 of `skrifa` 0.42, which `krilla` 0.8.2, `krilla-svg`, `subsetter`, `hayro-interpret` 0.7, and `glifo` 0.1 take, and under `write-fonts` 0.48 of `subsetter`, beside 0.12 under `read-fonts` 0.41 of `skrifa` 0.44, which `parley_engine` and `glifo` 0.4 take, 0.43 of `skrifa` 0.46, which `hayro-interpret` 0.8 takes, and 0.46 of `skrifa` 0.49, which `rasm-annotation` takes
-    "fearless_simd",         # 0.4 under `hayro-jpeg2000` 0.3 and `vello_common` 0.0.8 and 0.0.9, 0.7 under `vello_common` 0.3, beside 1 under `hayro` 0.8, `hayro-jbig2` 0.3, and `hayro-jpeg2000` 0.4
-    "hayro-syntax",          # 0.7 under `hayro-write` 0.7 of `krilla` 0.8.2, `hayro-interpret` 0.7, and `typst-library` 0.15.1 beside 0.8 under `hayro-interpret` 0.8 and `rasm-pdf`
-    "hayro-ccitt",           # 0.3 under `hayro-syntax` 0.7 beside 0.4 under `hayro-jbig2` 0.3 and `hayro-syntax` 0.8
-    "hayro-jpeg2000",        # 0.3 under `hayro-syntax` 0.7 of `typst-library` 0.15.1 and `krilla` 0.8.2 beside 0.4 under `grib` 0.20.2, `hayro-syntax` 0.8, and the `pdf_oxide` 0.3.78 `jpeg2000` feature
-    "moxcms",                # 0.8 under `image` 0.25.10, `hayro-interpret` 0.7 and 0.8, and `typst-library` 0.15.1 beside 0.9, the catalog row, under `rasm-pdf`
+    "font-types",            # 0.11 under `read-fonts` 0.39 of `skrifa` 0.42, which `krilla` 0.8.2, `krilla-svg`, `subsetter`, `hayro-interpret` 0.7, and `glifo` 0.1 take, and under `write-fonts` 0.48 of `subsetter`, beside 0.12 under `read-fonts` 0.41 of `skrifa` 0.44, which `parley_engine` and `glifo` 0.4 take, and 0.46 of `skrifa` 0.49, which `hayro-font` 0.5 and `rasm-annotation` take
+    "read-fonts",            # 0.39 under `skrifa` 0.42 and `write-fonts` 0.48 and 0.41 under `fontique` 0.12, `harfrust` 0.12, and `skrifa` 0.44 beside 0.46 under `skrifa` 0.49
+    "skrifa",                # 0.42 under `krilla` 0.8.2, `krilla-svg` 0.8.1, `subsetter` 0.2.6, and `hayro-interpret` 0.7 and 0.44 under `parley_engine` 0.12 beside 0.49 under `hayro-font` 0.5 and `rasm-annotation`
+    "fearless_simd",         # 0.4 under `hayro-jpeg2000` 0.3 and `vello_common` 0.0.8 and 0.0.9, 0.7 under `vello_common` 0.3, beside 1 under `hayro` 0.9, `hayro-jbig2` 0.3 and 0.4, and `hayro-jpeg2000` 0.4 and 0.5
+    "hayro-syntax",          # 0.7 under `hayro-write` 0.7 of `krilla` 0.8.2, `hayro-interpret` 0.7, and `typst-library` 0.15.1 beside 0.9 under `hayro-font` 0.5, `hayro-interpret` 0.9, and `rasm-pdf`
+    "hayro-ccitt",           # 0.3 under `hayro-syntax` 0.7 and 0.4 under `hayro-jbig2` 0.3 beside 0.5 under `hayro-jbig2` 0.4 and `hayro-syntax` 0.9
+    "hayro-jbig2",           # 0.3 under `hayro-syntax` 0.7 of `typst-library` 0.15.1 and `krilla` 0.8.2 beside 0.4 under `hayro-syntax` 0.9
+    "hayro-jpeg2000",        # 0.3 under `hayro-syntax` 0.7 of `typst-library` 0.15.1 and `krilla` 0.8.2 and 0.4 under `grib` 0.20.2 and the `pdf_oxide` 0.3.78 `jpeg2000` feature beside 0.5 under `hayro-syntax` 0.9
+    "moxcms",                # 0.8 under `image` 0.25.10, `hayro-interpret` 0.7 and 0.9, and `typst-library` 0.15.1 beside 0.9, the catalog row, under `rasm-pdf`
     "imagesize",             # 0.14 under `krilla` 0.8.2 and `usvg` 0.47.0 beside 0.15, the catalog row, under `rasm-sheets`
     "approx",                # 0.3 under `alga` 0.9.3, the default of `sprs` 0.11.6 under newest `csaps` 0.5.0, beside 0.5 under `nalgebra`, `simba`, `num-dual`, `statrs`, `parry3d-f64`, `geo-types`, `glam`, `glamx` and `palette`
     "num-complex",           # 0.2 under `alga` 0.9.3 of the `sprs` under newest `csaps` 0.5.0 beside 0.4 under `faer`, `nalgebra`, `ndarray`, `sprs`, `rasm-spectra` and `rasm-analysis`
