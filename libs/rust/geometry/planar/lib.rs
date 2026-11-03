@@ -14,7 +14,7 @@ use cavalier_contours::{
 use geo_types::{LineString, MultiPolygon, Polygon};
 use itertools::{Either, Itertools as _};
 use nalgebra::{Point2, Reflection2, Similarity2};
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use spade::InsertionError;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ fn checked<const CLOSURE: Closure>(vertices: impl Iterator<Item = PlineVertex<f6
             },
             &PlineSelfIntersectOptions { aabb_index: Some(&outline.spatial_index), pos_equal_eps: tolerance.into_inner(), include: SelfIntersectsInclude::All },
         );
-        NEVec::try_from_vec(points.into_iter().map(|point| Point2::new(point.x, point.y)).collect())
+        points.into_iter().map(|point| Point2::new(point.x, point.y)).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>)
     };
     match CLOSURE {
         Closure::Closed if collapsed(&outline.polyline, tolerance) => Err(Defect::Collapsed),
@@ -399,7 +399,7 @@ where
         .chain(overlapping.into_iter().flatten().map(|index| (index, Defect::Overlapping)))
         .unique_by(|(index, _)| *index)
         .filter_map(|(index, defect)| subjects.get(index).map(|(subject, _)| (*subject, defect)));
-    NEVec::try_from_vec(iter::chain(refused, defects).sorted_by_key(|(subject, _)| *subject).dedup().collect()).map_or(Ok(Region(shape)), Err)
+    iter::chain(refused, defects).sorted_by_key(|(subject, _)| *subject).dedup().try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map_or(Ok(Region(shape)), Err)
 }
 
 fn oriented<B, H>(bodies: B, holes: H) -> Shape<f64>

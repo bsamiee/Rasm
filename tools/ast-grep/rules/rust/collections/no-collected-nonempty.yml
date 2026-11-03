@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-collected-nonempty
+language: rust
+severity: error
+utils:
+    collected:
+        kind: call_expression
+        all:
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+            - has:
+                field: function
+                any:
+                    - {kind: field_expression, all: [{has: {field: field, regex: '^collect$'}}, {has: {field: value, pattern: $ITEMS}}]}
+                    - {kind: generic_function, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^collect$'}}, {has: {field: value, pattern: $ITEMS}}]}}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: scoped_identifier, regex: '^((nonempty_collections::)?(vector::)?NEVec|(nonempty_collections::)?(vector::)?NonEmpty)::try_from_vec$'}
+        - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected}}, {not: {has: {nthChild: 2}}}]}
+message: '`$ITEMS` collects into a `Vec` only for `try_from_vec` to test it for an item'
+note: 'Call `$ITEMS.try_into_nonempty_iter()` (`nonempty_collections::IntoIteratorExt`) and collect each `NonEmptyIterator` through `.map(NonEmptyIterator::collect::<NEVec<_>>)`, so the test peeks the first item and no `Vec` is built'

@@ -9,7 +9,7 @@ use futures::{FutureExt as _, StreamExt as _, future};
 use http::uri::Authority;
 use itertools::Itertools as _;
 use jiff::fmt::friendly::{SpanParser, SpanPrinter};
-use nonempty_collections::{NEVec, NonEmptyIterator as _};
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use opentelemetry_semantic_conventions::attribute::{EXCEPTION_MESSAGE, SERVER_ADDRESS, SERVER_PORT};
 use rasm_command::{Augmented, CommandError, Process};
 use rasm_telemetry::{Defaults, Failure, Handle, Layer};
@@ -132,7 +132,7 @@ where
     rasm_command::run(defaults, io::stderr, layer, async |Process { args: Augmented { options: Options { listen, grace }, args }, styles: _, mut signals, filter, level: _ }| {
         let failed = |operation: Operation, address: SocketAddr| move |source: io::Error| DaemonError::<D::Error>::Io { operation, address, source };
         let resolved = future::join_all(listen.into_iter().map(async |authority| {
-            let found = net::lookup_host(authority.as_str()).await.map_err(Some).and_then(|found| NEVec::try_from_vec(found.collect()).ok_or(None));
+            let found = net::lookup_host(authority.as_str()).await.map_err(Some).and_then(|found| found.try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).ok_or(None));
             found.map_err(|source| DaemonError::<D::Error>::Resolve { authority: authority.clone(), source }).map(|found| (authority, found))
         }))
         .await

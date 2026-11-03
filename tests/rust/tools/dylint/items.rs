@@ -427,6 +427,19 @@ fn single_reader(found: &str) {
         |                                          ^^^^^^^^
         = help: move `repeated` into `tripled` as a nested `fn`
 
+    warning: `spanned` has one reader, `compared`
+       --> tools/dylint/examples/single_reader.rs:238:1
+        |
+    238 | fn spanned(left: &Window, right: &Window) -> usize { left.width.abs_diff(right.width) }
+        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+    note: read here
+       --> tools/dylint/examples/single_reader.rs:240:38
+        |
+    240 | fn compared(width: usize) -> usize { spanned(&Window { width }, &Window { width: 1 }) }
+        |                                      ^^^^^^^
+        = help: move `spanned` into `compared` as a closure
+
     warning: `halved` has one reader, `narrowed`
        --> tools/dylint/examples/single_reader.rs:166:1
         |
@@ -434,9 +447,9 @@ fn single_reader(found: &str) {
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/single_reader.rs:242:42
+       --> tools/dylint/examples/single_reader.rs:246:42
         |
-    242 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
+    246 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
         |                                          ^^^^^^
         = help: move `halved` into `narrowed` as a closure
     "#);

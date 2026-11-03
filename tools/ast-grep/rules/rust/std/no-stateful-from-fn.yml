@@ -21,7 +21,6 @@ rule:
             field: arguments
             has:
                 kind: closure_expression
-                regex: '^move\b'
                 has:
                     field: body
                     has:

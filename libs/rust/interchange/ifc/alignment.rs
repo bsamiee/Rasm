@@ -3,7 +3,7 @@ use core::num::NonZero;
 use gauss_quad::GaussLegendre;
 use itertools::Itertools as _;
 use nalgebra::{Isometry3, Point2, Point3, Translation3, UnitQuaternion, Vector2};
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use parry3d_f64::{math::Vector, shape::Polyline};
 use serde::{Deserialize, Serialize};
 use uom::si::{f64::Length, length::meter};
@@ -95,7 +95,9 @@ impl Alignment {
                 })
                 .collect()
         }
-        fn ordered<U>(segments: Vec<Segment<U>>) -> Option<NEVec<Segment<U>>> { NEVec::try_from_vec(segments.into_iter().sorted_by(|left, right| left.distance.total_cmp(&right.distance)).collect()) }
+        fn ordered<U>(segments: Vec<Segment<U>>) -> Option<NEVec<Segment<U>>> {
+            segments.into_iter().sorted_by(|left, right| left.distance.total_cmp(&right.distance)).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>)
+        }
         let rate = |change: f64, length: f64| if length > 0.0 { change / length } else { 0.0 };
         let curvature = |radius: f64| if radius == 0.0 { 0.0 } else { radius.recip() };
         let alignment = model.get(path).map_err(NEVec::new)?;

@@ -7,7 +7,7 @@ use itertools::Itertools as _;
 use jiff::{SignedDuration, Span, Timestamp, civil, tz::TimeZone};
 use nalgebra::Vector2;
 use ndarray_interp::BuilderError;
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use rasm_analysis::AnalysisError;
 use rasm_site::Place;
 use rasm_solar::{SolarError, Sun};
@@ -446,7 +446,7 @@ where D: si::Dimension + ?Sized {
 // --- [REFUSALS]
 fn refused<I>(refusals: I) -> Result<(), WeatherError>
 where I: IntoIterator<Item = Refusal> {
-    NEVec::try_from_vec(refusals.into_iter().collect()).map_or(Ok(()), |refusals| Err(refusals.into()))
+    refusals.try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map_or(Ok(()), |refusals| Err(refusals.into()))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

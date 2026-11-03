@@ -32,8 +32,17 @@ utils:
     trait-alias-item:
         kind: trait_item
         has: {kind: ERROR, regex: '^\w+\s*(<[^=]*>)?\s*=', follows: {regex: '^trait$'}}
+    struct-default-head:
+        kind: ERROR
+        regex: '=\s*[\w:]+\s*\{[^{}]*$'
+        inside: {kind: field_declaration}
     field-default:
         any:
+            - matches: struct-default-head
+            - kind: ERROR
+              regex: '^\}$'
+              inside: {kind: field_declaration_list}
+              follows: {kind: field_declaration, has: {matches: struct-default-head}}
             - kind: ERROR
               regex: '^='
               inside: {kind: field_declaration_list}
@@ -111,10 +120,13 @@ rule:
         - kind: ERROR
           inside: {kind: source_file, stopBy: end, not: {matches: rust-injected-source}}
           not: {matches: unreported}
+        - kind: ERROR
+          regex: '^[^(\[]'
+          not: {inside: {stopBy: end, any: [{kind: ERROR}, {kind: source_file}]}}
         - kind: source_file
           not: {matches: rust-injected-source}
           has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: 'Grammar failed to parse the span'
-note: 'Rewrite the span in a form tree-sitter-rust parses, calling a macro named for a primitive type by path (`<crate>::str![..]`) and a method call in a default field value by path (`NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 1023)` in place of `NonZero::new(1024).unwrap()`, whose recovery swallows the next field), and a method on a package constant inside a constructor call that `.ok().unwrap()` follows in `const { .. }` (`try_new(const { parlance::FontWeight::NORMAL.value() }).ok().unwrap()`)'
+note: 'Rewrite the span in a form tree-sitter-rust parses, calling a macro named for a primitive type by path (`<crate>::str![..]`) and a method call in a default field value by path (`NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 1023)` in place of `NonZero::new(1024).unwrap()`, `Option::unwrap(Result::ok(<T>::try_new(..)))` in place of `<T>::try_new(..).ok().unwrap()`, whose recovery swallows the next field), and a method on a package constant inside a constructor call that `.ok().unwrap()` follows in `const { .. }` (`try_new(const { parlance::FontWeight::NORMAL.value() }).ok().unwrap()`)'

@@ -186,7 +186,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         tcx.hir_walk_toplevel_module(&mut walk);
         let operands = |item: LocalDefId| {
             let module = tcx.parent_module_from_def_id(item);
-            signature(tcx, item.to_def_id()).inputs().iter().filter_map(|input| input.peel_refs().ty_adt_def()?.did().as_local()).filter(|&held| tcx.parent_module_from_def_id(held) == module).collect::<Vec<_>>()
+            signature(tcx, item.to_def_id()).inputs().iter().filter_map(|input| input.peel_refs().ty_adt_def()?.did().as_local()).filter(|&held| tcx.parent_module_from_def_id(held) == module).unique().collect::<Vec<_>>()
         };
         let operation = |owner: LocalDefId| tcx.def_kind(owner) == DefKind::Fn && tcx.def_kind(tcx.local_parent(owner)) == DefKind::Mod;
         let operations = tcx.hir_body_owners().filter(|&owner| operation(owner)).flat_map(&operands).counts();

@@ -11,7 +11,7 @@ use faer::{
 };
 use itertools::Itertools as _;
 use nalgebra::{DVector, Matrix3xX, Point3, Vector3};
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use rasm_optimize::OptimizeError;
 use validated::Validated;
 
@@ -89,10 +89,15 @@ impl Network {
             adjacency
         });
         let mut reached = supported.iter().map(Option::is_some).collect::<Vec<_>>();
-        iter::successors(NEVec::try_from_vec(supported.iter().enumerate().filter_map(|(node, rank)| rank.map(|_| node)).collect()), |frontier| {
-            NEVec::try_from_vec(
-                frontier.iter().filter_map(|&node| adjacency.get(node)).flatten().copied().filter(|&neighbor| reached.get_mut(neighbor).is_some_and(|mark| !mem::replace(mark, true))).collect(),
-            )
+        iter::successors(supported.iter().enumerate().filter_map(|(node, rank)| rank.map(|_| node)).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>), |frontier| {
+            frontier
+                .iter()
+                .filter_map(|&node| adjacency.get(node))
+                .flatten()
+                .copied()
+                .filter(|&neighbor| reached.get_mut(neighbor).is_some_and(|mark| !mem::replace(mark, true)))
+                .try_into_nonempty_iter()
+                .map(NonEmptyIterator::collect::<NEVec<_>>)
         })
         .for_each(drop);
         reached.iter().positions(|&mark| !mark).map(|node| Err(FormError::Floating { node })).collect::<Validated<(), _>>().ok()?;

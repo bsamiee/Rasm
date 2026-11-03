@@ -5,7 +5,7 @@ use core::range::Range;
 use itertools::Itertools as _;
 use jiff::{SignedDuration, Timestamp, tz::Offset};
 use nalgebra::{UnitQuaternion, UnitVector3, Vector3};
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use rasm_proximity::ProximityError;
 use rasm_site::Place;
 use solar_positioning::{Location, PreparedPositions, RefractionCorrection, SolarPosition, SolarPositions, delta_t, time::JulianDate};
@@ -152,7 +152,7 @@ fn finite(values: &[f64]) -> bool { values.iter().all(|value| value.is_finite())
 
 fn refused<I>(inputs: I) -> Result<(), SolarError>
 where I: IntoIterator<Item = Input> {
-    NEVec::try_from_vec(inputs.into_iter().collect()).map_or(Ok(()), |inputs| Err(inputs.into()))
+    inputs.try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map_or(Ok(()), |inputs| Err(inputs.into()))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

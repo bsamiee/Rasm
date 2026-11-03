@@ -22,7 +22,6 @@ use crate::{
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Sample = ((usize, Source), (Point3<f64>, UnitVector3<f64>));
 type Boundary<'cdt> = DirectedEdgeHandle<'cdt, Point2<f64>, Cell<bool>, CdtEdge<()>, Option<Sample>>;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -35,13 +34,20 @@ pub struct Face {
     pub region: Region,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct Sample {
+    key: (usize, Source),
+    point: Point3<f64>,
+    normal: UnitVector3<f64>,
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn faces(view: &View) -> Result<Vec<Face>, NEVec<ViewsError>> { visible(&view.frame, &view.scene, &view.lines, view.tolerance).map(|faces| faces.into_iter().map(|(face, _)| face).collect()) }
 
 pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: Tolerance) -> Result<Vec<(Face, Point3<f64>)>, NEVec<ViewsError>> {
     fn bounding(edge: Boundary<'_>) -> bool {
-        let owner = |side: Boundary<'_>| side.face().data().map(|(key, _)| key);
+        let owner = |side: Boundary<'_>| side.face().data().map(|Sample { key, point: _, normal: _ }| key);
         owner(edge) != owner(edge.rev())
     }
     fn after(edge: Boundary<'_>) -> Option<Boundary<'_>> { iter::successors(Some(edge.next()), |turn| Some(turn.rev().next())).find(|&turn| bounding(turn)).filter(|next| !next.data().replace(true)) }
@@ -102,7 +108,7 @@ pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: To
     let front = |hits: &[Hit]| {
         let nearest = hits.first()?.time_of_impact;
         let hit = hits.iter().take_while(|hit| hit.time_of_impact <= nearest + reach).min_by_key(|hit| owner(hit))?;
-        owner(hit).zip(Unit::try_new(hit.normal, 0.0)).map(|(key, normal)| (key, (hit.point, normal)))
+        owner(hit).zip(Unit::try_new(hit.normal, 0.0)).map(|(key, normal)| Sample { key, point: hit.point, normal })
     };
     for (cell, hits) in iter::zip(cells, crossed) {
         *triangulation.face_data_mut(cell) = front(&hits);
@@ -111,14 +117,14 @@ pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: To
         .directed_edges()
         .filter(|&seed| bounding(seed))
         .filter_map(|seed| seed.face().data().filter(|_| !seed.data().replace(true)).map(|sample| (seed, sample)))
-        .map(|(seed, (key, sample))| {
+        .map(|(seed, Sample { key, point, normal })| {
             let ring = iter::successors(Some(seed), |&edge| after(edge))
                 .map(|edge| {
                     let Point2 { x, y } = edge.from().position();
                     Point::new(x, y)
                 })
                 .collect::<Vec<_>>();
-            (key, (sample, BezPath::from_path_segments(ring.into_iter().circular_tuple_windows().map(|(from, to)| PathSeg::Line(Line::new(from, to))))))
+            (key, ((point, normal), BezPath::from_path_segments(ring.into_iter().circular_tuple_windows().map(|(from, to)| PathSeg::Line(Line::new(from, to))))))
         })
         .filter(|(_, (_, outline))| 2.0 * outline.area().abs() > reach * outline.perimeter(reach))
         .into_grouping_map()

@@ -212,6 +212,7 @@ fn main() -> ExitCode {
 - `Parser::try_parse` parses once, exiting `Usage` on an error or `Ok` on stdout where `use_stderr()` is false (help, version)
 - Failed parses read `--manual` through `ignore_errors(true)`, an `exclusive` flag conflicting with any set `env` variable
 - JSON lines write to `(move || OptionalWriter::from(appender.clone())).or_else(stderr)`, a daily file under a log directory or the passed writer
+- Writers a subscriber shares with other code pass as `Arc<W>` beside `impl Write for &W`, tracing-subscriber's `MakeWriter for Arc<W>` cloning nothing per write
 - Failures before the subscriber starts are crate error variants (`Appender { directory, source }`), printed through `clap::Error::raw(<kind>, ..).with_cmd(&command)`
 - `.print().map_or_else(sysexits::ExitCode::from, |()| error.into()).into()` exits with the variant's status or the print failure's
 - Startup failures report through `subscriber::with_default(<subscriber>, ..)`, a scoped `WARN` subscriber ahead of the global one with no `Dispatch` built

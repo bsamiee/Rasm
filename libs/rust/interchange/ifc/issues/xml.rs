@@ -5,7 +5,7 @@ use indexmap::{IndexMap, IndexSet};
 use itertools::{EitherOrBoth, Itertools as _};
 use jiff::{Timestamp, fmt::temporal::Pieces, tz::Offset};
 use newtype_uuid::{GenericUuid as _, TypedUuid, TypedUuidKind};
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use typed_path::Utf8UnixPath;
 use uuid::Uuid;
 use validated::Validated;
@@ -425,7 +425,13 @@ where
     K: TypedUuidKind,
     TypedUuid<K>: Into<Guid>,
 {
-    NEVec::try_from_vec(entries.iter().map(|&(key, _)| key).duplicates().map(|key| IfcError::Duplicate { entry: entry.into(), guid: key.into() }).collect())
+    entries
+        .iter()
+        .map(|&(key, _)| key)
+        .duplicates()
+        .map(|key| IfcError::Duplicate { entry: entry.into(), guid: key.into() })
+        .try_into_nonempty_iter()
+        .map(NonEmptyIterator::collect::<NEVec<_>>)
         .map_or_else(|| Validated::Good(entries.into_iter().collect()), Validated::Fail)
 }
 

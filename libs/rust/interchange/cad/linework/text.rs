@@ -9,6 +9,7 @@ use acadrust::{
     tables::{Table, TextStyle},
     types::{Color, Matrix3, Vector3},
 };
+use itertools::Itertools as _;
 use kurbo::{Affine, Point, Rect, Shape as _, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::NEVec;
@@ -19,9 +20,12 @@ use validated::Validated;
 use super::curves::ocs;
 use crate::{CadError, Refusal, Subject};
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-type Lettering = (rasm_linework::Text, Option<(Region, Color)>);
+pub(super) struct Lettering {
+    pub(super) text: rasm_linework::Text,
+    pub(super) background: Option<(Region, Color)>,
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -193,29 +197,27 @@ pub(super) fn lifted(
                 Validated::from(Placement::try_new(plane * Affine::scale_non_uniform(widening, 1.0) * shift * Affine::FLIP_Y).map_err(misshapen)),
                 Validated::from(Some(mtext.rectangle_width / widening).filter(|advance| *advance > 0.0).map(Width::try_new).transpose().map_err(widthless)),
                 Validated::from(Some(mtext.line_spacing_factor).filter(|factor| *factor > 0.0).map(|factor| Width::try_new(size.into_inner() * factor * 5.0 / 3.0)).transpose().map_err(widthless)),
-                |background, placement, max_advance, line_height| {
-                    (
-                        rasm_linework::Text {
-                            content: pieces.into_iter().map(|(piece, _)| piece).collect::<String>().into(),
-                            family,
-                            size,
-                            placement,
-                            weight,
-                            style,
-                            anchor,
-                            baseline,
-                            max_advance,
-                            line_height,
-                            spans,
-                            ..
-                        },
-                        background,
-                    )
+                |background, placement, max_advance, line_height| Lettering {
+                    text: rasm_linework::Text {
+                        content: pieces.into_iter().map(|(piece, _)| piece).collect::<String>().into(),
+                        family,
+                        size,
+                        placement,
+                        weight,
+                        style,
+                        anchor,
+                        baseline,
+                        max_advance,
+                        line_height,
+                        spans,
+                        ..
+                    },
+                    background,
                 },
             )
             .ok()
     };
-    let lettered = |text: &Text| single(text).map(|lettering| Some((lettering, None))).map_err(NEVec::new);
+    let lettered = |text: &Text| single(text).map(|text| Some(Lettering { text, background: None })).map_err(NEVec::new);
     let paragraphed = |mtext: &MText| multi(mtext).map(Some);
     match entity {
         EntityType::Text(text) => lettered(text),
@@ -312,7 +314,11 @@ pub(super) fn written(text: &rasm_linework::Text, frame: Affine) -> (EntityType,
                 .filter(|cut| (begin..=end).contains(cut) && content.is_char_boundary(*cut))
                 .collect::<BTreeSet<_>>();
             MTextParagraph {
-                spans: iter::zip(&cuts, cuts.iter().skip(1)).filter_map(|(&low, &high)| content.get(low..high).map(|piece| MTextSpan::new(piece, properties(Range { start: low, end: high })))).collect(),
+                spans: cuts
+                    .iter()
+                    .tuple_windows::<(_, _)>()
+                    .filter_map(|(&low, &high)| content.get(low..high).map(|piece| MTextSpan::new(piece, properties(Range { start: low, end: high }))))
+                    .collect(),
                 ..MTextParagraph::new()
             }
         })

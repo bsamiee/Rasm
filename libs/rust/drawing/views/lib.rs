@@ -108,7 +108,7 @@ impl View {
             };
             ViewsError::from(ProximityError::NonFinite { indices: indices.into_nonempty_iter().map(|index| bodies.get(index).map_or(index, |prepared| prepared.body)).collect() })
         };
-        let assembly = Assembly::new(BvhBuildStrategy::Ploc, bodies.iter().map(|prepared| (Isometry3::identity(), SharedShape(prepared.mesh.clone()))))
+        let assembly = Assembly::new(BvhBuildStrategy::Ploc, bodies.iter().map(|prepared| (Isometry3::identity(), SharedShape(Arc::<TriMesh>::clone(&prepared.mesh)))))
             .map_err(|errors| errors.into_nonempty_iter().map(renumbered).collect::<NEVec<_>>())?;
         let scene = Scene { bodies, assembly };
         (!cancel::is_cancelled(token)).ok_or(NEVec::new(ViewsError::Cancelled))?;

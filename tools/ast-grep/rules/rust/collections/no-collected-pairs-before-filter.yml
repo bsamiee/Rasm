@@ -37,9 +37,9 @@ rule:
                         field: value
                         has: {field: function, kind: generic_function, has: {field: function, has: {field: value, matches: pair-stream}}}
 constraints:
-    ITER: {regex: '^(into_par_iter|par_iter|into_iter|iter)$'}
+    ITER: {regex: '^(into_iter|iter)$'}
 labels:
     PAIR: {style: secondary, message: 'Enumerates the pairs'}
     FILTER: {style: primary, message: 'Discards pairs after every pair is stored'}
 message: '`$PAIR` pairs collect into a `Vec` before `$ITER().$FILTER` discards the pairs it rejects'
-note: 'Apply the predicate inside the pair stream so memory holds only kept pairs: feed rayon per element (`(0..n).into_par_iter()` querying each element for its partners after it), or call `par_bridge()` on the stream where output order is free'
+note: 'Chain `$FILTER` on the pair stream before `collect`, or test the pair inside the stream''s own check (the `leaf_pairs` node predicate), so memory holds only kept pairs; a `par_iter` over the collected pairs stays as the parallel narrow phase'

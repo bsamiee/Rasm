@@ -3,7 +3,7 @@ use core::{borrow::Borrow, iter};
 use cavalier_contours::shape_algorithms::Shape;
 use itertools::Itertools as _;
 use nalgebra::Point2;
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use spade::{ConstrainedDelaunayTriangulation, RefinementParameters, RefinementResult, Triangulation as _, handles::FixedVertexHandle};
 use validated::Validated;
 
@@ -41,7 +41,11 @@ impl Triangulation {
         let mut crossing = Vec::new();
         let vertices = loops.into_iter().flatten().map(position).collect();
         let loaded = ConstrainedDelaunayTriangulation::<spade::Point2<f64>>::try_bulk_load_cdt(vertices, edges, |edge| crossing.push(edge)).map_err(|source| PlanarError::Extent { source })?;
-        let mut cdt = NEVec::try_from_vec(crossing.into_iter().map(|edge| edge.map(|index| point(loaded.vertex(FixedVertexHandle::from_index(index)).position()))).collect())
+        let mut cdt = crossing
+            .into_iter()
+            .map(|edge| edge.map(|index| point(loaded.vertex(FixedVertexHandle::from_index(index)).position())))
+            .try_into_nonempty_iter()
+            .map(NonEmptyIterator::collect::<NEVec<_>>)
             .map_or(Ok(loaded), |segments| Err(PlanarError::Crossing { segments }))?;
         let sites = sites
             .into_iter()

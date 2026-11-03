@@ -1,5 +1,5 @@
 use itertools::Itertools as _;
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use petgraph::{
     Direction,
     algo::tred::{dag_to_toposorted_adjacency_list, dag_transitive_reduction_closure},
@@ -25,12 +25,14 @@ where K: Ord {
 
 #[must_use]
 pub fn layers<N, E>(evaluation: &Evaluation<N, E>, direction: Direction) -> Vec<NEVec<NodeIndex>> {
-    let levels = pass(evaluation, direction, |node, levels| evaluation.neighbors_directed(node, direction.opposite()).filter_map(|neighbor| at(levels, neighbor)).max().map_or_default(|level: usize| level.strict_add(1)));
+    let levels = pass(evaluation, direction, |node, levels| {
+        evaluation.neighbors_directed(node, direction.opposite()).filter_map(|neighbor| at(levels, neighbor)).max().map_or_default(|level: usize| level.strict_add(1))
+    });
     entries(&levels)
         .sorted_by_key(|&(_, &level)| level)
         .chunk_by(|&(_, &level)| level)
         .into_iter()
-        .filter_map(|(_, layer)| NEVec::try_from_vec(layer.map(|(node, _)| node).collect()))
+        .filter_map(|(_, layer)| layer.map(|(node, _)| node).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>))
         .collect()
 }
 

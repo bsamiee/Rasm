@@ -23,6 +23,8 @@ Each adapter states one transformation, and a pipeline reads top to bottom as th
 |  [15]   | Apply one step to a fixed set          | `[left, right].map`, `try_map`                  |
 |  [16]   | Pair each item with every later one    | `array_combinations::<2>`                       |
 |  [17]   | Walk iterables in lockstep             | `izip!` yielding one flat tuple                 |
+|  [18]   | Number items in a target integer type  | `iter::zip(0_u32.., items)`                     |
+|  [19]   | Treat the first or last item apart     | `with_position`                                 |
 
 Gaps in a sorted series fill in one flat expression:
 
@@ -45,7 +47,7 @@ pub fn latest(readings: &[Reading]) -> HashMap<SensorId, &Reading> { readings.it
 pub fn sessions(events: &[Event], gap: SignedDuration) -> impl Iterator<Item = &[Event]> { events.chunk_by(move |before, after| after.at.duration_since(before.at) <= gap) }
 ```
 
-`into_grouping_map_by` keeps one accumulator per key, reduced through `max_by_key`, `minmax_by_key`, `sum`, or `fold`. `into_group_map_by` (`_with_hasher` under a set hasher) keeps every member for a consumer reading members in place of a fold pushing through `entry(key).or_default()`, `counts_by` one count per key. Itertools `chunk_by` groups consecutive equal-key items of an iterator. Groups borrow the `ChunkBy` value, and the pipeline ends inside the function creating it.
+`into_grouping_map_by` keeps one accumulator per key, reduced through `max_by_key`, `minmax_by_key`, `sum`, or `fold`, or gathered through `collect` into any container per key (a set). `into_group_map_by` (`_with_hasher` under a set hasher) keeps every member for a consumer reading members in place of a fold pushing through `entry(key).or_default()`, `counts_by` one count per key. Itertools `chunk_by` groups consecutive equal-key items of an iterator. Groups borrow the `ChunkBy` value, and the pipeline ends inside the function creating it.
 
 ## [03]-[GENERATORS]
 
@@ -92,11 +94,11 @@ pub enum Envelope {
 #[must_use]
 pub fn envelope<D>(kind: Envelope, cells: ArrayView<'_, Point3<f64>, D>, edges: &[[Point3<f64>; 2]], suns: &[UnitVector3<f64>]) -> Array<Point3<f64>, D>
 where D: Dimension {
-    let sign = match kind {
-        Envelope::Rights => -1.0,
-        Envelope::Collection => 1.0,
+    let (sign, bound): (f64, fn(f64, f64) -> f64) = match kind {
+        Envelope::Rights => (-1.0, f64::min),
+        Envelope::Collection => (1.0, f64::max),
     };
-    let paths = suns.iter().filter(|sun| sun.z > 0.0).filter_map(|sun| Unit::try_new_and_get(sun.xy() * sign, 0.0).map(|(heading, run)| (heading, sun.z / run))).collect::<Vec<_>>();
+    let paths = suns.iter().filter(|sun| sun.z > 0.0).filter_map(|sun| Unit::try_new_and_get(sun.xy() * sign, 0.0).map(|(heading, run)| (heading, -sign * sun.z / run))).collect::<Vec<_>>();
     Zip::from(cells).par_map_collect(|cell| {
         let reach = edges
             .iter()
@@ -105,12 +107,12 @@ where D: Dimension {
                 let (edge, offset) = (end.xy() - start.xy(), start.xy() - cell.xy());
                 let across = heading.perp(&edge);
                 let (distance, share) = (offset.perp(&edge) / across, offset.perp(heading) / across);
-                (distance >= 0.0 && (0.0..=1.0).contains(&share)).then(|| slope.mul_add(-distance, sign * start.lerp(end, share).z))
+                (distance >= 0.0 && (0.0..=1.0).contains(&share)).then(|| slope.mul_add(distance, start.lerp(end, share).z))
             })
-            .fold(sign * cell.z, f64::max);
-        Point3::new(cell.x, cell.y, sign * reach)
+            .fold(cell.z, bound);
+        Point3::new(cell.x, cell.y, reach)
     })
 }
 ```
 
-`sign` states each kind's direction once, and the bound folds as `f64::max` under it in place of a second field stating the same fact.
+One `match` yields each kind's heading sign and bound `fn`, reach folding through the bound in place of a sign product negating each value twice.

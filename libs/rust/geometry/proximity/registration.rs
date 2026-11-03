@@ -16,10 +16,6 @@ use crate::{
     points::{self, Cloud, Neighbor, Neighborhood},
 };
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Correspondence = (Point3<f64>, Point3<f64>, Point3<f64>, Option<Unit<Vector3<f64>>>, Weight);
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[nutype::nutype(const_fn, validate(greater = 0.0, less = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
@@ -48,12 +44,16 @@ pub enum Kernel {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Icp {
-    pub iterations: NonZero<usize> = NonZero::new(50).unwrap(),
-    pub tolerance: Fraction = Fraction::try_new(1e-6_f64).ok().unwrap(),
+    pub iterations: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 49),
+    pub tolerance: Fraction = Self::TOLERANCE,
     pub max_correspondence_distance: Option<Distance> = None,
     pub overlap: Option<Fraction> = None,
     pub kernel: Option<Kernel> = None,
     pub metric: Metric = Metric::Point,
+}
+
+impl Icp {
+    const TOLERANCE: Fraction = Fraction::try_new(1e-6_f64).ok().unwrap();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -63,6 +63,15 @@ pub struct Registration {
     pub matched: NonZero<usize>,
     pub iterations: NonZero<usize>,
     pub converged: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Correspondence {
+    point: Point3<f64>,
+    moved: Point3<f64>,
+    corresponding: Point3<f64>,
+    normal: Option<Unit<Vector3<f64>>>,
+    weight: Weight,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -108,16 +117,15 @@ pub fn register(
         .collect::<Vec<_>>();
     let directions =
         |normal: Option<Unit<Vector3<f64>>>| normal.map_or_else(|| Either::Right([Vector3::x_axis(), Vector3::y_axis(), Vector3::z_axis()].into_iter()), |normal| Either::Left(iter::once(normal)));
-    let robust = move |residual: f64| {
-        kernel.map_or(1.0, |kernel| match kernel {
-            Kernel::Huber(scale) => (scale.into_inner() / residual).min(1.0),
-            Kernel::Tukey(scale) => (residual / scale.into_inner()).mul_add(-(residual / scale.into_inner()), 1.0).max(0.0).powi(2),
-        })
+    let robust = move |residual: f64| match kernel {
+        None => 1.0,
+        Some(Kernel::Huber(scale)) => (scale.into_inner() / residual).min(1.0),
+        Some(Kernel::Tukey(scale)) => (residual / scale.into_inner()).mul_add(-(residual / scale.into_inner()), 1.0).max(0.0).powi(2),
     };
     let planar = move |pose: &Isometry3<f64>, pairs: &[Correspondence]| {
         let (hessian, gradient) = pairs
             .iter()
-            .flat_map(|&(_, moved, corresponding, normal, weight)| {
+            .flat_map(|&Correspondence { point: _, moved, corresponding, normal, weight }| {
                 directions(normal).map(move |direction| {
                     (Vector6::from_iterator(iter::chain(moved.coords.cross(&direction).iter(), direction.iter()).copied()), (moved - corresponding).dot(&direction), weight.into_inner())
                 })
@@ -174,28 +182,29 @@ pub fn register(
             Some(count) => candidates.into_iter().k_smallest_by(count, |left, right| left.4.total_cmp(&right.4)),
         }
         .filter_map(|(point, moved, corresponding, normal, distance)| match Weight::try_new(robust(distance)) {
-            Ok(weight) => Some((point, moved, corresponding, normal, weight)),
+            Ok(weight) => Some(Correspondence { point, moved, corresponding, normal, weight }),
             Err(WeightError::GreaterViolated | WeightError::FiniteViolated) => None,
         })
         .collect::<Vec<Correspondence>>();
         let shortfall = |shortfall| NEVec::new(ProximityError::Unfitted { iteration, shortfall });
         let (matched, fitted) = NonZero::new(pairs.len()).ok_or_else(|| shortfall(Shortfall::Unmatched)).and_then(|matched| {
             match metric {
-                Metric::Point => fit(pairs.iter().map(|&(point, _, corresponding, _, weight)| (point, corresponding, weight))).ok_or_else(|| shortfall(Shortfall::Degenerate)),
+                Metric::Point =>
+                    fit(pairs.iter().map(|&Correspondence { point, moved: _, corresponding, normal: _, weight }| (point, corresponding, weight))).ok_or_else(|| shortfall(Shortfall::Degenerate)),
                 Metric::Plane(_) => planar(&pose, &pairs).map_err(|LltError::NonPositivePivot { index: _ }| shortfall(Shortfall::Degenerate)),
             }
             .map(|fitted| (matched, fitted))
         })?;
-        let [squared, total] = pairs.iter().fold([0.0_f64; 2], |[squared, total], &(point, _, corresponding, normal, weight)| {
+        let [squared, total] = pairs.iter().fold([0.0_f64; 2], |[squared, total], &Correspondence { point, moved: _, corresponding, normal, weight }| {
             let offset = fitted.transform_point(&point) - corresponding;
             [directions(normal).map(|direction| offset.dot(&direction).powi(2)).sum::<f64>().mul_add(weight.into_inner(), squared), total + weight.into_inner()]
         });
         Ok(Registration { pose: fitted, rms: (squared / total).sqrt(), matched, iterations: iteration, converged: false })
     };
-    let first = iter::chain(initial.translation.vector.iter(), initial.rotation.coords.iter())
-        .all(|coordinate| coordinate.is_finite())
-        .ok_or(NEVec::new(ProximityError::Pose { pose: initial }))
-        .and_then(|()| step(initial, NonZero::<usize>::MIN));
+    let first = try bikeshed Result<_, NEVec<ProximityError>> {
+        iter::chain(initial.translation.vector.iter(), initial.rotation.coords.iter()).all(|coordinate| coordinate.is_finite()).ok_or(NEVec::new(ProximityError::Pose { pose: initial }))?;
+        step(initial, NonZero::<usize>::MIN)?
+    };
     iter::successors(Some(first), move |previous| match previous {
         Ok(Registration { pose, rms, matched, iterations: done, converged: false }) => done
             .checked_add(1)

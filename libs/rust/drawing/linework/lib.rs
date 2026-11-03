@@ -78,6 +78,10 @@ pub struct Width(f64);
 #[nutype::nutype(const_fn, validate(finite, greater_or_equal = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct MiterLimit(f64);
 
+impl MiterLimit {
+    pub const DEFAULT: Self = Self::try_new(4.0_f64).ok().unwrap();
+}
+
 #[nutype::nutype(const_fn, validate(finite, greater_or_equal = 0.0, less_or_equal = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Opacity(f64);
 
@@ -91,8 +95,16 @@ pub struct FontSize(f64);
 #[nutype::nutype(const_fn, validate(finite, greater_or_equal = 1.0, less_or_equal = 1000.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct FontWeight(f32);
 
+impl FontWeight {
+    pub const NORMAL: Self = Self::try_new(parlance::FontWeight::NORMAL.value()).ok().unwrap();
+}
+
 #[nutype::nutype(const_fn, validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct FontWidth(f32);
+
+impl FontWidth {
+    pub const NORMAL: Self = Self::try_new(parlance::FontWidth::NORMAL.ratio()).ok().unwrap();
+}
 
 #[nutype::nutype(validate(finite, greater_or_equal = -90.0, less_or_equal = 90.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Slant(f32);
@@ -173,7 +185,7 @@ pub struct Pen {
     pub opacity: Opacity = Opacity::OPAQUE,
     pub cap: Cap = Cap::Round,
     pub join: Join = Join::Round,
-    pub miter_limit: MiterLimit = MiterLimit::try_new(4.0).ok().unwrap(),
+    pub miter_limit: MiterLimit = MiterLimit::DEFAULT,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -266,8 +278,8 @@ pub struct Text {
     pub family: FontFamily<'static>,
     pub size: FontSize,
     pub placement: Placement,
-    pub weight: FontWeight = FontWeight::try_new(400.0).ok().unwrap(),
-    pub width: FontWidth = FontWidth::try_new(1.0).ok().unwrap(),
+    pub weight: FontWeight = FontWeight::NORMAL,
+    pub width: FontWidth = FontWidth::NORMAL,
     pub style: FontStyle = FontStyle::Normal,
     pub anchor: Anchor = Anchor::Start,
     pub baseline: Baseline = Baseline::Alphabetic,
@@ -330,7 +342,7 @@ pub enum Element {
 pub enum LineworkError {
     #[error(transparent)]
     Sweep(#[from] Error),
-    #[error("affine {0:?} is singular or not finite")]
+    #[error("affine [{}] is singular or not finite", .0.as_coeffs().iter().format(", "))]
     Placement(Affine),
     #[error("{0} leaves its range once scaled")]
     Scaled(Dash),
@@ -386,7 +398,7 @@ pub fn transform(elements: Vec<Element>, affine: Placement) -> Result<Vec<Elemen
         .ok()
 }
 
-fn invertible(affine: &Affine) -> Result<(), LineworkError> { (affine.is_finite() && affine.determinant().is_normal()).then_some(()).ok_or(LineworkError::Placement(*affine)) }
+fn invertible(affine: &Affine) -> Result<(), LineworkError> { (affine.is_finite() && affine.determinant().is_normal()).ok_or(LineworkError::Placement(*affine)) }
 
 fn swept<'path, W>(paths: impl IntoIterator<Item = (&'path BezPath, W::Tag), IntoIter: Clone>, tolerance: Tolerance, inside: impl Fn(&W) -> bool) -> Result<Region, LineworkError>
 where W: WindingNumber {

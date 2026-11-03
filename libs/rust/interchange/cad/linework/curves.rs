@@ -5,6 +5,7 @@ use acadrust::{
     entities::{BoundaryEdge, BoundaryPath, BoundaryPathFlags, EntityType, Face3D, Hatch, HatchStyleType, LwPolyline, LwVertex, PolylineEdge, Spline, SplineEdge, SplineFlags, VertexFlags},
     types::{Matrix3, Vector2, Vector3},
 };
+use itertools::Itertools as _;
 use kurbo::{Affine, BezPath, Cap, Circle, Join, Line, ParamCurve, ParamCurveNearest as _, PathEl, PathSeg, Point, Shape as _, Stroke, StrokeOpts, SvgArc, Vec2, flatten, segments, stroke};
 use linesweeper::FillRule;
 use nonempty_collections::NEVec;
@@ -12,9 +13,17 @@ use rasm_linework::{Dashes, DashesError, LineworkError, Region, Tolerance};
 
 use crate::{CadError, Refusal, Subject};
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-type Homogeneous = (Vec2, f64);
+#[derive(Debug, Clone, Copy)]
+struct Homogeneous {
+    weighted: Vec2,
+    weight: f64,
+}
+
+impl Homogeneous {
+    fn cartesian(&self) -> Point { (self.weighted / self.weight).to_point() }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -45,7 +54,7 @@ pub(crate) fn path(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> 
     let edges = |face: &Face3D| -> BezPath {
         let corners = [face.first_corner, face.second_corner, face.third_corner, face.fourth_corner].map(|corner| frame * point(corner));
         let invisible = [face.invisible_edges.is_first_invisible(), face.invisible_edges.is_second_invisible(), face.invisible_edges.is_third_invisible(), face.invisible_edges.is_fourth_invisible()];
-        let sides = iter::zip(&corners, corners.iter().cycle().skip(1)).zip(invisible).filter(|((from, to), _)| from != to).map(|((from, to), hidden)| (*from, *to, hidden)).collect::<Vec<_>>();
+        let sides = corners.iter().circular_tuple_windows::<(_, _)>().zip(invisible).filter(|((from, to), _)| from != to).map(|((from, to), hidden)| (*from, *to, hidden)).collect::<Vec<_>>();
         match sides.iter().position(|(_, _, hidden)| *hidden) {
             None => iter::chain(sides.first().map(|(from, _, _)| PathEl::MoveTo(*from)), sides.iter().map(|(_, to, _)| PathEl::LineTo(*to))).chain(sides.first().map(|_| PathEl::ClosePath)).collect(),
             Some(seam) => sides
@@ -168,7 +177,9 @@ pub(super) fn band(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> 
                 (polygon(sides.iter().map(|(left, _)| *left).chain(sides.iter().rev().map(|(_, right)| *right))), (target, sides.first().copied(), sides.last().copied()))
             })
             .unzip::<_, _, Vec<_>, Vec<_>>();
-        let joints = iter::zip(&seams, seams.iter().cycle().skip(1))
+        let joints = seams
+            .iter()
+            .circular_tuple_windows::<(_, _)>()
             .take(seams.len().saturating_sub(usize::from(!polyline.is_closed)))
             .filter_map(|((corner, _, ends), (_, starts, _))| ends.zip(*starts).map(|((end_left, end_right), (start_left, start_right))| [polygon([*corner, end_left, start_left]), polygon([*corner, end_right, start_right])]))
             .flatten();
@@ -223,7 +234,7 @@ pub(super) fn boundary(hatch: &Hatch, frame: Affine, tolerance: Tolerance, subje
                     local,
                 )),
             })
-            .try_collect::<Vec<_>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
         let mut elements = edges.iter().flat_map(BezPath::iter).filter(|element| !matches!(element, PathEl::ClosePath));
         let first = elements.next();
         Ok(iter::chain(
@@ -236,7 +247,7 @@ pub(super) fn boundary(hatch: &Hatch, frame: Affine, tolerance: Tolerance, subje
         .chain(first.map(|_| PathEl::ClosePath))
         .collect())
     };
-    let loops = hatch.paths.iter().map(contour).try_collect::<Vec<_>>().map_err(|reason| CadError::Refused { subject: subject.clone(), reason })?;
+    let loops = hatch.paths.iter().map(contour).collect::<Result<Vec<_>, _>>().map_err(|reason| CadError::Refused { subject: subject.clone(), reason })?;
     let (rule, deepest) = match hatch.style {
         HatchStyleType::Normal => (FillRule::EvenOdd, None),
         HatchStyleType::Outer => (FillRule::EvenOdd, Some(1)),
@@ -349,7 +360,7 @@ pub(super) fn signed(dashes: &Dashes, offset: f64) -> Vec<f64> {
 
 fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], tolerance: f64) -> Option<BezPath> {
     fn flattened(piece: &[Homogeneous], tolerance: f64) -> Vec<Point> {
-        let points = piece.iter().map(|&(weighted, weight)| (weighted / weight).to_point()).collect::<Vec<_>>();
+        let points = piece.iter().map(Homogeneous::cartesian).collect::<Vec<_>>();
         let (Some(&start), Some(&end)) = (points.first(), points.last()) else { return Vec::new() };
         let reach = tolerance.max(points.iter().map(|vertex| vertex.x.abs().max(vertex.y.abs())).max_by(f64::total_cmp).unwrap_or_default() * f64::EPSILON * 64.0);
         let chord = Line::new(start, end);
@@ -357,7 +368,7 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
             vec![end]
         } else {
             let levels = iter::successors(Some(piece.to_vec()), |level| {
-                (level.len() > 1).then(|| level.array_windows().map(|&[(low, low_weight), (high, high_weight)]| (low.lerp(high, 0.5), low_weight.midpoint(high_weight))).collect())
+                (level.len() > 1).then(|| level.array_windows().map(|&[low, high]| Homogeneous { weighted: low.weighted.lerp(high.weighted, 0.5), weight: low.weight.midpoint(high.weight) }).collect())
             })
             .collect::<Vec<_>>();
             [flattened(&levels.iter().filter_map(|level| level.first().copied()).collect::<Vec<_>>(), tolerance), flattened(&levels.iter().rev().filter_map(|level| level.last().copied()).collect::<Vec<_>>(), tolerance)].concat()
@@ -374,11 +385,11 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
                 at => {
                     let (low, high) = (spread.get(at)?, spread.get(at.checked_add(degree)?)?);
                     let share = (value - low) / (high - low);
-                    let (&(previous, previous_weight), &(current, current_weight)) = (weighted.get(at.checked_sub(1)?)?, weighted.get(at)?);
-                    Some((previous.lerp(current, share), share.mul_add(current_weight - previous_weight, previous_weight)))
+                    let (previous, current) = (weighted.get(at.checked_sub(1)?)?, weighted.get(at)?);
+                    Some(Homogeneous { weighted: previous.weighted.lerp(current.weighted, share), weight: share.mul_add(current.weight - previous.weight, previous.weight) })
                 }
             })
-            .try_collect::<Vec<_>>()?;
+            .collect::<Option<Vec<_>>>()?;
         let split = span.checked_add(1)?;
         Some((blended, spread.iter().take(split).chain(iter::once(&value)).chain(spread.iter().skip(split)).copied().collect()))
     };
@@ -397,23 +408,25 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
         && knots.is_sorted();
     let breaks = knots.get(degree..=count).filter(|_| valid)?.chunk_by(|left, right| left.total_cmp(right).is_eq()).filter_map(<[f64]>::first).copied().collect::<Vec<_>>();
     let (_, lows) = breaks.split_last()?;
-    let (points, knots) = breaks.iter().try_fold((iter::zip(control, &weights).map(|(vertex, weight)| (vertex.to_vec2() * *weight, *weight)).collect::<Vec<_>>(), knots.to_vec()), |state, &value| {
-        let present = state.1.iter().filter(|knot| knot.total_cmp(&value).is_eq()).count();
-        (present..degree).try_fold(state, |(weighted, spread), _| inserted(&weighted, &spread, value))
-    })?;
+    let (points, knots) = breaks.iter().try_fold(
+        (iter::zip(control, &weights).map(|(vertex, &weight)| Homogeneous { weighted: vertex.to_vec2() * weight, weight }).collect::<Vec<_>>(), knots.to_vec()),
+        |state, &value| {
+            let present = state.1.iter().filter(|knot| knot.total_cmp(&value).is_eq()).count();
+            (present..degree).try_fold(state, |(weighted, spread), _| inserted(&weighted, &spread, value))
+        },
+    )?;
     let pieces = lows
         .iter()
         .map(|low| {
             let span = knots.partition_point(|knot| knot <= low).checked_sub(1)?;
             points.get(span.checked_sub(degree)?..=span)
         })
-        .try_collect::<Vec<_>>()?;
-    let cartesian = |&(weighted, weight): &Homogeneous| (weighted / weight).to_point();
-    let start = cartesian(pieces.first()?.first()?);
+        .collect::<Option<Vec<_>>>()?;
+    let start = pieces.first()?.first()?.cartesian();
     let elements = pieces.iter().flat_map(|&piece| match (rational, piece) {
-        (false, [_, end]) => vec![PathEl::LineTo(cartesian(end))],
-        (false, [_, handle, end]) => vec![PathEl::QuadTo(cartesian(handle), cartesian(end))],
-        (false, [_, leading, trailing, end]) => vec![PathEl::CurveTo(cartesian(leading), cartesian(trailing), cartesian(end))],
+        (false, [_, end]) => vec![PathEl::LineTo(end.cartesian())],
+        (false, [_, handle, end]) => vec![PathEl::QuadTo(handle.cartesian(), end.cartesian())],
+        (false, [_, leading, trailing, end]) => vec![PathEl::CurveTo(leading.cartesian(), trailing.cartesian(), end.cartesian())],
         _ => flattened(piece, tolerance).into_iter().map(PathEl::LineTo).collect(),
     });
     Some(iter::once(PathEl::MoveTo(start)).chain(elements).collect())
@@ -458,7 +471,7 @@ fn lightweight(entity: &EntityType) -> Option<Cow<'_, LwPolyline>> {
 }
 
 fn spans(polyline: &LwPolyline) -> impl Iterator<Item = (&LwVertex, &LwVertex)> {
-    iter::zip(&polyline.vertices, polyline.vertices.iter().cycle().skip(1)).take(polyline.vertices.len().saturating_sub(usize::from(!polyline.is_closed)))
+    polyline.vertices.iter().circular_tuple_windows().take(polyline.vertices.len().saturating_sub(usize::from(!polyline.is_closed)))
 }
 
 fn chained(polyline: &LwPolyline, tolerance: f64) -> BezPath {

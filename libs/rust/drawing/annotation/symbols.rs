@@ -6,7 +6,7 @@ use fontdb::Family;
 use itertools::Itertools as _;
 use kurbo::{Affine, Axis, BezPath, Cap, Join, PathEl, Point, Rect, Shape as _, Vec2};
 use linesweeper::{BinaryOp, FillRule};
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use parlance::{FontFamily, FontFamilyName, GenericFamily};
 use rasm_linework::{
     Alignment, Anchor, Baseline, Color, Content, Dash, DashOffset, DashOffsetError, Dashes, DashesError, Element, FontSize, FontSizeError, FontStyle, FontWeight, FontWeightError, FontWidth, Linetype,
@@ -29,10 +29,6 @@ use crate::{
     transformed, units, validated, within,
 };
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Slotted = (Arc<str>, Slot);
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -52,6 +48,11 @@ struct Slot {
     fit: Option<Width>,
 }
 
+struct Lowered {
+    elements: Vec<Element>,
+    slots: BTreeMap<Arc<str>, Slot>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition {
     elements: Vec<Element>,
@@ -61,7 +62,7 @@ pub struct Definition {
 
 impl Definition {
     pub fn new(typesetter: &mut Typesetter, svg: &[u8], base: &Base, tolerance: Tolerance) -> Result<Self, NEVec<AnnotationError>> {
-        fn lowered(group: &Group, basis: Affine, tolerance: Tolerance, typesetter: &mut Typesetter) -> Validated<(Vec<Element>, Vec<Slotted>), AnnotationError> {
+        fn lowered(group: &Group, basis: Affine, tolerance: Tolerance, typesetter: &mut Typesetter) -> Validated<Lowered, AnnotationError> {
             let basis = basis * affine(group.transform());
             let shaped = |path: &usvg::Path| -> Validated<Vec<Element>, AnnotationError> {
                 let local = outline(path);
@@ -91,35 +92,35 @@ impl Definition {
                 })
                 .map(|node| match node {
                     Node::Group(inner) => lowered(inner, basis, tolerance, typesetter),
-                    Node::Path(path) => shaped(path).map(|elements| (elements, Vec::new())),
+                    Node::Path(path) => shaped(path).map(|elements| Lowered { elements, slots: BTreeMap::new() }),
                     Node::Image(image) => match image.kind() {
                         ImageKind::SVG(tree) => lowered(tree.root(), basis, tolerance, typesetter),
                         ImageKind::JPEG(bytes) | ImageKind::PNG(bytes) | ImageKind::GIF(bytes) | ImageKind::WEBP(bytes) => Validated::from(
                             Placement::try_new(basis * Affine::map_unit_square(Rect::new(0.0, 0.0, f64::from(image.size().width()), f64::from(image.size().height()))))
-                                .map(|placement| (vec![Element::Placed { content: Content::Raster(Arc::from(bytes.as_slice())), placement, .. }], Vec::new()))
+                                .map(|placement| Lowered { elements: vec![Element::Placed { content: Content::Raster(Arc::from(bytes.as_slice())), placement, .. }], slots: BTreeMap::new() })
                                 .map_err(AnnotationError::from),
                         ),
                     },
                     Node::Text(text) => match slotted(text, basis, typesetter) {
-                        Some(slot) => slot.map(|named| (Vec::new(), vec![named])),
+                        Some(slot) => slot.map(|named| Lowered { elements: Vec::new(), slots: BTreeMap::from([named]) }),
                         None => lowered(text.flattened(), basis, tolerance, typesetter),
                     },
                 })
                 .collect::<Validated<Vec<_>, _>>();
             refusals.map3(parts, validated(clipped(group.clip_path(), basis, tolerance)), |(), children, clip| {
-                let (elements, slots): (Vec<_>, Vec<_>) = children.into_iter().unzip();
+                let (elements, slots): (Vec<_>, Vec<_>) = children.into_iter().map(|Lowered { elements, slots }| (elements, slots)).unzip();
                 let drawn = elements.into_iter().flatten().collect();
-                (
-                    match clip {
+                Lowered {
+                    elements: match clip {
                         Some(region) => vec![Element::Clip { region, keep: Side::Inside, elements: drawn }],
                         None => drawn,
                     },
-                    slots.into_iter().flatten().collect(),
-                )
+                    slots: slots.into_iter().flatten().collect(),
+                }
             })
         }
 
-        fn slotted(text: &usvg::Text, basis: Affine, typesetter: &mut Typesetter) -> Option<Validated<Slotted, AnnotationError>> {
+        fn slotted(text: &usvg::Text, basis: Affine, typesetter: &mut Typesetter) -> Option<Validated<(Arc<str>, Slot), AnnotationError>> {
             let (false, [chunk, rest @ ..]) = (text.id().is_empty(), text.chunks()) else { return None };
             let [span, ..] = chunk.spans() else { return None };
             let (Some(fill), true) = (span.fill(), span.is_visible()) else { return None };
@@ -164,7 +165,7 @@ impl Definition {
                 FontStretch::ExtraCondensed => const { FontWidth::try_new(parlance::FontWidth::EXTRA_CONDENSED.ratio()).ok().unwrap() },
                 FontStretch::Condensed => const { FontWidth::try_new(parlance::FontWidth::CONDENSED.ratio()).ok().unwrap() },
                 FontStretch::SemiCondensed => const { FontWidth::try_new(parlance::FontWidth::SEMI_CONDENSED.ratio()).ok().unwrap() },
-                FontStretch::Normal => const { FontWidth::try_new(parlance::FontWidth::NORMAL.ratio()).ok().unwrap() },
+                FontStretch::Normal => FontWidth::NORMAL,
                 FontStretch::SemiExpanded => const { FontWidth::try_new(parlance::FontWidth::SEMI_EXPANDED.ratio()).ok().unwrap() },
                 FontStretch::Expanded => const { FontWidth::try_new(parlance::FontWidth::EXPANDED.ratio()).ok().unwrap() },
                 FontStretch::ExtraExpanded => const { FontWidth::try_new(parlance::FontWidth::EXTRA_EXPANDED.ratio()).ok().unwrap() },
@@ -249,7 +250,7 @@ impl Definition {
                 .ok_or_else(|| AnnotationError::Unknown { lookup: Lookup::Element, name: Arc::clone(id) })?,
         };
         let paper = Affine::scale(units(Length::new::<inch>(1.0)) / f64::from(options.dpi)).pre_translate(-origin.to_vec2());
-        lowered(tree.root(), paper, tolerance, typesetter).map(|(elements, slots)| Self { elements, slots: slots.into_iter().collect(), extent: paper.transform_rect_bbox(canvas) }).ok()
+        lowered(tree.root(), paper, tolerance, typesetter).map(|Lowered { elements, slots }| Self { elements, slots, extent: paper.transform_rect_bbox(canvas) }).ok()
     }
 
     pub fn slots(&self) -> impl Iterator<Item = (&Arc<str>, &Arc<str>)> { self.slots.iter().map(|(name, slot)| (name, &slot.content)) }
@@ -331,12 +332,15 @@ fn traced(stroke: &usvg::Stroke, local: &BezPath, basis: Affine, tolerance: Tole
         )
     };
     let linetype = |factor: f64| {
-        dashing.as_ref().and_then(|(lengths, offset)| NEVec::try_from_vec(lengths.iter().map(|length| length * factor).collect()).map(|scaled| (scaled, offset * factor))).map_or(Validated::Good(None), |(lengths, offset)| {
-            Validated::from(Dashes::try_new(lengths).map_err(|DashesError::PredicateViolated| AnnotationError::from(LineworkError::Scaled(Dash::Array))))
-                .map2(Validated::from(DashOffset::try_new(offset).map_err(|DashOffsetError::FiniteViolated| AnnotationError::from(LineworkError::Scaled(Dash::Offset)))), |dashes, dash_offset| {
-                    Some(Linetype { dashes, alignment: Alignment::Start { dash_offset }, target: Target::Drafting })
-                })
-        })
+        dashing
+            .as_ref()
+            .and_then(|(lengths, offset)| lengths.iter().map(|length| length * factor).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map(|scaled| (scaled, offset * factor)))
+            .map_or(Validated::Good(None), |(lengths, offset)| {
+                Validated::from(Dashes::try_new(lengths).map_err(|DashesError::PredicateViolated| AnnotationError::from(LineworkError::Scaled(Dash::Array))))
+                    .map2(Validated::from(DashOffset::try_new(offset).map_err(|DashOffsetError::FiniteViolated| AnnotationError::from(LineworkError::Scaled(Dash::Offset)))), |dashes, dash_offset| {
+                        Some(Linetype { dashes, alignment: Alignment::Start { dash_offset }, target: Target::Drafting })
+                    })
+            })
     };
     let reach = dashing.as_ref().map_or(line_width * 0.5, |_| local.perimeter(tolerance.into_inner() / major).max(line_width * 0.5));
     if (major - minor) * reach > tolerance.into_inner() {

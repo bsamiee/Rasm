@@ -12,7 +12,7 @@ use comfy_table::{Cell, CellAlignment, ContentArrangement, Table, presets};
 use csv::IntoInnerError;
 use futures::{Stream, StreamExt as _, executor, stream::TakeUntil};
 use minus::{Pager, hooks::Hook};
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use serde::Serialize;
 use serde_json::{
     Serializer,
@@ -231,5 +231,8 @@ where
     };
     let (failures, ended) = flow.map_continue(|(sink, failures)| (failures, finished(sink, header, paging, stopped || !terminal))).into_value();
     let closed = |error: &OutputError| matches!(error, OutputError::Write { source } if source.kind() == io::ErrorKind::BrokenPipe);
-    NEVec::try_from_vec(iter::chain(failures, ended.err().filter(|error| !closed(error)).map(E::from)).collect()).map_or(Ok(if stopped { ExitCode::TempFail } else { ExitCode::Ok }), Err)
+    iter::chain(failures, ended.err().filter(|error| !closed(error)).map(E::from))
+        .try_into_nonempty_iter()
+        .map(NonEmptyIterator::collect::<NEVec<_>>)
+        .map_or(Ok(if stopped { ExitCode::TempFail } else { ExitCode::Ok }), Err)
 }

@@ -111,7 +111,7 @@ pub fn profile(readings: &[Reading]) -> Profile {
 - Builder steps over an `Option` or iterator fold its items into the builder with the method path as the step (`limit.map(NonZero::get).into_iter().fold(builder, Builder::limit)`), a fallible setter through `try_fold`
 - `&mut` setters over `Option`s run as one `try_for_each` over `(value, method)` pairs, a method taking `IntoIterator` receiving the `Option` whole
 - `LazyCell` locals defer a value only some inputs read
-- Values built lazily per element are a `OnceLock` in the element's tuple or record, never a parallel collection matched by index
+- Values built lazily per element are a `OnceLock` in the element's tuple or record, an index-matched parallel collection only under a foreign bound (kiddo `Content: Copy`)
 
 ### [02.1]-[PATTERN_MATCHING]
 
@@ -129,10 +129,10 @@ pub fn notice(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> No
 }
 ```
 
-- Matches over a workspace enum list every variant, a new variant then fails each match that must handle it
+- Matches over a workspace enum list every variant in place of a forwarding catch-all (`error => Err(error)`), a new variant failing each match that handles it
 - Arms read what their own pattern binds, a nested match re-reading a value its outer arm narrowed lists variants that never reach it
 - Wildcard arms stay for a foreign `#[non_exhaustive]` enum, range arms over a primitive list each remaining range
-- Struct patterns name every field, and `field: _` marks a field the arm ignores, `{ .. }` standing only for a foreign struct whose fields are private and zero-sized
+- Workspace struct patterns name every field, `field: _` marking one the arm ignores, and foreign structs (`#[non_exhaustive]`, wide records) take `{ field, .. }`
 - `if let` guards bind from a second refutable pattern inside an arm
 - Deref patterns (`#![feature(deref_patterns)]`) match through `Box`, `Rc`, `Arc`, `Vec`, `String`, and `Cow`, never through `as_slice` or `as_str`
 - Slice patterns state each length and bind what it holds (`[] => .., [origin, ..] => ..`) in place of `first`, `split_last`, or a length test
@@ -326,7 +326,7 @@ pub enum LedgerError {
 - Messages render typed fields through `#[error]`, printing neither source nor a value its `Display` writes (`source.path()`), and `Report::new(&error)` renders the chain
 - Fields holding more than the source prints (an indexed key path) print in the message
 - Absent message fields render as what absence means (a package default)
-- Messages branching on a field or listing a variant's `NEVec` (a subject and `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, a list of plain values through `Itertools::format`
+- Messages branching on a field or listing a variant's `NEVec` (a subject and `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, plain values through `Itertools::format` or `format_with`
 - Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` in place of `custom` text
 - Refusals the crate decides are variants naming their subject, in place of a dependency's text variant (`Other(format!(..))`) under `#[from]`
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, or `map_err(<Variant>)` beside a sibling holding that source with an operation
@@ -341,6 +341,7 @@ pub enum LedgerError {
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
 - Functions generic over a consumer error only to call `E::from` return the crate error, callers converting through `?` or `map(E::from)`
 - Callers convert an `NEVec` of crate errors through `into_nonempty_iter().map(E::from).collect()`
+- Functions returning `Result<_, NEVec<CrateError>>` take one `impl From<CrateError> for NEVec<CrateError>`, a single-error step lifting through `?` with no `map_err(NEVec::new)`
 - Variants over an `NEVec` filled at more than one site take one `impl From<NEVec<..>> for <Error>`, sites binding through `.ok()?`
 - Discards match each error variant they drop (`Err(EmailError::LenCharMaxViolated)`) or record the failure as an event
 - `Err(_)`, `Err(<Type> { .. })`, and `if let` on `Ok` or `Validated::Good` drop every failure unnamed, `Err(Vec { .. })` staying for a returned value that is no error
@@ -492,7 +493,8 @@ Numeric facts come from the type or package that states them:
 - Generic arithmetic bounds `CheckedAdd` and `CheckedSub` to refuse overflow, never an `Add::add` call hiding `+` from `arithmetic_side_effects`, and arithmetic generic over `uom` quantities bounds `Quantity<D, SI<f64>, f64>` with `D::Kind: marker::Add` or `marker::Sub`
 - Operators state float, dual, complex, and matrix arithmetic, clippy `arithmetic-side-effects-allowed` listing each operand type in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)
-- Counts enter float arithmetic through `nalgebra::convert::<usize, f64>`, and `cmp::minmax_by(a, b, f64::total_cmp)` orders a float pair
+- Counts enter float arithmetic through `nalgebra::convert::<usize, f64>`, and `cmp::minmax_by(a, b, f64::total_cmp)` orders a float pair, `cmp::minmax(a, b)` keying an unordered pair
+- Sparse systems solved per value set factor their pattern once (`SymbolicLlt::try_new` over a stored `Argsort`) and refill through `Llt::try_new_with_symbolic`
 - Floats narrow by `cast::<f32>()` and `to_int_saturating` under `#![feature(float_conversions)]`, `convert_unchecked` and integer `convert` being `as` casts
 - Formulas a member names take it (`Point::lerp`, `f64::midpoint`, `Vector2::perp`, `Unit::try_new_and_get`), `mul_add` fusing a step none names
 

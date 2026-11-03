@@ -3,7 +3,7 @@ use std::{borrow::Cow, io};
 
 use itertools::{Itertools as _, Position};
 use kurbo::{Affine, CubicBez, DEFAULT_ACCURACY, ParamCurve as _, ParamCurveArclen as _, PathSeg, Point, Rect, Vec2};
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use petgraph::{
     EdgeType,
     stable_graph::EdgeIndex,
@@ -186,7 +186,7 @@ where Ty: EdgeType {
             let [tail, head] = arrows(reference.id(), &given)?;
             let pos = path
                 .subpaths()
-                .filter_map(|elements| NEVec::try_from_vec(kurbo::segments(elements.iter().copied()).collect()))
+                .filter_map(|elements| kurbo::segments(elements.iter().copied()).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>))
                 .with_position()
                 .map(|(Position { is_first, is_last }, segments)| spline(&segments, [tail.filter(|_| is_first), head.filter(|_| is_last)]))
                 .join(";");

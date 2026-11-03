@@ -1,5 +1,5 @@
 use core::{f64::consts::PI, iter};
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use itertools::{Itertools as _, izip};
 use kurbo::{BezPath, PathEl, Point, Shape as _, flatten};
@@ -71,7 +71,7 @@ pub fn shadows(view: &View, sun: UnitVector3<f64>, token: Option<&CancelToken>) 
     let planar = if seamed {
         Cow::Owned(Scene {
             bodies: iter::zip(&scene.bodies, keys)
-                .map(|(prepared, keys)| keys.map_or_else(|| prepared.clone(), |sources| Prepared { body: prepared.body, mesh: prepared.mesh.clone(), sources, surface: prepared.surface }))
+                .map(|(prepared, keys)| keys.map_or_else(|| prepared.clone(), |sources| Prepared { body: prepared.body, mesh: Arc::clone(&prepared.mesh), sources, surface: prepared.surface }))
                 .collect(),
             assembly: scene.assembly.clone(),
         })

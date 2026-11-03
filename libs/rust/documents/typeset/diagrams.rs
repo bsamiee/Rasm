@@ -48,12 +48,13 @@ where I: IntoIterator<Item = &'family str> {
 
 #[must_use]
 pub fn blocks(source: &Source) -> Vec<(FileId, String)> {
-    let mut pending = vec![source.root()];
-    iter::from_fn(|| {
-        let node = pending.pop()?;
-        pending.extend(node.children().rev());
-        Some(node)
-    })
+    gen move {
+        let mut pending = vec![source.root()];
+        while let Some(node) = pending.pop() {
+            pending.extend(node.children().rev());
+            yield node;
+        }
+    }
     .filter_map(SyntaxNode::cast::<Raw<'_>>)
     .filter(|raw| raw.lang().is_some_and(|lang| lang.get() == "mermaid"))
     .map(|raw| block(source, raw.lines().map(Text::get).join("\n")))
@@ -76,7 +77,7 @@ where
                 .and_then(|output| match output {
                     RenderOutput::Svg(Some(output)) => Ok(output.into_parts()),
                     RenderOutput::Svg(None) => Err(RenderError::NoDiagram),
-                    RenderOutput::Semantic(_) | RenderOutput::LayoutJson(_) | RenderOutput::EdgeGeometryJson(_) | RenderOutput::SvgPlan(_) => Err(RenderError::UnsupportedTarget("svg")),
+                    _ => Err(RenderError::UnsupportedTarget("svg")),
                 })
                 .map(|(svg, evidence)| (id, Bytes::from_string(svg), evidence))
                 .map_err(|source| TypesetError::Diagram { path: id.vpath().clone(), source })

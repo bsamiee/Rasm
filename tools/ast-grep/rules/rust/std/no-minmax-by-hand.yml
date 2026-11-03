@@ -28,8 +28,8 @@ rule:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^min$'}}
             - pattern: $A.min($B)
             - inside:
-                kind: block
-                stopBy: {kind: 'block, function_item'}
-                has: {stopBy: end, kind: call_expression, pattern: $A.max($B)}
+                kind: 'block, match_arm'
+                stopBy: {kind: 'block, match_arm, function_item'}
+                has: {stopBy: {kind: match_arm}, kind: call_expression, pattern: $A.max($B)}
 message: '`if`, a `min` and `max` pair, or a `min_by` and `max_by` pair orders `$A` and `$B` by hand'
 note: 'Call `cmp::minmax(<a>, <b>)` (`#![feature(cmp_minmax)]`), `cmp::minmax_by(<a>, <b>, <float>::total_cmp)`, or `cmp::minmax_by_key(<a>, <b>, <key>)` and read the `[min, max]` array'

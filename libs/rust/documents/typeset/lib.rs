@@ -1,4 +1,4 @@
-#![feature(error_iter, error_reporter, float_conversions, try_blocks_heterogeneous)]
+#![feature(error_iter, error_reporter, float_conversions, gen_blocks, try_blocks_heterogeneous)]
 
 use core::{any::Any, error::Error, fmt, iter, num::NonZero, ops::Deref};
 use std::{

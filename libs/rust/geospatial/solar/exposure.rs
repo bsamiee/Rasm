@@ -21,8 +21,6 @@ use crate::{Input, SolarError, dome::patches, finite, refused};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-pub type Sensor = (Point3<f64>, UnitVector3<f64>);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SkyMeasure {
     ViewFactor,
@@ -34,6 +32,12 @@ pub enum SkyMeasure {
 
 #[nutype::nutype(validate(finite, greater_or_equal = 0.0, less_or_equal = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deref))]
 pub struct Transmittance(f64);
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Sensor {
+    pub point: Point3<f64>,
+    pub normal: UnitVector3<f64>,
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -118,7 +122,7 @@ fn exposed<S>(
 where
     S: BuildHasher + Sync,
 {
-    let rays = sensors.par_iter().map(|&(point, normal)| {
+    let rays = sensors.par_iter().map(|&Sensor { point, normal }| {
         let reach = if normal.dot(&direction) > 0.0 { (Bound::Unbounded, Bound::Unbounded) } else { (Bound::Included(offset), Bound::Excluded(offset)) };
         (point + normal.into_inner() * offset.into_inner(), direction, reach)
     });
@@ -127,5 +131,5 @@ where
     } else {
         Either::Right(crossings(assembly, rays)?.into_iter().map(|hits| hits.iter().map(|hit| translucent.get(&hit.element).map_or_default(|transmittance| **transmittance)).product::<f64>()))
     };
-    Ok(shares.zip(sensors.iter().map(move |(_, normal)| normal.dot(&direction).max(0.0))))
+    Ok(shares.zip(sensors.iter().map(move |Sensor { point: _, normal }| normal.dot(&direction).max(0.0))))
 }

@@ -11,7 +11,6 @@ use crate::{Distance, ProximityError};
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub type Neighbor = QueryResultItem<Point3<f64>, usize, f64>;
-type Item = (usize, Point3<f64>);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -22,13 +21,19 @@ pub enum Neighborhood {
     NearestWithin { max_qty: NonZero<usize>, radius: Distance },
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, PartialOrd)]
+pub struct Item {
+    pub index: usize,
+    pub point: Point3<f64>,
+}
+
 #[derive(derive_more::Debug, derive_more::AsRef)]
 pub struct Cloud(#[debug(skip)] KdTree<f64, Item, Eytzinger, VecOfArenas<f64, Item, 3, 32>, 3, 32>);
 
 impl Cloud {
     pub fn new(points: &NESlice<'_, Point3<f64>>) -> Result<Self, ProximityError> {
         crate::bounded(points.as_ref())?;
-        Ok(Self(KdTree::new_from_source_parallel(points.as_ref(), |point, axis| point[axis], |index, &point| (index, point))?))
+        Ok(Self(KdTree::new_from_source_parallel(points.as_ref(), |point, axis| point[axis], |index, &point| Item { index, point })?))
     }
 }
 
@@ -73,4 +78,4 @@ pub(crate) fn normal(group: &[Neighbor], toward: Option<Point3<f64>>) -> Option<
     })
 }
 
-fn neighbor(QueryResultItem { point: (), item: (item, point), distance }: QueryResultItem<(), Item, f64>) -> Neighbor { QueryResultItem { point, item, distance: distance.sqrt() } }
+fn neighbor(QueryResultItem { point: (), item: Item { index: item, point }, distance }: QueryResultItem<(), Item, f64>) -> Neighbor { QueryResultItem { point, item, distance: distance.sqrt() } }

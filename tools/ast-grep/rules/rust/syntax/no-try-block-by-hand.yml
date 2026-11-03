@@ -20,7 +20,17 @@ utils:
             - has: {field: arguments, all: [{has: {nthChild: 1, kind: closure_expression, has: {field: parameters, regex: '^\|\s*\(\)\s*\|$'}}}, {not: {has: {nthChild: 2}}}]}
     error-mapped:
         kind: call_expression
-        has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $TRIED}}, {has: {field: field, regex: '^(map_err|inspect_err)$'}}]}
+        has:
+            field: function
+            kind: field_expression
+            all:
+                - has: {field: field, regex: '^(map_err|inspect_err)$'}
+                - has:
+                    field: value
+                    any:
+                        - pattern: $TRIED
+                        - kind: call_expression
+                          has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(map|inspect)$'}}, {has: {field: value, pattern: $TRIED}}]}
 rule:
     any:
         - kind: call_expression

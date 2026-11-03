@@ -225,7 +225,7 @@ fn drew(
             text::lifted(entity, &document.text_styles, &projection.families, frame, tolerance, subject)
                 .map_or_else(Validated::Fail, Validated::Good)
                 .map2(penned(), |lettering, pen| {
-                    lettering.map_or_default(|(text, background)| {
+                    lettering.map_or_default(|text::Lettering { text, background }| {
                         piece(
                             iter::chain(
                                 background.map(|(region, color)| Element::Fill { region, color: rasm_linework::Color::Srgb(plotted(document, color, &layer, context).0), opacity: pen.opacity }),

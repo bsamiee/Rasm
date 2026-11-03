@@ -9,7 +9,7 @@ use std::{
 
 use acadrust::{AuditIssue, AuditLocation, AuditSeverity, CadDocument, DwgReadOptions, DwgReader, DwgWriter, DxfError, DxfOmission, DxfReader, DxfReaderConfiguration, DxfWriter, Handle, ReadOutcome};
 use derive_where::derive_where;
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use rasm_linework::LineworkError;
 use uom::si::{
     f64::Length,
@@ -204,7 +204,14 @@ where R: Read + Seek + 'static {
 
 pub fn write<W>(document: &CadDocument, format: Format, sink: W) -> Result<(), CadError>
 where W: Write + Seek {
-    NEVec::try_from_vec(document.audit().issues.into_iter().filter(|issue| matches!(issue.severity, AuditSeverity::Error | AuditSeverity::Critical)).collect()).map_or(Ok(()), |issues| Err(CadError::Audit { issues }))?;
+    document
+        .audit()
+        .issues
+        .into_iter()
+        .filter(|issue| matches!(issue.severity, AuditSeverity::Error | AuditSeverity::Critical))
+        .try_into_nonempty_iter()
+        .map(NonEmptyIterator::collect::<NEVec<_>>)
+        .map_or(Ok(()), |issues| Err(CadError::Audit { issues }))?;
     let drawing = |source| CadError::Drawing { operation: Operation::Write(format), source };
     let dxf = |writer: DxfWriter<'_>, output: W| {
         let writer = writer.with_version(document.version);

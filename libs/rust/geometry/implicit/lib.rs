@@ -29,8 +29,6 @@ use rayon::{
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Cell = (Vector3<f32>, Vector3<f32>);
-
 pub trait Sample: Sized + Send {
     type Eval: BulkEvaluator<Data: Default + Transformable + Sync>;
     fn tape(shape: &Shape) -> &ShapeTape<<Self::Eval as BulkEvaluator>::Tape>;
@@ -134,6 +132,12 @@ pub struct Evaluation<'caller> {
     pub cancel: Option<CancelToken> = None,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct Cell {
+    lower: Vector3<f32>,
+    upper: Vector3<f32>,
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
 #[derive(Debug, thiserror::Error)]
@@ -202,14 +206,15 @@ pub fn classify(shape: &Shape, evaluation: &Evaluation<'_>, domain: Domain) -> R
 pub fn bounds(shape: &Shape, evaluation: &Evaluation<'_>, size: f64, search: Domain) -> Result<Option<Domain>, ImplicitError> {
     let vars = bind(shape, evaluation, search.center, None);
     let mut evaluator = ShapeTracingEval::default();
-    subdivide(evaluation.cancel.as_ref(), depth(search.half.max(), size)?, centered(search.half), None, &mut |enclosed: Option<Cell>, cell @ (lower, upper), leaf| {
+    subdivide(evaluation.cancel.as_ref(), depth(search.half.max(), size)?, centered(search.half), None, &mut |enclosed: Option<Cell>, cell @ Cell { lower, upper }, leaf| {
         let classification = enclosed
-            .is_none_or(|(least, most)| (lower - least).min() < 0.0 || (most - upper).min() < 0.0)
+            .is_none_or(|Cell { lower: least, upper: most }| (lower - least).min() < 0.0 || (most - upper).min() < 0.0)
             .then(|| interval(&mut evaluator, shape, &vars, cell).map(Classification::from))
             .transpose()?;
         Ok(match (classification, leaf) {
             (None | Some(Classification::Inside | Classification::Outside), _) => ControlFlow::Break(enclosed),
-            (Some(Classification::Straddling), true) => ControlFlow::Break(Some(enclosed.map_or(cell, |(least, most)| (least.inf(&lower), most.sup(&upper))))),
+            (Some(Classification::Straddling), true) =>
+                ControlFlow::Break(Some(enclosed.map_or(cell, |Cell { lower: least, upper: most }| Cell { lower: least.inf(&lower), upper: most.sup(&upper) }))),
             (Some(Classification::Straddling), false) => ControlFlow::Continue(enclosed),
         })
     })
@@ -268,7 +273,7 @@ where S: Sample {
 
 fn cancellation_point(cancel: Option<&CancelToken>) -> Result<(), ImplicitError> { cancel.is_none_or(|token| !token.is_cancelled()).ok_or(ImplicitError::Cancelled) }
 
-fn interval(evaluator: &mut ShapeTracingEval<JitIntervalEval>, shape: &Shape, vars: &ShapeVars<f32>, (lower, upper): Cell) -> Result<Interval, ImplicitError> {
+fn interval(evaluator: &mut ShapeTracingEval<JitIntervalEval>, shape: &Shape, vars: &ShapeVars<f32>, Cell { lower, upper }: Cell) -> Result<Interval, ImplicitError> {
     evaluator
         .eval_with_vars(&shape.interval, Interval::new(lower.x, upper.x), Interval::new(lower.y, upper.y), Interval::new(lower.z, upper.z), vars)
         .map(|(enclosure, _)| enclosure)
@@ -276,10 +281,10 @@ fn interval(evaluator: &mut ShapeTracingEval<JitIntervalEval>, shape: &Shape, va
 }
 
 fn subdivide<A>(cancel: Option<&CancelToken>, depth: u8, cell: Cell, state: A, visit: &mut impl FnMut(A, Cell, bool) -> Result<ControlFlow<A, A>, ImplicitError>) -> Result<A, ImplicitError> {
-    let children = |(lower, upper): Cell| {
+    let children = |Cell { lower, upper }: Cell| {
         let middle = lower.lerp(&upper, 0.5);
         let halves = [(lower, middle), (middle, upper)];
-        iproduct!(halves, halves, halves).map(|((xl, xu), (yl, yu), (zl, zu))| (Vector3::new(xl.x, yl.y, zl.z), Vector3::new(xu.x, yu.y, zu.z)))
+        iproduct!(halves, halves, halves).map(|((xl, xu), (yl, yu), (zl, zu))| Cell { lower: Vector3::new(xl.x, yl.y, zl.z), upper: Vector3::new(xu.x, yu.y, zu.z) })
     };
     cancellation_point(cancel)?;
     match (visit(state, cell, depth == 0)?, depth.checked_sub(1)) {
@@ -310,9 +315,9 @@ fn local(origin: Point3<f64>, point: Point3<f64>) -> Vector3<f32> { (point - ori
 
 fn world(origin: Point3<f64>, position: Vector3<f32>) -> Point3<f64> { origin + position.cast::<f64>() }
 
-fn centered(half: Vector3<f32>) -> Cell { (-half, half) }
+fn centered(half: Vector3<f32>) -> Cell { Cell { lower: -half, upper: half } }
 
-fn span(origin: Point3<f64>, (lower, upper): Cell) -> RangeInclusive<Point3<f64>> { RangeInclusive { start: world(origin, lower), last: world(origin, upper) } }
+fn span(origin: Point3<f64>, Cell { lower, upper }: Cell) -> RangeInclusive<Point3<f64>> { RangeInclusive { start: world(origin, lower), last: world(origin, upper) } }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -7,7 +7,7 @@ use geo::{Bearing as _, Distance as _, Geodesic, GeodesicArea as _, LinesIter as
 use geo_types::{Line, MultiPolygon, Point};
 use jiff::tz::{self, TimeZone};
 use nalgebra::Point3;
-use nonempty_collections::{NEVec, nev};
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator, nev};
 use proj::{ProjCreateError, ProjError};
 use serde::{Deserialize, Serialize};
 use tzf_rs::DefaultFinder;
@@ -166,13 +166,12 @@ fn enclosure(boundary: &MultiPolygon<f64>) -> Result<(), SiteError> {
         .into_iter()
         .flatten()
     });
-    NEVec::try_from_vec(
-        iter::chain(boundary.0.is_empty().then_some(Defect::Empty), boundary.lines_iter().map(|line| Point(line.start)).filter(|point| located(*point).is_none()).map(Defect::Geographic))
-            .chain(boundary.validation_errors().into_iter().map(Defect::Geometry))
-            .chain(polygons)
-            .collect(),
-    )
-    .map_or(Ok(()), |defects| Err(defects.into()))
+    iter::chain(boundary.0.is_empty().then_some(Defect::Empty), boundary.lines_iter().map(|line| Point(line.start)).filter(|point| located(*point).is_none()).map(Defect::Geographic))
+        .chain(boundary.validation_errors().into_iter().map(Defect::Geometry))
+        .chain(polygons)
+        .try_into_nonempty_iter()
+        .map(NonEmptyIterator::collect::<NEVec<_>>)
+        .map_or(Ok(()), |defects| Err(defects.into()))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

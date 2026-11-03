@@ -1,4 +1,4 @@
-#![feature(const_result_trait_fn, const_trait_impl, default_field_values, trait_alias)]
+#![feature(const_result_trait_fn, const_trait_impl, default_field_values, trait_alias, try_blocks_heterogeneous)]
 
 use core::{
     borrow::Borrow,
@@ -8,7 +8,7 @@ use core::{
 use itertools::Itertools as _;
 use kiddo::kd_tree::ConstructionError;
 use nalgebra::{Isometry3, Point3};
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use parry3d_f64::{
     bounding_volume::Aabb,
     math::Pose,
@@ -123,7 +123,7 @@ where I: IntoIterator<Item: Borrow<Point3<f64>>> {
 }
 
 fn finite(verdicts: impl IntoIterator<Item = bool>) -> Result<(), ProximityError> {
-    NEVec::try_from_vec(verdicts.into_iter().positions(|finite| !finite).collect()).map_or(Ok(()), |indices| Err(ProximityError::NonFinite { indices }))
+    verdicts.into_iter().positions(|finite| !finite).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map_or(Ok(()), |indices| Err(ProximityError::NonFinite { indices }))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

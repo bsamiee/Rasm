@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-offset-zip-windows
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    any:
+        - any:
+            - pattern: iter::zip(&$S, $S.iter().skip(1))
+            - pattern: iter::zip($S.iter(), $S.iter().skip(1))
+            - pattern: iter::zip($S, $S.skip(1))
+            - pattern: $S.zip($S.skip(1))
+          pattern: $ADJACENT
+        - any:
+            - pattern: iter::zip(&$S, $S.iter().cycle().skip(1))
+            - pattern: iter::zip($S.iter(), $S.iter().cycle().skip(1))
+            - pattern: iter::zip($S, $S.cycle().skip(1))
+            - pattern: $S.zip($S.cycle().skip(1))
+            - pattern: iter::zip(iter::chain($S.last(), &$S), &$S)
+            - pattern: iter::zip(iter::chain($S.last(), $S.iter()), $S.iter())
+          pattern: $RING
+transform:
+    ADJACENT_TEXT: {replace: {source: $ADJACENT, replace: '(?s)^.*$', by: 'zips with its own offset copy to pair neighbours, call `array_windows::<2>()` on a slice or `Itertools::tuple_windows` on an iterator'}}
+    RING_TEXT: {replace: {source: $RING, replace: '(?s)^.*$', by: 'zips with its own rotated copy to close a ring, call `Itertools::circular_tuple_windows`'}}
+message: '`$S` $ADJACENT_TEXT$RING_TEXT'
+note: 'Destructure each `&[T; 2]` window as `|[left, right]|`, each tuple window as `|(left, right)|`'

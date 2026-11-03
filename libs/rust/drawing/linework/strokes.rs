@@ -1,4 +1,4 @@
-use core::{iter, mem};
+use core::mem;
 use std::borrow::Cow;
 
 use itertools::Itertools as _;
@@ -27,7 +27,11 @@ pub fn phases<'path>(path: &'path BezPath, linetype: &Linetype, tolerance: Toler
             Alignment::Corners { angle } => {
                 let corner = |(_, (_, incoming)): &(PathSeg, (Vec2, Vec2)), (_, (outgoing, _)): &(PathSeg, (Vec2, Vec2))| crate::deflection(*incoming, *outgoing) > angle.into_inner();
                 let mut runs = segments(elements.iter().copied()).filter_map(|segment| crate::tangents(&segment).map(|tangents| (segment, tangents))).collect::<Vec<_>>();
-                let seam = if matches!(elements.last(), Some(PathEl::ClosePath)) { iter::zip(iter::chain(runs.last(), &runs), &runs).position(|(left, right)| corner(left, right)) } else { Some(0) };
+                let seam = if matches!(elements.last(), Some(PathEl::ClosePath)) {
+                    runs.iter().circular_tuple_windows::<(_, _)>().position(|(left, right)| corner(left, right)).map(|seam| seam.strict_add(1))
+                } else {
+                    Some(0)
+                };
                 let Some(seam) = seam else { return fitted(Cow::Borrowed(elements)).into_iter().collect() };
                 runs.rotate_left(seam);
                 runs.chunk_by(|left, right| !corner(left, right)).filter_map(|run| fitted(Cow::Owned(BezPath::from_path_segments(run.iter().map(|&(segment, _)| segment)).into_elements()))).collect()

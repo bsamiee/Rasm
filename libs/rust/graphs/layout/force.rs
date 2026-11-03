@@ -51,12 +51,17 @@ pub struct Options {
     pub random_policy: FcoseRandomPolicy = FcoseRandomPolicy::seeded(FcoseRandomSource::XorShift64Star, 0),
     pub start: Start = Start::Spectral { node_separation: None },
     pub num_iter: Option<NonZero<usize>> = None,
-    pub default_edge_length: Length = Length::try_new(50.0).ok().unwrap(),
+    pub default_edge_length: Length = Self::EDGE_LENGTH,
     pub compound_padding: Option<Distance> = None,
-    pub control_point_step_size: Distance = Distance::try_new(40.0).ok().unwrap(),
+    pub control_point_step_size: Distance = Self::STEP_SIZE,
     pub relocate_center: Option<Point> = None,
     pub alignment_constraint: Vec<Alignment> = Vec::new(),
     pub relative_placement_constraint: Vec<Placement> = Vec::new(),
+}
+
+impl Options {
+    const EDGE_LENGTH: Length = Length::try_new(50.0).ok().unwrap();
+    const STEP_SIZE: Distance = Distance::try_new(40.0).ok().unwrap();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

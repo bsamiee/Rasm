@@ -21,7 +21,7 @@ use futures::{
     future::{Either, select},
     stream::{self, LocalBoxStream},
 };
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rasm_command::{CommandError, Process};
 use rasm_telemetry::{Defaults, Failure, Handle, Layer};
@@ -204,7 +204,7 @@ where
                     }
                 };
                 let status = if inputs.get_ref().is_stopped() { ExitCode::TempFail } else { ExitCode::Ok };
-                NEVec::try_from_vec(iter::chain(failures, session::left::<P>(&held).map(P::Error::from)).collect()).map_or(Ok(status), Err)
+                iter::chain(failures, session::left::<P>(&held).map(P::Error::from)).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map_or(Ok(status), Err)
             })
             .await
             .unwrap_or_else(|failure| panic::resume_unwind(failure.into_panic()))

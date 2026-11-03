@@ -235,6 +235,10 @@ fn stepped(cursor: &Cursor) -> [usize; 2] { [advanced(cursor), rewound(cursor)] 
 
 fn framed(grid: &Grid) -> usize { grid.cells.len() }
 
+fn spanned(left: &Window, right: &Window) -> usize { left.width.abs_diff(right.width) }
+
+fn compared(width: usize) -> usize { spanned(&Window { width }, &Window { width: 1 }) }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
@@ -245,7 +249,7 @@ async fn main() {
     let cursor = Cursor { position: 2 };
     black_box(&stepped(&cursor));
     black_box(&(parsed("a1b2"), started(3), first(" x "), second(" y "), titled(), direct("z"), measuring("w"), window.clamped(), window.squared()));
-    black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4), Report { ports: 6 }, widened(2), narrowed(8)));
+    black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4), Report { ports: 6 }, widened(2), narrowed(8), compared(5)));
     black_box(&(padded(), gridded(&grid), SEED, STEPS, window.tripled(), window.scale(), grid.scale()));
     black_box(&(Buffer { items: vec![1_u16] }.bytes(), sized(), port(1), kept(), counted("a"), grade(6), wrapped(3), layered(5), paired(4_u8), doubled(5_u8), tripled(7_u8)));
 }

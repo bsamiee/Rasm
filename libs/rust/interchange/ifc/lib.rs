@@ -2,7 +2,6 @@
 
 use core::{
     hash::Hash,
-    iter,
     num::{ParseFloatError, ParseIntError, TryFromIntError},
     str::FromStr,
 };
@@ -372,7 +371,8 @@ impl Model {
 
     #[must_use]
     pub fn occurrences(&self, path: &Path) -> Vec<Path> {
-        let nested = self.holders.get(path).into_iter().flatten().flat_map(|(name, holder)| self.occurrences(&holder.path).into_iter().map(|occurrence| occurrence.child(name.clone()))).collect::<Vec<_>>();
+        let nested =
+            self.holders.get(path).into_iter().flatten().flat_map(|(name, holder)| self.occurrences(&holder.path).into_iter().map(|occurrence| occurrence.child(name.clone()))).collect::<Vec<_>>();
         if nested.is_empty() { Vec::from([path.clone()]) } else { nested }
     }
 }

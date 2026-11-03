@@ -38,8 +38,6 @@ use crate::{McpError, Progress, Unanswered, internal};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Asked = (InputRequest, oneshot::Sender<Value>);
-
 pub(super) type Parked = BTreeMap<String, (Running, AbortOnDropHandle<()>)>;
 
 pub(super) type Ledger = watch::Sender<BTreeMap<usize, Execution>>;
@@ -85,6 +83,11 @@ enum Outcome {
     Failed { error: ErrorData },
 }
 
+struct Asked {
+    request: InputRequest,
+    responder: oneshot::Sender<Value>,
+}
+
 pub(super) struct Running {
     call: BoxFuture<'static, Result<CallToolResponse, ErrorData>>,
     questions: mpsc::UnboundedReceiver<(String, Asked)>,
@@ -127,7 +130,7 @@ impl Elicitation {
             self.context.peer.create_elicitation(params).await.map_err(|source| McpError::Service { source })?
         } else {
             let (responder, answered) = oneshot::channel();
-            self.asked.send((Uuid::new_v4().to_string(), (InputRequest::Elicitation(ElicitRequest::new(params)), responder))).map_err(|mpsc::error::SendError(_)| abandoned())?;
+            self.asked.send((Uuid::new_v4().to_string(), Asked { request: InputRequest::Elicitation(ElicitRequest::new(params)), responder })).map_err(|mpsc::error::SendError(_)| abandoned())?;
             let answer = answered.await.map_err(|oneshot::error::RecvError { .. }| abandoned())?;
             serde_path_to_error::deserialize(&answer).map_err(|source| McpError::Answer { data: answer, source })?
         };
@@ -174,7 +177,7 @@ where A: App {
             let task = task.clone();
             async move {
                 match item {
-                    Either::Left((key, (request, responder))) =>
+                    Either::Left((key, Asked { request, responder })) =>
                         task.request_input(key.clone(), request).await.map_or_else(|exit| tracing::debug!(?exit, "task input ended unanswered"), |answer| deliver(&key, responder, answer)),
                     Either::Right(message) => task.set_status_message(message),
                 }
@@ -221,7 +224,7 @@ where A: App {
             .input_responses
             .into_iter()
             .flatten()
-            .filter_map(|(key, answer)| held.pending.remove(&key).map(|(_, responder)| (key, responder, answer)))
+            .filter_map(|(key, answer)| held.pending.remove(&key).map(|Asked { request: _, responder }| (key, responder, answer)))
             .for_each(|(key, responder, answer)| deliver(&key, responder, answer));
         held
     } else {
@@ -237,7 +240,7 @@ where A: App {
     };
     let park = |parked: Running| {
         let state = Uuid::new_v4().to_string();
-        let required = InputRequiredResult::new(Some(parked.pending.iter().map(|(key, (asked, _))| (key.clone(), asked.clone())).collect()), Some(state.clone()));
+        let required = InputRequiredResult::new(Some(parked.pending.iter().map(|(key, Asked { request: input, responder: _ })| (key.clone(), input.clone())).collect()), Some(state.clone()));
         let (calls, expiring) = (Arc::clone(&server.parked), state.clone());
         let expiry = AbortOnDropHandle::new(server.tracker.spawn(time::sleep(server.retention).map(move |()| drop(calls.with_mut(|held| held.remove(&expiring))))));
         drop(server.parked.with_mut(|waiting| waiting.insert(state, (parked, expiry))));

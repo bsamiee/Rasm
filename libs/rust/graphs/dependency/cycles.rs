@@ -1,7 +1,7 @@
 use core::{cmp::Reverse, iter};
 
 use itertools::Itertools as _;
-use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
+use nonempty_collections::{IntoIteratorExt as _, IntoNonEmptyIterator as _, NEVec, NonEmptyIterator};
 use petgraph::{
     acyclic::AcyclicEdgeError,
     algo::{astar, condensation, kosaraju_scc},
@@ -63,22 +63,23 @@ where K: Ord {
         .sorted_by_key(|&(component, _)| component)
         .chunk_by(|&(component, _)| component)
         .into_iter()
-        .filter_map(|(component, members)| Some(Block { members: NEVec::try_from_vec(members.map(|(_, node)| node).collect())?, torn: torn.remove(&component).unwrap_or_default() }))
+        .filter_map(|(component, members)| {
+            Some(Block { members: members.map(|(_, node)| node).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>)?, torn: torn.remove(&component).unwrap_or_default() })
+        })
         .collect();
     Torn { evaluation, blocks }
 }
 
 pub(crate) fn cycle<N, E>(graph: &StableDiGraph<N, E>) -> Option<DependencyError> {
     let components = components(graph);
-    NEVec::try_from_vec(
-        graph
-            .edge_references()
-            .filter_map(|edge| at(&components, edge.source()).filter(|&component| at(&components, edge.target()) == Some(component)).map(|component| (component, edge.source(), edge.target())))
-            .unique_by(|&(component, _, _)| component)
-            .map(|(component, source, target)| path(graph, |node| at(&components, node) == Some(component), target, source))
-            .collect(),
-    )
-    .map(|paths| DependencyError::Cycle { paths })
+    graph
+        .edge_references()
+        .filter_map(|edge| at(&components, edge.source()).filter(|&component| at(&components, edge.target()) == Some(component)).map(|component| (component, edge.source(), edge.target())))
+        .unique_by(|&(component, _, _)| component)
+        .map(|(component, source, target)| path(graph, |node| at(&components, node) == Some(component), target, source))
+        .try_into_nonempty_iter()
+        .map(NonEmptyIterator::collect::<NEVec<_>>)
+        .map(|paths| DependencyError::Cycle { paths })
 }
 
 pub(crate) fn refused<N, E>(evaluation: &Evaluation<N, E>, edges: NEVec<(NodeIndex, NodeIndex)>) -> DependencyError {

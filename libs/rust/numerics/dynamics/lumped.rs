@@ -15,7 +15,7 @@ use faer::{
     sparse::{CreationError, Pair, SparseColMat, SparseColMatRef, SymbolicSparseColMat, Triplet, linalg::matmul::sparse_dense_matmul},
 };
 use itertools::{Itertools as _, izip};
-use nonempty_collections::{NEVec, nev};
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator, nev};
 use petgraph::{
     algo::kosaraju_scc,
     graph::{EdgeIndex, NodeIndex, UnGraph},
@@ -638,7 +638,11 @@ fn transient<'network>(
 fn scales(network: &Network, parameters: &[f64]) -> Vec<f64> { network.holding(parameters.iter().skip(network.graph.edge_count())).map(|capacity| capacity.map_or(1.0, |held| held.recip())).collect() }
 
 fn floating(network: &Network, anchored: impl Fn(&Node) -> bool) -> Result<(), DynamicsError> {
-    NEVec::try_from_vec(kosaraju_scc(&network.graph).into_iter().filter(|component| !component.iter().any(|&node| network.graph.node_weight(node).is_some_and(&anchored))).collect())
+    kosaraju_scc(&network.graph)
+        .into_iter()
+        .filter(|component| !component.iter().any(|&node| network.graph.node_weight(node).is_some_and(&anchored)))
+        .try_into_nonempty_iter()
+        .map(NonEmptyIterator::collect::<NEVec<_>>)
         .map_or(Ok(()), |components| Err(DynamicsError::Floating { components }))
 }
 
