@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-raising-host-call-in-ok
 language: pythonlang
 severity: error
 files:
@@ -17,12 +16,12 @@ utils:
                     - has: {field: attribute, regex: '^(new|new_from_object|load|remove|create_gpencil_data|remove_gpencil_data)$'}
                     - has: {field: object, kind: attribute, has: {field: object, matches: {python-member-use: {module: {regex: '^bpy$'}, name: {regex: '^data$'}}}}}
                 - all:
-                    - inside: {kind: module, stopBy: end, regex: '\bgpu\b'}
+                    - inside: {kind: module, stopBy: end, regex: '(?-u:\b)gpu(?-u:\b)'}
                     - matches: {python-member-use: {module: {regex: '^gpu\.types$'}, name: {regex: '^(Buffer|GPUBatch|GPUFrameBuffer|GPUIndexBuf|GPUOffScreen|GPUStorageBuf|GPUTexture|GPUUniformBuf|GPUVertBuf|GPUVertFormat)$'}}}
 rule:
     kind: call
     all:
-        - inside: {kind: module, stopBy: end, regex: '\bexpression\b'}
+        - inside: {kind: module, stopBy: end, regex: '(?-u:\b)expression(?-u:\b)'}
         - has: {field: arguments, not: {has: {nthChild: 2}}, has: {nthChild: 1, matches: refusing}}
         - has: {field: function, matches: {python-unparenthesized: {value: {matches: {expression-member: {name: {regex: '^Ok$'}}}}}}}
 message: '`Ok($CALL)` lets a host refusal raise'

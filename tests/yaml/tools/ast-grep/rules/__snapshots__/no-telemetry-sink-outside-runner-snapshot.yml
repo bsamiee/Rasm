@@ -1,0 +1,14 @@
+id: no-telemetry-sink-outside-runner
+snapshots:
+  "import { Effect, Tracer } from \"effect\";\nexport const traced = Effect.withTracer(program, Tracer.make({ span }));\n":
+    labels:
+    - source: Effect.withTracer
+      style: primary
+      start: 63
+      end: 80
+  "import { Logger } from \"effect\";\nexport const layer = Logger.layer([Logger.consolePretty()]);\n":
+    labels:
+    - source: Logger.layer
+      style: primary
+      start: 54
+      end: 66

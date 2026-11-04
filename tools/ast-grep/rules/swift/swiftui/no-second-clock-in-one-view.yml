@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-second-clock-in-one-view
 language: swiftlang
 severity: error
 utils:
@@ -21,7 +20,7 @@ utils:
                         - has: {field: value, regex: '^((SwiftUI\.)?Text\.DateStyle)?\.(relative|offset|timer)$'}
                     - all:
                         - has: {field: name, regex: '^format$'}
-                        - has: {field: value, regex: '^((SwiftUI\.)?SystemFormatStyle(\.\w+)?)?\.(offset|reference|timer|stopwatch)\('}
+                        - has: {field: value, regex: '^((SwiftUI\.)?SystemFormatStyle(\.\p{XID_Continue}+)?)?\.(offset|reference|timer|stopwatch)\('}
             - kind: 'prefix_expression, navigation_expression'
               regex: '^((SwiftUI\.)?TimeDataSource(<[^>]*>)?)?\.(currentDate|durationOffset|dateRange)$'
 rule:

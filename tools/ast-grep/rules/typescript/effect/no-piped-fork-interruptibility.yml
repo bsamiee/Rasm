@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-piped-fork-interruptibility
 language: tsxlang
 severity: error
 utils:
     uninterruptible:
-        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^uninterruptible$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^uninterruptible$'}}}
     fork-member:
-        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(forkIn|forkChild|forkScoped|forkDetach|runFork)$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(forkIn|forkChild|forkScoped|forkDetach|runFork)$'}}}
     fork-options:
         kind: object
         not: {has: {any: [{kind: spread_element}, {kind: pair, has: {field: key, regex: '^uninterruptible$'}}, {kind: shorthand_property_identifier, regex: '^uninterruptible$'}]}}

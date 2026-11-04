@@ -1,22 +1,21 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-filter-by-membership
 language: tsxlang
 severity: error
 ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
 utils:
     collection:
-        matches: {effect-module: {name: {regex: '\b(Array|Chunk|HashSet)$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|HashSet)$'}}}
     native-receiver:
-        not: {any: [{kind: 'string, template_string'}, {matches: {effect-module: {name: {regex: '\w'}}}}]}
+        not: {any: [{kind: 'string, template_string'}, {matches: {effect-module: {name: {regex: '[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]'}}}}]}
     membership:
         kind: call_expression
         all:
             - has: {field: function, kind: member_expression, has: {field: object, pattern: $OWNER}}
             - any:
                 - pattern: $OWNER.has($SEEN, $X)
-                  has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bHashSet$'}}}}}
+                  has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)HashSet$'}}}}}
                 - pattern: $OWNER.contains($SEEN, $X)
-                  has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}}}
+                  has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}}}}}
                 - pattern: $OWNER.includes($X)
                   has: {field: function, has: {field: object, pattern: $SEEN, matches: native-receiver}}
     predicate:
@@ -26,7 +25,7 @@ utils:
             - has: {field: body, any: [{matches: membership}, {pattern: '!$_INNER', has: {matches: membership}}]}
     set-test:
         pattern: $_SET.has($_SEEN, $_ITEM)
-        has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bHashSet$'}}}}}
+        has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)HashSet$'}}}}}
     set-predicate:
         kind: arrow_function
         has: {field: body, any: [{matches: set-test}, {has: {matches: set-test}}]}
@@ -39,7 +38,7 @@ rule:
                 - has: {field: arguments, has: {matches: predicate, nthChild: {position: 1, reverse: true}}}
                 - has: {field: function, has: {field: object, matches: collection}}
                 - any:
-                    - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}}
+                    - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}}
                       not: {has: {field: arguments, has: {matches: set-predicate}}}
                     - has: {field: function, has: {field: object, pattern: $OWNER}}
             - all:

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-wrapped-mapping-result
 language: csharplang
 severity: error
 files: ['libs/dotnet/rhino/Rasm.Rhino/**']
@@ -40,7 +39,7 @@ utils:
         inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $HELD}}, {has: {field: type, matches: option}}]}}}
     unwrap-callee:
         kind: member_access_expression
-        has: {field: name, regex: '^(Throw\w*|ValueUnsafe|Run(Unsafe)?(Async)?)$'}
+        has: {field: name, regex: '^(Throw\p{XID_Continue}*|ValueUnsafe|Run(Unsafe)?(Async)?)$'}
         not:
             all:
                 - has: {field: name, regex: '^ValueUnsafe$'}

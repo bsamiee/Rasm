@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-element-dispose-loop
 language: csharplang
 severity: error
 files: ['**/rhino/**']
@@ -107,7 +106,7 @@ utils:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Bind$'}}
                 - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: option-value}}}}
             - kind: invocation_expression
-              has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, regex: '^(None|Option\s*<.+>\s*\.\s*None)$'}}}}
+              has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, regex: '^(None|Option[\p{White_Space}\x{FEFF}]*<.+>[\p{White_Space}\x{FEFF}]*\.[\p{White_Space}\x{FEFF}]*None)$'}}}}
             - kind: invocation_expression
               has: {field: function, kind: identifier, pattern: $OPTION_METHOD}
               inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: option-method}}

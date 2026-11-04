@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-binding-for-equality
 language: swiftlang
 severity: error
 utils:
@@ -78,7 +77,7 @@ rule:
             - not: {follows: {stopBy: end, kind: switch_pattern}}
             - not: {precedes: {stopBy: end, kind: statements, matches: name-read}}
         - kind: 'if_statement, guard_statement'
-          regex: '^(if|guard)\s+case\b'
+          regex: '^(if|guard)\p{White_Space}+case(?-u:\b)'
           all:
             - matches: sole-binding
             - has: {kind: equality_expression, matches: compared}
@@ -87,7 +86,7 @@ rule:
             - not: {all: [{kind: guard_statement}, {precedes: {stopBy: end, any: [{kind: simple_identifier, pattern: $NAME}, {matches: name-read}]}}]}
         - kind: for_statement
           all:
-            - has: {field: item, regex: '^case\b', matches: sole-binding}
+            - has: {field: item, regex: '^case(?-u:\b)', matches: sole-binding}
             - has: {kind: where_clause, has: {kind: equality_expression, matches: compared}}
             - not: {has: {kind: statements, matches: name-read}}
 message: 'Case pattern binds `$NAME` only to compare it in a `where` clause or condition'

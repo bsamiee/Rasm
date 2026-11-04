@@ -1,17 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-telemetry-sink-outside-runner
 language: tsxlang
 severity: error
 utils:
     runner:
         any:
-            - matches: {effect-module-member: {module: {regex: '\b(NodeRuntime|BunRuntime|BrowserRuntime)$'}, member: {regex: '^runMain$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)(NodeRuntime|BunRuntime|BrowserRuntime)$'}, member: {regex: '^runMain$'}}}
             - matches: {typescript-import-reference: {source: {regex: '^@effect/platform-[a-z]+/(Node|Bun|Browser)Runtime$'}, exported: {regex: '^runMain$'}}}
-            - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^run'}}}
-            - matches: {effect-module-member: {module: {regex: '\bManagedRuntime$'}, member: {regex: '^make$'}}}
-            - matches: {effect-module-member: {module: {regex: '\bLayer$'}, member: {regex: '^launch$'}}}
-            - matches: {effect-module-member: {module: {regex: '\bHttpRouter$'}, member: {regex: '^(serve|toWebHandler)$'}}}
-            - matches: {effect-module-member: {module: {regex: '\bit$'}, member: {regex: '^(effect|live|layer)$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^run'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)ManagedRuntime$'}, member: {regex: '^make$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Layer$'}, member: {regex: '^launch$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)HttpRouter$'}, member: {regex: '^(serve|toWebHandler)$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)it$'}, member: {regex: '^(effect|live|layer)$'}}}
             - matches: {typescript-import-reference: {source: {regex: '^@effect/vitest$'}, exported: {regex: '^(effect|live|layer)$'}}}
 rule:
     kind: program
@@ -21,10 +20,10 @@ rule:
             kind: member_expression
             pattern: $SINK
             any:
-                - matches: {effect-module-member: {module: {regex: '\bLogger$'}, member: {regex: '^(layer|make|map|batched|toFile|CurrentLoggers|LogToStderr|defaultLogger|tracerLogger|format\w+|console\w+|with\w+)$'}}}
-                - matches: {effect-module-member: {module: {regex: '\b(Otlp|OtlpExporter|OtlpLogger|OtlpTracer|OtlpMetrics|OtelLogger|OtelTracer|OtelMetrics|PrometheusMetrics|NodeSdk|WebSdk)$'}, member: {regex: '^(layer\w*|make)$'}}}
-                - matches: {effect-module-member: {module: {regex: '\bTracer$'}, member: {regex: '^make$'}}}
-                - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(withLogger|withTracer)$'}}}
+                - matches: {effect-module-member: {module: {regex: '(?-u:\b)Logger$'}, member: {regex: '^(layer|make|map|batched|toFile|CurrentLoggers|LogToStderr|defaultLogger|tracerLogger|format[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+|console[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+|with[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)$'}}}
+                - matches: {effect-module-member: {module: {regex: '(?-u:\b)(Otlp|OtlpExporter|OtlpLogger|OtlpTracer|OtlpMetrics|OtelLogger|OtelTracer|OtelMetrics|PrometheusMetrics|NodeSdk|WebSdk)$'}, member: {regex: '^(layer[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|make)$'}}}
+                - matches: {effect-module-member: {module: {regex: '(?-u:\b)Tracer$'}, member: {regex: '^make$'}}}
+                - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(withLogger|withTracer)$'}}}
         - not: {has: {stopBy: end, matches: runner}}
 labels:
     SINK: {style: primary}

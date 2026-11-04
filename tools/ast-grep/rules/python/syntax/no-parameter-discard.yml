@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-parameter-discard
 language: pythonlang
 severity: error
 utils:
@@ -11,7 +10,7 @@ utils:
     throwaway:
         any:
             - kind: identifier
-              regex: '^_\w*$'
+              regex: '^_\p{XID_Continue}*$'
               pattern: $T
               not:
                 inside:

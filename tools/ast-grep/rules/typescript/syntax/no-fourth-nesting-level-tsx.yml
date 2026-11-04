@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-fourth-nesting-level-tsx
 language: tsxlang
 severity: error
 utils:
@@ -40,7 +39,7 @@ rule:
                 stopBy: {matches: boundary}
                 not: {inside: {matches: level, stopBy: *declaration}}
 transform:
-    HEAD: {replace: {source: $SCOPE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+    HEAD: {replace: {source: $SCOPE, replace: '(?s)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\{?[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\n.*$', by: ''}}
 message: '`$HEAD` opens a fourth nesting level'
 note: 'Rebuild nested decisions, loops, or callbacks as one match, lookup, or pipeline over their inputs, with no extracted helper'
 labels:

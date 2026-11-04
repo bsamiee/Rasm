@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-ns-regular-expression
 language: swiftlang
 severity: error
 rule:
@@ -12,6 +11,6 @@ rule:
         - kind: value_argument
           all:
             - has: {field: name, regex: '^options$'}
-            - has: {field: value, regex: '\bregularExpression\b'}
+            - has: {field: value, regex: '(?-u:\b)regularExpression(?-u:\b)'}
 message: '`$SITE` compiles a regex from a pattern string at run time through Foundation'
 note: 'Write `/<pattern>/` or `Regex { }`, `try Regex(<string>)` for a run-time pattern, and search through `String` regex algorithms'

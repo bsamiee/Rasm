@@ -1,0 +1,6 @@
+id: no-parse-error-sql
+snapshots:
+  SELECT FROM WHERE;:
+    labels: []
+  SELECT x'0G';:
+    labels: []

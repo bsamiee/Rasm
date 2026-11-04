@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-enumerate-filter-index
 language: rustlang
 severity: error
 utils:
@@ -17,7 +16,7 @@ utils:
                     - kind: if_expression
                       has: {field: condition, matches: index-read}
     index-free-filter:
-        has: {field: function, has: {field: value, has: {field: arguments, has: {nthChild: 1, kind: closure_expression, regex: '^(move\s+)?\|\s*&?\(\s*_\s*,'}}}}
+        has: {field: function, has: {field: value, has: {field: arguments, has: {nthChild: 1, kind: closure_expression, regex: '^(move\p{White_Space}+)?\|\p{White_Space}*&?\(\p{White_Space}*_\p{White_Space}*,'}}}}
 rule:
     kind: call_expression
     pattern: $CHAIN

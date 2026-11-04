@@ -1,0 +1,24 @@
+id: no-default-type-argument
+valid:
+    - |
+      import { Effect } from "effect";
+      type Task = Effect.Effect<number, Error>;
+    - |
+      import { Effect } from "effect";
+      type Task = Effect.Effect<never>;
+    - |
+      import { Effect, Scope } from "effect";
+      type Task = Effect.Effect<number, never, Scope.Scope>;
+    - |
+      import { Effect } from "./local";
+      type Task = Effect.Effect<number, never>;
+invalid:
+    - |
+      import { Effect } from "effect";
+      type Task = Effect.Effect<number, never>;
+    - |
+      import { Effect } from "effect";
+      type Task = Effect.Effect<number, Error, never>;
+    - |
+      import * as Stream from "effect/Stream";
+      type Lines = Stream.Stream<string, never>;

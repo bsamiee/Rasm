@@ -1,0 +1,21 @@
+================================================================================
+no-parse-error-rust empty-raw-string: r"" yields a zero-width string_content
+================================================================================
+
+fn f() -> &'static str {
+    r""
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    return_type: (reference_type
+      (lifetime
+        (identifier))
+      type: (primitive_type))
+    body: (block
+      (raw_string_literal
+        (string_content)))))

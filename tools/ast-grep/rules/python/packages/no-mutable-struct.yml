@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-mutable-struct
 language: pythonlang
 severity: error
 rule:
     kind: class_definition
     all:
-        - inside: {kind: module, stopBy: end, regex: '\bmsgspec\b'}
+        - inside: {kind: module, stopBy: end, regex: '(?-u:\b)msgspec(?-u:\b)'}
         - has: {field: name, pattern: $NAME}
         - any:
             - matches: msgspec-struct-frozen-default

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-variant-parse-match
 language: rustlang
 severity: error
 utils:
@@ -18,13 +17,13 @@ utils:
     literal-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, regex: '^"[^"\\]*"(\s*\|\s*"[^"\\]*")*$'}
+            - has: {field: pattern, kind: match_pattern, regex: '^"[^"\\]*"(\p{White_Space}*\|\p{White_Space}*"[^"\\]*")*$'}
             - has: {field: value, matches: variant-value}
     fallback-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, regex: '^(_|[a-z_]\w*)$'}
-            - has: {field: value, any: [{regex: '^\{?\s*(return\s+)?(None\b|Err\s*\(|((::)?anyhow\s*::\s*)?bail\s*!)'}, {matches: variant-value}]}
+            - has: {field: pattern, kind: match_pattern, regex: '^(_|[a-z_]\p{XID_Continue}*)$'}
+            - has: {field: value, any: [{regex: '^\{?\p{White_Space}*(return\p{White_Space}+)?(None(?-u:\b)|Err\p{White_Space}*\(|((::)?anyhow\p{White_Space}*::\p{White_Space}*)?bail\p{White_Space}*!)'}, {matches: variant-value}]}
 rule:
     kind: match_expression
     all:
@@ -39,7 +38,7 @@ rule:
         - any:
             - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $E}}}
             - all:
-                - has: {field: body, has: {kind: match_arm, has: {field: value, regex: '\bSelf::'}}}
+                - has: {field: body, has: {kind: match_arm, has: {field: value, regex: '(?-u:\b)Self::'}}}
                 - inside: {kind: impl_item, stopBy: end, has: {field: type, kind: type_identifier, pattern: $T}}
                 - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
 message: '`match` on `$SUBJECT` decodes text into enum variants through one literal arm per variant'

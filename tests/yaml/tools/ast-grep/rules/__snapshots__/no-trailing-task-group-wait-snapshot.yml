@@ -1,0 +1,198 @@
+id: no-trailing-task-group-wait
+snapshots:
+  "func load() async {\n    await _Concurrency.withTaskGroup(of: Void.self) { group in\n        group.addTask { await work() }\n        await group.waitForAll()\n    }\n}\n":
+    fixed: |
+      func load() async {
+          await _Concurrency.withTaskGroup(of: Void.self) { group in
+              group.addTask { await work() }
+              
+          }
+      }
+    labels:
+    - source: await group.waitForAll()
+      style: primary
+      start: 130
+      end: 154
+    - source: group.waitForAll()
+      style: secondary
+      start: 136
+      end: 154
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: _Concurrency.withTaskGroup
+      style: secondary
+      start: 30
+      end: 56
+    - source: |-
+        _Concurrency.withTaskGroup(of: Void.self) { group in
+                group.addTask { await work() }
+                await group.waitForAll()
+            }
+      style: secondary
+      start: 30
+      end: 160
+    - source: |-
+        (of: Void.self) { group in
+                group.addTask { await work() }
+                await group.waitForAll()
+            }
+      style: secondary
+      start: 56
+      end: 160
+    - source: |-
+        { group in
+                group.addTask { await work() }
+                await group.waitForAll()
+            }
+      style: secondary
+      start: 72
+      end: 160
+    - source: |-
+        group.addTask { await work() }
+                await group.waitForAll()
+            
+      style: secondary
+      start: 91
+      end: 159
+  "func load() async {\n    await _Concurrency.withTaskGroup(of: Void.self) { group in\n        group.addTask { await work() }\n        for await _ in group {}\n    }\n}\n":
+    fixed: |
+      func load() async {
+          await _Concurrency.withTaskGroup(of: Void.self) { group in
+              group.addTask { await work() }
+              
+          }
+      }
+    labels:
+    - source: for await _ in group {}
+      style: primary
+      start: 130
+      end: 153
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: _Concurrency.withTaskGroup
+      style: secondary
+      start: 30
+      end: 56
+    - source: |-
+        _Concurrency.withTaskGroup(of: Void.self) { group in
+                group.addTask { await work() }
+                for await _ in group {}
+            }
+      style: secondary
+      start: 30
+      end: 159
+    - source: |-
+        (of: Void.self) { group in
+                group.addTask { await work() }
+                for await _ in group {}
+            }
+      style: secondary
+      start: 56
+      end: 159
+    - source: |-
+        { group in
+                group.addTask { await work() }
+                for await _ in group {}
+            }
+      style: secondary
+      start: 72
+      end: 159
+    - source: |-
+        group.addTask { await work() }
+                for await _ in group {}
+            
+      style: secondary
+      start: 91
+      end: 158
+  "func load() async {\n    await _Concurrency.withTaskGroup(of: Void.self) { group in\n        group.addTask { await work() }\n        while await group.next() != nil {}\n    }\n}\n":
+    fixed: |
+      func load() async {
+          await _Concurrency.withTaskGroup(of: Void.self) { group in
+              group.addTask { await work() }
+              
+          }
+      }
+    labels:
+    - source: while await group.next() != nil {}
+      style: primary
+      start: 130
+      end: 164
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: group
+      style: secondary
+      start: 74
+      end: 79
+    - source: _Concurrency.withTaskGroup
+      style: secondary
+      start: 30
+      end: 56
+    - source: |-
+        _Concurrency.withTaskGroup(of: Void.self) { group in
+                group.addTask { await work() }
+                while await group.next() != nil {}
+            }
+      style: secondary
+      start: 30
+      end: 170
+    - source: |-
+        (of: Void.self) { group in
+                group.addTask { await work() }
+                while await group.next() != nil {}
+            }
+      style: secondary
+      start: 56
+      end: 170
+    - source: |-
+        { group in
+                group.addTask { await work() }
+                while await group.next() != nil {}
+            }
+      style: secondary
+      start: 72
+      end: 170
+    - source: |-
+        group.addTask { await work() }
+                while await group.next() != nil {}
+            
+      style: secondary
+      start: 91
+      end: 169

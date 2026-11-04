@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-process-entry-by-hand
 language: rustlang
 severity: error
 ignores: ['libs/rust/cli/command/**', 'tools/dylint/examples/**']
@@ -11,7 +10,7 @@ utils:
             - kind: scoped_identifier
               all:
                 - regex: '^((Local)?Runtime::new|Builder::new_(multi|current)_thread)$'
-                - has: {field: path, matches: {rust-imported-name: {source: {regex: '\btokio\b'}, name: {regex: '^((Local)?Runtime|Builder)$'}}}}
+                - has: {field: path, matches: {rust-imported-name: {source: {regex: '(?-u:\b)tokio(?-u:\b)'}, name: {regex: '^((Local)?Runtime|Builder)$'}}}}
             - kind: identifier
               inside: {kind: token_tree}
               any:
@@ -21,7 +20,7 @@ utils:
               inside: {kind: attribute}
               any:
                 - regex: '^(::)?tokio::main$'
-                - matches: {rust-imported-name: {source: {regex: '\btokio\b'}, name: {regex: '^main$'}}}
+                - matches: {rust-imported-name: {source: {regex: '(?-u:\b)tokio(?-u:\b)'}, name: {regex: '^main$'}}}
     signal-listener:
         any:
             - kind: scoped_identifier
@@ -42,7 +41,7 @@ utils:
             - kind: scoped_identifier
               all:
                 - regex: '^Man::new$'
-                - has: {field: path, matches: {rust-imported-name: {source: {regex: '\bclap_mangen\b'}, name: {regex: '^Man$'}}}}
+                - has: {field: path, matches: {rust-imported-name: {source: {regex: '(?-u:\b)clap_mangen(?-u:\b)'}, name: {regex: '^Man$'}}}}
 rule:
     kind: 'identifier, scoped_identifier'
     pattern: $SITE
@@ -56,7 +55,7 @@ rule:
             - matches: signal-listener
             - matches: completion-script
             - matches: man-page
-            - matches: {rust-imported-name: {source: {regex: '\b(tokio|clap_complete|clap_mangen)\b'}, name: {regex: '^(signal|ctrl_(c|break|close|logoff|shutdown)|generate(_to)?)$'}}}
+            - matches: {rust-imported-name: {source: {regex: '(?-u:\b)(tokio|clap_complete|clap_mangen)(?-u:\b)'}, name: {regex: '^(signal|ctrl_(c|break|close|logoff|shutdown)|generate(_to)?)$'}}}
         - not: {matches: rust-test-scope}
 message: '`$SITE` builds a runtime, signal listener, completion script, or man page outside `rasm-command`'
 note: 'Run the entry through `rasm_command::run` and read `Process::signals`'

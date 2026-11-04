@@ -9,7 +9,7 @@ utils:
             - kind: macro_invocation
               all:
                 - matches: {rust-std-macro: {name: {regex: '^write$'}}}
-                - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"[^"{}\\]*"\s*,?\s*\)$'}
+                - has: {kind: token_tree, regex: '^\(\p{White_Space}*\p{XID_Continue}+\p{White_Space}*,\p{White_Space}*"[^"{}\\]*"\p{White_Space}*,?\p{White_Space}*\)$'}
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^write_str$'}}
@@ -29,7 +29,7 @@ utils:
     unit-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, regex: '^\w+::\w+\s*(\(\s*(_|\.\.)(\s*,\s*(_|\.\.))*\s*,?\s*\)|\{\s*\.\.\s*\})?$', not: {has: {field: condition, pattern: $_}}}
+            - has: {field: pattern, kind: match_pattern, regex: '^\p{XID_Continue}+::\p{XID_Continue}+\p{White_Space}*(\(\p{White_Space}*(_|\.\.)(\p{White_Space}*,\p{White_Space}*(_|\.\.))*\p{White_Space}*,?\p{White_Space}*\)|\{\p{White_Space}*\.\.\p{White_Space}*\})?$', not: {has: {field: condition, pattern: $_}}}
             - has: {field: value, matches: literal-text}
     naming-impl:
         kind: impl_item
@@ -37,7 +37,7 @@ utils:
             - has: {field: type, kind: type_identifier, pattern: $T, matches: type}
             - any:
                 - not: {has: {field: trait, pattern: $_}}
-                - has: {field: trait, regex: '^(((std|core)::)?fmt::)?Display$|^(((std|core)::)?convert::)?AsRef\s*<\s*str\s*>$'}
+                - has: {field: trait, regex: '^(((std|core)::)?fmt::)?Display$|^(((std|core)::)?convert::)?AsRef\p{White_Space}*<\p{White_Space}*str\p{White_Space}*>$'}
             - inside:
                 kind: 'source_file, declaration_list, block'
                 all:
@@ -48,14 +48,14 @@ utils:
         any:
             - has: {field: name, regex: '^(fmt|as_str|as_ref|name)$'}
             - all:
-                - has: {field: parameters, regex: '^\(\s*&?\s*self\s*\)$'}
-                - has: {field: return_type, regex: '^(&\s*(''static\s+)?str|String|Cow\s*<\s*''static\s*,\s*str\s*>)$'}
+                - has: {field: parameters, regex: '^\(\p{White_Space}*&?\p{White_Space}*self\p{White_Space}*\)$'}
+                - has: {field: return_type, regex: '^(&\p{White_Space}*(''static\p{White_Space}+)?str|String|Cow\p{White_Space}*<\p{White_Space}*''static\p{White_Space}*,\p{White_Space}*str\p{White_Space}*>)$'}
     error-type:
         matches: {rust-error-type: {name: {pattern: $T}}}
 rule:
     kind: match_expression
     all:
-        - has: {field: value, regex: '^\*?\s*self$'}
+        - has: {field: value, regex: '^\*?\p{White_Space}*self$'}
         - has:
             field: body
             all:

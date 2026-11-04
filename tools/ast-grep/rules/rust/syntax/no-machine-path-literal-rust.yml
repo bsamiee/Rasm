@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-machine-path-literal-rust
 language: rustlang
 severity: error
 utils:
     machine-text:
         kind: 'string_literal, raw_string_literal'
-        regex: '(^[rbc]*#*"|[\s"''=:(,]|file://)(~/|(/(Applications|Users/[^/\s"'']+|home/[^/\s"'']+|root|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData))([\\/]|"|$))|\$\{?(HOME|USERPROFILE)\}?[\\/]'
+        regex: '(^[rbc]*#*"|[\p{White_Space}"''=:(,]|file://)(~/|(/(Applications|Users/[^/\p{White_Space}"'']+|home/[^/\p{White_Space}"'']+|root|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData))([\\/]|"|$))|\$\{?(HOME|USERPROFILE)\}?[\\/]'
     route-text:
         inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(route|nest|route_service|nest_service)$'}}}}
     embedding-macro:
@@ -27,7 +26,7 @@ utils:
                 - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: value, regex: '(?i)home'}}}}
             - all:
                 - regex: '^r?#*"(share|state|Application Support|Caches|Preferences)"'
-                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: value, regex: '\.(join|push)\(\s*r?#*"(Library|\.local)"#*\s*\)$'}}}}
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: value, regex: '\.(join|push)\(\p{White_Space}*r?#*"(Library|\.local)"#*\p{White_Space}*\)$'}}}}
 rule:
     kind: 'string_literal, raw_string_literal, macro_invocation, token_tree, call_expression'
     pattern: $PATH

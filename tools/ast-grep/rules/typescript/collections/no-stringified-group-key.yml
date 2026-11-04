@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-stringified-group-key
 language: tsxlang
 severity: error
 rule:
     kind: call_expression
     all:
-        - has: {field: function, pattern: $GROUP, matches: {effect-module-member: {module: {regex: '\b(Array|Iterable)$'}, member: {regex: '^groupBy$'}}}}
+        - has: {field: function, pattern: $GROUP, matches: {effect-module-member: {module: {regex: '(?-u:\b)(Array|Iterable)$'}, member: {regex: '^groupBy$'}}}}
         - has:
             field: arguments
             has:

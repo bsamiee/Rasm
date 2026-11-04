@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: yaml
+severity: error
+files: ['.github/workflows/**', '**/action.{yml,yaml}']
+utils:
+    literal-map:
+        kind: block_mapping, flow_mapping
+        not: {has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {any: [{kind: alias}, {kind: double_quote_scalar, any: [{has: {kind: escape_sequence}}, {regex: '[\r\n]'}]}]}}}}
+    root-map: {kind: 'document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)'}
+    run: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:run|"run"|''run'')$'}}}
+    shell: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:shell|"shell"|''shell'')$'}}}
+    defaults: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:defaults|"defaults"|''defaults'')$'}}}
+    steps: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:steps|"steps"|''steps'')$'}}}
+    jobs: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:jobs|"jobs"|''jobs'')$'}}, inside: {matches: root-map}}
+    runs: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:runs|"runs"|''runs'')$'}}, inside: {matches: root-map}}
+    using-composite: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, has: {regex: '^(?:using|"using"|''using'')$'}}}, {has: {field: value, has: {regex: '^(?:composite|"composite"|''composite'')$'}}}]}
+    jobs-map: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {matches: jobs}}}
+    job-map: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: 'block_mapping_pair, flow_pair', inside: {matches: jobs-map}}}}
+    composite-map: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {matches: runs}}, has: {matches: using-composite}}
+    bash-shell:
+        matches: shell
+        has: {field: value, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(?:bash(?: [^\r\n]*)?|"bash(?: [^"\\\r\n]*)?"|''bash(?: [^''\r\n]*)?'')$', not: {regex: '\$\{\{'}}}
+    shell-free-run: {matches: run, has: {field: value, has: {matches: literal-map, not: {has: {matches: shell}}}}}
+    shell-free-defaults: {matches: defaults, has: {field: value, has: {matches: literal-map, not: {has: {matches: run, not: {matches: shell-free-run}}}}}}
+    bash-defaults: {matches: defaults, has: {field: value, has: {matches: literal-map, has: {matches: run, has: {field: value, has: {matches: literal-map, has: {matches: bash-shell}}}}}}}
+    step-map:
+        kind: block_mapping, flow_mapping
+        inside:
+            kind: block_node, flow_node
+            inside:
+                kind: block_sequence_item, flow_sequence
+                inside: {matches: steps, stopBy: {kind: 'block_mapping_pair, flow_pair'}, any: [{inside: {matches: job-map}}, {inside: {matches: composite-map}}]}
+        any:
+            - has: {matches: bash-shell}
+            - all:
+                - matches: literal-map
+                - not: {has: {matches: shell}}
+                - inside:
+                    matches: job-map
+                    stopBy: end
+                    any:
+                        - has: {matches: bash-defaults}
+                        - all:
+                            - matches: literal-map
+                            - not: {has: {matches: defaults, not: {matches: shell-free-defaults}}}
+                            - inside: {matches: root-map, stopBy: end, has: {matches: bash-defaults}}
+rule:
+    any:
+        - matches: run
+          inside: {matches: step-map}
+          not: {has: {field: value, any: [{has: {kind: plain_scalar, not: {regex: '[\r\n]'}}}, {has: {regex: '\$\{\{', stopBy: end}}]}}
+        - kind: block_mapping, flow_mapping
+          inside: {kind: 'block_node, flow_node', inside: {kind: 'block_sequence_item, flow_sequence', inside: {matches: steps, stopBy: {kind: 'block_mapping_pair, flow_pair'}, any: [{inside: {matches: job-map}}, {inside: {matches: composite-map}}]}}}
+          has: {matches: run}
+          not: {any: [{matches: literal-map}, {matches: step-map}]}
+message: Run step escapes bash checks
+note: Write the script as a single-line plain `run:` or move it to a `.sh` file the step calls

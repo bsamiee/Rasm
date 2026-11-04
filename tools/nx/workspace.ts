@@ -4,6 +4,7 @@ import { XMLParser } from 'fast-xml-parser';
 import { packageDirectory } from 'package-directory';
 import { quote } from 'shell-quote';
 import { parseSync } from 'vite';
+import { parseAllDocuments } from 'yaml';
 import { ClaudeHooks, decodeFile, extendScriptEntry, libraryRoot, Package } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
 import { TextFormat } from '#/eng/typescript/text-format';
@@ -27,22 +28,42 @@ const TESTS = 'tests';
 const CONTAINERS = /^(?:testcontainers|@testcontainers\/.+)$/u;
 const DOTNET = '{workspaceRoot}/.artifacts/dotnet';
 const VERSIONS = new Intl.Collator('en', { numeric: true });
-const ROOT_NEUTRALITY = 'eng/typescript/root-neutrality.config.ts';
+const SGCONFIG = 'sgconfig.yml';
+const GRAMMARS = 'tools/ast-grep/grammars';
+const GRAMMAR = 'grammar.js';
+const AST_GREP_BUILT_INS: Readonly<Record<string, readonly string[]>> = { yaml: ['yml', 'yaml'] };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Sgconfig = TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ ruleDirs: Schema.Array(Schema.String) })));
-const AstGrepRule = TextFormat.Yaml.pipe(
+const Sgconfig = TextFormat.Yaml.pipe(
     Schema.decodeTo(
         Schema.Struct({
-            id: Schema.String,
-            metadata: Schema.Struct({ below: Schema.OptionFromOptionalKey(Release), from: Schema.OptionFromOptionalKey(Release) }).pipe(Schema.encodeKeys({ below: 'python-below', from: 'python-from' }), Schema.withDecodingDefaultKey(Effect.succeed({}))),
+            ruleDirs: Schema.Array(Schema.String),
+            utilDirs: Schema.Array(Schema.String),
+            testConfigs: Schema.Array(Schema.Struct({ testDir: Schema.String })),
+            customLanguages: Schema.Record(Schema.String, Schema.Struct({ libraryPath: Schema.String, extensions: Schema.Array(Schema.String), outlineRules: Schema.OptionFromOptionalKey(Schema.String) })),
+            languageGlobs: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+            languageInjections: Schema.Array(Schema.Struct({ hostLanguage: Schema.String })),
         }),
     ),
 );
+const YamlStream = TextFormat('YAML stream', (text) => parseAllDocuments(text).map((document) => Result.getOrThrow(Array.match(document.errors, { onEmpty: () => Result.succeed(document.toJS()), onNonEmpty: ([error]) => Result.fail(error) }))));
+const AstGrepRules = (stem: string) =>
+    YamlStream.pipe(
+        Schema.decodeTo(
+            Schema.Array(
+                Schema.Struct({
+                    id: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(stem))),
+                    language: Schema.String,
+                    metadata: Schema.Struct({ below: Schema.OptionFromOptionalKey(Release), from: Schema.OptionFromOptionalKey(Release) }).pipe(Schema.encodeKeys({ below: 'python-below', from: 'python-from' }), Schema.withDecodingDefaultKey(Effect.succeed({}))),
+                }),
+            ),
+        ),
+    );
 const HostPyproject = TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ project: PythonRequirement })));
 const BlenderManifest = TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ id: Schema.String })));
 const Jsonc = TextFormat('JSON', parseJson);
+const TreeSitterGrammar = Jsonc.pipe(Schema.decodeTo(Schema.Struct({ name: Schema.String, inherits: Schema.OptionFromOptionalKey(Schema.String), externals: Schema.Array(Schema.Unknown) })));
 const XcodeProject = Jsonc.pipe(
     Schema.decodeTo(
         Schema.Struct({
@@ -64,6 +85,28 @@ const MSBuildProject = TextFormat('MSBuild XML', (text) => new XMLParser({ isArr
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [READS]
+const packageName = (specifier: string) =>
+    specifier
+        .split('/')
+        .slice(0, specifier.startsWith('@') ? 2 : 1)
+        .join('/');
+const moduleRequests = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
+    return parseSync(file, yield* decodeFile(Schema.String, workspaceRoot, file)).module.staticImports.map(({ moduleRequest }) => moduleRequest.value);
+});
+const imports = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
+    const [path, requests] = yield* Effect.all([Path.Path, moduleRequests(workspaceRoot, file)]);
+    const [files, specifiers] = Array.partition(requests, (request) => (request.startsWith('.') ? Result.succeed(path.join(path.dirname(file), request)) : Result.fail(request)));
+    return { files, specifiers };
+});
+const reach = (workspaceRoot: string, frontier: readonly string[], graph: Readonly<Record<string, Effect.Success<ReturnType<typeof imports>>>>): Effect.Effect<Readonly<Record<string, Effect.Success<ReturnType<typeof imports>>>>, Effect.Error<ReturnType<typeof imports>>, Effect.Services<ReturnType<typeof imports>>> =>
+    Array.match(Array.dedupe(frontier.filter((file) => !Record.has(graph, file))), {
+        onEmpty: () => Effect.succeed(graph),
+        onNonEmpty: (pending) =>
+            Effect.flatMap(
+                Effect.forEach(pending, (file) => imports(workspaceRoot, file), { concurrency: 'unbounded' }),
+                (found) => reach(workspaceRoot, found.flatMap(Struct.get('files')), { ...graph, ...Object.fromEntries(Array.zip(pending, found)) }),
+            ),
+    });
 const owning = Effect.fnUntraced(function* (workspaceRoot: string, dir: string) {
     const path = yield* Path.Path;
     const directory = yield* Effect.flatMap(
@@ -75,6 +118,7 @@ const owning = Effect.fnUntraced(function* (workspaceRoot: string, dir: string) 
 
 // --- [PROJECTS]
 const folderInput = (folder: string) => `{workspaceRoot}/${folder}/**/*`;
+const extensionInput = (extensions: readonly string[]) => `{workspaceRoot}/**/*.${extensions.length > 1 ? `{${extensions.join(',')}}` : extensions.join(',')}`;
 const tagPrefix = Effect.fnUntraced(function* ({ release }: Workspace, tags: readonly string[], name: string) {
     const { releaseTag, groups } = yield* release;
     const selectors = new Set(tags.map((tag) => `tag:${tag}`));
@@ -108,15 +152,8 @@ const suiteInputs = Effect.fnUntraced(function* (language: string, dir: string, 
 });
 const containerTests = Effect.fnUntraced(function* (dir: string, workspaceRoot: string) {
     const path = yield* Path.Path;
-    const importsContainers = (file: string, text: string) => parseSync(file, text).module.staticImports.some(({ moduleRequest }) => CONTAINERS.test(moduleRequest.value));
     const suite = suitePath(path, path.join(TESTS, 'typescript'), dir);
-    const tests = yield* Effect.filter(
-        yield* glob(workspaceRoot, [`${suite}/**/*.test.{ts,tsx}`]),
-        Effect.fnUntraced(function* (test) {
-            return importsContainers(test, yield* decodeFile(Schema.String, workspaceRoot, test));
-        }),
-        { concurrency: 'unbounded' },
-    );
+    const tests = yield* Effect.filter(yield* glob(workspaceRoot, [`${suite}/**/*.test.{ts,tsx}`]), (test) => Effect.map(moduleRequests(workspaceRoot, test), Array.some(CONTAINERS.test.bind(CONTAINERS))), { concurrency: 'unbounded' });
     return tests.map((test) => path.relative(suite, test));
 });
 const attachedSuites = <Suite>(suites: Readonly<Record<string, Suite>>, module: string) => Record.getSomes(Record.map({ test: 'Tests', 'test:integration': 'IntegrationTests' }, (suffix) => Record.get(suites, `${module}${suffix}`)));
@@ -305,7 +342,7 @@ const infer = Effect.fnUntraced(
 
 // --- [ROOT]
 const pythonVersions = Effect.fnUntraced(function* ({ workspaceRoot, hosts, pyproject, python, scanExclusions }: Workspace) {
-    const [path, folders, { requirements, deptry, fawltydeps }, exclusions] = yield* Effect.all([Path.Path, hosts, pyproject, scanExclusions]);
+    const [path, folders, { requirements, deptry, fawltydeps }, exclusions, { ruleDirs, utilDirs, testConfigs, customLanguages, languageGlobs, languageInjections }] = yield* Effect.all([Path.Path, hosts, pyproject, scanExclusions, decodeFile(Sgconfig, workspaceRoot, SGCONFIG)]);
     const [{ versions }, scopes, rules] = yield* Effect.all(
         [
             python,
@@ -322,12 +359,10 @@ const pythonVersions = Effect.fnUntraced(function* ({ workspaceRoot, hosts, pypr
                     { concurrency: 'unbounded' },
                 ),
             ),
-            decodeFile(Sgconfig, workspaceRoot, 'sgconfig.yml').pipe(
-                Effect.map(Struct.get('ruleDirs')),
-                Effect.map(Array.map((dir) => `${dir}/python/**/*.yml`)),
-                Effect.flatMap((patterns) => glob(workspaceRoot, patterns)),
-                Effect.flatMap(Effect.validate((file: string) => decodeFile(AstGrepRule, workspaceRoot, file), { concurrency: 'unbounded' })),
-            ),
+            glob(
+                workspaceRoot,
+                ruleDirs.map((dir) => `${dir}/**/*.yml`),
+            ).pipe(Effect.flatMap(Effect.validate((file: string) => decodeFile(AstGrepRules(path.basename(file, '.yml')), workspaceRoot, file), { concurrency: 'unbounded' })), Effect.map(Array.flatten)),
         ],
         { concurrency: 'unbounded' },
     );
@@ -362,10 +397,29 @@ const pythonVersions = Effect.fnUntraced(function* ({ workspaceRoot, hosts, pypr
     const walk = (flags: readonly string[]) => scan([...flags, quote(exclusions.flatMap((pattern) => ['--globs', `!${pattern}`]))]);
     const offs = off.map(({ id }) => quote([`--off=${id}`]));
     const tree = walk(['--error=no-suppress-all', ...offs]);
+    const languages = Array.difference(Array.union(rules.map(Struct.get('language')), languageInjections.map(Struct.get('hostLanguage'))), Record.keys(customLanguages));
+    const builtIns = Record.filter(AST_GREP_BUILT_INS, (_, language) => languages.includes(language));
+    yield* Array.match(Array.difference(languages, Record.keys(builtIns)), { onEmpty: () => Effect.void, onNonEmpty: (missing) => Effect.fail(WorkspaceError.missing(missing.join(', '), 'ast-grep built-in extensions')) });
+    const sources = Record.map({ ...Record.map(customLanguages, Struct.get('extensions')), ...builtIns }, extensionInput);
+    const rootLanguages = new Set(off.filter(runs(interpreter)).map(Struct.get('language')));
+    const ruleInputs = [...ruleDirs, ...utilDirs].map((dir) => `{workspaceRoot}/${dir}/**/*.yml`);
+    const classInputs = [
+        'typescript',
+        ...ruleInputs,
+        ...Array.getSomes(Object.values(customLanguages).map(Struct.get('outlineRules'))).map((file) => `{workspaceRoot}/${file}`),
+        '{workspaceRoot}/tools/ast-grep/{classes/*.ts,grammars/derive.js}',
+        { externalDependencies: ['refa', 'yaml'] },
+        { dependentTasksOutputFiles: '**/src/grammar.json', transitive: true },
+    ];
+    const treeInputs = [...Object.values(sources), ...Object.values(languageGlobs).flatMap(Array.map((pattern) => `{workspaceRoot}/**/${pattern}`)), ...ruleInputs];
     const hosted = Record.filterMap(
         {
-            root: { version: interpreter, command: (filter: string) => walk([filter, ...scopes.map(({ scope }) => quote(['--globs', `!${scope}/**`]))]), inputs: ['pythonFiles', '{workspaceRoot}/**/*.{py3,bzl,bazel}', ...scopes.map(({ scope }) => `!${folderInput(scope)}`)] },
-            ...Record.fromIterableWith(groups, ({ version, scoped, inputs }) => [version, { version, command: (filter: string) => scan([filter, scoped]), inputs }]),
+            root: {
+                version: interpreter,
+                command: (filter: string) => walk([filter, ...scopes.map(({ scope }) => quote(['--globs', `!${scope}/**`]))]),
+                inputs: [...Object.values(Record.filter(sources, (_, language) => rootLanguages.has(language))), ...scopes.map(({ scope }) => `!${folderInput(scope)}`), ...ruleInputs],
+            },
+            ...Record.fromIterableWith(groups, ({ version, scoped, inputs }) => [version, { version, command: (filter: string) => scan([filter, scoped]), inputs: [...inputs, ...ruleInputs] }]),
         },
         ({ version, command, inputs }) => Result.map(Result.liftPredicate({ running: off.filter(runs(version)), inputs }, Predicate.Struct({ running: Array.isArrayNonEmpty }), Function.constVoid), Function.flow(Struct.evolve({ running: Function.flow(ids, command) }), Struct.renameKeys({ running: 'command' }))),
     );
@@ -415,10 +469,11 @@ const pythonVersions = Effect.fnUntraced(function* ({ workspaceRoot, hosts, pypr
             '.': {
                 root: '.',
                 targets: {
-                    ...split('lint:ast-grep', { tree: { command: tree }, ...hosted }),
+                    ...split('lint:ast-grep', { tree: { command: tree, inputs: treeInputs }, classes: { command: 'node tools/ast-grep/classes/main.ts', inputs: classInputs }, ...hosted }),
+                    'test:ast-grep': { command: 'ast-grep test --custom-languages allow', dependsOn: ['grammar'], cache: true, inputs: ['astGrep', ...testConfigs.map(({ testDir }) => `{workspaceRoot}/${testDir}/**/*.yml`), ...ruleInputs] },
                     ...split(
                         'rewrite',
-                        Record.map({ tree: { command: walk(offs) }, ...hosted }, ({ command, ...configuration }) => ({ ...configuration, command: `${lock} ${command} --update-all` })),
+                        Record.map({ tree: { command: walk(offs), inputs: treeInputs }, ...hosted }, ({ command, ...configuration }) => ({ ...configuration, command: `${lock} ${command} --update-all` })),
                     ),
                     ...split(
                         'typecheck:ty',
@@ -471,7 +526,63 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
         },
     };
 });
-const roots = { [PYPROJECT]: pythonVersions, [SWIFT_MANIFEST]: swiftModules } as const;
+const upstreamScanners = Effect.fnUntraced(function* (workspaceRoot: string, specifiers: readonly string[]) {
+    const path = yield* Path.Path;
+    const upstreams = yield* Effect.forEach(
+        specifiers.filter(String.endsWith(`/${GRAMMAR}`)).map((specifier) => path.join('node_modules', path.dirname(specifier))),
+        (dir) => Effect.map(decodeFile(TreeSitterGrammar, workspaceRoot, dir, 'src', 'grammar.json'), Struct.assign({ dir })),
+        { concurrency: 'unbounded' },
+    );
+    const bases = new Set(Array.getSomes(upstreams.map(Struct.get('inherits'))));
+    return upstreams.filter(({ name, externals }) => externals.length > 0 && !bases.has(name)).map(({ dir }) => ({ scanner: path.join(dir, 'src', 'scanner.c'), upstream: Option.some(path.join(dir, 'src', 'grammar.json')) }));
+});
+const scanners = Effect.fnUntraced(function* (workspaceRoot: string, scanned: readonly string[], file: string, { specifiers }: Effect.Success<ReturnType<typeof imports>>) {
+    const path = yield* Path.Path;
+    const owned = path.join(path.dirname(file), 'scanner.c');
+    return scanned.includes(owned) ? [{ scanner: owned, upstream: Option.none<string>() }] : yield* upstreamScanners(workspaceRoot, specifiers);
+});
+const generated = Effect.fnUntraced(function* (libraries: Readonly<Record<string, string>>, file: string) {
+    const path = yield* Path.Path;
+    const stem = path.basename(path.dirname(file));
+    const library = yield* Effect.fromOption(Record.get(libraries, stem), () => WorkspaceError.missing(stem, `${SGCONFIG} customLanguages libraryPath`));
+    return path.join(path.dirname(library), stem, 'src', 'grammar.json');
+});
+const grammarTargets = Effect.fnUntraced(function* (workspaceRoot: string, libraries: Readonly<Record<string, string>>, scanned: readonly string[], [stem, library]: readonly [string, string]) {
+    const path = yield* Path.Path;
+    const entry = path.join(GRAMMARS, stem, GRAMMAR);
+    const binary = path.join(path.dirname(library), stem);
+    const grammarFile = (file: string) => path.basename(file) === GRAMMAR && path.dirname(path.dirname(file)) === GRAMMARS;
+    const folder = (dir: string) => [`{workspaceRoot}/${dir}/**/*`, `!{workspaceRoot}/${dir}/test/**/*`];
+    const direct = yield* imports(workspaceRoot, entry);
+    const graph = yield* reach(workspaceRoot, direct.files, { [entry]: direct });
+    const hosts = Object.entries(graph).filter(([file]) => direct.files.includes(file) && grammarFile(file));
+    const [own, output, hosted] = yield* Effect.all([scanners(workspaceRoot, scanned, entry, direct), generated(libraries, entry), Effect.forEach(hosts, ([file, held]) => Effect.all({ found: scanners(workspaceRoot, scanned, file, held), json: generated(libraries, file) }))]);
+    const components = [...own.map(({ scanner, upstream }) => [scanner, Option.getOrElse(upstream, Function.constant(output))] as const), ...hosted.flatMap(({ found, json }) => Array.cartesian(found.map(Struct.get('scanner')), [json]))];
+    return [
+        [
+            `grammar:${stem}`,
+            {
+                options: {
+                    commands: [
+                        `cmake --fresh -S ${GRAMMARS} -B ${binary} -DCMAKE_BUILD_TYPE=Release -DGRAMMAR_SOURCE:FILEPATH="${path.relative(GRAMMARS, entry)}" -DNODE_MODULES:PATH="$NX_WORKSPACE_ROOT/node_modules" -DCOMPONENTS="${components.map(([scanner, json]) => `${path.relative(GRAMMARS, scanner)}|${path.relative(GRAMMARS, json)}`).join(';')}" {args.cmakeArguments}`,
+                        { command: `cmake --build ${binary} --config Release`, forwardAllArgs: false },
+                    ],
+                },
+                dependsOn: hosts.map(([file]) => `grammar:${path.basename(path.dirname(file))}`),
+                inputs: [...Array.dedupe(Object.keys(graph).flatMap((file) => (grammarFile(file) ? folder(path.dirname(file)) : [`{workspaceRoot}/${file}`]))), { externalDependencies: Array.dedupe(Object.values(graph).flatMap(Struct.get('specifiers')).map(packageName)) }],
+                outputs: [`{workspaceRoot}/${library}`, `{workspaceRoot}/${binary}.yml`, `{workspaceRoot}/${binary}/{src/grammar.json,src/parser.c,tree-sitter.json,lib,test}`],
+            },
+        ],
+        [`test:grammar:${stem}`, { command: 'tree-sitter test', options: { cwd: binary, env: { TREE_SITTER_LIBDIR: 'lib' } }, dependsOn: [`grammar:${stem}`], inputs: [`{workspaceRoot}/${path.dirname(entry)}/test/**/*`] }],
+    ] as const satisfies readonly (readonly [string, TargetConfiguration])[];
+});
+const grammars = Effect.fnUntraced(function* ({ workspaceRoot }: Workspace) {
+    const [path, { customLanguages }, scanned] = yield* Effect.all([Path.Path, decodeFile(Sgconfig, workspaceRoot, SGCONFIG), glob(workspaceRoot, [`${GRAMMARS}/*/scanner.c`])]);
+    const libraries = Record.fromIterableWith(Object.values(customLanguages), ({ libraryPath }) => [path.basename(libraryPath, path.extname(libraryPath)), libraryPath] as const);
+    const inferred = yield* Effect.forEach(Record.toEntries(libraries), (language) => grammarTargets(workspaceRoot, libraries, scanned, language), { concurrency: 'unbounded' });
+    return { projects: { '.': { root: '.', targets: Object.fromEntries(inferred.flat()) } } } satisfies CreateNodesResult;
+});
+const roots = { [PYPROJECT]: pythonVersions, [SWIFT_MANIFEST]: swiftModules, [SGCONFIG]: grammars } as const;
 
 // --- [COMPONENTS]
 const components = Effect.fnUntraced(function* (workspaceRoot: string, inferred: CreateNodesResultArray, applications: ReadonlyMap<string, Application>) {
@@ -500,15 +611,12 @@ const components = Effect.fnUntraced(function* (workspaceRoot: string, inferred:
 // --- [DEPENDENCIES]
 const manifestless = ({ projects }: CreateDependenciesContext, manifested: ReadonlySet<string>, project: string) => Option.exists(Record.get(projects, project), ({ root, tags = [] }) => tags.includes('language:typescript') && !manifested.has(root));
 const importTarget = ({ projects, externalNodes = {} }: CreateDependenciesContext, specifier: string) => {
-    const name = specifier
-        .split('/')
-        .slice(0, specifier.startsWith('@') ? 2 : 1)
-        .join('/');
+    const name = packageName(specifier);
     return Option.firstSomeOf([Option.as(Record.get(externalNodes, `npm:${name}`), `npm:${name}`), Option.as(Record.get(projects, name), name)]);
 };
 const sourceImports = Effect.fnUntraced(function* (context: CreateDependenciesContext, [source, sourceFile]: readonly [string, string]) {
-    const text = yield* decodeFile(Schema.String, context.workspaceRoot, sourceFile);
-    return Array.dedupe(Array.getSomes(parseSync(sourceFile, text).module.staticImports.map(({ moduleRequest }) => importTarget(context, moduleRequest.value)))).map((target) => ({ source, target, sourceFile, type: DependencyType.static }));
+    const requests = yield* moduleRequests(context.workspaceRoot, sourceFile);
+    return Array.dedupe(Array.getSomes(requests.map((request) => importTarget(context, request)))).map((target) => ({ source, target, sourceFile, type: DependencyType.static }));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -517,6 +625,7 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
     `{${Object.keys(roots).join(',')},*/**/{${Object.keys(markers).join(',')}}}`,
     Effect.fnUntraced(function* (files, options, context) {
         const [path, workspace, { name }] = yield* Effect.all([Path.Path, openWorkspace(context), Package.read(context.workspaceRoot)]);
+        const rootNeutrality = 'eng/typescript/root-neutrality.config.ts';
         const applications = new Map<string, Application>();
         const rooted = new Map<string, readonly string[]>();
         const inference = { ...workspace, configFiles: files, applications, rooted };
@@ -557,12 +666,12 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
                                         root: '.',
                                         targets: {
                                             'lint:dependency-cruiser': {
-                                                command: `depcruise --config ${ROOT_NEUTRALITY} --output-type err-long ${quote(entries.flatMap(Tuple.get(1)))}`,
+                                                command: `depcruise --config ${rootNeutrality} --output-type err-long ${quote(entries.flatMap(Tuple.get(1)))}`,
                                                 inputs: [
                                                     { input: 'production', projects: entries.map(Tuple.get(0)) },
                                                     { input: 'production', projects: entries.map(Tuple.get(0)), dependencies: true },
                                                     'typescript',
-                                                    `{workspaceRoot}/${ROOT_NEUTRALITY}`,
+                                                    `{workspaceRoot}/${rootNeutrality}`,
                                                     '{workspaceRoot}/pnpm-workspace.yaml',
                                                     { externalDependencies: ['dependency-cruiser', 'typescript', 'effect', '@effect/platform-node', 'plist'] },
                                                 ],

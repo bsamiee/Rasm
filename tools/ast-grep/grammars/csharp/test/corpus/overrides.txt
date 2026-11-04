@@ -1,0 +1,938 @@
+================================================================================
+_top_level_item: file_based_directive
+================================================================================
+
+#:package A@1
+#:property LangVersion=preview
+System.Console.WriteLine();
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (file_based_directive
+    kind: (directive_kind)
+    name: (directive_name)
+    value: (directive_value))
+  (file_based_directive
+    kind: (directive_kind)
+    name: (directive_name)
+    value: (directive_value))
+  (global_statement
+    (expression_statement
+      (invocation_expression
+        function: (member_access_expression
+          expression: (member_access_expression
+            expression: (identifier)
+            name: (identifier))
+          name: (identifier))
+        arguments: (argument_list)))))
+
+================================================================================
+_reserved_identifier: allows and with as names
+================================================================================
+
+var allows = 1;
+var with = allows;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (integer_literal)))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (identifier))))))
+
+================================================================================
+declaration_pattern: with as the designation
+================================================================================
+
+var b = o is string with;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (declaration_pattern
+              type: (predefined_type)
+              name: (identifier))))))))
+
+================================================================================
+type_parameter_constraint: allows ref struct
+================================================================================
+
+class C
+{
+    void F<T>() where T : allows ref struct {}
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    name: (identifier)
+    body: (declaration_list
+      (method_declaration
+        returns: (predefined_type)
+        name: (identifier)
+        type_parameters: (type_parameter_list
+          (type_parameter
+            name: (identifier)))
+        parameters: (parameter_list)
+        (type_parameter_constraints_clause
+          (identifier)
+          (type_parameter_constraint))
+        body: (block)))))
+
+================================================================================
+_parameter_type_with_modifiers: in and out lambda parameters
+================================================================================
+
+var f = (in int x, out int y) => y = x;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (lambda_expression
+            parameters: (parameter_list
+              (parameter
+                (modifier)
+                type: (predefined_type)
+                name: (identifier))
+              (parameter
+                (modifier)
+                type: (predefined_type)
+                name: (identifier)))
+            body: (assignment_expression
+              left: (identifier)
+              right: (identifier))))))))
+
+================================================================================
+lvalue_expression: invocation as an assignment target
+================================================================================
+
+F() = 1;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (expression_statement
+      (assignment_expression
+        left: (invocation_expression
+          function: (identifier)
+          arguments: (argument_list))
+        right: (integer_literal)))))
+
+================================================================================
+file_based_directive: kind, name, value and metadata fields
+================================================================================
+
+#:sdk Microsoft.NET.Sdk.Web@10.0.0
+#:package A@1.2 ExcludeAssets=runtime PrivateAssets=all
+#:package "Humanizer"@"2.14.1"
+#:property  Name = $([MSBuild]::ValueOrDefault('a', 'b'))
+#:project ../Lib/Lib.csproj Private=false
+#:ref ../lib/lib.cs Aliases=lib
+#:include *.cs
+#:exclude bin/x.cs
+System.Console.WriteLine();
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (file_based_directive
+    kind: (directive_kind)
+    name: (directive_name)
+    value: (directive_value))
+  (file_based_directive
+    kind: (directive_kind)
+    name: (directive_name)
+    value: (directive_value)
+    metadata: (directive_metadata
+      name: (directive_name)
+      value: (directive_value))
+    metadata: (directive_metadata
+      name: (directive_name)
+      value: (directive_value)))
+  (file_based_directive
+    kind: (directive_kind)
+    name: (directive_name)
+    value: (directive_value))
+  (file_based_directive
+    kind: (directive_kind)
+    name: (directive_name)
+    value: (directive_value))
+  (file_based_directive
+    kind: (directive_kind)
+    name: (directive_name)
+    metadata: (directive_metadata
+      name: (directive_name)
+      value: (directive_value)))
+  (file_based_directive
+    kind: (directive_kind)
+    name: (directive_name)
+    metadata: (directive_metadata
+      name: (directive_name)
+      value: (directive_value)))
+  (file_based_directive
+    kind: (directive_kind)
+    name: (directive_name))
+  (file_based_directive
+    kind: (directive_kind)
+    name: (directive_name))
+  (global_statement
+    (expression_statement
+      (invocation_expression
+        function: (member_access_expression
+          expression: (member_access_expression
+            expression: (identifier)
+            name: (identifier))
+          name: (identifier))
+        arguments: (argument_list)))))
+
+================================================================================
+constant_pattern: logical operators end the pattern
+================================================================================
+
+var a = Size is 0f || Density is 0f;
+var b = o is null && p is not null;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (real_literal)))
+            right: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (real_literal))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (null_literal)))
+            right: (is_pattern_expression
+              expression: (identifier)
+              pattern: (negated_pattern
+                (constant_pattern
+                  (null_literal))))))))))
+
+================================================================================
+constant_pattern: shift, additive and multiplicative operators stay inside
+================================================================================
+
+var a = x is 1 + 2;
+var b = x is 3 * sizeof(float);
+var c = x is 1 << 4;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (constant_pattern
+              (binary_expression
+                left: (integer_literal)
+                right: (integer_literal))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (constant_pattern
+              (binary_expression
+                left: (integer_literal)
+                right: (sizeof_expression
+                  type: (predefined_type)))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (constant_pattern
+              (binary_expression
+                left: (integer_literal)
+                right: (integer_literal)))))))))
+
+================================================================================
+argument: multiplication is an expression
+================================================================================
+
+F(a * b);
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (expression_statement
+      (invocation_expression
+        function: (identifier)
+        arguments: (argument_list
+          (argument
+            (binary_expression
+              left: (identifier)
+              right: (identifier))))))))
+
+================================================================================
+argument: out declarations
+================================================================================
+
+F(out var x, out int y, out _, ref r, in i);
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (expression_statement
+      (invocation_expression
+        function: (identifier)
+        arguments: (argument_list
+          (argument
+            (declaration_expression
+              type: (implicit_type)
+              name: (identifier)))
+          (argument
+            (declaration_expression
+              type: (predefined_type)
+              name: (identifier)))
+          (argument
+            (identifier))
+          (argument
+            (identifier))
+          (argument
+            (identifier)))))))
+
+================================================================================
+tuple_expression: deconstruction declarations and tuple expressions
+================================================================================
+
+(int x, int y) = t;
+var t = (a * b, c);
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (expression_statement
+      (assignment_expression
+        left: (tuple_expression
+          (argument
+            (declaration_expression
+              type: (predefined_type)
+              name: (identifier)))
+          (argument
+            (declaration_expression
+              type: (predefined_type)
+              name: (identifier))))
+        right: (identifier))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (tuple_expression
+            (argument
+              (binary_expression
+                left: (identifier)
+                right: (identifier)))
+            (argument
+              (identifier))))))))
+
+================================================================================
+generic_name: object creation with an initializer
+================================================================================
+
+var o = new G<A, B>(x) { };
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (object_creation_expression
+            type: (generic_name
+              (identifier)
+              (type_argument_list
+                (identifier)
+                (identifier)))
+            arguments: (argument_list
+              (argument
+                (identifier)))
+            initializer: (initializer_expression)))))))
+
+================================================================================
+generic_name: type arguments before a parenthesis
+================================================================================
+
+F(G<A, B>(7));
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (expression_statement
+      (invocation_expression
+        function: (identifier)
+        arguments: (argument_list
+          (argument
+            (invocation_expression
+              function: (generic_name
+                (identifier)
+                (type_argument_list
+                  (identifier)
+                  (identifier)))
+              arguments: (argument_list
+                (argument
+                  (integer_literal))))))))))
+
+================================================================================
+generic_name: comparisons before a literal
+================================================================================
+
+F(G<A, B>7);
+F(G < A, B > 7);
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (expression_statement
+      (invocation_expression
+        function: (identifier)
+        arguments: (argument_list
+          (argument
+            (binary_expression
+              left: (identifier)
+              right: (identifier)))
+          (argument
+            (binary_expression
+              left: (identifier)
+              right: (integer_literal)))))))
+  (global_statement
+    (expression_statement
+      (invocation_expression
+        function: (identifier)
+        arguments: (argument_list
+          (argument
+            (binary_expression
+              left: (identifier)
+              right: (identifier)))
+          (argument
+            (binary_expression
+              left: (identifier)
+              right: (integer_literal))))))))
+
+================================================================================
+generic_name: type pattern before a logical operator
+================================================================================
+
+x = y is C<T> && z;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (expression_statement
+      (assignment_expression
+        left: (identifier)
+        right: (binary_expression
+          left: (is_expression
+            left: (identifier)
+            right: (generic_name
+              (identifier)
+              (type_argument_list
+                (identifier))))
+          right: (identifier))))))
+
+================================================================================
+generic_name: foreach declaration type
+================================================================================
+
+foreach (Optional<ControlFlow.Value> definition in xs) {}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (foreach_statement
+      type: (generic_name
+        (identifier)
+        (type_argument_list
+          (qualified_name
+            qualifier: (identifier)
+            name: (identifier))))
+      left: (identifier)
+      right: (identifier)
+      body: (block))))
+
+================================================================================
+conditional_access_expression: member access binds before logical operators
+================================================================================
+
+var c = a && v?.P is {};
+var d = x || x?.C;
+var e = (x || y)?.C;
+var f = x || y? /* member */ .C;
+var g = flag ?.5 : other;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (identifier)
+            right: (is_pattern_expression
+              expression: (conditional_access_expression
+                condition: (identifier)
+                (member_binding_expression
+                  name: (identifier)))
+              pattern: (recursive_pattern
+                (property_pattern_clause))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (identifier)
+            right: (conditional_access_expression
+              condition: (identifier)
+              (member_binding_expression
+                name: (identifier))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (conditional_access_expression
+            condition: (parenthesized_expression
+              (binary_expression
+                left: (identifier)
+                right: (identifier)))
+            (member_binding_expression
+              name: (identifier)))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (identifier)
+            right: (conditional_access_expression
+              condition: (identifier)
+              (comment)
+              (member_binding_expression
+                name: (identifier))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (conditional_expression
+            condition: (identifier)
+            consequence: (real_literal)
+            alternative: (identifier)))))))
+
+================================================================================
+_struct_declaration_initializer: ref partial
+================================================================================
+
+ref partial struct S {}
+public ref partial struct R<T> {}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (struct_declaration
+    name: (identifier)
+    body: (declaration_list))
+  (struct_declaration
+    (modifier)
+    name: (identifier)
+    (type_parameter_list
+      (type_parameter
+        name: (identifier)))
+    body: (declaration_list)))
+
+================================================================================
+slice_pattern: bare slice before a logical operator
+================================================================================
+
+var d = items is [..] && ready;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (list_pattern
+                (slice_pattern)))
+            right: (identifier)))))))
+
+================================================================================
+union_declaration: case types
+================================================================================
+
+public union Pet(Cat, Dog);
+union Result<T>(T, Error) where T : notnull
+{
+    public bool Ok => Value is T;
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (union_declaration
+    (modifier)
+    name: (identifier)
+    (union_case_list
+      (identifier)
+      (identifier)))
+  (union_declaration
+    name: (identifier)
+    (type_parameter_list
+      (type_parameter
+        name: (identifier)))
+    (union_case_list
+      (identifier)
+      (identifier))
+    (type_parameter_constraints_clause
+      (identifier)
+      (type_parameter_constraint))
+    body: (declaration_list
+      (property_declaration
+        (modifier)
+        type: (predefined_type)
+        name: (identifier)
+        value: (arrow_expression_clause
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (constant_pattern
+              (identifier))))))))
+
+================================================================================
+modifier: closed and safe
+================================================================================
+
+public closed record class S;
+public closed class Shape {}
+class N { safe static extern void F(); }
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (record_declaration
+    (modifier)
+    (modifier)
+    name: (identifier))
+  (class_declaration
+    (modifier)
+    (modifier)
+    name: (identifier)
+    body: (declaration_list))
+  (class_declaration
+    name: (identifier)
+    body: (declaration_list
+      (method_declaration
+        (modifier)
+        (modifier)
+        (modifier)
+        returns: (predefined_type)
+        name: (identifier)
+        parameters: (parameter_list)))))
+
+================================================================================
+break_statement: labeled break and continue
+================================================================================
+
+outer: for (;;) { for (;;) { break outer; continue outer; } }
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (labeled_statement
+      (identifier)
+      (for_statement
+        body: (block
+          (for_statement
+            body: (block
+              (break_statement
+                (identifier))
+              (continue_statement
+                (identifier)))))))))
+
+================================================================================
+_extension_member_declaration: indexer
+================================================================================
+
+static class E
+{
+    extension(IEnumerable<int> sequence)
+    {
+        public int this[int index] => sequence.ElementAt(index);
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (modifier)
+    name: (identifier)
+    body: (declaration_list
+      (extension_declaration
+        (receiver_parameter
+          type: (generic_name
+            (identifier)
+            (type_argument_list
+              (predefined_type)))
+          name: (identifier))
+        (extension_body
+          (indexer_declaration
+            (modifier)
+            type: (predefined_type)
+            parameters: (bracketed_parameter_list
+              (parameter
+                type: (predefined_type)
+                name: (identifier)))
+            value: (arrow_expression_clause
+              (invocation_expression
+                function: (member_access_expression
+                  expression: (identifier)
+                  name: (identifier))
+                arguments: (argument_list
+                  (argument
+                    (identifier)))))))))))
+
+================================================================================
+with_element: collection arguments
+================================================================================
+
+int[] l = [with(capacity: 2), .. v];
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (array_type
+          type: (predefined_type)
+          rank: (array_rank_specifier))
+        (variable_declarator
+          name: (identifier)
+          (collection_expression
+            (collection_element
+              (with_element
+                (argument_list
+                  (argument
+                    name: (identifier)
+                    (integer_literal)))))
+            (collection_element
+              (spread_element
+                (identifier)))))))))
+
+================================================================================
+unsafe_expression: field initializer
+================================================================================
+
+class H
+{
+    static readonly int S = unsafe(R());
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    name: (identifier)
+    body: (declaration_list
+      (field_declaration
+        (modifier)
+        (modifier)
+        (variable_declaration
+          type: (predefined_type)
+          (variable_declarator
+            name: (identifier)
+            (unsafe_expression
+              (invocation_expression
+                function: (identifier)
+                arguments: (argument_list)))))))))
+
+================================================================================
+from_clause: discard as the first range variable
+================================================================================
+
+var q = from _ in xs select 1;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (query_expression
+            (from_clause
+              name: (identifier)
+              (identifier))
+            (select_clause
+              (integer_literal))))))))
+
+================================================================================
+verbatim_string_literal: content field
+================================================================================
+
+var a = @"a ""b""";
+var b = @"";
+var c = @"x"u8;
+var d = @"multi
+line";
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (verbatim_string_literal
+            content: (string_content))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (verbatim_string_literal)))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (verbatim_string_literal
+            content: (string_content))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (verbatim_string_literal
+            content: (string_content)))))))
+
+================================================================================
+interpolation_end_quote: escaped quotes after a hole
+================================================================================
+
+var a = $@"{n}""";
+var b = $@"say ""{n}"" ok";
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (interpolated_string_expression
+            (interpolation_start)
+            (interpolation
+              (interpolation_brace)
+              (identifier)
+              (interpolation_brace))
+            (string_content))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (interpolated_string_expression
+            (interpolation_start)
+            (string_content)
+            (interpolation
+              (interpolation_brace)
+              (identifier)
+              (interpolation_brace))
+            (string_content)
+            (string_content)))))))

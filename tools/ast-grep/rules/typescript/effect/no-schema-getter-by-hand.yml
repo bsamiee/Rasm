@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-schema-getter-by-hand
 language: tsxlang
 severity: error
 utils:
@@ -8,15 +7,15 @@ utils:
     string-member:
         regex: '^(trim|toLowerCase|toUpperCase|capitalize|uncapitalize|snakeToCamel|camelToSnake)$'
     string-module:
-        matches: {effect-module: {name: {regex: '\bString$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)String$'}}}
     identity:
         any:
             - {kind: identifier, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^identity$'}}}}
-            - {kind: member_expression, matches: {effect-module-member: {module: {regex: '\bFunction$'}, member: {regex: '^identity$'}}}}
+            - {kind: member_expression, matches: {effect-module-member: {module: {regex: '(?-u:\b)Function$'}, member: {regex: '^identity$'}}}}
     getter-transform:
-        matches: {effect-module-member: {module: {regex: '\bSchemaGetter$'}, member: {regex: '^transform$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)SchemaGetter$'}, member: {regex: '^transform$'}}}
     transformation-transform:
-        matches: {effect-module-member: {module: {regex: '\bSchemaTransformation$'}, member: {regex: '^transform$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)SchemaTransformation$'}, member: {regex: '^transform$'}}}
     getter-position:
         any:
             - inside:

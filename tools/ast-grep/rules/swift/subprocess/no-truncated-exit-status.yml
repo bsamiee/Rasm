@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-truncated-exit-status
 language: swiftlang
 severity: error
 utils:
     status-type: {kind: user_type, regex: '^(Security\.|Darwin\.)?OSStatus$'}
     status:
         any:
-            - {kind: simple_identifier, regex: '^errSec\w+$'}
+            - {kind: simple_identifier, regex: '^errSec\p{XID_Continue}+$'}
             - kind: simple_identifier
               pattern: $S
               inside:

@@ -1,0 +1,19 @@
+id: no-single-reader-tsx
+snapshots:
+  "const label = \"rows\";\nexport class View {\n    readonly title = label;\n}\n":
+    labels:
+    - source: readonly title = label
+      message: Only reader
+      style: secondary
+      start: 46
+      end: 68
+  "const limit = 10;\nexport function below(n: number) {\n    return n < limit;\n}\n":
+    labels:
+    - source: |-
+        function below(n: number) {
+            return n < limit;
+        }
+      message: Only reader
+      style: secondary
+      start: 25
+      end: 76

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-empty-string-default-tsx
 language: tsxlang
 severity: error
 utils:
@@ -23,7 +22,7 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^(head|last|get|findFirst|findLast)$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Chunk|HashMap|Iterable|Record)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|HashMap|Iterable|Record)$'}}}}
     empty-fallback:
         kind: arrow_function
         has: {field: body, matches: empty-string}
@@ -34,7 +33,7 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^getOrElse$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\bOption$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Option$'}}}}
     piped-default:
         matches: get-or-else
         has: {field: arguments, has: {nthChild: 1, matches: empty-fallback}, not: {has: {nthChild: 2}}}

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-empty-coalesced-out-array
 language: csharplang
 severity: error
 files: ['**/rhino/**']
@@ -22,7 +21,7 @@ utils:
               has: {field: name, regex: '^Empty$'}
             - kind: array_creation_expression
               any:
-                - regex: '\[\s*0\s*\]$'
+                - regex: '\[[\p{White_Space}\x{FEFF}]*0[\p{White_Space}\x{FEFF}]*\]$'
                 - has: {kind: initializer_expression, not: {has: {pattern: $_}}}
             - kind: default_expression
             - kind: object_creation_expression
@@ -37,7 +36,7 @@ utils:
         any:
             - matches: empty-collection
             - kind: generic_name
-              regex: '^(Seq|Empty)\s*<'
+              regex: '^(Seq|Empty)[\p{White_Space}\x{FEFF}]*<'
             - kind: lambda_expression
               all:
                 - matches: csharp-parameterless

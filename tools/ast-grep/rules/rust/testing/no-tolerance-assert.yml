@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-tolerance-assert
 language: rustlang
 severity: error
 utils:
@@ -9,7 +8,7 @@ utils:
         has: {regex: '^-$', follows: {pattern: $_}}
     abs-call:
         regex: '^\.$'
-        precedes: {regex: '^abs$', precedes: {kind: token_tree, regex: '^\(\s*\)$'}}
+        precedes: {regex: '^abs$', precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$'}}
     absolute-difference:
         kind: call_expression
         any:

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-deadline-race-by-hand-swift
 language: swiftlang
 severity: error
 utils:
@@ -23,7 +22,7 @@ utils:
                         - kind: navigation_expression
                           regex: '^Result(<[^{]*>)?\.failure$'
                         - kind: control_transfer_statement
-                          regex: '^throw\b'
+                          regex: '^throw(?-u:\b)'
     first-result:
         any:
             - kind: call_expression

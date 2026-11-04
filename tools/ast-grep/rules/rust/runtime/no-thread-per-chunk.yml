@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-thread-per-chunk
 language: rustlang
 severity: error
 utils:
     chunking:
-        regex: '\.(r?chunks(_exact)?(_mut)?|step_by)\s*\('
+        regex: '\.(r?chunks(_exact)?(_mut)?|step_by)\p{White_Space}*\('
     scope-call:
         kind: call_expression
         has: {field: function, regex: '^((::)?(std|crossbeam(_utils)?|rayon)::)?(thread::)?(scope|in_place_scope)$'}

@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-release-callback
 language: csharplang
 severity: error
 rule:
     kind: generic_name
     pattern: $TYPE
-    regex: '^(Action\s*<\s*((global::)?System\.)?IDisposable\s*>|Func\s*<\s*((global::)?System\.)?IDisposable\s*,\s*(Unit|IO\s*<\s*Unit\s*>)\s*>)$'
+    regex: '^(Action[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*((global::)?System\.)?IDisposable[\p{White_Space}\x{FEFF}]*>|Func[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*((global::)?System\.)?IDisposable[\p{White_Space}\x{FEFF}]*,[\p{White_Space}\x{FEFF}]*(Unit|IO[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*Unit[\p{White_Space}\x{FEFF}]*>)[\p{White_Space}\x{FEFF}]*>)$'
 message: '`$TYPE` passes a release callback'
 note: 'Acquire through `use` and release at the owning operation''s `Bracket`, lifetime-long acquisitions run on owner''s `EnvIO`'

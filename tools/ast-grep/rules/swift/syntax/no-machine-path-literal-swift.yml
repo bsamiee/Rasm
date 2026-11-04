@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-machine-path-literal-swift
 language: swiftlang
 severity: error
 rule:
@@ -7,6 +6,6 @@ rule:
     pattern: $PATH
     has:
         kind: 'line_str_text, multi_line_str_text, raw_str_part, raw_str_end_part'
-        regex: '(^|[\s"''#(=:]|file://)(~|/(Applications|Users/[^/\s"'']+|home/[^/\s"'']+|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders)(/|$)|\$\{?HOME\b'
+        regex: '(^|[\p{White_Space}"''#(=:]|file://)(~|/(Applications|Users/[^/\p{White_Space}"'']+|home/[^/\p{White_Space}"'']+|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders)(/|$)|\$\{?HOME(?-u:\b)'
 message: '`$PATH` names a location in one machine''s install, user, or volume folders'
 note: 'Derive the location at run time from its owner (`URL.homeDirectory`, `URL.temporaryDirectory`, a bundle identifier lookup) or take it as a parameter'

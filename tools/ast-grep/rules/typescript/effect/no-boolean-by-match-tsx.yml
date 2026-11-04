@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-boolean-by-match-tsx
 language: tsxlang
 severity: error
 utils:
@@ -9,14 +8,14 @@ utils:
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^constTrue$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\bFunction$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Function$'}}}}
     false-arm:
         any:
             - matches: {typescript-constant-function: {result: {kind: 'false'}}}
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^constFalse$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\bFunction$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Function$'}}}}
     boolean-cases:
         kind: object
         all:
@@ -43,8 +42,8 @@ constraints:
     M:
         any:
             - pattern: Boolean
-              matches: {effect-module: {name: {regex: '\bBoolean$'}}}
+              matches: {effect-module: {name: {regex: '(?-u:\b)Boolean$'}}}
             - not: {pattern: Boolean}
-              matches: {effect-module: {name: {regex: '\b(Option|Result|Exit|Effect)$'}}}
+              matches: {effect-module: {name: {regex: '(?-u:\b)(Option|Result|Exit|Effect)$'}}}
 message: '`$M.match` maps one case to `true` and the other to `false`'
 note: 'Call `<module>.is<Case>(<value>)`, or write `<value>` or `!<value>` in place of `Boolean.match`'

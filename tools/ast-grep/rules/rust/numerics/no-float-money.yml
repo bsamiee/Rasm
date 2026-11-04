@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-float-money
 language: rustlang
 severity: error
 utils:
     money-name:
-        regex: '(?i)^account_balances?$|(^|_)(prices?|subtotals?|tax(es)?|fees?|payments?|refunds?|discounts?|revenues?|salar(y|ies)|wages?|money|amount_(usd|eur|gbp|jpy|chf|cad|aud)|\w+_(usd|eur|gbp|jpy|chf|cad|aud|dollars|euros))$'
+        regex: '(?i)^account_balances?$|(^|_)(prices?|subtotals?|tax(es)?|fees?|payments?|refunds?|discounts?|revenues?|salar(y|ies)|wages?|money|amount_(usd|eur|gbp|jpy|chf|cad|aud)|\p{XID_Continue}+_(usd|eur|gbp|jpy|chf|cad|aud|dollars|euros))$'
     float:
         kind: primitive_type
         regex: '^f(32|64)$'

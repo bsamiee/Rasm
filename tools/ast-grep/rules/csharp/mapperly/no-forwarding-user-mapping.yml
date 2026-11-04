@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-forwarding-user-mapping
 language: csharplang
 severity: error
 files: ['libs/dotnet/rhino/Rasm.Rhino/**']
@@ -57,6 +56,6 @@ rule:
         - not: {has: {kind: modifier, regex: '^partial$'}}
         - matches: mapperly-mapping-method
 constraints:
-    OWNER: {regex: '^(global::)?(@?[A-Z]\w*(<.+>)?\.)*@?[A-Z]\w*(<.+>)?$'}
+    OWNER: {regex: '^(global::)?(@?[A-Z]\p{XID_Continue}*(<.+>)?\.)*@?[A-Z]\p{XID_Continue}*(<.+>)?$'}
 message: 'Mapping method `$NAME` passes `$SOURCE` to `$CALLEE` unchanged'
 note: 'Point each `Use` at `nameof(@<owner>.<member>)` and delete the forward, or add `[UseStaticMapper(typeof(<owner>))]` for another mapper''s mapping'

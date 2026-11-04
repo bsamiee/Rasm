@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-forwarding-function-tsx
 language: tsxlang
 severity: error
 utils:
@@ -7,7 +6,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^(make|subscriptionRef|fn|fnSync)$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '\bAtom$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Atom$'}}}}
     receiver-static:
         has: {field: object, regex: '^(Promise|(Int8|Uint8|Uint8Clamped|Int16|Uint16|Int32|Uint32|Float16|Float32|Float64|BigInt64|BigUint64)Array)$', matches: typescript-global-reference}
     root-declaration:
@@ -109,10 +108,10 @@ utils:
                         - has: {field: property, regex: '^(map|flatMap|filter|filterMap|forEach|some|every|find|findIndex|findLast|findLastIndex|findFirst|reduce|reduceRight|partition|validate|replace|replaceAll)$'}
                         - any:
                             - has: {field: object, not: {matches: {effect-module: {name: {regex: '.'}}}}}
-                            - has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable|Record|HashMap)$'}}}}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|Iterable|Record|HashMap)$'}}}}
                             - all:
                                 - has: {field: property, regex: '^(forEach|filter|filterMap|findFirst|reduce|partition|validate)$'}
-                                - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+                                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
     forwarded-body:
         any:
             - kind: identifier
@@ -140,7 +139,7 @@ utils:
 rule:
     kind: arrow_function, function_expression, function_declaration
     all:
-        - not: {regex: '^async\b'}
+        - not: {regex: '^async(?-u:\b)'}
         - not: {has: {field: parameters, has: {kind: optional_parameter}}}
         - not: {has: {field: parameters, has: {kind: required_parameter, has: {field: value, pattern: $_}}}}
         - any:

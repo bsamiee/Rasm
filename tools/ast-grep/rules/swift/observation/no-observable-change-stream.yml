@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-observable-change-stream
 language: swiftlang
 severity: error
 utils:
@@ -10,7 +9,7 @@ rule:
     pattern: $SITE
     any:
         - kind: property_declaration
-          has: {kind: type_annotation, has: {field: name, kind: 'array_type, dictionary_type', regex: '\bAsync(Throwing)?Stream<.*>\.Continuation\]$'}}
+          has: {kind: type_annotation, has: {field: name, kind: 'array_type, dictionary_type', regex: '(?-u:\b)Async(Throwing)?Stream<.*>\.Continuation\]$'}}
           inside: {kind: class_body, inside: {matches: observable-class}}
         - kind: didset_clause
           has: {kind: statements, has: {stopBy: end, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^yield$'}}}}

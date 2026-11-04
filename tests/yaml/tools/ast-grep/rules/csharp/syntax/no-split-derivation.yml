@@ -1,0 +1,24 @@
+id: no-split-derivation
+valid:
+    - |
+      sealed class Report {
+          private readonly int[] items = [];
+          public int Count => items.Length;
+          public int First => items[0];
+      }
+    - |
+      sealed class Report {
+          public int Count => Load().Length;
+          public string Name => Describe();
+      }
+invalid:
+    - |
+      sealed class Report {
+          public int Count => Load().Length;
+          public int First => Load()[0];
+      }
+    - |
+      sealed class Report {
+          public (int, int) Both => Measure();
+          public int Width => Measure().Item1;
+      }

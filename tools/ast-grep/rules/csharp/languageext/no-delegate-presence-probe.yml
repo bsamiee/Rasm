@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-delegate-presence-probe
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -9,7 +8,7 @@ utils:
         has:
             any:
                 - {kind: identifier, regex: '^None$'}
-                - {kind: collection_expression, regex: '^\[\s*\]$'}
+                - {kind: collection_expression, regex: '^\[[\p{White_Space}\x{FEFF}]*\]$'}
                 - pattern: Edit.Cancel<$VALUE>()
 rule:
     kind: member_access_expression

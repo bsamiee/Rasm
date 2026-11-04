@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-collect-by-entries
 language: tsxlang
 severity: error
 utils:
@@ -8,11 +7,11 @@ utils:
         has: {field: function, pattern: $ENTRIES, matches: typescript-record-entries}
     record-map:
         kind: call_expression
-        has: {field: function, pattern: $ENTRIES, matches: {effect-module-member: {module: {regex: '\bRecord$'}, member: {regex: '^map$'}}}}
+        has: {field: function, pattern: $ENTRIES, matches: {effect-module-member: {module: {regex: '(?-u:\b)Record$'}, member: {regex: '^map$'}}}}
     record-values:
         any:
             - {regex: '^((globalThis|window|self)\.)?Object\.values$', matches: typescript-global-reference}
-            - matches: {effect-module-member: {module: {regex: '\bRecord$'}, member: {regex: '^values$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Record$'}, member: {regex: '^values$'}}}
     indexed-callback:
         kind: arrow_function, function_expression
         has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', nthChild: 2}}
@@ -23,7 +22,7 @@ rule:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^map$'}}, {has: {field: object, matches: entries}}]}
             - has: {field: arguments, has: {nthChild: 1, not: {matches: indexed-callback}}}
         - all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '\b(Array|Iterable)$'}, member: {regex: '^(map|filterMap)$'}}}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)(Array|Iterable)$'}, member: {regex: '^(map|filterMap)$'}}}}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: entries}}, {has: {nthChild: 2, not: {matches: indexed-callback}}}]}
         - all:
             - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.from$', matches: typescript-global-reference}

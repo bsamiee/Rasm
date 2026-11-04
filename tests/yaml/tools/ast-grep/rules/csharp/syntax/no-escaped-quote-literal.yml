@@ -1,0 +1,13 @@
+id: no-escaped-quote-literal
+valid:
+    - 'var s = @"C:\path";'
+    - 'var s = @"""";'
+    - |
+      var s = @"first ""line""
+      second";
+    - 'var s = """say "hi" """;'
+invalid:
+    - 'var s = @"say ""hi""";'
+    - 'var s = @"say ""hi"""u8;'
+    - 'var s = "say \"hi\"";'
+    - 'var s = $@"say ""{name}""";'

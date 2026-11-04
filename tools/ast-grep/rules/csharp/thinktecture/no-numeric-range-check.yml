@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-numeric-range-check
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -117,7 +116,7 @@ utils:
         any:
             - kind: invocation_expression
               any:
-                - has: {field: function, regex: '^((IO\s*\.\s*)?[Ff]ail|FinFail)(\s*<.+>)?$'}
+                - has: {field: function, regex: '^((IO[\p{White_Space}\x{FEFF}]*\.[\p{White_Space}\x{FEFF}]*)?[Ff]ail|FinFail)([\p{White_Space}\x{FEFF}]*<.+>)?$'}
                 - matches: {csharp-owner-call: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}
             - kind: object_creation_expression
               any:
@@ -131,8 +130,8 @@ utils:
     failing:
         any:
             - kind: invocation_expression
-              has: {field: function, regex: '(^|\.)\s*[Ff]ail(\s*<.+>)?$'}
-            - has: {stopBy: end, kind: invocation_expression, has: {field: function, regex: '(^|\.)\s*[Ff]ail(\s*<.+>)?$'}}
+              has: {field: function, regex: '(^|\.)[\p{White_Space}\x{FEFF}]*[Ff]ail([\p{White_Space}\x{FEFF}]*<.+>)?$'}
+            - has: {stopBy: end, kind: invocation_expression, has: {field: function, regex: '(^|\.)[\p{White_Space}\x{FEFF}]*[Ff]ail([\p{White_Space}\x{FEFF}]*<.+>)?$'}}
     rejecting-call:
         kind: invocation_expression
         any:
@@ -143,7 +142,7 @@ utils:
                       has: {field: name, regex: '^Unless$'}
                     - matches: {csharp-type-name: {name: {regex: '^guard$'}}}
                     - kind: identifier, generic_name
-                      regex: '^Unless(\s*<.+>)?$'
+                      regex: '^Unless([\p{White_Space}\x{FEFF}]*<.+>)?$'
             - all:
                 - matches: {csharp-named-call: {name: {regex: '^(when|unless)$'}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: failing}}}
@@ -233,7 +232,7 @@ utils:
             - kind: or_pattern
               all:
                 - has: {kind: relational_pattern, regex: '^<'}
-                - has: {kind: relational_pattern, regex: '^>\s*[^=]', not: {matches: count-pattern}}
+                - has: {kind: relational_pattern, regex: '^>[\p{White_Space}\x{FEFF}]*[^=]', not: {matches: count-pattern}}
     index-upper:
         any:
             - kind: binary_expression
@@ -273,7 +272,7 @@ utils:
                                     kind: attribute
                                     all:
                                         - has: {field: name, matches: {csharp-type-name: {name: {regex: '^(Complex)?ValueObject(Attribute)?$'}}}}
-                                        - has: {kind: attribute_argument_list, has: {kind: attribute_argument, regex: '^SkipFactoryMethods\s*=\s*true$'}}
+                                        - has: {kind: attribute_argument_list, has: {kind: attribute_argument, regex: '^SkipFactoryMethods[\p{White_Space}\x{FEFF}]*=[\p{White_Space}\x{FEFF}]*true$'}}
     parse-chain:
         inside:
             stopBy: {not: {matches: condition-chain}}
@@ -347,7 +346,7 @@ rule:
             - inside:
                 stopBy: end
                 kind: method_declaration
-                has: {field: name, regex: '^Unless\w*$'}
+                has: {field: name, regex: '^Unless\p{XID_Continue}*$'}
                 inside: {kind: declaration_list, inside: {matches: languageext-error-record}}
             - inside: {stopBy: end, matches: thinktecture-factory-validation}
             - inside:

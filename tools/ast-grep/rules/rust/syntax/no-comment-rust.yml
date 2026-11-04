@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-comment-rust
 language: rustlang
 severity: error
 rule:
@@ -7,6 +6,6 @@ rule:
     pattern: $COMMENT
     not: {any: [{regex: '^// --- \[[A-Z][A-Z0-9_]*\]( -+)?$'}, {matches: rust-macro-argument}]}
 transform:
-    TEXT: {replace: {source: $COMMENT, replace: '\s+$', by: ''}}
+    TEXT: {replace: {source: $COMMENT, replace: '\p{White_Space}+$', by: ''}}
 message: '`$TEXT` is a comment other than a `// --- [<LABEL>]` divider'
 note: 'Move the fact into a name or type and delete the comment'

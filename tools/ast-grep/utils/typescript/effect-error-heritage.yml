@@ -3,7 +3,7 @@ id: effect-error-heritage
 language: tsxlang
 utils:
     error-module:
-        matches: {effect-module: {name: {regex: '\b(Data|Schema)$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)(Data|Schema)$'}}}
     error-constructor:
         kind: member_expression
         all:

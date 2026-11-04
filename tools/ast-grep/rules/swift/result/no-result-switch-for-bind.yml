@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-result-switch-for-bind
 language: swiftlang
 severity: error
 utils:
@@ -10,11 +9,11 @@ rule:
     any:
         - matches: swift-result-bind-switch
         - kind: if_statement
-          regex: '^if\s+case\s+(let\s+)?\.failure\b'
+          regex: '^if\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.failure(?-u:\b)'
           all: [{has: {matches: swift-result-value, follows: {regex: '^=$'}}}]
           has: {matches: failure-return}
         - kind: if_statement
-          regex: '^if\s+case\s+(let\s+)?\.success\b'
+          regex: '^if\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.success(?-u:\b)'
           all:
             - has: {matches: swift-result-value, follows: {regex: '^=$'}}
             - not: {has: {regex: '^,$'}}
@@ -25,8 +24,8 @@ rule:
                     - not: {has: {regex: '^else$'}}
                     - precedes: {kind: control_transfer_statement, has: {field: result, matches: swift-failure-call}}
         - kind: guard_statement
-          regex: '^guard\s+case\s+(let\s+)?\.success\b'
-          not: {regex: '(?s)^guard\s+case\s+(let\s+)?\.success\b[^,]*,.*\b(case|let|var)\b'}
+          regex: '^guard\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.success(?-u:\b)'
+          not: {regex: '(?s)^guard\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.success(?-u:\b)[^,]*,.*(?-u:\b)(case|let|var)(?-u:\b)'}
           has: {matches: failure-return}
           all: [{has: {matches: swift-result-value, follows: {regex: '^=$'}}}]
 transform:

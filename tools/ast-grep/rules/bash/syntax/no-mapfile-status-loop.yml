@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-mapfile-status-loop
 language: bashlang
 severity: error
 utils:
@@ -17,7 +16,7 @@ utils:
               has: {field: body, matches: reader}
 rule:
     kind: while_statement
-    regex: '^while\b'
+    regex: '^while(?-u:\b)'
     all:
         - has: {matches: reader, precedes: {kind: do_group, stopBy: {not: {regex: '^;$'}}}}
         - not:

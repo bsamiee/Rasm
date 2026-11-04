@@ -1,0 +1,77 @@
+id: no-escape-character-by-code-point
+snapshots:
+  var c = (char)27;:
+    fixed: var c = '\e';
+    labels:
+    - source: (char)27
+      style: primary
+      start: 8
+      end: 16
+    - source: char
+      style: secondary
+      start: 9
+      end: 13
+    - source: "27"
+      style: secondary
+      start: 14
+      end: 16
+  var c = Convert.ToChar(0x1B);:
+    fixed: var c = '\e';
+    labels:
+    - source: Convert.ToChar(0x1B)
+      style: primary
+      start: 8
+      end: 28
+    - source: Convert.ToChar
+      style: secondary
+      start: 8
+      end: 22
+    - source: "0x1B"
+      style: secondary
+      start: 23
+      end: 27
+    - source: "0x1B"
+      style: secondary
+      start: 23
+      end: 27
+    - source: (0x1B)
+      style: secondary
+      start: 22
+      end: 28
+  "var reset = \"\\u001b[0m\";":
+    fixed: var reset = "\e[0m";
+    labels:
+    - source: \u001b
+      style: primary
+      start: 13
+      end: 19
+  "var reset = \"\\x1b[0m\";":
+    fixed: var reset = "\e[0m";
+    labels:
+    - source: \x1b
+      style: primary
+      start: 13
+      end: 17
+  var s = char.ConvertFromUtf32(27);:
+    fixed: var s = "\e";
+    labels:
+    - source: char.ConvertFromUtf32(27)
+      style: primary
+      start: 8
+      end: 33
+    - source: char.ConvertFromUtf32
+      style: secondary
+      start: 8
+      end: 29
+    - source: "27"
+      style: secondary
+      start: 30
+      end: 32
+    - source: "27"
+      style: secondary
+      start: 30
+      end: 32
+    - source: (27)
+      style: secondary
+      start: 29
+      end: 33

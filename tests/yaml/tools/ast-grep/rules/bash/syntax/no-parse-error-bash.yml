@@ -1,0 +1,12 @@
+id: no-parse-error-bash
+valid:
+    - echo ok
+    - |
+      if [ -f a ]; then
+          echo a
+      fi
+invalid:
+    - |
+      if [ -f a ]; then
+          echo a
+    - echo $(( 1 + ))

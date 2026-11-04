@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-procfs-read
 language: rustlang
 severity: error
 rule:
     kind: 'string_literal, raw_string_literal'
     pattern: $PATH
     not: {matches: rust-macro-argument}
-    regex: '^(r#*)?"/proc(/(self|\d+|\{\w*\}))?(/|/(meminfo|cpuinfo|stat|loadavg|uptime|swaps|mounts|diskstats|net/dev)|/(stat|statm|status|cmdline|environ|exe|cwd|root|io|mounts|fd|limits|task))?"#*$'
+    regex: '^(r#*)?"/proc(/(self|[0-9]+|\{\p{XID_Continue}*\}))?(/|/(meminfo|cpuinfo|stat|loadavg|uptime|swaps|mounts|diskstats|net/dev)|/(stat|statm|status|cmdline|environ|exe|cwd|root|io|mounts|fd|limits|task))?"#*$'
 message: '`$PATH` reads a Linux procfs file by hand'
 note: 'Query `sysinfo::System`, `Disks`, or `Networks`, and pass the executable path, working directory, and environment as arguments'

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-bridged-string-search
 language: swiftlang
 severity: error
 utils:
@@ -37,14 +36,14 @@ utils:
             - has: {field: name, regex: '^((Swift|Foundation)\.)?(String|Substring|StringProtocol|Data)$'}
     bridged-binding:
         kind: 'property_declaration, parameter'
-        regex: '\b(NS(Mutable)?(Attributed)?String|Attributed(String|Substring))\b'
+        regex: '(?-u:\b)(NS(Mutable)?(Attributed)?String|Attributed(String|Substring))(?-u:\b)'
         has: {stopBy: end, kind: simple_identifier, pattern: $R}
     data-needle:
         kind: value_argument
         all:
             - matches: needle
             - has: {field: value, kind: simple_identifier, pattern: $N}
-            - inside: {stopBy: end, matches: scope, has: {stopBy: end, kind: 'property_declaration, parameter', regex: '\bData\b', has: {stopBy: end, kind: simple_identifier, pattern: $N}}}
+            - inside: {stopBy: end, matches: scope, has: {stopBy: end, kind: 'property_declaration, parameter', regex: '(?-u:\b)Data(?-u:\b)', has: {stopBy: end, kind: simple_identifier, pattern: $N}}}
 rule:
     kind: call_expression
     pattern: $SITE
@@ -57,7 +56,7 @@ rule:
             nthChild: 1
             any:
                 - kind: navigation_expression
-                  has: {field: target, pattern: $R, not: {any: [{kind: self_expression}, {regex: '\b(NS(Mutable)?(Attributed)?String|Attributed(String|Substring))\b'}]}}
+                  has: {field: target, pattern: $R, not: {any: [{kind: self_expression}, {regex: '(?-u:\b)(NS(Mutable)?(Attributed)?String|Attributed(String|Substring))(?-u:\b)'}]}}
                 - any: [{kind: simple_identifier}, {kind: navigation_expression, has: {field: target, kind: self_expression}}]
                   inside: {stopBy: end, matches: string-extension}
         - not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: bridged-binding}}}

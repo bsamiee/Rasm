@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-chain-flattening
 language: pythonlang
 severity: error
 metadata: {python-from: '3.15'}
@@ -29,14 +28,14 @@ utils:
             - kind: list_comprehension, set_comprehension, generator_expression
               all:
                 - has: {field: body, kind: identifier}
-                - not: {has: {kind: for_in_clause, regex: '^async\b'}}
+                - not: {has: {kind: for_in_clause, regex: '^async(?-u:\b)'}}
                 - any:
                     - pattern: '[$INNER for $OUTER in $ROWS for $INNER in $ITEMS]'
                     - pattern: '{$INNER for $OUTER in $ROWS for $INNER in $ITEMS}'
                     - pattern: '($INNER for $OUTER in $ROWS for $INNER in $ITEMS)'
             - kind: dictionary_comprehension
               all:
-                - not: {has: {kind: for_in_clause, regex: '^async\b'}}
+                - not: {has: {kind: for_in_clause, regex: '^async(?-u:\b)'}}
                 - pattern: '{$KEY: $VALUE for $OUTER in $ROWS for $KEY, $VALUE in $MAPPING.items()}'
 rule:
     pattern: $SITE

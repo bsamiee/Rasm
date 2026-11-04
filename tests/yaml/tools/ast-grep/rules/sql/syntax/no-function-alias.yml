@@ -1,0 +1,13 @@
+id: no-function-alias
+valid:
+    - SELECT coalesce(a, 0) FROM t;
+    - SELECT substr(a, 1, 2) FROM t;
+    - SELECT group_concat(a) FROM t;
+    - SELECT group_concat(DISTINCT a) FROM t;
+invalid:
+    - SELECT ifnull(a, 0) FROM t;
+    - SELECT SUBSTRING(a, 1, 2) FROM t;
+    - SELECT ceiling(a) FROM t;
+    - SELECT power(a, 2) FROM t;
+    - SELECT if(a, 1, 2) FROM t;
+    - SELECT group_concat(a, ',') FROM t;

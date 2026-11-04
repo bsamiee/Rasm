@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-result-by-guard-swift
 language: swiftlang
 severity: error
 utils:
@@ -37,18 +36,18 @@ utils:
             - has: {field: condition, matches: plain}
     bool-else:
         kind: control_transfer_statement
-        regex: '^return\b'
+        regex: '^return(?-u:\b)'
         has: {field: result, matches: plain-value, not: {regex: '\n'}}
     bool-tail:
         kind: control_transfer_statement
-        regex: '^return\b'
+        regex: '^return(?-u:\b)'
         has:
             field: result
             not: {any: [{kind: ternary_expression}, {regex: '\n'}]}
             any:
                 - not: {has: {kind: *effect, stopBy: {kind: lambda_literal}}}
                 - all:
-                    - regex: '^(try\??|await)\s'
+                    - regex: '^(try\??|await)\p{White_Space}'
                     - not: {has: {kind: *effect, stopBy: {kind: lambda_literal}, not: {matches: leading}}}
     bool-guard:
         kind: guard_statement
@@ -77,7 +76,7 @@ utils:
             - not: {has: {follows: {regex: '^=$'}, any: [{kind: try_expression}, {has: {kind: try_expression, stopBy: {kind: lambda_literal}}}]}}
     else-return:
         kind: control_transfer_statement
-        regex: '^return\b'
+        regex: '^return(?-u:\b)'
         has: {field: result, matches: plain, not: {regex: '\n'}}
     else-body:
         matches: {swift-single-statement: {first: {kind: control_transfer_statement}}}
@@ -94,7 +93,7 @@ utils:
         has: {kind: try_operator, regex: '^try$'}
     value-return:
         kind: control_transfer_statement
-        regex: '^return\b'
+        regex: '^return(?-u:\b)'
         not: {has: {field: result, regex: '\n'}}
         any:
             - has: {field: result, kind: simple_identifier, pattern: $BOUND}
@@ -114,10 +113,10 @@ utils:
         has: {nthChild: 1, matches: value-return}
     returned-value:
         kind: control_transfer_statement
-        regex: '^return\s'
+        regex: '^return\p{White_Space}'
     returning-branch:
         kind: statements
-        matches: {swift-single-statement: {first: {matches: returned-value, not: {regex: '\belse\b'}}}}
+        matches: {swift-single-statement: {first: {matches: returned-value, not: {regex: '(?-u:\b)else(?-u:\b)'}}}}
     returning-chain:
         kind: if_statement
         all:
@@ -133,8 +132,8 @@ utils:
                 swift-single-statement:
                     first:
                         any:
-                            - {matches: returned-value, not: {regex: '\belse\b'}}
-                            - {kind: control_transfer_statement, regex: '^throw\b'}
+                            - {matches: returned-value, not: {regex: '(?-u:\b)else(?-u:\b)'}}
+                            - {kind: control_transfer_statement, regex: '^throw(?-u:\b)'}
     boolean-switch:
         kind: switch_statement
         all:
@@ -155,7 +154,7 @@ utils:
                 kind: statements
                 matches:
                     swift-single-statement:
-                        first: {matches: returned-value, not: {regex: '\belse\b'}, has: {field: result, pattern: $_}}
+                        first: {matches: returned-value, not: {regex: '(?-u:\b)else(?-u:\b)'}, has: {field: result, pattern: $_}}
             - precedes: {matches: returned-value, has: {field: result, not: {regex: '\n'}}}
     condition-if:
         kind: if_statement
@@ -199,9 +198,9 @@ rule:
         - not:
             any:
                 - matches: {swift-boolean-match: {matched: {kind: boolean_literal}, other: {kind: boolean_literal}}}
-                - regex: '^(if|guard)\s+case\s+(let\s+)?\.success\b'
+                - regex: '^(if|guard)\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.success(?-u:\b)'
                 - kind: if_statement
-                  regex: '^if\s+case\s+(let\s+)?\.failure\b'
+                  regex: '^if\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.failure(?-u:\b)'
                   has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, has: {nthChild: 1, matches: failure-return}}
                 - matches: swift-result-bind-switch
                 - kind: guard_statement

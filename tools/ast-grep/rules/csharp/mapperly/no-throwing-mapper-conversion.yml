@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-throwing-mapper-conversion
 language: csharplang
 severity: error
 files: ['libs/dotnet/rhino/Rasm.Rhino/**']
@@ -112,7 +111,7 @@ rule:
               pattern: $CONVERSION
             - kind: cast_expression
               pattern: $CONVERSION
-              has: {field: type, kind: 'identifier, generic_name, qualified_name', not: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]\w*$'}}}}}
+              has: {field: type, kind: 'identifier, generic_name, qualified_name', not: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]\p{XID_Continue}*$'}}}}}
         - matches: source-parameter
         - any:
             - kind: invocation_expression

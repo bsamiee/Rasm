@@ -1,0 +1,6 @@
+id: no-parse-error-yaml
+snapshots:
+  "a: \"open\nb: 2\n":
+    labels: []
+  "items: [1, 2":
+    labels: []

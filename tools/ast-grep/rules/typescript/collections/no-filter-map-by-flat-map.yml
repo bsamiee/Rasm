@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-filter-map-by-flat-map
 language: tsxlang
 severity: error
 ignores: ['plugins/function-hooks/**']
@@ -13,8 +12,8 @@ utils:
               has:
                 field: function
                 any:
-                    - matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^toArray$'}}}
-                    - matches: {effect-module-member: {module: {regex: '\bArray$'}, member: {regex: '^fromOption$'}}}
+                    - matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^toArray$'}}}
+                    - matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^fromOption$'}}}
             - kind: call_expression
               has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^map$'}}, {has: {field: object, matches: one-or-none}}]}
             - kind: parenthesized_expression
@@ -34,8 +33,8 @@ rule:
     all:
         - has: {field: function, kind: member_expression, pattern: $CALLEE, has: {field: property, regex: '^flatMap$'}}
         - any:
-            - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Iterable)$'}}}}}
-            - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}}
+            - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Iterable)$'}}}}}
+            - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}}}}
         - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: selecting-callback}}
 message: '`$CALLEE` keeps one element or none per input'
 note: 'Call `Array.filterMap` with a `Result` filter, `Array.filter` to retain inputs, or `Array.getSomes` for options'

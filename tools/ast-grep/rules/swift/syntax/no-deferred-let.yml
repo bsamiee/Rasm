@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-deferred-let
 language: swiftlang
 severity: error
 utils:
@@ -10,7 +9,7 @@ utils:
             - has: {field: target, has: {kind: simple_identifier, pattern: $NAME}, not: {has: {nthChild: 2}}}
     assigning-arm:
         kind: statements
-        matches: {swift-single-statement: {first: {any: [{matches: arm-assignment}, {kind: control_transfer_statement, regex: '^throw\b'}]}}}
+        matches: {swift-single-statement: {first: {any: [{matches: arm-assignment}, {kind: control_transfer_statement, regex: '^throw(?-u:\b)'}]}}}
     assigning-if:
         kind: if_statement
         all:

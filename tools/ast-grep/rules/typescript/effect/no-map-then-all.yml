@@ -1,15 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-map-then-all
 language: tsxlang
 severity: error
 utils:
     all-member:
-        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^all$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^all$'}}}
     array-map:
         kind: member_expression
         all:
             - has: {field: property, regex: '^map$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}
     module-mapped:
         kind: call_expression
         all:

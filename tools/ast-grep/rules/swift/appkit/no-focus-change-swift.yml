@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-focus-change-swift
 language: swiftlang
 severity: error
 files: ['libs/**', 'tools/**', 'plugins/**', 'apps/creative-cloud/**', '.claude/**', '.codex/**']
@@ -33,16 +32,16 @@ rule:
                         has: {stopBy: end, kind: assignment, pattern: $CONFIGURATION.activates = false}
             - all:
                 - has: {nthChild: 1, regex: '^AXUIElementPerformAction$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 2, regex: '^(kAXRaiseAction\b|"AXRaise")'}}}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 2, regex: '^(kAXRaiseAction(?-u:\b)|"AXRaise")'}}}
             - all:
                 - has: {nthChild: 1, regex: '^AXUIElementSetAttributeValue$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 2, regex: '^(kAXFrontmostAttribute\b|"AXFrontmost")'}}}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 2, regex: '^(kAXFrontmostAttribute(?-u:\b)|"AXFrontmost")'}}}
             - all:
                 - has: {nthChild: 1, regex: '^(NSAppleEventDescriptor(\.init)?|AECreateAppleEvent)$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {stopBy: end, kind: simple_identifier, regex: '^kAEActivate$'}}}}
             - all:
                 - has: {nthChild: 1, regex: '^NSAppleScript(\.init)?$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^source$'}}, {has: {field: value, regex: '\bactivate\b|\bset\s+frontmost\b|AXRaise'}}]}}}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^source$'}}, {has: {field: value, regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set\p{White_Space}+frontmost(?-u:\b)|AXRaise'}}]}}}
         - kind: assignment
           pattern: $SITE
           all:

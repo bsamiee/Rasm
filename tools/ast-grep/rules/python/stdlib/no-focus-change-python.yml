@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-focus-change-python
 language: pythonlang
 severity: error
 files: ['libs/**', 'tools/**', 'plugins/**', 'apps/creative-cloud/**', '.claude/**', '.codex/**']
@@ -21,6 +20,6 @@ rule:
                         not: {follows: {stopBy: end, regex: '^["'']--args["'']$'}}
             - all:
                 - has: {nthChild: 1, kind: string, regex: '^["''](/usr/bin/)?osascript["'']$'}
-                - has: {kind: string, regex: '\bactivate\b|\bset\s+frontmost\b|AXRaise'}
+                - has: {kind: string, regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+frontmost(?-u:\b)|AXRaise'}
 message: '`$SITE` takes focus from the frontmost application'
 note: 'Open apps unfocused with `subprocess.run(["watch-apps", "launch", <app>])`, delete `activate`, `AXRaise`, and `frontmost` writes'

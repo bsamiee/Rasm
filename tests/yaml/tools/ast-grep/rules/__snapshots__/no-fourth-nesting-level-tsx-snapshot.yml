@@ -1,0 +1,19 @@
+id: no-fourth-nesting-level-tsx
+snapshots:
+  "function f(xs: number[]) {\n    for (const x of xs) {\n        if (x > 0) {\n            while (x > 1) {\n                if (x > 2) {\n                    g(x);\n                }\n            }\n        }\n    }\n}\n":
+    labels:
+    - source: |-
+        if (x > 2) {
+                            g(x);
+                        }
+      message: Fourth nesting level
+      style: primary
+      start: 118
+      end: 174
+  "function f(xs: number[][]) {\n    for (const row of xs) {\n        if (row.length > 0) {\n            row.forEach((x) => {\n                log(x);\n                return x > 1 ? x : 0;\n            });\n        }\n    }\n}\n":
+    labels:
+    - source: "x > 1 ? x : 0"
+      message: Fourth nesting level
+      style: primary
+      start: 167
+      end: 180

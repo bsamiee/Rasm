@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-markup-by-template
 language: tsxlang
 severity: error
 utils:
@@ -19,7 +18,7 @@ rule:
     all:
         - has: {kind: template_substitution}
         - any:
-            - all: [{regex: '^`\s*<(\?xml|![Dd][Oo][Cc][Tt][Yy][Pp][Ee])'}, {has: {kind: template_substitution, pattern: $VALUE, not: {matches: constant}}}]
+            - all: [{regex: '^`[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*<(\?xml|![Dd][Oo][Cc][Tt][Yy][Pp][Ee])'}, {has: {kind: template_substitution, pattern: $VALUE, not: {matches: constant}}}]
             - has: {matches: markup-slot, pattern: $VALUE, not: {matches: constant}}
         - not: {inside: {kind: call_expression, field: arguments}}
 message: 'Template interpolates `$VALUE` into markup'

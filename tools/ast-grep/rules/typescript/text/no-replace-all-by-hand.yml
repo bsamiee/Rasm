@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-replace-all-by-hand
 language: tsxlang
 severity: error
 utils:
     string-module:
-        matches: {effect-module: {name: {regex: '\bString$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)String$'}}}
     array-module:
-        matches: {effect-module: {name: {regex: '\bArray$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}
     fixed-regex:
         kind: regex
         all:

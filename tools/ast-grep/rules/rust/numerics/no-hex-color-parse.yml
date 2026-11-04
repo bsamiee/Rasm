@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-hex-color-parse
 language: rustlang
 severity: error
 utils:
@@ -14,7 +13,7 @@ utils:
                 - has: {field: arguments, has: {nthChild: 2, matches: sixteen}}
                 - has: {field: arguments, has: {nthChild: 1, any: [{pattern: $HEX}, {has: {stopBy: end, pattern: $HEX}}]}}
             - all:
-                - has: {field: function, regex: '^((::)?hex::decode(_to_slice)?|(\w+::)*FromHex::from_hex|<[^>]+>::from_hex)$'}
+                - has: {field: function, regex: '^((::)?hex::decode(_to_slice)?|(\p{XID_Continue}+::)*FromHex::from_hex|<[^>]+>::from_hex)$'}
                 - has: {field: arguments, has: {nthChild: 1, any: [{pattern: $HEX}, {has: {stopBy: end, pattern: $HEX}}]}}
             - all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^to_digit$'}}
@@ -25,7 +24,7 @@ utils:
         all:
             - has: {field: function, regex: '::from_str_radix$'}
             - has: {field: arguments, has: {nthChild: 2, matches: sixteen}}
-            - has: {field: arguments, has: {nthChild: 1, has: {stopBy: end, kind: range_expression, regex: '^1\s*\.\.'}}}
+            - has: {field: arguments, has: {nthChild: 1, has: {stopBy: end, kind: range_expression, regex: '^1\p{White_Space}*\.\.'}}}
     hash-argument:
         has: {field: arguments, has: {nthChild: 1, regex: '^(''#''|"#"|b''#'')$'}, not: {has: {nthChild: 2}}}
 rule:

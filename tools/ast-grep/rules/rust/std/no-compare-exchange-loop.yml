@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-compare-exchange-loop
 language: rustlang
 severity: error
 utils:
@@ -33,7 +32,7 @@ utils:
         kind: tuple_struct_pattern
         all:
             - has: {field: type, regex: '^Ok$'}
-            - any: [{regex: '^Ok\s*\(\s*_\s*\)$'}, {all: [{has: {nthChild: 2, kind: identifier, pattern: $DONE}}, {not: {has: {nthChild: 3}}}]}]
+            - any: [{regex: '^Ok\p{White_Space}*\(\p{White_Space}*_\p{White_Space}*\)$'}, {all: [{has: {nthChild: 2, kind: identifier, pattern: $DONE}}, {not: {has: {nthChild: 3}}}]}]
     done:
         kind: match_arm
         all:

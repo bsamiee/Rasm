@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-subset-by-every
 language: tsxlang
 severity: error
 utils:
     module:
-        matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}
 rule:
     kind: call_expression
     all:

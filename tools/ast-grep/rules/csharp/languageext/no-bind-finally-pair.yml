@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-bind-finally-pair
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -58,8 +57,8 @@ rule:
             - not: {has: {nthChild: 4}}
             - not: {has: {kind: from_clause, nthChild: 2, has: {stopBy: end, kind: identifier, pattern: $USED}}}
 transform:
-    BEGIN_HEAD: {replace: {source: $BEGIN, replace: '(?s)^(?:\(\)\s*=>\s*)?\{?\s*([@\w.]+).*$', by: '$1'}}
-    END_HEAD: {replace: {source: $END, replace: '(?s)^(?:\(\)\s*=>\s*)?\{?\s*([@\w.]+).*$', by: '$1'}}
-    BODY_HEAD: {replace: {source: $BODY, replace: '(?s)^([@\w.]+).*$', by: '$1'}}
+    BEGIN_HEAD: {replace: {source: $BEGIN, replace: '(?s)^(?:\(\)[\p{White_Space}\x{FEFF}]*=>[\p{White_Space}\x{FEFF}]*)?\{?[\p{White_Space}\x{FEFF}]*([@\p{XID_Continue}.]+).*$', by: '$1'}}
+    END_HEAD: {replace: {source: $END, replace: '(?s)^(?:\(\)[\p{White_Space}\x{FEFF}]*=>[\p{White_Space}\x{FEFF}]*)?\{?[\p{White_Space}\x{FEFF}]*([@\p{XID_Continue}.]+).*$', by: '$1'}}
+    BODY_HEAD: {replace: {source: $BODY, replace: '(?s)^([@\p{XID_Continue}.]+).*$', by: '$1'}}
 message: '`$BEGIN_HEAD` and `$END_HEAD` bracket `$BODY_HEAD` through `Bind` and `Finally`'
 note: 'Write `<begin lift>.Bracket(Use: _ => <body>, Fin: _ => <end lift>)`'

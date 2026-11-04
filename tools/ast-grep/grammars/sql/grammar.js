@@ -1,5 +1,6 @@
 import refa from 'refa';
 import sqlite from 'tree-sitter-sqlite3/grammar.js';
+import { automaton, classes, pattern } from '../derive.js';
 import tsx from '../typescript/grammar.js';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -19,45 +20,26 @@ const hostRule = (rule) =>
               ...((rule.type === 'ALIAS' && rule.named) || (rule.type.startsWith('PREC') && typeof rule.value === 'string') ? { value: hostName(rule.value) } : {}),
               ...(rule.type === 'RESERVED' ? { context_name: hostName(rule.context_name) } : {}),
           };
-const pattern = ({ value }) => refa.JS.Parser.fromLiteral({ source: value, flags: 'u' }).parse();
-const unicodeFlags = { unicode: true, unicodeSets: false, ignoreCase: false };
 const byteOrderMark = '\uFEFF';
 const sqlWhitespaceExtras = ['\f', byteOrderMark];
-const tokenNfa = Object.assign((rule) => tokenNfa[rule.type]({ ...rule, ...mapChildren(rule, tokenNfa) }), {
-    PATTERN: (rule) => {
-        const { expression, maxCharacter } = pattern(rule);
-        return refa.NFA.fromRegex(expression, { maxCharacter });
-    },
-    SEQ: ({ members }) =>
-        members.reduce((left, right) => {
-            left.append(right);
-            return left;
-        }),
-    REPEAT: ({ content }) => {
-        content.quantify(0, Number.POSITIVE_INFINITY);
-        return content;
-    },
-    TOKEN: ({ content }) => content,
-});
-const patternUnion = (rules) =>
-    rules.map(tokenNfa).reduce((left, right) => {
-        left.union(right);
-        return left;
-    });
-const patternRule = (fa) => {
-    const { source, flags } = refa.JS.toLiteral(fa.toRegex(), { flags: unicodeFlags, fastCharacters: true });
-    return { type: 'PATTERN', value: source, flags };
-};
-const sqlPattern = pattern(sqlite.grammar.rules[sqlite.grammar.word]);
-const nonAscii = refa.JS.createCharSet([{ kind: 'property', key: 'ASCII', value: null, strings: false, negate: true }], unicodeFlags);
+const sqlToken = automaton(sqlite.grammar.rules[sqlite.grammar.word]);
+const nonAscii = refa.CharSet.fromRange(sqlToken.maxCharacter, { min: 0x80, max: sqlToken.maxCharacter });
 const sqlIdentifier = refa.NFA.fromTransitionIterator(
-    refa.FAIterators.mapOut(refa.NFA.fromRegex(sqlPattern.expression, { maxCharacter: sqlPattern.maxCharacter }).transitionIterator(), (transitions) => new Map(Array.from(transitions, ([state, characters]) => [state, characters.union(nonAscii)]))),
-    { maxCharacter: sqlPattern.maxCharacter },
+    refa.FAIterators.mapOut(sqlToken.transitionIterator(), (transitions) => new Map(Array.from(transitions, ([state, characters]) => [state, characters.union(nonAscii)]))),
+    { maxCharacter: sqlToken.maxCharacter },
 );
-const withoutInitialByteOrderMark = refa.DFA.fromFA(tokenNfa({ type: 'PATTERN', value: `${RegExp.escape(byteOrderMark)}[\\s\\S]*` }));
+const withoutInitialByteOrderMark = refa.DFA.fromFA(
+    automaton({
+        type: 'SEQ',
+        members: [
+            { type: 'STRING', value: byteOrderMark },
+            { type: 'PATTERN', value: '(?s:.)*' },
+        ],
+    }),
+);
 withoutInitialByteOrderMark.complement();
 const sqlWord = refa.DFA.fromIntersection(sqlIdentifier, withoutInitialByteOrderMark);
-const hostWord = tokenNfa(tsx.grammar.rules[tsx.grammar.word]);
+const hostWord = automaton(tsx.grammar.rules[tsx.grammar.word]);
 const commonIdentifier = refa.DFA.fromIntersection(sqlWord, hostWord);
 commonIdentifier.minimize();
 const outsideCommon = commonIdentifier.copy();
@@ -65,11 +47,10 @@ outsideCommon.complement();
 const exclusiveIdentifier = (fa) => {
     const exclusive = refa.DFA.fromIntersection(fa, outsideCommon);
     exclusive.minimize();
-    return patternRule(exclusive);
+    return pattern(exclusive);
 };
-const outsideSqlWhitespace = refa.DFA.fromFA(patternUnion([...sqlite.grammar.extras.filter(({ type }) => type === 'PATTERN'), ...sqlWhitespaceExtras.map((value) => ({ type: 'PATTERN', value: RegExp.escape(value) }))]));
-outsideSqlWhitespace.complement();
-const hostWhitespace = refa.DFA.fromIntersection(patternUnion(hostExtras.PATTERN), outsideSqlWhitespace);
+const sqlWhitespace = classes({ ...sqlite.grammar, extras: [...sqlite.grammar.extras, ...sqlWhitespaceExtras.map((value) => ({ type: 'STRING', value }))] }).whitespace;
+const hostWhitespace = refa.DFA.fromCharSet(classes(tsx.grammar).whitespace.characters.without(sqlWhitespace.characters));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
@@ -85,12 +66,12 @@ export default grammar(sqlite, {
     word: ($) => $.common_identifier,
     rules: {
         ...Object.fromEntries(Object.keys(tsx.grammar.rules).map((name) => [hostName(name), () => hostRule(tsx.grammar.rules[name])])),
-        common_identifier: () => patternRule(commonIdentifier),
+        common_identifier: () => pattern(commonIdentifier),
         _sql_identifier_token: () => exclusiveIdentifier(sqlWord),
         _host_identifier_token: () => exclusiveIdentifier(hostWord),
         [sqlite.grammar.word]: ($) => choice(alias(reserved('sql', $.common_identifier), $[sqlite.grammar.word]), alias($._sql_identifier_token, $[sqlite.grammar.word])),
         [hostName(tsx.grammar.word)]: ($) => choice(alias(reserved('host', $.common_identifier), $[hostName(tsx.grammar.word)]), alias($._host_identifier_token, $[hostName(tsx.grammar.word)])),
-        host_whitespace: () => patternRule(hostWhitespace),
+        host_whitespace: () => pattern(hostWhitespace),
         source_file: ($, original) =>
             choice(
                 original,

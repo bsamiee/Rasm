@@ -1,0 +1,38 @@
+id: no-fourth-nesting-level-swift
+valid:
+    - |
+      func f(xs: [Int]) {
+          for x in xs {
+              if x > 0 {
+                  while x > 1 {
+                      print(x)
+                  }
+              }
+          }
+      }
+invalid:
+    - |
+      func f(xs: [Int]) {
+          for x in xs {
+              if x > 0 {
+                  while x > 1 {
+                      if x > 2 {
+                          print(x)
+                      }
+                  }
+              }
+          }
+      }
+    - |
+      func f(xs: [[Int]]) {
+          for row in xs {
+              for x in row {
+                  switch x {
+                  case 0:
+                      guard x > 1 else { return }
+                  default:
+                      print(x)
+                  }
+              }
+          }
+      }

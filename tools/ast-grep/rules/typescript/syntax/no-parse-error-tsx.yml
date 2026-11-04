@@ -1,35 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-parse-error-tsx
 language: tsxlang
 severity: error
 utils:
-    global-augmentation:
-        regex: '^global$'
-        precedes: {kind: statement_block}
-        inside: {kind: statement_block, inside: {kind: module}}
-    generic-tag:
-        kind: instantiation_expression
-        has: {field: type_arguments, kind: type_arguments}
-    tag-result:
-        any:
-            - matches: generic-tag
-            - kind: yield_expression
-              has: {matches: tag-result}
-            - kind: ternary_expression
-              has: {field: alternative, matches: tag-result}
-    unreported:
-        any:
-            - inside: {kind: ERROR, stopBy: end}
-            - {kind: ERROR, matches: global-augmentation}
-            - inside: {kind: expression_statement, matches: global-augmentation}
-            - regex: '^$'
-              inside:
-                kind: non_null_expression
-                has: {matches: tag-result}
-                inside: {kind: call_expression, field: function, has: {field: arguments, kind: template_string}}
-            - kind: ERROR
-              has: {matches: generic-tag}
-              precedes: {kind: template_string}
+    unreported: {inside: {kind: ERROR, stopBy: end}}
 rule:
     any:
         - kind: ERROR
@@ -39,4 +12,4 @@ rule:
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
-note: Write a form tree-sitter-typescript parses
+note: Fix the grammar in tools/ast-grep/grammars/typescript

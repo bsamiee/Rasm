@@ -4,4 +4,4 @@ language: rustlang
 rule:
     kind: attribute_item
     has: {kind: attribute, has: {nthChild: 1, kind: identifier, regex: '^cfg$'}}
-    not: {regex: '^#\[\s*cfg\s*\(\s*(all\s*\(\s*\)|any\s*\(\s*\)|true|false|not\s*\(\s*(all|any)\s*\(\s*\)\s*\))\s*\)\s*\]$'}
+    not: {regex: '^#\[\p{White_Space}*cfg\p{White_Space}*\(\p{White_Space}*(all\p{White_Space}*\(\p{White_Space}*\)|any\p{White_Space}*\(\p{White_Space}*\)|true|false|not\p{White_Space}*\(\p{White_Space}*(all|any)\p{White_Space}*\(\p{White_Space}*\)\p{White_Space}*\))\p{White_Space}*\)\p{White_Space}*\]$'}

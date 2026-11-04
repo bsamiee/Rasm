@@ -1,0 +1,48 @@
+id: no-statement-loop-rust
+valid:
+    - |
+      fn show(xs: &[u32]) {
+          for x in xs {
+              println!("{x}");
+          }
+      }
+    - |
+      fn find(xs: &[u32]) -> Option<&u32> {
+          for x in xs {
+              if *x > 3 {
+                  return Some(x);
+              }
+          }
+          None
+      }
+    - |
+      fn evens(xs: &[u32]) -> Vec<u32> {
+          xs.iter().copied().filter(|x| x % 2 == 0).collect()
+      }
+invalid:
+    - |
+      fn evens(xs: &[u32]) -> Vec<u32> {
+          let mut out = Vec::new();
+          for x in xs {
+              if x % 2 == 0 {
+                  out.push(*x);
+              }
+          }
+          out
+      }
+    - |
+      fn find(xs: &[u32]) -> Option<u32> {
+          for x in xs {
+              if *x > 3 {
+                  return Some(*x * 2);
+              }
+          }
+          None
+      }
+    - |
+      fn evens(xs: &[u32]) -> Vec<u32> {
+          xs.iter().fold(Vec::new(), |mut acc, x| {
+              acc.push(*x);
+              acc
+          })
+      }

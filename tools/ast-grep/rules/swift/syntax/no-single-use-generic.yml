@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-single-use-generic
 language: swiftlang
 severity: error
 utils:
@@ -14,7 +13,7 @@ utils:
         pattern: $PARAM
         all:
             - has: {nthChild: 1, kind: type_identifier, pattern: $T}
-            - not: {regex: '^(each|let)\b'}
+            - not: {regex: '^(each|let)(?-u:\b)'}
             - inside:
                 kind: type_parameters
                 inside:

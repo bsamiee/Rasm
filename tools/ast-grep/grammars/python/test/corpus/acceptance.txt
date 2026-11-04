@@ -1,0 +1,179 @@
+================================================================================
+PEP 810: lazy as a subscript and call target
+================================================================================
+
+lazy[0]
+lazy(x)
+
+--------------------------------------------------------------------------------
+
+(module
+  (expression_statement
+    (subscript
+      (identifier)
+      (integer)))
+  (expression_statement
+    (call
+      (identifier)
+      (argument_list
+        (identifier)))))
+
+================================================================================
+PEP 758: except without parentheses
+================================================================================
+
+try:
+    pass
+except A, B:
+    pass
+
+try:
+    pass
+except* A, B:
+    pass
+
+--------------------------------------------------------------------------------
+
+(module
+  (try_statement
+    (block
+      (pass_statement))
+    (except_clause
+      (identifier)
+      (identifier)
+      (block
+        (pass_statement))))
+  (try_statement
+    (block
+      (pass_statement))
+    (except_clause
+      (identifier)
+      (identifier)
+      (block
+        (pass_statement)))))
+
+================================================================================
+PEP 750: template strings
+================================================================================
+
+t"a {b} c"
+rt'{x!r:>{w}}'
+
+--------------------------------------------------------------------------------
+
+(module
+  (expression_statement
+    (string
+      (string_start)
+      (string_content)
+      (interpolation
+        (identifier))
+      (string_content)
+      (string_end)))
+  (expression_statement
+    (string
+      (string_start)
+      (interpolation
+        (identifier)
+        (type_conversion)
+        (format_specifier
+          (format_expression
+            (identifier))))
+      (string_end))))
+
+================================================================================
+PEP 696: defaults on def, class, and type
+================================================================================
+
+def f[T = int](): ...
+class C[T = int, *Ts = *tuple[int]]: ...
+type A[**P = [int, str]] = Callable[P, None]
+
+--------------------------------------------------------------------------------
+
+(module
+  (function_definition
+    (identifier)
+    (type_parameter
+      (type
+        (identifier))
+      (identifier))
+    (parameters)
+    (block
+      (expression_statement
+        (ellipsis))))
+  (class_definition
+    (identifier)
+    (type_parameter
+      (type
+        (identifier))
+      (identifier)
+      (type
+        (splat_type
+          (identifier)))
+      (list_splat
+        (subscript
+          (identifier)
+          (identifier))))
+    (block
+      (expression_statement
+        (ellipsis))))
+  (type_alias_statement
+    (type
+      (generic_type
+        (identifier)
+        (type_parameter
+          (type
+            (splat_type
+              (identifier)))
+          (list
+            (identifier)
+            (identifier)))))
+    (type
+      (generic_type
+        (identifier)
+        (type_parameter
+          (type
+            (identifier))
+          (type
+            (none)))))))
+
+================================================================================
+PEP 701: nested f-strings
+================================================================================
+
+f"{f"{f"{x}"}"}"
+f"{'\n'.join(xs)}"
+
+--------------------------------------------------------------------------------
+
+(module
+  (expression_statement
+    (string
+      (string_start)
+      (interpolation
+        (string
+          (string_start)
+          (interpolation
+            (string
+              (string_start)
+              (interpolation
+                (identifier))
+              (string_end)))
+          (string_end)))
+      (string_end)))
+  (expression_statement
+    (string
+      (string_start)
+      (interpolation
+        (call
+          (attribute
+            (string
+              (string_start)
+              (string_content
+                (escape_sequence))
+              (string_end))
+            (identifier))
+          (argument_list
+            (identifier))))
+      (string_end))))

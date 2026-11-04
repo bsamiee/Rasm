@@ -1,17 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-identity-traversal
 language: tsxlang
 severity: error
 utils:
     identity:
         any:
             - {kind: identifier, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^identity$'}}}}
-            - {kind: member_expression, matches: {effect-module-member: {module: {regex: '\bFunction$'}, member: {regex: '^identity$'}}}}
+            - {kind: member_expression, matches: {effect-module-member: {module: {regex: '(?-u:\b)Function$'}, member: {regex: '^identity$'}}}}
             - matches: {typescript-unary-function: {parameter: {pattern: $P}, result: {kind: identifier, pattern: $P}}}
 rule:
     kind: call_expression
     all:
-        - has: {field: function, pattern: $TRAVERSE, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^forEach$'}}}}
+        - has: {field: function, pattern: $TRAVERSE, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^forEach$'}}}}
         - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $LIST}}, {has: {nthChild: 2, matches: identity}}, {not: {has: {nthChild: 4}}}]}
 message: '`$TRAVERSE` maps each effect in `$LIST` through an identity function'
 note: 'Call `Effect.all(<effects>, <options>)` on a list of effects'

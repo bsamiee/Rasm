@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-equivalence-by-hand
 language: tsxlang
 severity: error
 rule:
@@ -12,6 +11,6 @@ rule:
             kind: arguments
             inside:
                 kind: call_expression
-                has: {field: function, pattern: $CALL, matches: {effect-module-member: {module: {regex: '\b(Array|Chunk|Iterable)$'}, member: {regex: '^(dedupeWith|dedupeAdjacentWith|containsWith|differenceWith|unionWith|intersectionWith)$'}}}}
+                has: {field: function, pattern: $CALL, matches: {effect-module-member: {module: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}, member: {regex: '^(dedupeWith|dedupeAdjacentWith|containsWith|differenceWith|unionWith|intersectionWith)$'}}}}
 message: '`$CALL` compares by `$K` through a hand `===` callback'
 note: 'Pass `Equivalence.mapInput(<equivalence>, Struct.get(''<key>''))`, declared once beside its type'

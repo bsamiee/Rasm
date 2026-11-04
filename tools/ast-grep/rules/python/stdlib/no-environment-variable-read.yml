@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-environment-variable-read
 language: pythonlang
 severity: error
 ignores:
@@ -55,7 +54,7 @@ utils:
               has: {matches: relayed}
             - matches: {python-assigned-name: {value: {matches: copy-source}}}
     environment-file:
-        inside: {kind: module, stopBy: end, regex: '\benvironb?\b'}
+        inside: {kind: module, stopBy: end, regex: '(?-u:\b)environb?(?-u:\b)'}
     boundary:
         inside:
             kind: module
@@ -76,7 +75,7 @@ rule:
                 - all:
                     - kind: identifier
                     - not: {inside: {kind: 'call, keyword_argument, parameters, typed_parameter, default_parameter, typed_default_parameter, import_from_statement, aliased_import, function_definition, class_definition'}}
-                    - not: {not: {inside: {kind: module, stopBy: end, regex: '\benvironb?\s+as\s'}}}
+                    - not: {not: {inside: {kind: module, stopBy: end, regex: '(?-u:\b)environb?[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+as[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]'}}}
             - matches: mapping
             - not: {any: [{matches: written}, {matches: forwarded}]}
         - kind: subscript
@@ -101,7 +100,7 @@ rule:
             - has: {field: arguments, has: {any: [{matches: copy-source}, {matches: relayed}]}}
         - kind: comparison_operator
           all:
-            - has: {field: operators, regex: '^(not\s+)?in$'}
+            - has: {field: operators, regex: '^(not[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?in$'}
             - matches: environment-file
             - has: {nthChild: 2, matches: relayed}
 message: '`$READ` reads process environment outside the entry module or CLI command'

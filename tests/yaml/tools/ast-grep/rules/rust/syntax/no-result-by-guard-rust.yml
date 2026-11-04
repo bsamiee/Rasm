@@ -1,0 +1,17 @@
+id: no-result-by-guard-rust
+valid:
+    - |
+      fn lift(r: Result<u8, Raw>) -> Result<u8, Fault> {
+          if let Err(e) = r {
+              return Err(wrap(widen(e)?));
+          }
+          Ok(0)
+      }
+invalid:
+    - |
+      fn lift(r: Result<u8, Raw>) -> Result<u8, Fault> {
+          if let Err(e) = r {
+              return Err(wrap(try { widen(e)? }));
+          }
+          Ok(0)
+      }

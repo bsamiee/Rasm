@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-restated-absence-error
 language: tsxlang
 severity: error
 utils:
@@ -9,7 +8,7 @@ utils:
             field: body
             kind: new_expression
             all:
-                - has: {field: constructor, matches: {effect-module-member: {module: {regex: '\bCause$'}, member: {regex: '^NoSuchElementError$'}}}}
+                - has: {field: constructor, matches: {effect-module-member: {module: {regex: '(?-u:\b)Cause$'}, member: {regex: '^NoSuchElementError$'}}}}
                 - not: {has: {field: arguments, has: {nthChild: 1}}}
     mapper:
         kind: arrow_function, function_expression
@@ -17,7 +16,7 @@ utils:
     lift:
         kind: member_expression
         pattern: $LIFT
-        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(fromOption|fromNullishOr)$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(fromOption|fromNullishOr)$'}}}
     option-lift:
         matches: lift
         has: {field: property, regex: '^fromOption$'}
@@ -30,7 +29,7 @@ utils:
         matches: lifted
         has: {field: function, has: {field: property, regex: '^fromOption$'}}
     map-error:
-        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^mapError$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^mapError$'}}}
     map-step:
         kind: call_expression
         all:

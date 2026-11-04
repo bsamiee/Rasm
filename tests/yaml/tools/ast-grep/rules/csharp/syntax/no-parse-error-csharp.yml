@@ -1,0 +1,6 @@
+id: no-parse-error-csharp
+valid:
+    - class A { void F() { } }
+invalid:
+    - class A { void F( { } }
+    - class A { void F() { var x = ; } }

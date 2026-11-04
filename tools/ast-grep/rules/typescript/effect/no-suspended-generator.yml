@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-suspended-generator
 language: tsxlang
 severity: error
 utils:
@@ -30,7 +29,7 @@ rule:
                 has: {field: body, matches: thunk-body}
         - not: {has: {stopBy: end, kind: comment, not: {inside: {stopBy: end, pattern: $GENERATOR}}}}
 constraints:
-    M: {matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+    M: {matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
 message: '`$M.suspend` wraps `$M.gen`, an effect that defers its body'
 note: 'Remove the `Effect.suspend` wrapper around `Effect.gen`'
 labels:

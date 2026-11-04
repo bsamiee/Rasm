@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-metaclass
 language: pythonlang
 severity: error
 utils:
     metaclass-base:
         kind: identifier, attribute
-        regex: '^((\w+\.)*(StructMeta|ABCMeta|EnumType|EnumMeta)|type)$'
+        regex: '^((\p{XID_Continue}+\.)*(StructMeta|ABCMeta|EnumType|EnumMeta)|type)$'
 rule:
     kind: class_definition
     has: {field: name, pattern: $NAME}

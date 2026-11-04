@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-clap-name-literal
 language: rustlang
 severity: error
 utils:
@@ -19,7 +18,7 @@ utils:
                 inside: {kind: token_tree, inside: {kind: attribute, field: arguments}}
     semantic-group:
         kind: attribute_item
-        regex: '(?s)^#\[\s*group\s*\(.*\b(required|multiple|requires|requires_all|conflicts_with|conflicts_with_all)\b'
+        regex: '(?s)^#\[\p{White_Space}*group\p{White_Space}*\(.*(?-u:\b)(required|multiple|requires|requires_all|conflicts_with|conflicts_with_all)(?-u:\b)'
 rule:
     kind: 'string_literal, raw_string_literal'
     pattern: $NAME

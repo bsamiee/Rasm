@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-union-parameter-dispatch
 language: tsxlang
 severity: error
 utils:
@@ -29,8 +28,8 @@ utils:
     nullable-union:
         kind: union_type
         any:
-            - regex: '^[^|]+\|\s*(undefined|null)$'
-            - regex: '^(undefined|null)\s*\|[^|]+$'
+            - regex: '^[^|]+\|[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(undefined|null)$'
+            - regex: '^(undefined|null)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\|[^|]+$'
     shape-test:
         any:
             - kind: binary_expression
@@ -48,12 +47,12 @@ utils:
                     field: function
                     any:
                         - all: [{regex: '^((globalThis|window|self)\.)?Array\.isArray$'}, {matches: typescript-global-reference}]
-                        - matches: {effect-module-member: {module: {regex: '\bArray$'}, member: {regex: '^isArray$'}}}
+                        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^isArray$'}}}
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, has: {field: property, regex: '^is(String|Number|Boolean|BigInt|Symbol)$'}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: parameter-reference}}, {not: {has: {nthChild: 2}}}]}
-                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bPredicate$'}, member: {regex: '^is(String|Number|Boolean|BigInt|Symbol)$'}}}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Predicate$'}, member: {regex: '^is(String|Number|Boolean|BigInt|Symbol)$'}}}}
 rule:
     any:
         - kind: function_signature
@@ -77,6 +76,6 @@ rule:
                             - has: {field: type, has: {matches: declared-union}, not: {has: {matches: nullable-union}}}
                 - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
 transform:
-    OVERLOAD: {replace: {source: $SIGNATURE, replace: '(?s)^(?:function\s+)?([^(<]+).*$', by: '$1'}}
+    OVERLOAD: {replace: {source: $SIGNATURE, replace: '(?s)^(?:function[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?([^(<]+).*$', by: '$1'}}
 message: '`$PARAMETER$OVERLOAD` selects behavior by argument shape at runtime'
 note: 'Decode the argument to one shape (`Schema.ArrayEnsure`), or declare one function per shape'

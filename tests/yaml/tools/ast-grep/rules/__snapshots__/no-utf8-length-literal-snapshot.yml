@@ -1,0 +1,95 @@
+id: no-utf8-length-literal
+snapshots:
+  "fn encode(c: char) -> usize {\n    let mut buf = [0u8; 4];\n    c.encode_utf8(&mut buf).len()\n}\n":
+    fixed: |
+      fn encode(c: char) -> usize {
+          let mut buf = [0u8; char::MAX_LEN_UTF8];
+          c.encode_utf8(&mut buf).len()
+      }
+    labels:
+    - source: "4"
+      style: primary
+      start: 54
+      end: 55
+    - source: buf
+      style: secondary
+      start: 42
+      end: 45
+    - source: encode_utf8
+      style: secondary
+      start: 64
+      end: 75
+    - source: c.encode_utf8
+      style: secondary
+      start: 62
+      end: 75
+    - source: buf
+      style: secondary
+      start: 81
+      end: 84
+    - source: "&mut buf"
+      style: secondary
+      start: 76
+      end: 84
+    - source: "&mut buf"
+      style: secondary
+      start: 76
+      end: 84
+    - source: c.encode_utf8(&mut buf)
+      style: secondary
+      start: 62
+      end: 85
+    - source: c.encode_utf8(&mut buf).len()
+      style: secondary
+      start: 62
+      end: 91
+    - source: let mut buf = [0u8; 4];
+      style: secondary
+      start: 34
+      end: 57
+    - source: "[0u8; 4]"
+      style: secondary
+      start: 48
+      end: 56
+    - source: "[0u8; 4]"
+      style: secondary
+      start: 48
+      end: 56
+  "fn units(c: char) -> usize {\n    c.encode_utf16(&mut [0u16; 2]).len()\n}\n":
+    fixed: |
+      fn units(c: char) -> usize {
+          c.encode_utf16(&mut [0u16; char::MAX_LEN_UTF16]).len()
+      }
+    labels:
+    - source: "2"
+      style: primary
+      start: 60
+      end: 61
+    - source: encode_utf16
+      style: secondary
+      start: 35
+      end: 47
+    - source: c.encode_utf16
+      style: secondary
+      start: 33
+      end: 47
+    - source: c.encode_utf16(&mut [0u16; 2])
+      style: secondary
+      start: 33
+      end: 63
+    - source: (&mut [0u16; 2])
+      style: secondary
+      start: 47
+      end: 63
+    - source: "&mut [0u16; 2]"
+      style: secondary
+      start: 48
+      end: 62
+    - source: "[0u16; 2]"
+      style: secondary
+      start: 53
+      end: 62
+    - source: "[0u16; 2]"
+      style: secondary
+      start: 53
+      end: 62

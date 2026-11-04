@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-untyped-json
 language: rustlang
 severity: error
 utils:
@@ -12,7 +11,7 @@ utils:
         kind: macro_invocation
         all:
             - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$'}}}
-            - has: {kind: token_tree, has: {kind: 'string_literal, raw_string_literal', regex: '\{\{\s*(\\"[^"\\]+\\"|"[^"]+")\s*:'}}
+            - has: {kind: token_tree, has: {kind: 'string_literal, raw_string_literal', regex: '\{\{\p{White_Space}*(\\"[^"\\]+\\"|"[^"]+")\p{White_Space}*:'}}
     key-literal:
         any:
             - kind: string_literal
@@ -23,7 +22,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: value, kind: string_literal}}, {has: {field: field, regex: '^(to_owned|to_string|into)$'}}]}
-                - has: {field: arguments, regex: '^\(\s*\)$'}
+                - has: {field: arguments, regex: '^\(\p{White_Space}*\)$'}
     json-value:
         any:
             - kind: scoped_identifier
@@ -48,7 +47,7 @@ utils:
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: key-literal}}, {has: {nthChild: 2, matches: json-value}}, {not: {has: {nthChild: 3}}}]}
     json-text:
         kind: string_literal
-        regex: '^"\{\s*\\"[^"\\]+\\"\s*:'
+        regex: '^"\{\p{White_Space}*\\"[^"\\]+\\"\p{White_Space}*:'
         any:
             - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::|\.)(from|push_str|write_str)$'}}}
             - inside: {field: value, kind: field_expression, has: {field: field, regex: '^(to_owned|to_string|into)$'}}

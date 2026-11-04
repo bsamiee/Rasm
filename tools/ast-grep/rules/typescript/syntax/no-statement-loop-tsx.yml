@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-statement-loop-tsx
 language: tsxlang
 severity: error
 rule:
@@ -11,7 +10,7 @@ rule:
         - kind: for_statement, while_statement, do_statement
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
-    HEAD: {replace: {source: $LOOP, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+    HEAD: {replace: {source: $LOOP, replace: '(?s)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\{?[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\n.*$', by: ''}}
 message: '`$HEAD` iterates by statement'
 note: 'Call an array or iterator helper, `Array.unfold(<state>, <step>)` for an advancing state, `Effect.forEach(<list>, <f>)`, or `Effect.whileLoop`'
 labels:

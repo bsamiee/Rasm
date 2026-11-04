@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-error-message-template
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -25,7 +24,7 @@ utils:
 rule:
     kind: string_literal, verbatim_string_literal, raw_string_literal
     pattern: $TEXT
-    regex: '\{[A-Za-z_]\w*\}'
+    regex: '\{[A-Za-z_]\p{XID_Continue}*\}'
     inside: {kind: argument, inside: {matches: message-arguments}}
 message: 'Error message `$TEXT` holds a `{Name}` placeholder nothing fills'
 note: 'Write an interpolated string `$"..."`, inside `string.Create(CultureInfo.InvariantCulture, $"...")` where a number formats'

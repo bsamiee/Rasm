@@ -1,0 +1,8 @@
+id: no-spelled-inline-array
+valid:
+    - 'let a: [4 of Int] = .init(repeating: 0)'
+    - 'let a: [Int] = []'
+    - 'let a: Swift.Array<Int> = []'
+invalid:
+    - 'let a: Swift.InlineArray<4, Int> = .init(repeating: 0)'
+    - 'var grid: Swift.InlineArray<2, Swift.InlineArray<3, Double>>'

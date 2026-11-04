@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-optional-failure-field
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -21,11 +20,11 @@ utils:
               has: {field: type, matches: error-type-name}
             - regex: |-
                 (?x)^(
-                  (global::)?(LanguageExt\.)?Fin\s*<\s*(global::)?(LanguageExt\.)?Unit\s*>
-                  |(global::)?(LanguageExt\.)?(Either|Validation)\s*<\s*(global::)?(LanguageExt\.Common\.)?Error\s*,\s*(global::)?(LanguageExt\.)?Unit\s*>
+                  (global::)?(LanguageExt\.)?Fin[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*(global::)?(LanguageExt\.)?Unit[\p{White_Space}\x{FEFF}]*>
+                  |(global::)?(LanguageExt\.)?(Either|Validation)[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*(global::)?(LanguageExt\.Common\.)?Error[\p{White_Space}\x{FEFF}]*,[\p{White_Space}\x{FEFF}]*(global::)?(LanguageExt\.)?Unit[\p{White_Space}\x{FEFF}]*>
                 )$
     optional-text:
-        regex: '^((global::)?(LanguageExt\.)?Option\s*<\s*string\s*>|string\s*\?)$'
+        regex: '^((global::)?(LanguageExt\.)?Option[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*string[\p{White_Space}\x{FEFF}]*>|string[\p{White_Space}\x{FEFF}]*\?)$'
     optional-failure:
         any:
             - has: {field: type, matches: failure-type}

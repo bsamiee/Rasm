@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-hidden-public-item
 language: rustlang
 severity: error
 utils:
@@ -23,7 +22,7 @@ utils:
             - kind: 'function_signature_item, function_item, associated_type, const_item, type_item'
               inside: {kind: declaration_list, inside: {kind: trait_item, has: {matches: exported}}}
             - kind: macro_definition
-              matches: {rust-attributed: {attribute: {regex: '^#\[\s*macro_export\b'}}}
+              matches: {rust-attributed: {attribute: {regex: '^#\[\p{White_Space}*macro_export(?-u:\b)'}}}
 rule:
     kind: attribute_item
     pattern: $ATTRIBUTE

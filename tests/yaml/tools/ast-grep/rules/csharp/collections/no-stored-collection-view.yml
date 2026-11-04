@@ -1,0 +1,38 @@
+id: no-stored-collection-view
+valid:
+    - |
+      public sealed class Catalog {
+          private readonly List<string> items = [];
+          public string[] Snapshot() => items.ToArray();
+      }
+    - |
+      public sealed class Catalog {
+          private static readonly string[] Source = ["a"];
+          private static readonly string[] Copy = Source.ToArray();
+      }
+    - |
+      public sealed class Catalog {
+          private readonly string[] names;
+          public Catalog(IEnumerable<string> input) { names = input.ToArray(); }
+      }
+invalid:
+    - |
+      public sealed class Catalog {
+          private readonly List<string> items = [];
+          private readonly string[] snapshot;
+          public Catalog() { snapshot = items.ToArray(); }
+      }
+    - |
+      public sealed record Bag(ImmutableArray<int> Values) {
+          public int[] Copy { get; } = Values.ToArray();
+      }
+    - |
+      public sealed record Bag(ImmutableArray<int> Values) {
+          private readonly int[] spread = [.. Values];
+      }
+    - |
+      public sealed class Buffer {
+          private readonly byte[] bytes = new byte[16];
+          private readonly ReadOnlyMemory<byte> view;
+          public Buffer() { this.view = new ReadOnlyMemory<byte>(this.bytes); }
+      }

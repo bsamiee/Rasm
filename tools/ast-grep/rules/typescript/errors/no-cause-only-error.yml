@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-cause-only-error
 language: tsxlang
 severity: error
 utils:
@@ -41,7 +40,7 @@ utils:
                                 field: value
                                 kind: call_expression
                                 all:
-                                    - has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^TaggedUnion$'}}}}
+                                    - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^TaggedUnion$'}}}}
                                     - has: {field: arguments, has: {nthChild: 1, kind: object, all: [{has: {kind: pair, has: {field: value, matches: cause-fields}}}, {not: {has: {nthChild: 2}}}]}}
     message-getter:
         kind: method_definition

@@ -1,0 +1,222 @@
+================================================================================
+import_statement: lazy
+================================================================================
+
+lazy import a.b
+
+--------------------------------------------------------------------------------
+
+(module
+  (import_statement
+    name: (dotted_name
+      (identifier)
+      (identifier))))
+
+================================================================================
+import_from_statement: lazy
+================================================================================
+
+lazy from a import b
+
+--------------------------------------------------------------------------------
+
+(module
+  (import_from_statement
+    module_name: (dotted_name
+      (identifier))
+    name: (dotted_name
+      (identifier))))
+
+================================================================================
+keyword_identifier: lazy as a name
+================================================================================
+
+lazy = 1
+lazy.x()
+
+--------------------------------------------------------------------------------
+
+(module
+  (expression_statement
+    (assignment
+      left: (identifier)
+      right: (integer)))
+  (expression_statement
+    (call
+      function: (attribute
+        object: (identifier)
+        attribute: (identifier))
+      arguments: (argument_list))))
+
+================================================================================
+type_parameter: defaults
+================================================================================
+
+def f[T = int, *Ts = *tuple[int]](): ...
+
+--------------------------------------------------------------------------------
+
+(module
+  (function_definition
+    name: (identifier)
+    type_parameters: (type_parameter
+      (type
+        (identifier))
+      default: (identifier)
+      (type
+        (splat_type
+          (identifier)))
+      default: (list_splat
+        (subscript
+          value: (identifier)
+          subscript: (identifier))))
+    parameters: (parameters)
+    body: (block
+      (expression_statement
+        (ellipsis)))))
+
+================================================================================
+list_comprehension: unpacked body
+================================================================================
+
+[*x for x in xs]
+
+--------------------------------------------------------------------------------
+
+(module
+  (expression_statement
+    (list_comprehension
+      body: (list_splat
+        (identifier))
+      (for_in_clause
+        left: (identifier)
+        right: (identifier)))))
+
+================================================================================
+set_comprehension: unpacked body
+================================================================================
+
+{*x for x in xs}
+
+--------------------------------------------------------------------------------
+
+(module
+  (expression_statement
+    (set_comprehension
+      body: (list_splat
+        (identifier))
+      (for_in_clause
+        left: (identifier)
+        right: (identifier)))))
+
+================================================================================
+generator_expression: unpacked body
+================================================================================
+
+f(*x for x in xs)
+
+--------------------------------------------------------------------------------
+
+(module
+  (expression_statement
+    (call
+      function: (identifier)
+      arguments: (generator_expression
+        body: (list_splat
+          (identifier))
+        (for_in_clause
+          left: (identifier)
+          right: (identifier))))))
+
+================================================================================
+dictionary_comprehension: unpacked body
+================================================================================
+
+{**d for d in ds}
+
+--------------------------------------------------------------------------------
+
+(module
+  (expression_statement
+    (dictionary_comprehension
+      body: (dictionary_splat
+        (identifier))
+      (for_in_clause
+        left: (identifier)
+        right: (identifier)))))
+
+================================================================================
+type_alias_statement: defaults
+================================================================================
+
+type A[T = int, *Ts = *tuple[int], **P = [int]] = dict[T, P]
+type B = int
+
+--------------------------------------------------------------------------------
+
+(module
+  (type_alias_statement
+    (type
+      (generic_type
+        (identifier)
+        (type_parameter
+          (type
+            (identifier))
+          (identifier)
+          (type
+            (splat_type
+              (identifier)))
+          (list_splat
+            (subscript
+              (identifier)
+              (identifier)))
+          (type
+            (splat_type
+              (identifier)))
+          (list
+            (identifier)))))
+    (type
+      (generic_type
+        (identifier)
+        (type_parameter
+          (type
+            (identifier))
+          (type
+            (identifier))))))
+  (type_alias_statement
+    (type
+      (identifier))
+    (type
+      (identifier))))
+
+================================================================================
+generic_type: arguments in annotations
+================================================================================
+
+def f(a: dict[str, int]) -> list[T]: ...
+
+--------------------------------------------------------------------------------
+
+(module
+  (function_definition
+    (identifier)
+    (parameters
+      (typed_parameter
+        (identifier)
+        (type
+          (generic_type
+            (identifier)
+            (type_parameter
+              (type
+                (identifier))
+              (type
+                (identifier)))))))
+    (type
+      (generic_type
+        (identifier)
+        (type_parameter
+          (type
+            (identifier)))))
+    (block
+      (expression_statement
+        (ellipsis)))))

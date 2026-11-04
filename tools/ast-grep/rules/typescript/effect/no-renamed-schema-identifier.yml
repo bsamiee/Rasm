@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-renamed-schema-identifier
 language: tsxlang
 severity: error
 utils:
@@ -7,8 +6,8 @@ utils:
         kind: member_expression
         regex: '\.(Class|Error|TaggedClass|TaggedError)$'
         any:
-            - matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(Class|Error|TaggedClass|TaggedError)$'}}}
-            - matches: {effect-module-member: {module: {regex: '\bModel$'}, member: {regex: '^Class$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Class|Error|TaggedClass|TaggedError)$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Model$'}, member: {regex: '^Class$'}}}
     identifier: {nthChild: 1, kind: string, has: {kind: string_fragment, pattern: $ID}}
 rule:
     kind: class_declaration

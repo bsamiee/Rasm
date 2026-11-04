@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-detached-field-schema
 language: tsxlang
 severity: error
 utils:
     schema:
         any:
-            - matches: {effect-module: {name: {regex: '\bSchema$'}}}
+            - matches: {effect-module: {name: {regex: '(?-u:\b)Schema$'}}}
             - kind: member_expression
               has: {field: object, matches: schema}
             - kind: call_expression

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-condition-poll-swift
 language: swiftlang
 severity: error
 utils:
@@ -20,7 +19,7 @@ utils:
         has: {matches: tested-state}
     exit-branch:
         matches: tested-branch
-        has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return|throw)\b'}}
+        has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return|throw)(?-u:\b)'}}
     loop-exit:
         kind: statements
         has:
@@ -40,7 +39,7 @@ rule:
                 - has: {matches: loop-exit}
         - kind: for_statement
           all:
-            - not: {regex: '^for\s+(try\s+)?await\b'}
+            - not: {regex: '^for\p{White_Space}+(try\p{White_Space}+)?await(?-u:\b)'}
             - has: {stopBy: *function, matches: timed-wait}
             - has: {matches: loop-exit}
         - kind: function_declaration

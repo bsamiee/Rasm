@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-nested-bind
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -8,7 +7,7 @@ utils:
         any:
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|Map|Select|SelectMany|Filter|Where)(\s*<.+>)?$'}}
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|Map|Select|SelectMany|Filter|Where)([\p{White_Space}\x{FEFF}]*<.+>)?$'}}
                 - has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $VALUE}}
             - kind: query_expression
               has: {stopBy: end, kind: identifier, pattern: $VALUE}

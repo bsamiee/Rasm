@@ -4,7 +4,7 @@ language: rustlang
 utils:
     placeholder:
         kind: string_literal
-        regex: '^"(\$?\{\{?\s*[A-Za-z_][\w.]*\s*\}?\}|%[A-Za-z_]\w*%|\$[A-Za-z_]\w*)"$'
+        regex: '^"(\$?\{\{?\p{White_Space}*[A-Za-z_][\p{XID_Continue}.]*\p{White_Space}*\}?\}|%[A-Za-z_]\p{XID_Continue}*%|\$[A-Za-z_]\p{XID_Continue}*)"$'
     placeholder-replace:
         kind: call_expression
         all:
@@ -22,7 +22,7 @@ utils:
         kind: macro_invocation
         all:
             - matches: {rust-std-macro: {name: {regex: '^format$'}}}
-            - has: {kind: token_tree, has: {nthChild: 1, kind: string_literal, regex: '^"(\$?\{\{(\{\{)?\s*\{[^{}]*\}\s*(\}\})?\}\}|%\{[^{}]*\}%|\$\{[^{}]*\})"$'}}
+            - has: {kind: token_tree, has: {nthChild: 1, kind: string_literal, regex: '^"(\$?\{\{(\{\{)?\p{White_Space}*\{[^{}]*\}\p{White_Space}*(\}\})?\}\}|%\{[^{}]*\}%|\$\{[^{}]*\})"$'}}
 rule:
     matches: placeholder-replace
     not: {inside: {kind: field_expression, field: value, inside: {kind: call_expression, field: function, matches: placeholder-replace}}}

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-default-output-separator
 language: swiftlang
 severity: error
 rule:
@@ -15,7 +14,7 @@ rule:
                     all:
                         - has: {kind: value_argument, has: {field: name, regex: '^separatedBy$'}}
                         - has: {kind: value_argument, has: {field: name, regex: '^bufferingPolicy$'}}
-        - inside: {kind: source_file, stopBy: end, has: {kind: import_declaration, regex: '^import\s+Subprocess$'}}
+        - inside: {kind: source_file, stopBy: end, has: {kind: import_declaration, regex: '^import\p{White_Space}+Subprocess$'}}
         - not: {inside: {stopBy: {kind: for_statement}, matches: subprocess-output-discarding-loop}}
 message: '`$READ` splits child output by the default separator and buffering policy'
 note: 'Pass the output protocol''s `separatedBy:` and `bufferingPolicy:`, `.unicodeScalarSequence(["\n"])` and `.unbounded` for newline-delimited output'

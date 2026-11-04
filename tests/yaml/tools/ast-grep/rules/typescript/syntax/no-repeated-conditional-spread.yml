@@ -1,0 +1,8 @@
+id: no-repeated-conditional-spread
+valid:
+    - 'const o = { ...(a && { x: 1 }), ...(b && { y: 2 }) };'
+    - 'const o = a ? { x: 1, y: 2 } : {};'
+invalid:
+    - 'const o = { ...(a && { x: 1 }), ...(a && { y: 2 }) };'
+    - 'const o = { ...(flag ? { a: 1 } : {}), b: 2, ...(flag ? { c: 3 } : {}) };'
+    - 'const o = { ...(a && { x: 1 }), nested: { ...(a && { y: 2 }) } };'

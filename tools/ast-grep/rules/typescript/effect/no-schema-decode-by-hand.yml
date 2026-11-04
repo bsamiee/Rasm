@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-schema-decode-by-hand
 language: tsxlang
 severity: error
 rule:
@@ -10,7 +9,7 @@ rule:
             - pattern: $S.$TYPE($SRC).pipe($S.encodeTo($SRC, $_T))
             - pattern: $SRC.pipe($S.encodeTo($S.$ENCODED($SRC), $_T))
             - pattern: $S.$ENCODED($SRC).pipe($S.decodeTo($SRC, $_T))
-        - has: {field: arguments, has: {kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(de|en)codeTo$'}}}}}}
+        - has: {field: arguments, has: {kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(de|en)codeTo$'}}}}}}
 constraints:
     TYPE: {regex: '^toType$'}
     ENCODED: {regex: '^toEncoded$'}

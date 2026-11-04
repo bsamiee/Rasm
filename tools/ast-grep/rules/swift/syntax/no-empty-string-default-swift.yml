@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-empty-string-default-swift
 language: swiftlang
 severity: error
 utils:
@@ -60,7 +59,7 @@ rule:
             - has: {kind: value_binding_pattern, regex: '^let$'}
             - has: {field: name, kind: pattern, pattern: $SHAPE}
             - any:
-                - has: {kind: type_annotation, regex: '^:\s*String$'}
+                - has: {kind: type_annotation, regex: '^:\p{White_Space}*String$'}
                 - not: {has: {kind: type_annotation}}
             - has: {field: value, matches: empty-string}
 message: '`$SHAPE` yields an empty string standing for absence'

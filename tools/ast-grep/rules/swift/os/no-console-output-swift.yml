@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-console-output-swift
 language: swiftlang
 severity: error
 utils:
@@ -48,12 +47,12 @@ utils:
               inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, matches: callee, regex: '(^|\.)(write|dprintf|vdprintf)$'}}}}
             - kind: value_argument
               nthChild: 1
-              regex: '^(fileDescriptor|rawValue):\s*(((Darwin|Glibc)\.)?STD(OUT|ERR)_FILENO|1|2)$'
+              regex: '^(fileDescriptor|rawValue):\p{White_Space}*(((Darwin|Glibc)\.)?STD(OUT|ERR)_FILENO|1|2)$'
               inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, matches: callee, regex: '(^|\.)(FileHandle|FileDescriptor)$'}}}}
     diagnostic:
         any:
             - matches: standard-stream
-              regex: '(?i)err|\b2$'
+              regex: '(?i)err|(?-u:\b)2$'
             - kind: call_expression
               any:
                 - has: {nthChild: 1, matches: callee, pattern: $OUT, regex: '(^|\.)(debugPrint|dump|NSLog|NSLogv|os_log|perror|CFShow)$'}

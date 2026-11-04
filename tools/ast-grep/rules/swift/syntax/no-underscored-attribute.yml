@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-underscored-attribute
 language: swiftlang
 severity: error
 utils:
@@ -31,13 +30,13 @@ utils:
 rule:
     kind: attribute
     pattern: $ATTR
-    regex: '^@(inline\(\s*__always\s*\)|_alwaysEmitIntoClient)$'
+    regex: '^@(inline\(\p{White_Space}*__always\p{White_Space}*\)|_alwaysEmitIntoClient)$'
     any:
         - regex: '^@inline'
           inside: {kind: modifiers, inside: {any: [{matches: overridable-member}, {matches: self-calling}]}}
         - pattern: $KEPT
 transform:
-    INLINE: {replace: {source: $KEPT, replace: '^@inline\(\s*__always\s*\)$', by: '@inline(always)'}}
+    INLINE: {replace: {source: $KEPT, replace: '^@inline\(\p{White_Space}*__always\p{White_Space}*\)$', by: '@inline(always)'}}
     STABLE: {replace: {source: $INLINE, replace: '^@_alwaysEmitIntoClient$', by: '@export(implementation)'}}
 fix: $STABLE
 message: '`$ATTR` spells an attribute through its underscored form'

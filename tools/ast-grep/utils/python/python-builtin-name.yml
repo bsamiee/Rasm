@@ -15,15 +15,15 @@ rule:
         - kind: identifier
           all:
               - not: {matches: name}
-              - inside: {kind: module, stopBy: end, regex: '\bbuiltins\b'}
+              - inside: {kind: module, stopBy: end, regex: '(?-u:\b)builtins(?-u:\b)'}
               - matches: {python-imported-name: {module: {regex: '^builtins$'}, name: {matches: name}}}
         - kind: attribute
           all:
             - has: {field: attribute, matches: name}
-            - inside: {kind: module, stopBy: end, regex: '\bbuiltins\b'}
+            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)builtins(?-u:\b)'}
             - matches: {python-member-use: {module: {regex: '^builtins$'}, name: {matches: name}}}
         - kind: attribute
           all:
             - has: {field: attribute, matches: name}
-            - inside: {kind: module, stopBy: end, regex: '\b__builtins__\b'}
+            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)__builtins__(?-u:\b)'}
             - has: {field: object, matches: implicit-reference}

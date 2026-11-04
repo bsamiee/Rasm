@@ -1,0 +1,16 @@
+id: no-composite-format-literal
+valid:
+    - 'var s = $"{n} items";'
+    - 'var s = string.Format(provider, template, n);'
+    - 'Console.WriteLine("{{0}}", x);'
+    - 'Console.WriteLine("{0}");'
+invalid:
+    - 'var s = string.Format("{0} items", n);'
+    - 'builder.AppendFormat("{0}:{1}", a, b);'
+    - 'Console.WriteLine("{0}", x);'
+    - 'var s = String.Format(CultureInfo.InvariantCulture, "{0:N2}", n);'
+    - |
+      class A {
+          const string Template = "{0} items";
+          string F(int n) => string.Format(Template, n);
+      }

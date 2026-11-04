@@ -1,24 +1,23 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-restated-match-finalizer
 language: tsxlang
 severity: error
 utils:
     function-reference:
         any:
             - kind: member_expression
-              has: {field: object, matches: {effect-module: {name: {regex: '\bFunction$'}}}}
+              has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Function$'}}}}
             - kind: identifier
               matches: {typescript-import-reference: {source: {regex: '^effect/Function$'}, exported: {regex: '^(constant|const(Undefined|Null|Void))$'}}}
     option-none:
         kind: member_expression
         all:
             - has: {field: property, regex: '^none$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '\bOption$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Option$'}}}}
     absent-value:
         any:
             - kind: 'undefined, null'
             - kind: unary_expression
-              regex: '^void\s'
+              regex: '^void[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]'
               has: {field: argument, kind: number}
             - kind: parenthesized_expression
               has: {matches: absent-value}
@@ -36,12 +35,12 @@ utils:
                 field: body
                 kind: call_expression
                 all:
-                    - has: {field: function, matches: {effect-module-member: {module: {regex: '\bResult$'}, member: {regex: '^fail$'}}}}
+                    - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Result$'}, member: {regex: '^fail$'}}}}
                     - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $INPUT}}, {not: {has: {nthChild: 2}}}]}
 rule:
     kind: call_expression
     all:
-        - has: {field: function, pattern: $OR_ELSE, matches: {effect-module-member: {module: {regex: '\bMatch$'}, member: {regex: '^orElse$'}}}}
+        - has: {field: function, pattern: $OR_ELSE, matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^orElse$'}}}}
         - has:
             field: arguments
             all:
@@ -59,6 +58,6 @@ rule:
                           regex: '(^|\.)const(Undefined|Null|Void)$'
                         - matches: option-none
                         - matches: unmatched-failure
-                        - matches: {effect-module-member: {module: {regex: '\bResult$'}, member: {regex: '^fail$'}}}
+                        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Result$'}, member: {regex: '^fail$'}}}
 message: '`$OR_ELSE` restates `Match.option` or `Match.result` with an absent or failing default'
 note: 'Return plain arm values; finish with `Match.option` for absence or `Match.result` for an unmatched input failure'

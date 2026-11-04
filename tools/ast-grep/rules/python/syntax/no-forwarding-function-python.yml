@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-forwarding-function-python
 language: pythonlang
 severity: error
 utils:
@@ -137,7 +136,7 @@ rule:
         - any:
             - has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: function, pattern: 'super().$NAME'}}}
             - all:
-                - not: {has: {field: name, regex: '^__\w+__$'}}
+                - not: {has: {field: name, regex: '^__\p{XID_Continue}+__$'}}
                 - has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: function, matches: named-callee, not: {pattern: $NAME}}}}
         - has: {field: parameters, matches: forwarded-parameters}
 message: '`$NAME` forwards its parameters unchanged to `$F`'

@@ -3,12 +3,12 @@ id: languageext-atom-cell
 language: csharplang
 utils:
     atom-type:
-        regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<.*>\s*\??$'
+        regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)[\p{White_Space}\x{FEFF}]*<.*>[\p{White_Space}\x{FEFF}]*\??$'
     atom-creation:
         kind: invocation_expression
-        regex: '^((global::)?(LanguageExt\.)?IO\.(lift|pure)\s*(<.+>)?\s*\(\s*(static\s+)?(\(\s*\)\s*=>\s*)?)?(global::)?(LanguageExt\.)?(Prelude\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap|atomIO)\b'
+        regex: '^((global::)?(LanguageExt\.)?IO\.(lift|pure)[\p{White_Space}\x{FEFF}]*(<.+>)?[\p{White_Space}\x{FEFF}]*\([\p{White_Space}\x{FEFF}]*(static[\p{White_Space}\x{FEFF}]+)?(\([\p{White_Space}\x{FEFF}]*\)[\p{White_Space}\x{FEFF}]*=>[\p{White_Space}\x{FEFF}]*)?)?(global::)?(LanguageExt\.)?(Prelude\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap|atomIO)(?-u:\b)'
     atom-element-type:
-        regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<.*>\s*\[\s*\]$|[<,]\s*(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<'
+        regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)[\p{White_Space}\x{FEFF}]*<.*>[\p{White_Space}\x{FEFF}]*\[[\p{White_Space}\x{FEFF}]*\]$|[<,][\p{White_Space}\x{FEFF}]*(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)[\p{White_Space}\x{FEFF}]*<'
     callback-parameter:
         kind: identifier
         inside:

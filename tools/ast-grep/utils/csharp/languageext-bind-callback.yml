@@ -26,7 +26,7 @@ utils:
 rule:
     kind: invocation_expression
     all:
-        - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|SelectMany)(\s*<.+>)?$'}}
+        - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|SelectMany)([\p{White_Space}\x{FEFF}]*<.+>)?$'}}
         - has:
             field: arguments
             all:

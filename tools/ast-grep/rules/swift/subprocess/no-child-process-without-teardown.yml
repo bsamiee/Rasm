@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-child-process-without-teardown
 language: swiftlang
 severity: error
 utils:
@@ -9,7 +8,7 @@ utils:
     default-options:
         kind: call_expression
         any:
-            - regex: '^Subprocess\.PlatformOptions(\.init)?\(\s*\)$'
+            - regex: '^Subprocess\.PlatformOptions(\.init)?\(\p{White_Space}*\)$'
             - all:
                 - pattern: .init()
                 - any:
@@ -109,7 +108,7 @@ rule:
                         - not: {has: {matches: platform-options-argument}}
         - kind: call_expression
           any:
-            - regex: '^Foundation\.Process(\.init)?\(\s*\)$'
+            - regex: '^Foundation\.Process(\.init)?\(\p{White_Space}*\)$'
             - has: {nthChild: 1, kind: navigation_expression, regex: '^Foundation\.Process\.(run|launchedProcess)$'}
             - all:
                 - has: {nthChild: 1, regex: '^(Darwin|Glibc|Musl)\.posix_spawnp?$'}

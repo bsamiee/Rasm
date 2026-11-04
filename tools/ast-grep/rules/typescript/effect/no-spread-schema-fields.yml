@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-spread-schema-fields
 language: tsxlang
 severity: error
 rule:
@@ -14,7 +13,7 @@ rule:
                 inside:
                     kind: call_expression
                     any:
-                        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(Struct|TaggedStruct)$'}}}}
-                        - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(Class|TaggedClass|ErrorClass|TaggedError)$'}}}}}
+                        - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Struct|TaggedStruct)$'}}}}
+                        - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Class|TaggedClass|ErrorClass|TaggedError)$'}}}}}
 message: '`...$FIELDS` copies a schema''s fields into a new field record'
 note: 'Extend the schema with `<schema>.mapFields(Struct.assign({ <fields> }))`'

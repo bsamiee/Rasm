@@ -72,7 +72,7 @@ public struct FileEvent: Sendable {
         }
 
         func stop() {
-            if let stream: FSEventStreamRef = (unsafe stream) {
+            if let stream: FSEventStreamRef = unsafe stream {
                 unsafe FSEventStreamStop(stream)
                 unsafe Self.invalidate(stream)
             }

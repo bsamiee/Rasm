@@ -1,0 +1,28 @@
+id: no-boolean-flag-pair
+valid:
+    - |
+      fn render(text: &str, bold: bool, italic: bool) {}
+    - |
+      impl Render for Text {
+          fn render(&self, bold: Option<bool>, italic: bool) {}
+      }
+    - |
+      #[derive(Serialize, Deserialize)]
+      struct Style {
+          bold: bool,
+          italic: Option<bool>,
+      }
+invalid:
+    - |
+      fn render(text: &str, bold: Option<bool>, italic: bool) {}
+    - |
+      struct Style {
+          bold: bool,
+          italic: Option<()>,
+      }
+    - |
+      fn split(text: &str) -> (bool, bool) {
+          (text.is_empty(), text.is_ascii())
+      }
+    - |
+      fn render(flags: [bool; 2]) {}

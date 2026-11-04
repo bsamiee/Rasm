@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-formatted-typed-header
 language: rustlang
 severity: error
 rule:
     kind: string_literal
     pattern: $HEADER
     not: {matches: rust-macro-argument}
-    regex: '^b?"((?i:(authorization|proxy-authorization):\s*)?(?i:bearer|basic) (\{[A-Za-z0-9_:]*\}|")|(?i:(range|content-range):\s*)?bytes[= ](\{|[0-9]|"))'
+    regex: '^b?"((?i:(authorization|proxy-authorization):\p{White_Space}*)?(?i:bearer|basic) (\{[A-Za-z0-9_:]*\}|")|(?i:(range|content-range):\p{White_Space}*)?bytes[= ](\{|[0-9]|"))'
 message: '`$HEADER` spells an `Authorization` or byte-range header value by hand'
 note: 'Write and read typed `headers::Authorization`, `Range`, or `ContentRange` values through `HeaderMapExt::typed_insert` and `typed_get`'

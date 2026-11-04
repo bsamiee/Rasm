@@ -1,0 +1,32 @@
+id: no-parse-error-tsx
+valid:
+    - const x = 1;
+    - const rows = sql<Row>`select 1`;
+    - |
+      declare module "m" {
+          global {
+              interface W {}
+          }
+      }
+    - const rows = sql<Row[]>`select 1`;
+    - const rows = sql<Row, Err>`select 1`;
+    - |
+      function* g() {
+          const rows = yield* sql<Row, Err>`select 1`;
+      }
+    - 'const rows = c ? x : sql<Row, Err>`select 1`;'
+    - |
+      import defer from "x";
+      import source, { a } from "m";
+      import defer * as ns from "x";
+    - export type * as N from "m";
+    - 'export * as ns from "j" with { type: "json" };'
+    - 'class C<const in T> { static accessor y = 1; static [k: string]: unknown }'
+    - 'type T = [string: string, number?: number];'
+    - type A = import("x").Foo<string>;
+    - 'const dual = Function.dual<<A>(a: A) => A, <A>(a: A) => A>(f);'
+    - 'const shipping = <p>Shipping & Handling</p>;'
+invalid:
+    - const x = ;
+    - function f( {}
+    - import defer x from "y";

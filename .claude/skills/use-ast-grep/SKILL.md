@@ -38,7 +38,8 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 
 ## [02]-[RULES]
 
-- Ids share one namespace across languages, a category checked in more than one names each rule `<category>-<language>`, in one the category alone
+- Rule ids come from file names, files holding more than one rule and every util declare `id`
+- Ids share one namespace across languages, a category checked in more than one names each file `<category>-<language>`, in one the category alone
 - Rules leave out forms a configured linter or type-aware checker reports and keep an arm for a defect that checker's fix writes
 - Rule maps conjoin `pattern`, `kind`, `regex`, `nthChild`, `range`, `all`, `any`, `not`, `matches`, then relations in fixed order
 - Ordered `all` lists control clause evaluation, YAML map key order does not

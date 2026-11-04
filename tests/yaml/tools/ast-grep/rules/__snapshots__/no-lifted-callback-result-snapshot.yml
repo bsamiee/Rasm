@@ -1,0 +1,38 @@
+id: no-lifted-callback-result
+snapshots:
+  "import { Effect } from \"effect\";\nconst a = Effect.andThen(task, (n) => Effect.succeed(n + 1));\n":
+    labels:
+    - source: Effect.andThen(task, (n) => Effect.succeed(n + 1))
+      style: primary
+      start: 43
+      end: 93
+  "import { Effect } from \"effect\";\nconst a = Effect.catch(task, (e) => Effect.succeed(0));\n":
+    labels:
+    - source: Effect.catch(task, (e) => Effect.succeed(0))
+      style: primary
+      start: 43
+      end: 87
+  "import { Effect } from \"effect\";\nconst a = Effect.flatMap(task, () => Effect.void);\n":
+    labels:
+    - source: Effect.flatMap(task, () => Effect.void)
+      style: primary
+      start: 43
+      end: 82
+  "import { Effect } from \"effect\";\nconst a = task.pipe(Effect.andThen(Effect.succeed));\n":
+    labels:
+    - source: Effect.andThen(Effect.succeed)
+      style: primary
+      start: 53
+      end: 83
+  "import { Option } from \"effect\";\nconst a = Option.flatMap(Option.some(1), (n) => Option.some(n + 1));\n":
+    labels:
+    - source: Option.flatMap(Option.some(1), (n) => Option.some(n + 1))
+      style: primary
+      start: 43
+      end: 100
+  "import { Stream } from \"effect\";\nconst a = Stream.catch(stream, (e) => Stream.fail(e));\n":
+    labels:
+    - source: Stream.catch(stream, (e) => Stream.fail(e))
+      style: primary
+      start: 43
+      end: 86

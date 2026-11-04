@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-swallowed-failure
 language: tsxlang
 severity: error
 utils:
     effect-member:
         kind: member_expression
-        has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+        has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
     failure-constructor:
         kind: call_expression
         has:

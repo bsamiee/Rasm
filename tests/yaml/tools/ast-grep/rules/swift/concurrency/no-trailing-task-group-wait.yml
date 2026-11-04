@@ -1,0 +1,50 @@
+id: no-trailing-task-group-wait
+valid:
+    - |
+      func load() async {
+          await _Concurrency.withTaskGroup(of: Void.self) { group in
+              group.addTask { await work() }
+              await group.waitForAll()
+              print("done")
+          }
+      }
+    - |
+      func total() async -> Int {
+          await _Concurrency.withTaskGroup(of: Int.self) { group in
+              group.addTask { 1 }
+              var sum = 0
+              for await value in group {
+                  sum += value
+              }
+              return sum
+          }
+      }
+    - |
+      func load() async {
+          await _Concurrency.withTaskGroup(of: Void.self) { group in
+              group.addTask { await work() }
+              for await _ in group where flag {}
+          }
+      }
+invalid:
+    - |
+      func load() async {
+          await _Concurrency.withTaskGroup(of: Void.self) { group in
+              group.addTask { await work() }
+              await group.waitForAll()
+          }
+      }
+    - |
+      func load() async {
+          await _Concurrency.withTaskGroup(of: Void.self) { group in
+              group.addTask { await work() }
+              for await _ in group {}
+          }
+      }
+    - |
+      func load() async {
+          await _Concurrency.withTaskGroup(of: Void.self) { group in
+              group.addTask { await work() }
+              while await group.next() != nil {}
+          }
+      }

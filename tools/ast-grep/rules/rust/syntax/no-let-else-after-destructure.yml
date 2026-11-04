@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-let-else-after-destructure
 language: rustlang
 severity: error
 utils:
@@ -9,7 +8,7 @@ utils:
         any:
             - kind: shorthand_field_identifier
               pattern: $FIELD
-              inside: {kind: field_pattern, not: {has: {kind: mutable_specifier}}, regex: '^\w+$'}
+              inside: {kind: field_pattern, not: {has: {kind: mutable_specifier}}, regex: '^\p{XID_Continue}+$'}
             - kind: identifier
               pattern: $FIELD
               any:

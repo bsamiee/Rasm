@@ -1,0 +1,12 @@
+id: no-string-joined-path-tsx
+valid:
+    - const file = path.join(import.meta.dirname, "data.json");
+    - const file = `${base}/data.json`;
+    - const pattern = `${import.meta.dirname}/*.json`;
+    - const url = `${import.meta.dirname}/https://example.com`;
+invalid:
+    - const file = `${import.meta.dirname}/data.json`;
+    - const file = __dirname + "/data.json";
+    - |
+      const dir = import.meta.dirname;
+      const file = [dir, "data.json"].join("/");

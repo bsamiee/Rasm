@@ -4,14 +4,14 @@ language: rustlang
 rule:
     any:
         - kind: 'call_expression, scoped_identifier'
-          regex: '^(\w+::)*([A-Z]\w*(::<[^>]*>)?::default|(String|Vec|VecDeque|BTreeMap|BTreeSet|HashMap|HashSet|BinaryHeap|LinkedList|OsString|PathBuf)(::<.*>)?::new)(\(\))?$'
+          regex: '^(\p{XID_Continue}+::)*([A-Z]\p{XID_Continue}*(::<[^>]*>)?::default|(String|Vec|VecDeque|BTreeMap|BTreeSet|HashMap|HashSet|BinaryHeap|LinkedList|OsString|PathBuf)(::<.*>)?::new)(\(\))?$'
         - kind: integer_literal
           regex: '^0+(_?[iu](8|16|32|64|128|size))?$'
         - kind: float_literal
           regex: '^0+\.0*(_?f(32|64))?$'
         - kind: macro_invocation
-          regex: '^vec!\s*(\(\s*\)|\[\s*\]|\{\s*\})$'
+          regex: '^vec!\p{White_Space}*(\(\p{White_Space}*\)|\[\p{White_Space}*\]|\{\p{White_Space}*\})$'
         - kind: closure_expression
           all:
-            - has: {field: parameters, regex: '^\|\s*(_\w*)?\s*\|$'}
+            - has: {field: parameters, regex: '^\|\p{White_Space}*(_\p{XID_Continue}*)?\p{White_Space}*\|$'}
             - has: {field: body, matches: rust-default-value}

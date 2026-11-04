@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-entries-by-map
 language: tsxlang
 severity: error
 utils:
     effect-record:
-        matches: {effect-module: {name: {regex: '\bRecord$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Record$'}}}
     native-object:
         regex: '^((globalThis|window|self)\.)?Object$'
         matches: typescript-global-reference
@@ -19,9 +18,9 @@ utils:
                         - has: {kind: import_clause, has: {kind: named_imports, has: {kind: import_specifier, regex: '^Record$'}}}
                     - all:
                         - has: {field: source, regex: '^.effect/Record.$'}
-                        - has: {kind: import_clause, has: {kind: namespace_import, regex: '\bRecord$'}}
+                        - has: {kind: import_clause, has: {kind: namespace_import, regex: '(?-u:\b)Record$'}}
     effect-iterable:
-        matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}}}
     last-statement:
         nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
     projection:
@@ -65,7 +64,7 @@ rule:
                                 kind: member_expression
                                 all:
                                     - has: {field: property, regex: '^map$'}
-                                    - has: {field: object, not: {any: [{matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}, {has: {field: function, matches: typescript-record-entries}}]}}
+                                    - has: {field: object, not: {any: [{matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}}, {has: {field: function, matches: typescript-record-entries}}]}}
                             - has:
                                 field: arguments
                                 all:

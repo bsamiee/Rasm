@@ -1,0 +1,44 @@
+id: no-local-function-in-weak-capture
+valid:
+    - |
+      final class Loader {
+          var count = 0
+          func start() {
+              func double(_ x: Int) -> Int { x * 2 }
+              run { [weak self] in
+                  self?.count = double(1)
+              }
+          }
+      }
+    - |
+      final class Loader {
+          var count = 0
+          func start() {
+              func bump() { count += 1 }
+              run {
+                  bump()
+              }
+          }
+      }
+invalid:
+    - |
+      final class Loader {
+          var count = 0
+          func start() {
+              func bump() { count += 1 }
+              run { [weak self] in
+                  bump()
+              }
+          }
+      }
+    - |
+      final class Loader {
+          func start() {
+              func finish() { self.reset() }
+              run { [weak self] in
+                  guard self != nil else { return }
+                  finish()
+              }
+          }
+          func reset() {}
+      }

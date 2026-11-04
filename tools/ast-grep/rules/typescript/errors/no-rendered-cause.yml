@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-rendered-cause
 language: tsxlang
 severity: error
 utils:
@@ -74,11 +73,11 @@ utils:
                         - kind: member_expression
                           all:
                             - has: {field: property, regex: '^toStringUnknown$'}
-                            - has: {field: object, matches: {effect-module: {name: {regex: '\bInspectable$'}}}}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Inspectable$'}}}}
                         - kind: member_expression
                           all:
                             - has: {field: property, regex: '^(format|formatJson)$'}
-                            - has: {field: object, matches: {effect-module: {name: {regex: '\bFormatter$'}}}}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Formatter$'}}}}
                 - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $CAUSE}}
             - kind: member_expression
               all:
@@ -121,7 +120,7 @@ utils:
                                 - kind: member_expression
                                   all:
                                     - has: {field: property, regex: '^TextContent$'}
-                                    - has: {field: object, matches: {effect-module: {name: {regex: '\bMcpSchema$'}}}}
+                                    - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)McpSchema$'}}}}
                                 - matches: {typescript-import-reference: {source: {regex: '^effect/ai/McpSchema$'}, exported: {regex: '^TextContent$'}}}
     protocol-field:
         any:
@@ -135,7 +134,7 @@ utils:
                 kind: arguments
                 inside:
                     kind: call_expression
-                    has: {field: function, matches: {effect-module-member: {module: {regex: '\b(Effect|Stream|Channel|Sink|Exit|Result)$'}, member: {regex: '^mapError$'}}}}
+                    has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)(Effect|Stream|Channel|Sink|Exit|Result)$'}, member: {regex: '^mapError$'}}}}
             - inside:
                 kind: pair
                 field: value
@@ -149,9 +148,9 @@ utils:
                             has:
                                 field: function
                                 any:
-                                    - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(try|tryPromise|mapBoth)$'}}}
-                                    - matches: {effect-module-member: {module: {regex: '\bResult$'}, member: {regex: '^(try|mapBoth)$'}}}
-                                    - matches: {effect-module-member: {module: {regex: '\b(Exit|Stream)$'}, member: {regex: '^mapBoth$'}}}
+                                    - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(try|tryPromise|mapBoth)$'}}}
+                                    - matches: {effect-module-member: {module: {regex: '(?-u:\b)Result$'}, member: {regex: '^(try|mapBoth)$'}}}
+                                    - matches: {effect-module-member: {module: {regex: '(?-u:\b)(Exit|Stream)$'}, member: {regex: '^mapBoth$'}}}
     thunk-result:
         any:
             - inside: {field: body, kind: *callback, matches: reported-callback}
@@ -168,7 +167,7 @@ utils:
             - matches: thunk-text
             - inside: {stopBy: {kind: *callback}, kind: 'template_string, call_expression', matches: thunk-text}
     cause-module:
-        matches: {effect-module: {name: {regex: '\bCause$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Cause$'}}}
     built-cause:
         kind: call_expression
         all:

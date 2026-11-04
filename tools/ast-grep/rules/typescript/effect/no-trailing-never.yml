@@ -1,15 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-trailing-never
 language: tsxlang
 severity: error
 utils:
     never:
         any:
-            - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^never$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^never$'}}}
             - matches: endless-sleep
     sleep:
         kind: call_expression
-        has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^sleep$'}}}}
+        has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^sleep$'}}}}
     endless-sleep:
         matches: sleep
         all:
@@ -22,8 +21,8 @@ utils:
                         - kind: member_expression
                           all:
                             - has: {field: property, regex: '^infinity$'}
-                            - has: {field: object, matches: {effect-module: {name: {regex: '\bDuration$'}}}}
-    finalize: {matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(ensuring|onExit|onInterrupt)$'}}}}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Duration$'}}}}
+    finalize: {matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(ensuring|onExit|onInterrupt)$'}}}}
     finalizer:
         kind: call_expression
         all:
@@ -37,13 +36,13 @@ rule:
     any:
         - kind: yield_expression
           all:
-            - regex: '^yield\s*\*'
+            - regex: '^yield[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\*'
             - any:
                 - all: [{has: {matches: never}}, {inside: {kind: 'return_statement, expression_statement', matches: last-statement}}]
                 - all: [{has: {matches: endless-sleep}}, {inside: {kind: expression_statement, matches: last-statement}}]
         - kind: call_expression
           all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(andThen|flatMap)$'}}}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(andThen|flatMap)$'}}}}
             - has:
                 field: arguments
                 has:
@@ -71,7 +70,7 @@ rule:
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: never}}, {not: {has: {nthChild: 2}}}]}
         - kind: call_expression
           all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^forever$'}}}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^forever$'}}}}
             - has:
                 field: arguments
                 all:

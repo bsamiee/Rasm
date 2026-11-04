@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-dedupe-by-index-of
 language: tsxlang
 severity: error
 utils:
@@ -51,7 +50,7 @@ rule:
             - all:
                 - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $L}}, {has: {nthChild: 2, matches: index-callback}}, {not: {has: {nthChild: 3}}}]}
                 - has: {field: arguments, has: {nthChild: 1, pattern: $OWNER}}
-                - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}}
+                - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}}
 transform:
     KEPT: {replace: {source: $$OP, replace: '^!==?$', by: every repeat}}
     KEEPS: {replace: {source: $KEPT, replace: '^===?$', by: one of each value}}

@@ -1,0 +1,15 @@
+id: no-parse-error-python
+valid:
+    - x = (1, 2)
+    - |
+      def f():
+          return 1
+    - 'def f[T = int](a: list[T]) -> dict[str, T]: ...'
+    - type A[T = int, *Ts = *tuple[int], **P = [int]] = dict[T, P]
+invalid:
+    - x = (1, 2
+    - |
+      def f(:
+          return 1
+    - 'x: list[T = int]'
+    - type a.b = int

@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-nested-continuation
 language: tsxlang
 severity: error
 utils:
     step:
         kind: call_expression
-        has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(andThen|catch|catchCause|catchCauseIf|catchCauseFilter|catchDefect|catchFilter|catchIf|catchReason|catchReasons|catchTag|catchTags|flatMap|map|matchCauseEffect|matchEffect|tap|tapCause|tapCauseIf|tapDefect|tapError|tapErrorTag)$'}}}}
+        has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(andThen|catch|catchCause|catchCauseIf|catchCauseFilter|catchDefect|catchFilter|catchIf|catchReason|catchReasons|catchTag|catchTags|flatMap|map|matchCauseEffect|matchEffect|tap|tapCause|tapCauseIf|tapDefect|tapError|tapErrorTag)$'}}}}
     callback:
         kind: arrow_function, function_expression
     continuation:

@@ -1,16 +1,15 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-lift-predicate-by-hand
 language: tsxlang
 severity: error
 utils:
     option-module:
         kind: identifier
         pattern: $M
-        matches: {effect-module: {name: {regex: '\bOption$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Option$'}}}
     result-module:
         kind: identifier
         pattern: $M
-        matches: {effect-module: {name: {regex: '\bResult$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Result$'}}}
     one-argument:
         has: {field: arguments, all: [{has: {nthChild: 1, pattern: $V}}, {not: {has: {nthChild: 2}}}]}
     option-lifted:
@@ -50,12 +49,12 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^(fail|failSync)$'}
-                - has: {field: object, kind: identifier, pattern: $M, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+                - has: {field: object, kind: identifier, pattern: $M, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
     terminal-member:
         kind: member_expression
         all:
             - has: {field: property, regex: '^(fail|failSync|failCause|failCauseSync|die|interrupt)$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
     terminal-arm:
         any:
             - kind: call_expression
@@ -90,7 +89,7 @@ utils:
             field: body
             kind: call_expression
             all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^succeed$'}}, {has: {field: object, kind: identifier, pattern: $M, matches: {effect-module: {name: {regex: '\b(Effect|Result)$'}}}}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^succeed$'}}, {has: {field: object, kind: identifier, pattern: $M, matches: {effect-module: {name: {regex: '(?-u:\b)(Effect|Result)$'}}}}}]}
                 - has: {field: arguments, not: {has: {nthChild: 2}}}
     discriminant-test:
         kind: binary_expression
@@ -106,7 +105,7 @@ utils:
         kind: variable_declarator
         all:
             - has: {field: name, kind: identifier, pattern: $V}
-            - has: {field: value, kind: yield_expression, regex: '^yield\s*\*'}
+            - has: {field: value, kind: yield_expression, regex: '^yield[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\*'}
     generator-constant:
         kind: identifier
         pattern: $V
@@ -172,7 +171,7 @@ rule:
                     - not: {has: {field: alternative, matches: terminal-arm}}
         - kind: call_expression
           all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}}]}
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}}]}
             - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $V}}, {not: {has: {nthChild: 3}}}]}
             - has: {field: arguments, has: {nthChild: 2, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onNonEmpty$'}}, {has: {field: value, matches: succeeded-arm}}]}}}
             - has: {field: arguments, has: {nthChild: 2, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onEmpty$'}}, {has: {field: value, matches: refused-arm}}]}}}

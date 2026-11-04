@@ -1,0 +1,10 @@
+id: no-constant-count
+valid:
+    - SELECT count(*) FROM t;
+    - SELECT count(a) FROM t;
+    - SELECT count(DISTINCT 1) FROM t;
+    - SELECT count(NULL) FROM t;
+invalid:
+    - SELECT count(1) FROM t;
+    - SELECT count(ALL 1) FROM t;
+    - SELECT count(-1) FROM t;

@@ -1,0 +1,19 @@
+id: no-refused-conditional
+valid:
+    - |
+      static class Pick {
+          static Fin<Brep> One(Brep? brep) => Refused.Unless(brep);
+      }
+    - |
+      static class Pick {
+          static Brep One(Brep? brep, Brep fallback) => brep is not null ? brep : fallback;
+      }
+invalid:
+    - |
+      static class Pick {
+          static Fin<Brep> One(Brep? brep) => brep is not null ? brep : new Refused("brep", Refused.Absent);
+      }
+    - |
+      static class Pick {
+          static Fin<Brep> One(Brep? brep) => brep == null ? new Refused(nameof(brep), Refused.Absent) : brep;
+      }

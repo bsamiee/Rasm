@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-edge-record-rectangle
 language: csharplang
 severity: error
 utils:
@@ -7,7 +6,7 @@ utils:
         kind: 'property_declaration, parameter'
         has: {field: name, regex: '^(Left|Top|Right|Bottom)$'}
     edges:
-        regex: '(?s)^\(\s*(\([^()]*\)\s*)?Left\s*,\s*(\([^()]*\)\s*)?Top\s*,\s*(\([^()]*\)\s*)?Right\s*,\s*(\([^()]*\)\s*)?Bottom\s*\)$'
+        regex: '(?s)^\([\p{White_Space}\x{FEFF}]*(\([^()]*\)[\p{White_Space}\x{FEFF}]*)?Left[\p{White_Space}\x{FEFF}]*,[\p{White_Space}\x{FEFF}]*(\([^()]*\)[\p{White_Space}\x{FEFF}]*)?Top[\p{White_Space}\x{FEFF}]*,[\p{White_Space}\x{FEFF}]*(\([^()]*\)[\p{White_Space}\x{FEFF}]*)?Right[\p{White_Space}\x{FEFF}]*,[\p{White_Space}\x{FEFF}]*(\([^()]*\)[\p{White_Space}\x{FEFF}]*)?Bottom[\p{White_Space}\x{FEFF}]*\)$'
     rebuilt:
         any:
             - kind: object_creation_expression

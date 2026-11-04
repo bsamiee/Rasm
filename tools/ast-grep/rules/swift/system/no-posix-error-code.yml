@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-posix-error-code
 language: swiftlang
 severity: error
 utils:
     posix-code-annotation:
         kind: type_annotation
-        regex: '^:\s*(Foundation\.)?POSIXErrorCode\??$'
+        regex: '^:\p{White_Space}*(Foundation\.)?POSIXErrorCode\??$'
 rule:
     kind: call_expression
     pattern: $SITE

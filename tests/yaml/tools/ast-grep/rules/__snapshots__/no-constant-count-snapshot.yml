@@ -1,0 +1,63 @@
+id: no-constant-count
+snapshots:
+  SELECT count(-1) FROM t;:
+    fixed: SELECT count(*) FROM t;
+    labels:
+    - source: "-1"
+      style: primary
+      start: 13
+      end: 15
+    - source: "1"
+      style: secondary
+      start: 14
+      end: 15
+    - source: "-1"
+      style: secondary
+      start: 13
+      end: 15
+    - source: count
+      style: secondary
+      start: 7
+      end: 12
+    - source: count(-1)
+      style: secondary
+      start: 7
+      end: 16
+  SELECT count(1) FROM t;:
+    fixed: SELECT count(*) FROM t;
+    labels:
+    - source: "1"
+      style: primary
+      start: 13
+      end: 14
+    - source: count
+      style: secondary
+      start: 7
+      end: 12
+    - source: count(1)
+      style: secondary
+      start: 7
+      end: 15
+    - source: "1"
+      style: secondary
+      start: 13
+      end: 14
+  SELECT count(ALL 1) FROM t;:
+    fixed: SELECT count(*) FROM t;
+    labels:
+    - source: ALL 1
+      style: primary
+      start: 13
+      end: 18
+    - source: ALL
+      style: secondary
+      start: 13
+      end: 16
+    - source: count
+      style: secondary
+      start: 7
+      end: 12
+    - source: count(ALL 1)
+      style: secondary
+      start: 7
+      end: 19

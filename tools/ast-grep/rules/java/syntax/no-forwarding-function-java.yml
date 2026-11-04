@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-forwarding-function-java
 language: javalang
 severity: error
 utils:
@@ -48,7 +47,7 @@ rule:
                     kind: modifiers
                     any:
                         - has: {regex: '^synchronized$'}
-                        - has: {kind: 'marker_annotation, annotation', not: {regex: '^@(java\.lang\.)?(Deprecated|SafeVarargs|SuppressWarnings)\b'}}
+                        - has: {kind: 'marker_annotation, annotation', not: {regex: '^@(java\.lang\.)?(Deprecated|SafeVarargs|SuppressWarnings)(?-u:\b)'}}
         - has: {field: parameters, has: {kind: 'formal_parameter, spread_parameter'}}
         - has:
             field: body

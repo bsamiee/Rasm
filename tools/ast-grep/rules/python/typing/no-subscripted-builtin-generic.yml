@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-subscripted-builtin-generic
 language: pythonlang
 severity: error
 metadata: {python-below: '3.14'}

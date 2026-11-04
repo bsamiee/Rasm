@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-error-code-by-hand
 language: rustlang
 severity: error
 utils:
@@ -20,7 +19,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, regex: '^((rmcp::)?(model::)?)?ErrorCode$'}
-            - has: {field: arguments, has: {kind: unary_expression, regex: '^-\s*\(?\s*32_?(002|02[0-2]|60[0-3]|700)(_?i32)?\s*\)?$'}}
+            - has: {field: arguments, has: {kind: unary_expression, regex: '^-\p{White_Space}*\(?\p{White_Space}*32_?(002|02[0-2]|60[0-3]|700)(_?i32)?\p{White_Space}*\)?$'}}
     constructor-literal:
         matches: code-literal
         has: {field: arguments, regex: '32_?(002|020|60[023]|700)'}
@@ -65,6 +64,6 @@ rule:
                 - all: [{nthChild: 1}, {matches: constructor-literal}, {inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: constructor-name, has: {field: path, matches: error-owner}}}}}]
                 - inside: {kind: field_initializer, field: value, inside: {kind: field_initializer_list, inside: {matches: literal-struct}}}
 transform:
-    HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+    HEAD: {replace: {source: $SITE, replace: '(?s)\p{White_Space}*\{?\p{White_Space}*\n.*$', by: ''}}
 message: '`$HEAD` restates an error code rmcp names'
 note: 'Use the named `ErrorData` constructor or `ErrorCode` constant'

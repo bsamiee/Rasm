@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-termination-status-by-pattern
 language: swiftlang
 severity: error
 utils:
     exited-zero:
-        regex: '^(Subprocess\.)?TerminationStatus\.exited\(\s*0\s*\)$'
+        regex: '^(Subprocess\.)?TerminationStatus\.exited\(\p{White_Space}*0\p{White_Space}*\)$'
     plain-operand:
         kind: 'simple_identifier, navigation_expression, call_expression'
 rule:
@@ -20,7 +19,7 @@ rule:
             - has: {matches: exited-zero}
             - has: {matches: plain-operand, not: {matches: exited-zero}}
         - kind: 'if_statement, guard_statement'
-          regex: '^(if|guard)\s+case\s+(Subprocess\.)?TerminationStatus\.exited\(\s*0\s*\)\s*='
+          regex: '^(if|guard)\p{White_Space}+case\p{White_Space}+(Subprocess\.)?TerminationStatus\.exited\(\p{White_Space}*0\p{White_Space}*\)\p{White_Space}*='
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` tests a `TerminationStatus` for exit code 0 by pattern'

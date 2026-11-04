@@ -1,0 +1,6 @@
+id: no-parse-error-xml
+snapshots:
+  <Project Sdk="Microsoft.NET.Sdk></Project>:
+    labels: []
+  <Project><PropertyGroup></Project>:
+    labels: []

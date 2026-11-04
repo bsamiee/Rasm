@@ -1,0 +1,687 @@
+================================================================================
+_reserved_identifier: using, defer, source, out, accessor as names
+================================================================================
+
+const using = 1, defer = 2, source = 3, out = 4, accessor = 5;
+
+--------------------------------------------------------------------------------
+
+(program
+  (lexical_declaration
+    (variable_declarator
+      name: (identifier)
+      value: (number))
+    (variable_declarator
+      name: (identifier)
+      value: (number))
+    (variable_declarator
+      name: (identifier)
+      value: (number))
+    (variable_declarator
+      name: (identifier)
+      value: (number))
+    (variable_declarator
+      name: (identifier)
+      value: (number))))
+
+================================================================================
+_for_header: using and await using bindings
+================================================================================
+
+async function f(xs: Disposable[], ys: AsyncDisposable[]) {
+    for (using x of xs) {}
+    for (await using y of ys) {}
+}
+
+--------------------------------------------------------------------------------
+
+(program
+  (function_declaration
+    name: (identifier)
+    parameters: (formal_parameters
+      (required_parameter
+        pattern: (identifier)
+        type: (type_annotation
+          (array_type
+            (type_identifier))))
+      (required_parameter
+        pattern: (identifier)
+        type: (type_annotation
+          (array_type
+            (type_identifier)))))
+    body: (statement_block
+      (for_in_statement
+        left: (identifier)
+        right: (identifier)
+        body: (statement_block))
+      (for_in_statement
+        left: (identifier)
+        right: (identifier)
+        body: (statement_block)))))
+
+================================================================================
+assignment_expression: using as an assignment target
+================================================================================
+
+using = 1;
+
+--------------------------------------------------------------------------------
+
+(program
+  (expression_statement
+    (assignment_expression
+      left: (identifier)
+      right: (number))))
+
+================================================================================
+declaration: using_declaration
+================================================================================
+
+using a = f();
+
+--------------------------------------------------------------------------------
+
+(program
+  (using_declaration
+    (variable_declarator
+      name: (identifier)
+      value: (call_expression
+        function: (identifier)
+        arguments: (arguments)))))
+
+================================================================================
+using_declaration: await using
+================================================================================
+
+async function f() {
+    await using b = g();
+}
+
+--------------------------------------------------------------------------------
+
+(program
+  (function_declaration
+    name: (identifier)
+    parameters: (formal_parameters)
+    body: (statement_block
+      (using_declaration
+        (variable_declarator
+          name: (identifier)
+          value: (call_expression
+            function: (identifier)
+            arguments: (arguments)))))))
+
+================================================================================
+import_statement: defer phase
+================================================================================
+
+import defer * as ns from "x";
+
+--------------------------------------------------------------------------------
+
+(program
+  (import_statement
+    (import_clause
+      (namespace_import
+        (identifier)))
+    source: (string
+      (string_fragment))))
+
+================================================================================
+import_statement: source phase
+================================================================================
+
+import source s from "m";
+
+--------------------------------------------------------------------------------
+
+(program
+  (import_statement
+    (import_clause
+      (identifier))
+    source: (string
+      (string_fragment))))
+
+================================================================================
+type_parameter: in, out, in out
+================================================================================
+
+interface I<in T, out U, in out V> {}
+
+--------------------------------------------------------------------------------
+
+(program
+  (interface_declaration
+    name: (type_identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier))
+      (type_parameter
+        name: (type_identifier))
+      (type_parameter
+        name: (type_identifier)))
+    body: (interface_body)))
+
+================================================================================
+_import_identifier: defer and source as default imports
+================================================================================
+
+import defer from "x";
+import source, { a } from "m";
+
+--------------------------------------------------------------------------------
+
+(program
+  (import_statement
+    (import_clause
+      (identifier))
+    source: (string
+      (string_fragment)))
+  (import_statement
+    (import_clause
+      (identifier)
+      (named_imports
+        (import_specifier
+          name: (identifier))))
+    source: (string
+      (string_fragment))))
+
+================================================================================
+type_parameter: out as a name
+================================================================================
+
+function f<out>() {}
+
+--------------------------------------------------------------------------------
+
+(program
+  (function_declaration
+    name: (identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)))
+    parameters: (formal_parameters)
+    body: (statement_block)))
+
+================================================================================
+type_parameter: const on either side of variance
+================================================================================
+
+class C<const in T> {}
+class D<in const T> {}
+class E<const in out T> {}
+
+--------------------------------------------------------------------------------
+
+(program
+  (class_declaration
+    name: (type_identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)))
+    body: (class_body))
+  (class_declaration
+    name: (type_identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)))
+    body: (class_body))
+  (class_declaration
+    name: (type_identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)))
+    body: (class_body)))
+
+================================================================================
+export_statement: import attributes on re-exports
+================================================================================
+
+export * as ns from "j" with { type: "json" };
+export { a } from "./b.json" with { type: "json" };
+
+--------------------------------------------------------------------------------
+
+(program
+  (export_statement
+    (namespace_export
+      (identifier))
+    source: (string
+      (string_fragment))
+    (import_attribute
+      (object
+        (pair
+          key: (property_identifier)
+          value: (string
+            (string_fragment))))))
+  (export_statement
+    (export_clause
+      (export_specifier
+        name: (identifier)))
+    source: (string
+      (string_fragment))
+    (import_attribute
+      (object
+        (pair
+          key: (property_identifier)
+          value: (string
+            (string_fragment)))))))
+
+================================================================================
+export_statement: type-only star re-exports
+================================================================================
+
+export type * from "m";
+export type * as N from "m";
+
+--------------------------------------------------------------------------------
+
+(program
+  (export_statement
+    source: (string
+      (string_fragment)))
+  (export_statement
+    (namespace_export
+      (identifier))
+    source: (string
+      (string_fragment))))
+
+================================================================================
+call_expression: generic template tag
+================================================================================
+
+const r = sql<Row>`select 1`;
+
+--------------------------------------------------------------------------------
+
+(program
+  (lexical_declaration
+    (variable_declarator
+      name: (identifier)
+      value: (call_expression
+        function: (instantiation_expression
+          (identifier)
+          type_arguments: (type_arguments
+            (type_identifier)))
+        arguments: (template_string
+          (string_fragment))))))
+
+================================================================================
+call_expression: generic template tag with array and two arguments
+================================================================================
+
+const r = sql<Row[]>`select 1`;
+const s = sql<Row, Err>`select 1`;
+
+--------------------------------------------------------------------------------
+
+(program
+  (lexical_declaration
+    (variable_declarator
+      name: (identifier)
+      value: (call_expression
+        function: (instantiation_expression
+          (identifier)
+          type_arguments: (type_arguments
+            (array_type
+              (type_identifier))))
+        arguments: (template_string
+          (string_fragment)))))
+  (lexical_declaration
+    (variable_declarator
+      name: (identifier)
+      value: (call_expression
+        function: (instantiation_expression
+          (identifier)
+          type_arguments: (type_arguments
+            (type_identifier)
+            (type_identifier)))
+        arguments: (template_string
+          (string_fragment))))))
+
+================================================================================
+call_expression: generic template tag as yield operand
+================================================================================
+
+function* g() {
+    const r = yield* sql<Row, Err>`select 1`;
+}
+
+--------------------------------------------------------------------------------
+
+(program
+  (generator_function_declaration
+    name: (identifier)
+    parameters: (formal_parameters)
+    body: (statement_block
+      (lexical_declaration
+        (variable_declarator
+          name: (identifier)
+          value: (yield_expression
+            (call_expression
+              function: (instantiation_expression
+                (identifier)
+                type_arguments: (type_arguments
+                  (type_identifier)
+                  (type_identifier)))
+              arguments: (template_string
+                (string_fragment)))))))))
+
+================================================================================
+call_expression: generic template tag as ternary alternative
+================================================================================
+
+const r = c ? x : sql<Row, Err>`select 1`;
+
+--------------------------------------------------------------------------------
+
+(program
+  (lexical_declaration
+    (variable_declarator
+      name: (identifier)
+      value: (ternary_expression
+        condition: (identifier)
+        consequence: (identifier)
+        alternative: (call_expression
+          function: (instantiation_expression
+            (identifier)
+            type_arguments: (type_arguments
+              (type_identifier)
+              (type_identifier)))
+          arguments: (template_string
+            (string_fragment)))))))
+
+================================================================================
+public_field_definition: accessor after static, override, abstract
+================================================================================
+
+class A {
+    static accessor y = 1;
+    override accessor z;
+    abstract accessor q: number;
+}
+
+--------------------------------------------------------------------------------
+
+(program
+  (class_declaration
+    name: (type_identifier)
+    body: (class_body
+      (public_field_definition
+        name: (property_identifier)
+        value: (number))
+      (public_field_definition
+        (override_modifier)
+        name: (property_identifier))
+      (public_field_definition
+        name: (property_identifier)
+        type: (type_annotation
+          (predefined_type))))))
+
+================================================================================
+_reserved_identifier: accessor as member names
+================================================================================
+
+class A {
+    accessor;
+    accessor() {}
+}
+
+--------------------------------------------------------------------------------
+
+(program
+  (class_declaration
+    name: (type_identifier)
+    body: (class_body
+      (public_field_definition
+        name: (property_identifier))
+      (method_definition
+        name: (property_identifier)
+        parameters: (formal_parameters)
+        body: (statement_block)))))
+
+================================================================================
+tuple_parameter: predefined type label
+================================================================================
+
+type T = [string: string];
+
+--------------------------------------------------------------------------------
+
+(program
+  (type_alias_declaration
+    name: (type_identifier)
+    value: (tuple_type
+      (required_parameter
+        name: (identifier)
+        type: (type_annotation
+          (predefined_type))))))
+
+================================================================================
+optional_tuple_parameter: predefined type label
+================================================================================
+
+type T = [number?: number];
+
+--------------------------------------------------------------------------------
+
+(program
+  (type_alias_declaration
+    name: (type_identifier)
+    value: (tuple_type
+      (optional_parameter
+        name: (identifier)
+        type: (type_annotation
+          (predefined_type))))))
+
+================================================================================
+_type_query_member_expression_in_type_annotation: type arguments
+================================================================================
+
+type A = import("x").Foo<string>;
+
+--------------------------------------------------------------------------------
+
+(program
+  (type_alias_declaration
+    name: (type_identifier)
+    value: (member_expression
+      object: (call_expression
+        function: (import)
+        arguments: (arguments
+          (string
+            (string_fragment))))
+      property: (property_identifier)
+      type_arguments: (type_arguments
+        (predefined_type)))))
+
+================================================================================
+index_signature: static
+================================================================================
+
+class C { static [k: string]: unknown }
+
+--------------------------------------------------------------------------------
+
+(program
+  (class_declaration
+    name: (type_identifier)
+    body: (class_body
+      (index_signature
+        name: (identifier)
+        index_type: (predefined_type)
+        type: (type_annotation
+          (predefined_type))))))
+
+================================================================================
+import_alias: type
+================================================================================
+
+import type T = N.T;
+
+--------------------------------------------------------------------------------
+
+(program
+  (import_alias
+    (identifier)
+    (nested_identifier
+      object: (identifier)
+      property: (property_identifier))))
+
+================================================================================
+module: global augmentation
+================================================================================
+
+declare module "m" {
+    global {
+        interface W {}
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(program
+  (ambient_declaration
+    (module
+      name: (string
+        (string_fragment))
+      body: (statement_block
+        (ambient_declaration
+          (statement_block
+            (interface_declaration
+              name: (type_identifier)
+              body: (interface_body))))))))
+
+================================================================================
+type_arguments: adjacent open before a generic function type
+================================================================================
+
+Function.dual<<A>(a: A) => A, <A>(a: A) => A>(f);
+
+--------------------------------------------------------------------------------
+
+(program
+  (expression_statement
+    (call_expression
+      function: (member_expression
+        object: (identifier)
+        property: (property_identifier))
+      type_arguments: (type_arguments
+        (function_type
+          type_parameters: (type_parameters
+            (type_parameter
+              name: (type_identifier)))
+          parameters: (formal_parameters
+            (required_parameter
+              pattern: (identifier)
+              type: (type_annotation
+                (type_identifier))))
+          return_type: (type_identifier))
+        (function_type
+          type_parameters: (type_parameters
+            (type_parameter
+              name: (type_identifier)))
+          parameters: (formal_parameters
+            (required_parameter
+              pattern: (identifier)
+              type: (type_annotation
+                (type_identifier))))
+          return_type: (type_identifier)))
+      arguments: (arguments
+        (identifier)))))
+
+================================================================================
+type_arguments: adjacent open skips strings, templates, and comments
+================================================================================
+
+Function.dual<<A>(a: ")") => A>(f);
+Function.dual<<A extends `${">"}`>(a: A /* ) */) => A>(f);
+
+--------------------------------------------------------------------------------
+
+(program
+  (expression_statement
+    (call_expression
+      function: (member_expression
+        object: (identifier)
+        property: (property_identifier))
+      type_arguments: (type_arguments
+        (function_type
+          type_parameters: (type_parameters
+            (type_parameter
+              name: (type_identifier)))
+          parameters: (formal_parameters
+            (required_parameter
+              pattern: (identifier)
+              type: (type_annotation
+                (literal_type
+                  (string
+                    (string_fragment))))))
+          return_type: (type_identifier)))
+      arguments: (arguments
+        (identifier))))
+  (expression_statement
+    (call_expression
+      function: (member_expression
+        object: (identifier)
+        property: (property_identifier))
+      type_arguments: (type_arguments
+        (function_type
+          type_parameters: (type_parameters
+            (type_parameter
+              name: (type_identifier)
+              constraint: (constraint
+                (template_literal_type
+                  (template_type
+                    (literal_type
+                      (string
+                        (string_fragment))))))))
+          parameters: (formal_parameters
+            (required_parameter
+              pattern: (identifier)
+              type: (type_annotation
+                (type_identifier)))
+            (comment))
+          return_type: (type_identifier)))
+      arguments: (arguments
+        (identifier)))))
+
+================================================================================
+jsx_text: bare ampersand
+================================================================================
+
+<p>Shipping & Handling</p>;
+
+--------------------------------------------------------------------------------
+
+(program
+  (expression_statement
+    (jsx_element
+      open_tag: (jsx_opening_element
+        name: (identifier))
+      (jsx_text)
+      close_tag: (jsx_closing_element
+        name: (identifier)))))
+
+================================================================================
+jsx_text: character references stay separate
+================================================================================
+
+<p>a &amp; b &#123; c &#x1F; d</p>;
+
+--------------------------------------------------------------------------------
+
+(program
+  (expression_statement
+    (jsx_element
+      open_tag: (jsx_opening_element
+        name: (identifier))
+      (jsx_text)
+      (html_character_reference)
+      (jsx_text)
+      (html_character_reference)
+      (jsx_text)
+      (html_character_reference)
+      (jsx_text)
+      close_tag: (jsx_closing_element
+        name: (identifier)))))

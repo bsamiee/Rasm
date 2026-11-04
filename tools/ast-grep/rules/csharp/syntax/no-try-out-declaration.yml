@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-try-out-declaration
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -8,7 +7,7 @@ utils:
         matches: {csharp-type-name: {name: {regex: '^(bool|Boolean)$'}}}
     interface-member:
         has: {field: name, regex: '^(TryFormat|TryGetValue|TryParse)$'}
-        inside: {kind: declaration_list, inside: {has: {kind: base_list, regex: '\bI(ReadOnly)?Dictionary\s*<|\bI(Utf8)?(Span)?(Parsable|Formattable)\b'}}}
+        inside: {kind: declaration_list, inside: {has: {kind: base_list, regex: '(?-u:\b)I(ReadOnly)?Dictionary[\p{White_Space}\x{FEFF}]*<|(?-u:\b)I(Utf8)?(Span)?(Parsable|Formattable)(?-u:\b)'}}}
     out-parameter:
         kind: parameter
         has: {kind: modifier, regex: '^out$'}

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-untyped-file-attribute
 language: swiftlang
 severity: error
 utils:
@@ -44,7 +43,7 @@ rule:
             - has: {field: target, matches: resource-values}
         - kind: as_expression
           all:
-            - has: {field: expr, regex: '\[\s*(FileAttributeKey)?\.(type|size|systemFileNumber|systemNumber|modificationDate|creationDate|posixPermissions|referenceCount|ownerAccountID|groupOwnerAccountID|deviceIdentifier|immutable|appendOnly|extensionHidden)\s*\]$'}
+            - has: {field: expr, regex: '\[\p{White_Space}*(FileAttributeKey)?\.(type|size|systemFileNumber|systemNumber|modificationDate|creationDate|posixPermissions|referenceCount|ownerAccountID|groupOwnerAccountID|deviceIdentifier|immutable|appendOnly|extensionHidden)\p{White_Space}*\]$'}
             - inside:
                 stopBy: end
                 any: [{matches: swift-declaration-scope}, {kind: source_file}]

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-resourceless-acquire
 language: tsxlang
 severity: error
 rule:
@@ -11,6 +10,6 @@ rule:
                 - has: {nthChild: 2, kind: arrow_function, has: {field: parameters, not: {has: {nthChild: 1}}}}
                 - has: {nthChild: 3, kind: arrow_function, has: {field: parameters, not: {has: {nthChild: 1}}}}
                 - not: {has: {nthChild: 4}}
-        - has: {field: function, pattern: $ACQUIRE, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^acquireUseRelease$'}}}}
+        - has: {field: function, pattern: $ACQUIRE, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^acquireUseRelease$'}}}}
 message: '`$ACQUIRE` holds no resource, its use and release read nothing the acquire returns'
 note: 'Sequence `Effect.andThen(<acquire>, Effect.ensuring(<use>, <release>))`'

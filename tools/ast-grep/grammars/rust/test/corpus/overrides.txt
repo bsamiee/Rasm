@@ -1,0 +1,853 @@
+================================================================================
+_declaration_statement: trait_alias
+================================================================================
+
+trait Alias<T> = Clone + Send where T: Copy;
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (trait_alias
+    name: (type_identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)))
+    bounds: (type_identifier)
+    bounds: (type_identifier)
+    (where_clause
+      (where_predicate
+        left: (type_identifier)
+        bounds: (trait_bounds
+          (type_identifier))))))
+
+================================================================================
+function_modifiers: safe
+================================================================================
+
+unsafe extern "C" {
+    safe fn f();
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (foreign_mod_item
+    (extern_modifier
+      (string_literal
+        (string_content)))
+    body: (declaration_list
+      (function_signature_item
+        (function_modifiers)
+        name: (identifier)
+        parameters: (parameters)))))
+
+================================================================================
+function_modifiers: gen
+================================================================================
+
+gen fn g() {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    (function_modifiers)
+    name: (identifier)
+    parameters: (parameters)
+    body: (block)))
+
+================================================================================
+function_modifiers: final
+================================================================================
+
+trait T {
+    final fn f() {}
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (trait_item
+    name: (type_identifier)
+    body: (declaration_list
+      (function_item
+        (function_modifiers)
+        name: (identifier)
+        parameters: (parameters)
+        body: (block)))))
+
+================================================================================
+static_item: safe and unsafe
+================================================================================
+
+unsafe extern "C" {
+    pub safe static X: i32;
+    unsafe static Y: u8;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (foreign_mod_item
+    (extern_modifier
+      (string_literal
+        (string_content)))
+    body: (declaration_list
+      (static_item
+        (visibility_modifier)
+        name: (identifier)
+        type: (primitive_type))
+      (static_item
+        name: (identifier)
+        type: (primitive_type)))))
+
+================================================================================
+field_declaration: restriction, unsafe, default
+================================================================================
+
+struct S {
+    pub mut(crate) unsafe a: i32 = 1,
+    b: u8,
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_item
+    name: (type_identifier)
+    body: (field_declaration_list
+      (field_declaration
+        (visibility_modifier)
+        (mut_restriction)
+        name: (field_identifier)
+        type: (primitive_type)
+        value: (integer_literal))
+      (field_declaration
+        name: (field_identifier)
+        type: (primitive_type)))))
+
+================================================================================
+struct_item: where clause on a unit struct
+================================================================================
+
+struct S<T> where T: Copy;
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_item
+    name: (type_identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)))
+    (where_clause
+      (where_predicate
+        left: (type_identifier)
+        bounds: (trait_bounds
+          (type_identifier))))))
+
+================================================================================
+ordered_field_declaration_list: attributes, restriction, trailing comma
+================================================================================
+
+struct T(#[a] pub mut(self) i32, u8,);
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_item
+    name: (type_identifier)
+    body: (ordered_field_declaration_list
+      (attribute_item
+        (attribute
+          (identifier)))
+      (visibility_modifier)
+      (mut_restriction)
+      type: (primitive_type)
+      type: (primitive_type))))
+
+================================================================================
+base_field_initializer: default fields
+================================================================================
+
+fn f() {
+    let s = S { a: 1, .. };
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (let_declaration
+        pattern: (identifier)
+        value: (struct_expression
+          name: (type_identifier)
+          body: (field_initializer_list
+            (field_initializer
+              field: (field_identifier)
+              value: (integer_literal))
+            (base_field_initializer)))))))
+
+================================================================================
+associated_type: visibility
+================================================================================
+
+trait T {
+    pub type A;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (trait_item
+    name: (type_identifier)
+    body: (declaration_list
+      (associated_type
+        (visibility_modifier)
+        name: (type_identifier)))))
+
+================================================================================
+associated_type: bounds and default, a bare default stays type_item
+================================================================================
+
+trait T {
+    type A<U>: Clone = U;
+    type B: Clone = u8;
+    type C = u8;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (trait_item
+    name: (type_identifier)
+    body: (declaration_list
+      (associated_type
+        name: (type_identifier)
+        type_parameters: (type_parameters
+          (type_parameter
+            name: (type_identifier)))
+        bounds: (trait_bounds
+          (type_identifier))
+        default: (type_identifier))
+      (associated_type
+        name: (type_identifier)
+        bounds: (trait_bounds
+          (type_identifier))
+        default: (primitive_type))
+      (type_item
+        name: (type_identifier)
+        type: (primitive_type)))))
+
+================================================================================
+modified_trait_bound: const forms and async
+================================================================================
+
+fn f<T: ~const A + [const] B + const C + async Fn()>() {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)
+        bounds: (trait_bounds
+          (modified_trait_bound
+            type: (type_identifier))
+          (modified_trait_bound
+            type: (type_identifier))
+          (modified_trait_bound
+            type: (type_identifier))
+          (modified_trait_bound
+            type: (function_type
+              trait: (type_identifier)
+              parameters: (parameters))))))
+    parameters: (parameters)
+    body: (block)))
+
+================================================================================
+modified_trait_bound: const async
+================================================================================
+
+fn f<T: const async Fn()>() {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)
+        bounds: (trait_bounds
+          (modified_trait_bound
+            type: (function_type
+              trait: (type_identifier)
+              parameters: (parameters))))))
+    parameters: (parameters)
+    body: (block)))
+
+================================================================================
+abstract_type: modified trait
+================================================================================
+
+fn f(x: impl const Tr) {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters
+      (parameter
+        pattern: (identifier)
+        type: (abstract_type
+          trait: (modified_trait_bound
+            type: (type_identifier)))))
+    body: (block)))
+
+================================================================================
+dynamic_type: modified trait
+================================================================================
+
+fn f(x: &dyn async Fn()) {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters
+      (parameter
+        pattern: (identifier)
+        type: (reference_type
+          type: (dynamic_type
+            trait: (modified_trait_bound
+              type: (function_type
+                trait: (type_identifier)
+                parameters: (parameters)))))))
+    body: (block)))
+
+================================================================================
+trait_item: impl restriction, const, unsafe, auto
+================================================================================
+
+pub impl(crate) const unsafe auto trait T: Sized where Self: Copy {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (trait_item
+    (visibility_modifier)
+    (impl_restriction)
+    name: (type_identifier)
+    bounds: (trait_bounds
+      (type_identifier))
+    (where_clause
+      (where_predicate
+        left: (type_identifier)
+        bounds: (trait_bounds
+          (type_identifier))))
+    body: (declaration_list)))
+
+================================================================================
+impl_restriction: path
+================================================================================
+
+pub impl(in crate::a) trait U {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (trait_item
+    (visibility_modifier)
+    (impl_restriction
+      (scoped_identifier
+        path: (crate)
+        name: (identifier)))
+    name: (type_identifier)
+    body: (declaration_list)))
+
+================================================================================
+impl_item: const
+================================================================================
+
+const impl<T> Tr for S<T> {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (impl_item
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)))
+    trait: (type_identifier)
+    type: (generic_type
+      type: (type_identifier)
+      type_arguments: (type_arguments
+        (type_identifier)))
+    body: (declaration_list)))
+
+================================================================================
+try_block: bikeshed type
+================================================================================
+
+fn f() {
+    let x = try bikeshed Option<i32> { 1 };
+    let y = try { 2 };
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (let_declaration
+        pattern: (identifier)
+        value: (try_block
+          type: (generic_type
+            type: (type_identifier)
+            type_arguments: (type_arguments
+              (primitive_type)))
+          body: (block
+            (integer_literal))))
+      (let_declaration
+        pattern: (identifier)
+        value: (try_block
+          body: (block
+            (integer_literal)))))))
+
+================================================================================
+gen_block: async
+================================================================================
+
+fn f() {
+    let s = async gen {};
+    let t = async { return 1 };
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (let_declaration
+        pattern: (identifier)
+        value: (gen_block
+          (block)))
+      (let_declaration
+        pattern: (identifier)
+        value: (async_block
+          (block
+            (return_expression
+              (integer_literal))))))))
+
+================================================================================
+function_type: return type notation
+================================================================================
+
+fn f<T: Tr<m(..): Send>>() {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)
+        bounds: (trait_bounds
+          (generic_type
+            type: (type_identifier)
+            type_arguments: (type_arguments
+              (function_type
+                trait: (type_identifier)
+                parameters: (parameters))
+              (trait_bounds
+                (type_identifier)))))))
+    parameters: (parameters)
+    body: (block)))
+
+================================================================================
+where_predicate: unit and function types on the left
+================================================================================
+
+fn f<T>() where T::n(..): Send, (): Copy, fn(): Copy {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)))
+    parameters: (parameters)
+    (where_clause
+      (where_predicate
+        left: (function_type
+          trait: (scoped_type_identifier
+            path: (identifier)
+            name: (type_identifier))
+          parameters: (parameters))
+        bounds: (trait_bounds
+          (type_identifier)))
+      (where_predicate
+        left: (unit_type)
+        bounds: (trait_bounds
+          (type_identifier)))
+      (where_predicate
+        left: (function_type
+          parameters: (parameters))
+        bounds: (trait_bounds
+          (type_identifier))))
+    body: (block)))
+
+================================================================================
+_non_special_token: tilde
+================================================================================
+
+m!(~x);
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (expression_statement
+    (macro_invocation
+      macro: (identifier)
+      (token_tree
+        (identifier)))))
+
+================================================================================
+transform f16 and f128: primitive types and literal suffixes
+================================================================================
+
+struct Homogeneous {
+    weighted: [f128; 2],
+    weight: f128,
+}
+
+fn f() {
+    let b = 2f16;
+    let c = f16::MAX;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_item
+    name: (type_identifier)
+    body: (field_declaration_list
+      (field_declaration
+        name: (field_identifier)
+        type: (array_type
+          element: (primitive_type)
+          length: (integer_literal)))
+      (field_declaration
+        name: (field_identifier)
+        type: (primitive_type))))
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (let_declaration
+        pattern: (identifier)
+        value: (integer_literal))
+      (let_declaration
+        pattern: (identifier)
+        value: (scoped_identifier
+          path: (identifier)
+          name: (identifier))))))
+
+================================================================================
+higher_ranked_trait_bound: modified trait
+================================================================================
+
+fn f<T>() where T: for<'a> [const] Tr<'a> {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    type_parameters: (type_parameters
+      (type_parameter
+        name: (type_identifier)))
+    parameters: (parameters)
+    (where_clause
+      (where_predicate
+        left: (type_identifier)
+        bounds: (trait_bounds
+          (higher_ranked_trait_bound
+            type_parameters: (type_parameters
+              (lifetime_parameter
+                name: (lifetime
+                  (identifier))))
+            type: (modified_trait_bound
+              type: (generic_type
+                type: (type_identifier)
+                type_arguments: (type_arguments
+                  (lifetime
+                    (identifier)))))))))
+    body: (block)))
+
+================================================================================
+range_expression: closed form above range
+================================================================================
+
+fn f() {
+    let x = &v[start..*offset];
+    let r = a..-b;
+    let s = &v[1..];
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (let_declaration
+        pattern: (identifier)
+        value: (reference_expression
+          value: (index_expression
+            (identifier)
+            (range_expression
+              (identifier)
+              (unary_expression
+                (identifier))))))
+      (let_declaration
+        pattern: (identifier)
+        value: (range_expression
+          (identifier)
+          (unary_expression
+            (identifier))))
+      (let_declaration
+        pattern: (identifier)
+        value: (reference_expression
+          value: (index_expression
+            (identifier)
+            (range_expression
+              (integer_literal))))))))
+
+================================================================================
+range_expression: prefix form right-associative
+================================================================================
+
+fn f() {
+    let r = ..*x;
+    match x {
+        ..=5 => 1,
+        _ => 2,
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (let_declaration
+        pattern: (identifier)
+        value: (range_expression
+          (unary_expression
+            (identifier))))
+      (expression_statement
+        (match_expression
+          value: (identifier)
+          body: (match_block
+            (match_arm
+              pattern: (match_pattern
+                (range_pattern
+                  right: (integer_literal)))
+              value: (integer_literal))
+            (match_arm
+              pattern: (match_pattern)
+              value: (integer_literal))))))))
+
+================================================================================
+_restricted_expression: open range before a block
+================================================================================
+
+fn f() {
+    for i in 0.. {}
+    for x in a..*b {}
+    while x && 0.. {}
+    match 0.. {
+        _ => {}
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (expression_statement
+        (for_expression
+          pattern: (identifier)
+          value: (range_expression
+            (integer_literal))
+          body: (block)))
+      (expression_statement
+        (for_expression
+          pattern: (identifier)
+          value: (range_expression
+            (identifier)
+            (unary_expression
+              (identifier)))
+          body: (block)))
+      (expression_statement
+        (while_expression
+          condition: (range_expression
+            (binary_expression
+              left: (identifier)
+              right: (integer_literal)))
+          body: (block)))
+      (expression_statement
+        (match_expression
+          value: (range_expression
+            (integer_literal))
+          body: (match_block
+            (match_arm
+              pattern: (match_pattern)
+              value: (block))))))))
+
+================================================================================
+closure_parameters: trailing comma
+================================================================================
+
+fn f() {
+    let c = |a, b,| a + b;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (let_declaration
+        pattern: (identifier)
+        value: (closure_expression
+          parameters: (closure_parameters
+            (identifier)
+            (identifier))
+          body: (binary_expression
+            left: (identifier)
+            right: (identifier)))))))
+
+================================================================================
+field_pattern: attributes
+================================================================================
+
+fn f() {
+    let S { #[cfg(x)] a, .. } = s;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (let_declaration
+        pattern: (struct_pattern
+          type: (type_identifier)
+          (field_pattern
+            (attribute_item
+              (attribute
+                (identifier)
+                arguments: (token_tree
+                  (identifier))))
+            name: (shorthand_field_identifier))
+          (remaining_field_pattern))
+        value: (identifier)))))
+
+================================================================================
+struct_pattern: turbofish
+================================================================================
+
+fn f() {
+    let S::<u8> { x } = s;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (let_declaration
+        pattern: (struct_pattern
+          type: (generic_type
+            type: (type_identifier)
+            type_arguments: (type_arguments
+              (primitive_type)))
+          (field_pattern
+            name: (shorthand_field_identifier)))
+        value: (identifier)))))
+
+================================================================================
+metavariable: whitespace after the dollar
+================================================================================
+
+macro_rules! m {
+    ($ x : expr) => { $ x };
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (macro_definition
+    name: (identifier)
+    (macro_rule
+      left: (token_tree_pattern
+        (token_binding_pattern
+          name: (metavariable)
+          type: (fragment_specifier)))
+      right: (token_tree
+        (metavariable)))))
+
+================================================================================
+scanner float_literal: a dot before an underscore starts a field
+================================================================================
+
+fn f() {
+    1._foo();
+    let x = 1.5f16;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_item
+    name: (identifier)
+    parameters: (parameters)
+    body: (block
+      (expression_statement
+        (call_expression
+          function: (field_expression
+            value: (integer_literal)
+            field: (field_identifier))
+          arguments: (arguments)))
+      (let_declaration
+        pattern: (identifier)
+        value: (float_literal)))))

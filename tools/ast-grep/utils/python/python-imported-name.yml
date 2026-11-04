@@ -25,7 +25,7 @@ utils:
             - inside: {kind: class_definition, stopBy: {kind: 'function_definition, lambda'}, has: {stopBy: *statement-walk, matches: plain-import}}
     bound-by-alias:
         all:
-            - inside: {kind: module, stopBy: end, regex: '\bfrom\b(?s:.*)\bimport\b(?s:.*)\bas\b'}
+            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)from(?-u:\b)(?s:.*)(?-u:\b)import(?-u:\b)(?s:.*)(?-u:\b)as(?-u:\b)'}
             - any:
                 - inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: *statement-walk, matches: aliased-import}}
                 - inside: {kind: class_definition, stopBy: {kind: 'function_definition, lambda'}, has: {stopBy: *statement-walk, matches: aliased-import}}

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-function-scoped-schema
 language: tsxlang
 severity: error
 utils:
@@ -9,7 +8,7 @@ utils:
             - has: {field: property, regex: '^mapFields$'}
             - all:
                 - has: {field: property, regex: '^(Struct|TaggedStruct|Union|TaggedUnion|Literals|Array|NonEmptyArray|Tuple|Record|fromJsonString)$'}
-                - matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '\w'}}}
+                - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]'}}}
     declared:
         any:
             - inside: {kind: 'required_parameter, optional_parameter', field: pattern}
@@ -38,7 +37,7 @@ rule:
                 stopBy: {kind: *function}
                 kind: *function
                 any:
-                    - inside: {kind: pair, field: value, has: {field: key, regex: '^to[A-Z]\w*$'}}
+                    - inside: {kind: pair, field: value, has: {field: key, regex: '^to[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}
                     - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: constructor}}}
         - not: {has: {stopBy: end, kind: this}}
         - not: {has: {stopBy: end, matches: local}}

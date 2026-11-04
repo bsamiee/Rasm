@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-escaped-quote-literal
 language: csharplang
 severity: error
 utils:
@@ -20,9 +19,8 @@ rule:
             - has: {stopBy: {kind: interpolation}, matches: quote-escape}
             - not: {has: {stopBy: {kind: interpolation}, kind: escape_sequence, not: {matches: text-escape}}}
         - kind: verbatim_string_literal
-          all:
-            - regex: '^@"[^\n]*""[^\n]*"$'
-            - regex: '^@"[^\n]*[^"\n][^\n]*"$'
+          has: {field: content, all: [{regex: '""'}, {regex: '[^"]'}]}
+          not: {regex: '\n'}
         - kind: interpolated_string_expression
           all:
             - has: {kind: interpolation_start, regex: '@'}

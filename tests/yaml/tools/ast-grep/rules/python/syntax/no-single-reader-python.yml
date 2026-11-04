@@ -1,0 +1,50 @@
+id: no-single-reader-python
+valid:
+    - |
+      LIMIT = 10
+
+
+      def above(n):
+          return n > LIMIT
+
+
+      def below(n):
+          return n < LIMIT
+    - |
+      __all__ = ["LIMIT"]
+      LIMIT = 10
+
+
+      def below(n):
+          return n < LIMIT
+    - |
+      LIMIT: int = 10
+
+
+      def below(n):
+          return n < LIMIT
+    - |
+      def helper(n):
+          return n + 1
+
+
+      def main(n):
+          return helper(n) * 2
+
+
+      main(1)
+      helper(2)
+invalid:
+    - |
+      LIMIT = 10
+
+
+      def below(n):
+          return n < LIMIT
+    - |
+      def helper(n):
+          return n + 1
+
+
+      def main(n):
+          return helper(n) * 2

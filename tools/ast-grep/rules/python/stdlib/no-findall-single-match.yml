@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-findall-single-match
 language: pythonlang
 severity: error
 utils:
@@ -76,7 +75,7 @@ utils:
                         - not: {has: {stopBy: end, kind: identifier, pattern: $MATCHES, not: {any: [{matches: first-read}, {inside: {kind: assignment, field: left}}]}}}
 rule:
     pattern: $CALL
-    regex: '\b(findall|finditer)\b'
+    regex: '(?-u:\b)(findall|finditer)(?-u:\b)'
     any:
         - matches: {python-first-item: {source: {matches: every-match}}}
         - kind: call

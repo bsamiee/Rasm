@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-deadline-race-by-hand-tsx
 language: tsxlang
 severity: error
 utils:
     sleep-call:
         kind: call_expression
-        has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^sleep$'}}}}
+        has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^sleep$'}}}}
     sleep-branch:
         any:
             - matches: sleep-call
@@ -17,7 +16,7 @@ rule:
     kind: call_expression
     pattern: $RACE
     all:
-        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^race$'}}}}
+        - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^race$'}}}}
         - has: {field: arguments, has: {matches: sleep-branch}}
 transform:
     HEAD: {replace: {source: $RACE, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}

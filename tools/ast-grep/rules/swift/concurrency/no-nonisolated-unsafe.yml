@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-nonisolated-unsafe
 language: swiftlang
 severity: error
 rule:
     kind: member_modifier
-    regex: '^nonisolated\s*\(\s*unsafe\s*\)$'
+    regex: '^nonisolated\p{White_Space}*\(\p{White_Space}*unsafe\p{White_Space}*\)$'
     inside: {kind: modifiers, inside: {kind: property_declaration, has: {field: name, pattern: $NAME}}}
 message: '`nonisolated(unsafe)` exempts `$NAME` from data-race checking'
 note: 'Hold the state in `Mutex`, `Atomic`, or actor-isolated storage, or hand a non-Sendable value across isolation as a `sending` parameter or result'

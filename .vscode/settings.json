@@ -102,5 +102,6 @@
     "[toml]": { "editor.defaultFormatter": "tombi-toml.tombi" },
 
     // --- [MISE] ------------------------------------------------------------------------
-    "mise.enableConfigDiagnostics": false
+    "mise.enableConfigDiagnostics": false,
+    "cmake.sourceDirectory": "/Users/bardiasamiee/Developer/Rasm/tools/ast-grep/grammars"
 }

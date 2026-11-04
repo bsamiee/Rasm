@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-json-parse
 language: tsxlang
 severity: error
 ignores: ['plugins/function-hooks/**']
 utils:
     thunk-call:
         kind: call_expression
-        has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(sync|promise|callback|suspend|try|tryPromise)$'}}}}
+        has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(sync|promise|callback|suspend|try|tryPromise)$'}}}}
     effect-context:
         any:
             - matches: effect-generator-function

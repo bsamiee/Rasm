@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-first-by-filter
 language: tsxlang
 severity: error
 ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
 utils:
     array-member:
         kind: member_expression
-        has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}
+        has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}
     filter-member:
         kind: member_expression
         all: [{has: {field: property, pattern: $FILTER, regex: '^(filter|filterMap|flatMap)$'}}, {matches: array-member}]
@@ -18,7 +17,7 @@ utils:
         all:
             - has: {field: function, kind: member_expression, has: {field: property, pattern: $FILTER, regex: '^(filter|flatMap)$'}}
             - has: {field: arguments, has: {nthChild: 1}, not: {has: {nthChild: 2}}}
-            - not: {has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}}
+            - not: {has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}}}}
     filtered:
         kind: call_expression
         any:
@@ -40,12 +39,12 @@ rule:
             - has: {field: object, any: [{matches: native-flat-map}, {matches: filtered}]}
         - kind: call_expression
           all:
-            - has: {field: arguments, regex: '^\(\s*(0|-1)\s*\)$'}
+            - has: {field: arguments, regex: '^\([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(0|-1)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\)$'}
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^at$'}}
             - any:
                 - has: {field: function, has: {field: object, any: [{matches: native-flat-map}, {matches: filtered}]}}
                 - all:
-                    - has: {field: arguments, regex: '^\(\s*-1\s*\)$'}
+                    - has: {field: arguments, regex: '^\([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*-1[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\)$'}
                     - has: {field: function, has: {field: object, matches: native-filter}}
         - kind: call_expression
           all:
@@ -60,7 +59,7 @@ rule:
         - any:
             - matches: end
             - kind: call_expression
-              all: [{has: {field: arguments, regex: '^\(\s*0\s*\)$'}}, {has: {field: function, matches: getter}}]
+              all: [{has: {field: arguments, regex: '^\([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*0[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\)$'}}, {has: {field: function, matches: getter}}]
           inside: {kind: arguments}
           follows:
             stopBy: {not: {regex: '^,$'}}

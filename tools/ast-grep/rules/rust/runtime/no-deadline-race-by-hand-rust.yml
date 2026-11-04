@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-deadline-race-by-hand-rust
 language: rustlang
 severity: error
 utils:
@@ -35,7 +34,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^fuse$'}}, {has: {field: value, matches: deadline-base}}]}
-                - has: {field: arguments, regex: '^\(\s*\)$'}
+                - has: {field: arguments, regex: '^\(\p{White_Space}*\)$'}
     deadline-binding:
         kind: identifier
         pattern: $BOUND
@@ -62,7 +61,7 @@ rule:
                 all:
                     - any:
                         - has: {matches: timer-token, precedes: {kind: token_tree, regex: '^\(', precedes: &arm-end {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^=>$'}}}
-                        - has: {matches: timer-token, precedes: {kind: token_tree, regex: '^\(', precedes: &fused {regex: '^\.$', precedes: {regex: '^fuse$', precedes: {kind: token_tree, regex: '^\(\s*\)$', precedes: *arm-end}}}}}
+                        - has: {matches: timer-token, precedes: {kind: token_tree, regex: '^\(', precedes: &fused {regex: '^\.$', precedes: {regex: '^fuse$', precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$', precedes: *arm-end}}}}}
                         - has: {matches: deadline-binding, precedes: *arm-end}
                         - has: {matches: deadline-binding, precedes: *fused}
                     - not: {has: {kind: identifier, regex: '^cancelled(_owned)?$', follows: {regex: '^\.$'}}}

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-settings-save-without-sandbox-test
 language: csharplang
 severity: error
 files: ['libs/dotnet/rhino/Rasm.Grasshopper/**']
@@ -26,7 +25,7 @@ utils:
                 - has: {field: operator, regex: '^==$'}
                 - has: {field: right, kind: boolean_literal, regex: '^true$'}
             - kind: is_pattern_expression
-              has: {field: pattern, regex: '^true\b'}
+              has: {field: pattern, regex: '^true(?-u:\b)'}
     disjunct:
         kind: binary_expression
         all:

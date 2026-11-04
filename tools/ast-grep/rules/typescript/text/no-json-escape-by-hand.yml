@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-json-escape-by-hand
 language: tsxlang
 severity: error
 ignores: ['.claude/workflows/*.js']
@@ -8,7 +7,7 @@ rule:
     pattern: $CALL
     all:
         - has: {field: function, kind: member_expression, has: {field: property, regex: '^slice$'}}
-        - has: {field: arguments, regex: '^\(\s*1\s*,\s*-\s*1\s*\)$'}
+        - has: {field: arguments, regex: '^\([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*1[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*,[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*-[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*1[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\)$'}
         - has:
             field: function
             has:

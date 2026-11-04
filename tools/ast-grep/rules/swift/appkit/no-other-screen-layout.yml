@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-other-screen-layout
 language: swiftlang
 severity: error
 utils:
     screen-type:
         kind: type_annotation
-        regex: '^:\s*(AppKit\.)?NSScreen[?!]?$'
+        regex: '^:\p{White_Space}*(AppKit\.)?NSScreen[?!]?$'
 rule:
     pattern: $SCREEN
     any:

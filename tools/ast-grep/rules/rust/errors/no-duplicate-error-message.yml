@@ -1,14 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-duplicate-error-message
 language: rustlang
 severity: error
 rule:
     kind: attribute_item
     pattern: $ATTRIBUTE
-    regex: '^#\[\s*error\s*\(\s*"'
+    regex: '^#\[\p{White_Space}*error\p{White_Space}*\(\p{White_Space}*"'
     all:
         - inside: {kind: enum_variant_list}
-        - not: {regex: '^#\[\s*error\s*\(\s*("\{(\d+|[A-Za-z_]\w*)(:[^{}]*)?\}"|"\{\}"\s*,\s*\.\w+)\s*,?\s*\)\s*\]$'}
+        - not: {regex: '^#\[\p{White_Space}*error\p{White_Space}*\(\p{White_Space}*("\{([0-9]+|[A-Za-z_]\p{XID_Continue}*)(:[^{}]*)?\}"|"\{\}"\p{White_Space}*,\p{White_Space}*\.\p{XID_Continue}+)\p{White_Space}*,?\p{White_Space}*\)\p{White_Space}*\]$'}
         - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: enum_variant, has: {field: name, pattern: $VARIANT}}
         - follows: {stopBy: end, kind: attribute_item, pattern: $ATTRIBUTE}
 message: '`$VARIANT` repeats an earlier variant''s `#[error]` message'

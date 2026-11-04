@@ -1,0 +1,15 @@
+id: no-catch-if-class-test
+valid:
+    - |
+      import { Effect } from "effect";
+      const a = Effect.catchTag(task, "NotFound", () => Effect.succeed(0));
+    - |
+      import { Effect } from "effect";
+      const a = Effect.catchIf(task, (e) => e.code === 404, () => Effect.succeed(0));
+invalid:
+    - |
+      import { Effect, Schema } from "effect";
+      const a = Effect.catchIf(task, Schema.is(NotFound), () => Effect.succeed(0));
+    - |
+      import { Effect, Schema } from "effect";
+      const a = Effect.catchIf(task, (failure) => Schema.is(NotFound)(failure), () => Effect.succeed(0));

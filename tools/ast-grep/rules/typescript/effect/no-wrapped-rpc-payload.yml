@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-wrapped-rpc-payload
 language: tsxlang
 severity: error
 utils:
     rpc-member:
-        matches: {effect-module-member: {module: {regex: '\bRpc$'}, member: {regex: '^(make|custom)$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Rpc$'}, member: {regex: '^(make|custom)$'}}}
     custom-call:
         kind: call_expression
         has: {field: function, matches: rpc-member, has: {field: property, regex: '^custom$'}}
@@ -37,7 +36,7 @@ rule:
     all:
         - has: {field: function, kind: member_expression, has: {field: property, regex: '^Struct$'}}
         - has: {field: arguments, all: [{has: {nthChild: 1, kind: object}}, {not: {has: {nthChild: 2}}}]}
-        - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}}
+        - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Schema$'}}}}}
         - any:
             - inside:
                 kind: pair

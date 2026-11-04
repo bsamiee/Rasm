@@ -1,0 +1,38 @@
+id: no-read-then-swap
+valid:
+    - |
+      public sealed class Store {
+          private readonly Atom<int> total = Atom(0);
+          public void Add(int n) => total.Swap(x => x + n);
+      }
+    - |
+      public sealed class Store {
+          private readonly Atom<int> total = Atom(0);
+          public int Read() => total.Value;
+      }
+    - |
+      public sealed class Store {
+          private readonly Ref<int> total = Ref(0);
+          public void Add(int n) => atomic(() => {
+              var current = total.Value;
+              total.Swap(_ => current + n);
+          });
+      }
+invalid:
+    - |
+      public sealed class Store {
+          private readonly Atom<int> total = Atom(0);
+          public void Add(int n) {
+              var current = total.Value;
+              total.Swap(_ => current + n);
+          }
+      }
+    - |
+      public sealed class Store {
+          private readonly AtomHashMap<string, int> counts = AtomHashMap<string, int>();
+          public void Seed(string key) {
+              if (!counts.ContainsKey(key)) {
+                  counts.Add(key, 0);
+              }
+          }
+      }

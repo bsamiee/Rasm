@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-failure-as-log-message
 language: tsxlang
 severity: error
 utils:
     log-member:
-        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(log|logTrace|logDebug|logInfo|logWarning|logError|logFatal)$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(log|logTrace|logDebug|logInfo|logWarning|logError|logFatal)$'}}}
     failure-handler:
         kind: call_expression
         has:
@@ -12,7 +11,7 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^(tapError|tapErrorTag|catch|catchEager|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons|matchEffect)$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Layer)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Effect|Stream|Channel|Layer)$'}}}}
     cause-handler:
         kind: call_expression
         has:
@@ -20,7 +19,7 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^(catchCause|catchDefect)$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Layer)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Effect|Stream|Channel|Layer)$'}}}}
     handler-argument:
         any:
             - inside: {kind: arguments, inside: {matches: failure-handler}}
@@ -36,7 +35,7 @@ utils:
     annotated-error:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^annotateLogs$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}]}
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^annotateLogs$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}]}
             - matches: reads-error
     failure-callback:
         kind: arrow_function, function_expression

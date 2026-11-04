@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-decode-for-literal
 language: tsxlang
 severity: error
 utils:
@@ -10,7 +9,7 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, pattern: $FN, regex: '^(decode|encode)(Unknown)?(Sync|Exit|Option|Result|Effect|Promise)$'}
-                - has: {field: object, pattern: $M, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
+                - has: {field: object, pattern: $M, matches: {effect-module: {name: {regex: '(?-u:\b)Schema$'}}}}
     literal-argument:
         kind: arguments
         has: {nthChild: 1, matches: typescript-literal-expression}

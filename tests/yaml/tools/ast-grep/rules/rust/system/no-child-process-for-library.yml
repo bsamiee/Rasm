@@ -1,0 +1,34 @@
+id: no-child-process-for-library
+valid:
+    - |
+      fn status() -> std::io::Result<ExitStatus> {
+          std::process::Command::new("git").arg("status").status()
+      }
+    - |
+      fn build() -> std::io::Result<ExitStatus> {
+          Command::new("cargo").arg("build").status()
+      }
+    - |
+      fn greet() -> std::io::Result<ExitStatus> {
+          Command::new("sh").arg("-c").arg("echo hi").status()
+      }
+invalid:
+    - |
+      fn unpack(archive: &Path) -> std::io::Result<()> {
+          std::process::Command::new("tar").arg("-xf").arg(archive).status()?;
+          Ok(())
+      }
+    - |
+      fn fetch() -> std::io::Result<Output> {
+          Command::new("sh").arg("-c").arg("curl -fsSL https://example.com").output()
+      }
+    - |
+      const TOOL: &str = "/usr/bin/jq";
+
+      fn query() -> std::io::Result<Output> {
+          Command::new(TOOL).arg(".").output()
+      }
+    - |
+      fn metadata() -> std::io::Result<Output> {
+          Command::new("cargo").args(["metadata", "--format-version", "1"]).output()
+      }

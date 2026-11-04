@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-boolean-by-match-swift
 language: swiftlang
 severity: error
 utils:
@@ -10,7 +9,7 @@ utils:
                     any:
                         - kind: boolean_literal
                         - kind: control_transfer_statement
-                          regex: '^return\b'
+                          regex: '^return(?-u:\b)'
                           has: {field: result, kind: boolean_literal}
     literal-entry:
         kind: switch_entry

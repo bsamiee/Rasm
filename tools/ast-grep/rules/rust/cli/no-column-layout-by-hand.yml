@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-column-layout-by-hand
 language: rustlang
 severity: error
 utils:
@@ -20,7 +19,7 @@ utils:
               regex: '::(len|width)$'
     max-function:
         kind: scoped_identifier
-        regex: '^((::)?(std|core)::)?((cmp|\w+)::)?max$'
+        regex: '^((::)?(std|core)::)?((cmp|\p{XID_Continue}+)::)?max$'
     max-of-measured:
         kind: call_expression
         any:
@@ -35,7 +34,7 @@ utils:
         pattern: $FORMAT
         all:
             - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$'}}}
-            - has: {kind: token_tree, has: {nthChild: {position: 1, ofRule: {kind: 'string_literal, raw_string_literal'}}, regex: '\{[^{}]*:[^{}.$]*\w\$'}}
+            - has: {kind: token_tree, has: {nthChild: {position: 1, ofRule: {kind: 'string_literal, raw_string_literal'}}, regex: '\{[^{}]*:[^{}.$]*\p{XID_Continue}\$'}}
 rule:
     pattern: $WIDTH
     any:

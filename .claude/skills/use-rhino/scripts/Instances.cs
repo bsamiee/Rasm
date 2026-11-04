@@ -105,9 +105,9 @@ internal static class Program {
     };
 
     private static async Task<int> RunAsync() {
-        Console.WriteLine(await Router()
-            .Bind(static router => IO.lift(static () => new HttpClient()).Bracket(Use: http => List(http, router), Fin: static http => IO.lift(http.Dispose)))
-            .Catch(Unanswered, static error => IO.pure($"Rhino state unknown. {error.Message}"))
+        IO<string> listed = Router()
+            .Bind(static router => IO.lift(static () => new HttpClient()).Bracket(Use: http => List(http, router), Fin: static http => IO.lift(http.Dispose)));
+        Console.WriteLine(await (listed | @catch(Unanswered, static error => IO.pure($"Rhino state unknown. {error.Message}")))
             .RunAsync(CancellationToken.None).ConfigureAwait(false));
         return 0;
     }
@@ -135,7 +135,7 @@ internal static class Program {
             .Bind(static result => result.IsError is true
                 ? IO.fail<Seq<string>>(new Refused(Wire.Read<Fault>(result.Content.OfType<TextContentBlock>().First().Text).Message))
                 : IO.pure(Lines(Wire.Read<Reply>(Wire.Read<Output>(result.Content.OfType<TextContentBlock>().Last().Text).Stdout))))
-            .Catch(Unanswered, error => IO.pure(Seq(string.Create(CultureInfo.InvariantCulture, $"Process ID {application.Key} listing failed. {error.Message}"))));
+            | @catch(Unanswered, error => IO.pure(Seq(string.Create(CultureInfo.InvariantCulture, $"Process ID {application.Key} listing failed. {error.Message}"))));
 
     private static IO<CallToolResult> Call(HttpClient http, Uri endpoint, string tool, IReadOnlyDictionary<string, object?> arguments) =>
         IO.liftAsync(env => McpClient.CreateAsync(new HttpClientTransport(new() { Endpoint = endpoint }, http), cancellationToken: env.Token)).Bracket(

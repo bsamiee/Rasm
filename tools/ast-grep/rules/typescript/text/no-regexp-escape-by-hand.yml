@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-regexp-escape-by-hand
 language: tsxlang
 severity: error
 ignores:
@@ -13,7 +12,7 @@ utils:
             - has:
                 field: pattern
                 all:
-                    - regex: '^\[(?:[^\\\]^\p{L}\p{N}\s]|\\[^\p{L}\p{N}\s])(?:[^\\\]\p{L}\p{N}\s]|\\[^\p{L}\p{N}\s])*\]$'
+                    - regex: '^\[(?:[^\\\]^\p{L}\p{N}[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]]|\\[^\p{L}\p{N}[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]])(?:[^\\\]\p{L}\p{N}[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]]|\\[^\p{L}\p{N}[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]])*\]$'
                     - regex: '\.'
                     - regex: '\*'
                     - regex: '\+'
@@ -82,7 +81,7 @@ rule:
                 - has: {nthChild: 2, matches: escaping-replacement}
                 - has: {nthChild: 1, matches: escaped-pattern}
         - any:
-            - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bString$'}}}}}
+            - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)String$'}}}}}
             - has: {field: function, not: {has: {kind: optional_chain}}, has: {field: object, pattern: $_}}
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:

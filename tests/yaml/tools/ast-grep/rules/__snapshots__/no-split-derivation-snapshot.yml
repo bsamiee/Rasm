@@ -1,0 +1,26 @@
+id: no-split-derivation
+snapshots:
+  "sealed class Report {\n    public (int, int) Both => Measure();\n    public int Width => Measure().Item1;\n}\n":
+    labels:
+    - source: public (int, int) Both => Measure();
+      message: Member deriving from the same value
+      style: secondary
+      start: 26
+      end: 62
+    - source: Width
+      message: Member deriving a part
+      style: primary
+      start: 78
+      end: 83
+  "sealed class Report {\n    public int Count => Load().Length;\n    public int First => Load()[0];\n}\n":
+    labels:
+    - source: public int Count => Load().Length;
+      message: Member deriving from the same value
+      style: secondary
+      start: 26
+      end: 60
+    - source: First
+      message: Member deriving a part
+      style: primary
+      start: 76
+      end: 81

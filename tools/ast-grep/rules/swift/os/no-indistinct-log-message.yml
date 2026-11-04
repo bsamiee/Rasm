@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-indistinct-log-message
 language: swiftlang
 severity: error
 utils:
@@ -13,7 +12,7 @@ utils:
         not:
             has:
                 any: [{kind: line_str_text}, {kind: multi_line_str_text}, {kind: raw_str_part}, {kind: raw_str_end_part}]
-                not: {regex: '(?i)^[^a-z]*((trace|debug|info|notice|warning|error|critical|fault|failed|failure|exception)s?\b[^a-z]*)*$'}
+                not: {regex: '(?i)^[^a-z]*((trace|debug|info|notice|warning|error|critical|fault|failed|failure|exception)s?(?-u:\b)[^a-z]*)*$'}
     earlier-site:
         any:
             - matches: log-message

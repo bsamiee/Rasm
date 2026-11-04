@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-length-by-equality
 language: tsxlang
 severity: error
 utils:
@@ -16,6 +15,6 @@ rule:
         - any:
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: length}}, {has: {nthChild: 2, pattern: $_COUNT}}]}
             - has: {field: arguments, all: [{has: {nthChild: 1, kind: number, pattern: $_COUNT}}, {has: {nthChild: 2, matches: length}}]}
-        - inside: {kind: program, stopBy: end, has: {kind: import_statement, regex: '\bassert\b', has: {field: source, regex: '^[''"](@effect/vitest|vitest|chai)[''"]$'}}}
+        - inside: {kind: program, stopBy: end, has: {kind: import_statement, regex: '(?-u:\b)assert(?-u:\b)', has: {field: source, regex: '^[''"](@effect/vitest|vitest|chai)[''"]$'}}}
 message: '`$ASSERT` compares the length of `$LIST` as a number'
 note: 'Call `assert.lengthOf(<list>, <count>)` for a failure message that prints the list'

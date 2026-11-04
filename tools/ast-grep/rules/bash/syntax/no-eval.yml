@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-eval
 language: bashlang
 severity: error
 utils:
@@ -8,7 +7,7 @@ utils:
             - kind: simple_expansion, expansion, command_substitution, arithmetic_expansion
             - kind: string, concatenation
               has: {matches: expanded-word}
-    shell: {regex: '^(?:\S+/)?(bash|sh|dash|ksh|zsh)$'}
+    shell: {regex: '^(?:\P{White_Space}+/)?(bash|sh|dash|ksh|zsh)$'}
 rule:
     kind: command
     any:
@@ -17,7 +16,7 @@ rule:
             - has: {field: name, pattern: $NAME, regex: '^(builtin|command)$'}
             - has: {kind: word, regex: '^eval$', nthChild: 2}
         - all:
-            - has: {field: name, pattern: $NAME, regex: '^(?:\S+/)?(bash|sh|dash|ksh|zsh|env|exec|sudo|nohup|nice|timeout|xargs)$'}
+            - has: {field: name, pattern: $NAME, regex: '^(?:\P{White_Space}+/)?(bash|sh|dash|ksh|zsh|env|exec|sudo|nohup|nice|timeout|xargs)$'}
             - has: {matches: expanded-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$', follows: {stopBy: end, kind: 'command_name, word', matches: shell}}}
         - all:
             - has: {field: name, pattern: $NAME, any: [{matches: shell}, {regex: '^(source|\.)$'}]}

@@ -37,9 +37,9 @@ Resolve package references through supported imports, aliases, and visible bindi
 ## [03]-[COLLAPSE]
 
 Combine rules with the same correction and reason. Split rules when scope, severity, or required action differs, sharing the common predicate alone:
-1. Name the survivor `no-<pattern>` for the pattern the `message` states, an existing id stating it stays
+1. Name the survivor file `no-<pattern>.yml` for the pattern the `message` states, an existing file name stating it stays
 2. Share repeated predicates where capture scopes permit, keeping fixed predicates used once inline
-3. Delete the superseded rule files and each old id in suppression comments and filters
+3. Delete the superseded rule files and their ids in suppression comments and filters
 
 - Survivors report every site the originals' correction covers
 - Replacement spellings share one rule when they implement the same correction and reason, the selecting condition stays in that rule

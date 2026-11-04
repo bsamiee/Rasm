@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-cancellation-race-by-hand
 language: rustlang
 severity: error
 utils:
@@ -7,13 +6,13 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^cancelled(_owned)?$', pattern: $CANCELLED}}
-            - has: {field: arguments, regex: '^\(\s*\)$'}
+            - has: {field: arguments, regex: '^\(\p{White_Space}*\)$'}
     cancel-tokens:
         kind: identifier
         regex: '^cancelled(_owned)?$'
         pattern: $CANCELLED
         follows: {regex: '^\.$'}
-        precedes: {kind: token_tree, regex: '^\(\s*\)$'}
+        precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$'}
     cancel-future:
         any:
             - matches: cancel-call
@@ -52,7 +51,7 @@ rule:
                 kind: token_tree
                 any:
                     - has: {matches: cancel-tokens, precedes: {precedes: &arm-end {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^=>$'}}}
-                    - has: {matches: cancel-tokens, precedes: {precedes: &fused {regex: '^\.$', precedes: {regex: '^fuse$', precedes: {kind: token_tree, regex: '^\(\s*\)$', precedes: *arm-end}}}}}
+                    - has: {matches: cancel-tokens, precedes: {precedes: &fused {regex: '^\.$', precedes: {regex: '^fuse$', precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$', precedes: *arm-end}}}}}
                     - has: {matches: cancel-binding, precedes: *arm-end}
                     - has: {matches: cancel-binding, precedes: *fused}
         - kind: call_expression

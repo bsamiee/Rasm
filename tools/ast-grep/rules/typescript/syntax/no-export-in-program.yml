@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-export-in-program
 language: tsxlang
 severity: error
 files: ['**/main.ts', '**/main.tsx']
@@ -8,6 +7,6 @@ rule:
     kind: export_statement
     all:
         - inside: {kind: program}
-        - not: {regex: '^export\s+default\b'}
+        - not: {regex: '^export[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+default(?-u:\b)'}
 message: 'Program root exports a value'
 note: 'Move the value into a module beside `main.ts` and import it there, `main.ts` holding composition and the run'

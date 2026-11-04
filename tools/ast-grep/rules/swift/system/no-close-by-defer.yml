@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-close-by-defer
 language: swiftlang
 severity: error
 utils:
@@ -8,7 +7,7 @@ utils:
             - kind: property_declaration
               all:
                 - has: {field: name, has: {field: bound_identifier, pattern: $DESCRIPTOR}}
-                - has: {kind: type_annotation, regex: '^:\s*((System|SystemPackage)\.)?FileDescriptor$'}
+                - has: {kind: type_annotation, regex: '^:\p{White_Space}*((System|SystemPackage)\.)?FileDescriptor$'}
             - kind: parameter
               all:
                 - has: {field: name, pattern: $DESCRIPTOR}
@@ -17,7 +16,7 @@ rule:
     kind: call_expression
     all:
         - has: {nthChild: 1, kind: simple_identifier, regex: '^defer$'}
-        - has: {stopBy: end, kind: navigation_expression, regex: '^\w+\.close$', has: {field: target, pattern: $DESCRIPTOR}}
+        - has: {stopBy: end, kind: navigation_expression, regex: '^\p{XID_Continue}+\.close$', has: {field: target, pattern: $DESCRIPTOR}}
         - inside:
             kind: 'function_declaration, lambda_literal'
             stopBy: {kind: 'function_declaration, lambda_literal'}

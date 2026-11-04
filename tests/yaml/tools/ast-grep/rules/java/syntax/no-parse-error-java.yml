@@ -1,0 +1,6 @@
+id: no-parse-error-java
+valid:
+    - class A { void f() { int x = 1; } }
+invalid:
+    - class A { void f() { int x = ; } }
+    - class A { void f() { g(1 }

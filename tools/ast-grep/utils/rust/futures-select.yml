@@ -5,4 +5,4 @@ rule:
     kind: 'identifier, scoped_identifier'
     any:
         - regex: '^((::)?futures(_util)?::)?future::select$'
-        - matches: {rust-imported-name: {source: {regex: 'futures(_util)?::future::(select\b|\{[^}]*\bselect\b)'}, name: {regex: '^select$'}}}
+        - matches: {rust-imported-name: {source: {regex: 'futures(_util)?::future::(select(?-u:\b)|\{[^}]*(?-u:\b)select(?-u:\b))'}, name: {regex: '^select$'}}}

@@ -1,0 +1,24 @@
+id: no-local-function-in-weak-capture
+snapshots:
+  "final class Loader {\n    func start() {\n        func finish() { self.reset() }\n        run { [weak self] in\n            guard self != nil else { return }\n            finish()\n        }\n    }\n    func reset() {}\n}\n":
+    labels:
+    - source: finish
+      message: Captures `self` strongly
+      style: secondary
+      start: 53
+      end: 59
+    - source: weak self
+      style: primary
+      start: 94
+      end: 103
+  "final class Loader {\n    var count = 0\n    func start() {\n        func bump() { count += 1 }\n        run { [weak self] in\n            bump()\n        }\n    }\n}\n":
+    labels:
+    - source: bump
+      message: Captures `self` strongly
+      style: secondary
+      start: 71
+      end: 75
+    - source: weak self
+      style: primary
+      start: 108
+      end: 117

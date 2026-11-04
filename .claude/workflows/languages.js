@@ -43,7 +43,7 @@ return {
       baseline: 'no-parse-error-tsx',
       metadata: [],
       globs: '*.{ts,tsx,js}',
-      pathspec: ["'*.ts'", "'*.tsx'", "'*package.json'", "'*tsconfig*.json'", "'biome.json'", "'pnpm-workspace.yaml'", "'tools/ast-grep/*/typescript/*'", "'tools/ast-grep/outline/typescript.yml'"],
+      pathspec: ["'*.ts'", "'*.tsx'", "'*package.json'", "'*tsconfig*.json'", "'biome.json'", "'pnpm-workspace.yaml'", "'tools/ast-grep/*/typescript/*'", "'tools/ast-grep/outline/typescript.yml'", "':(glob)tools/ast-grep/*/sql/**'", "'tools/ast-grep/outline/sql.yml'"],
       unit: 'folder holding the nearest package.json',
       owners: [
         { name: 'tsc', paths: ['tsconfig.base.json'], decides: 'a `compilerOptions` row or an @effect/language-service diagnostic', skills: ['manage-repo'], targets: ['nx run-many -t typecheck:tsc'] },
@@ -68,7 +68,7 @@ return {
       baseline: 'no-parse-error-python',
       metadata: ['python-from', 'python-below'],
       globs: '*.{py,pyi}',
-      pathspec: ["'*.py'", "'*.pyi'", "'*pyproject.toml'", "'tools/ast-grep/*/python/*'", "'tools/ast-grep/outline/python.yml'"],
+      pathspec: ["'*.py'", "'*.pyi'", "'*pyproject.toml'", "'tools/ast-grep/*/python/*'", "'tools/ast-grep/outline/python.yml'", "':(glob)tools/ast-grep/*/sql/**'", "'tools/ast-grep/outline/sql.yml'"],
       unit: 'folder holding the nearest `py.typed`, `blender_manifest.toml` or member pyproject.toml (a `[tool.uv.workspace] members` row)',
       owners: [
         { name: 'ruff', paths: ['pyproject.toml'], decides: 'a Ruff rule or option row of a [tool.ruff*] table in the root or a member pyproject.toml', skills: ['manage-repo'], targets: ['nx run rasm:lint:ruff', 'nx run rasm:lint:tombi'] },
@@ -102,7 +102,7 @@ return {
       baseline: 'no-parse-error-rust',
       metadata: [],
       globs: '*.rs',
-      pathspec: ["'*.rs'", "'*Cargo.toml'", "'clippy.toml'", "'rust-toolchain.toml'", "'tests/rust/tools/dylint/*'", "'tools/ast-grep/*/rust/*'", "'tools/ast-grep/outline/rust.yml'"],
+      pathspec: ["'*.rs'", "'*Cargo.toml'", "'clippy.toml'", "'rust-toolchain.toml'", "'tests/rust/tools/dylint/*'", "'tools/ast-grep/*/rust/*'", "'tools/ast-grep/outline/rust.yml'", "':(glob)tools/ast-grep/*/sql/**'", "'tools/ast-grep/outline/sql.yml'"],
       unit: 'folder holding the nearest Cargo.toml',
       owners: [
         { name: 'clippy', paths: ['Cargo.toml', 'clippy.toml'], decides: 'a rustc or Clippy lint row of `[workspace.lints.*]` or a clippy.toml option', skills: ['manage-repo'], targets: ['nx run-many -t check --projects=tag:language:rust', 'nx run rasm:lint:tombi'] },
@@ -127,7 +127,7 @@ return {
       baseline: 'no-parse-error-swift',
       metadata: [],
       globs: '*.swift',
-      pathspec: ["'*.swift'", "'Package.swift'", "'.swift-format'", "'.swiftlint.yml'", "'Xcode.xcconfig'", "'tools/ast-grep/*/swift/*'", "'tools/ast-grep/outline/swift.yml'"],
+      pathspec: ["'*.swift'", "'Package.swift'", "'.swift-format'", "'.swiftlint.yml'", "'Xcode.xcconfig'", "'tools/ast-grep/*/swift/*'", "'tools/ast-grep/outline/swift.yml'", "':(glob)tools/ast-grep/*/sql/**'", "'tools/ast-grep/outline/sql.yml'"],
       unit: 'Package.swift target folder holding the file',
       owners: [
         { name: 'swift-format', paths: ['.swift-format'], decides: 'a swift-format rule row', skills: ['manage-repo'], targets: ['nx run rasm:lint:swift-format'] },
@@ -152,7 +152,7 @@ return {
       baseline: 'no-parse-error-csharp',
       metadata: [],
       globs: '*.cs',
-      pathspec: ["'*.cs'", "'*.csproj'", "'*.props'", "'*.targets'", "'.editorconfig'", "'global.json'", "'tools/roslyn/*'", "'tests/dotnet/tools/roslyn/*'", "'tools/ast-grep/*/csharp/*'", "'tools/ast-grep/outline/csharp.yml'"],
+      pathspec: ["'*.cs'", "'*.csproj'", "'*.props'", "'*.targets'", "'.editorconfig'", "'global.json'", "'tools/roslyn/*'", "'tests/dotnet/tools/roslyn/*'", "'tools/ast-grep/*/csharp/*'", "'tools/ast-grep/outline/csharp.yml'", "':(glob)tools/ast-grep/*/sql/**'", "'tools/ast-grep/outline/sql.yml'"],
       unit: 'folder holding the nearest .csproj',
       owners: [
         { name: 'analyzers', paths: ['.editorconfig', '.config/analyzers.globalconfig'], decides: 'an analyzer severity or option row', skills: ['manage-repo'], targets: ['nx run rasm:lint:dotnet-format', 'nx run-many -t check --projects=tag:language:dotnet'] },

@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-filter-by-option-lookup
 language: tsxlang
 severity: error
 utils:
     lookup:
         kind: call_expression
         pattern: $FROM($LOOKUP, () => $X)
-        has: {field: function, matches: {effect-module-member: {module: {regex: '\bResult$'}, member: {regex: '^fromOption$'}}}}
+        has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Result$'}, member: {regex: '^fromOption$'}}}}
 rule:
     kind: arrow_function
     all:

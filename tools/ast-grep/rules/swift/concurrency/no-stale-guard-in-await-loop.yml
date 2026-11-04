@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-stale-guard-in-await-loop
 language: swiftlang
 severity: error
 utils:
@@ -20,7 +19,7 @@ utils:
     await-loop:
         any:
             - kind: for_statement
-              regex: '^for\s+(try\s+)?await\b'
+              regex: '^for\p{White_Space}+(try\p{White_Space}+)?await(?-u:\b)'
               has: {field: item, has: {field: bound_identifier, pattern: $L}}
             - kind: while_statement
               all:
@@ -44,7 +43,7 @@ rule:
                     nthChild: 1
                     pattern: $GUARD
                     all:
-                        - has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return)\b'}}
+                        - has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return)(?-u:\b)'}}
                         - has: {matches: loop-state, stopBy: end, inside: {kind: 'guard_statement, if_statement', stopBy: {kind: statements}}}
                         - not: {has: {pattern: $L, stopBy: end}}
         - not:

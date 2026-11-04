@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-fixed-plural
 language: tsxlang
 severity: error
 utils:
@@ -67,8 +66,8 @@ rule:
             - precedes:
                 kind: string_fragment
                 pattern: $TEXT
-                regex: '^\s+(?:[a-z][\w-]*\s+)?[a-z]*[^s\W]s\b'
-                not: {regex: '^\s+(?:[a-z][\w-]*\s+)?(?:is|was|has|does|this|its|as|us|yes|plus|less|thus|always|across|equals|exceeds|means|remains|contains|needs)\b'}
+                regex: '^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]-]*[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?[a-z]*[^s[\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]]s(?-u:\b)'
+                not: {regex: '^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]-]*[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?(?:is|was|has|does|this|its|as|us|yes|plus|less|thus|always|across|equals|exceeds|means|remains|contains|needs)(?-u:\b)'}
             - any:
                 - has: {matches: count}
                 - has:
@@ -82,6 +81,6 @@ rule:
                             all: [{has: {field: name, pattern: $COUNT}}, {has: {field: value, matches: count}}]
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
-    NOUN: {replace: {source: $TEXT, replace: '(?s)^(\s+(?:[a-z][\w-]*\s+)?[a-z]*s)\b.*$', by: '$1'}}
+    NOUN: {replace: {source: $TEXT, replace: '(?s)^([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]-]*[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?[a-z]*s)(?-u:\b).*$', by: '$1'}}
 message: '`$FORM$NOUN` hard-codes the plural form of a count'
 note: 'Index `Intl.LDMLPluralRule` phrases by `new Intl.PluralRules(<locale>).select(<count>)`'

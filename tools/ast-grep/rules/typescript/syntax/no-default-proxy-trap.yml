@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-default-proxy-trap
 language: tsxlang
 severity: error
 utils:
@@ -49,7 +48,7 @@ utils:
 rule:
     kind: arrow_function, function_expression, method_definition
     all:
-        - not: {regex: '^async\b'}
+        - not: {regex: '^async(?-u:\b)'}
         - not: {has: {field: parameters, has: {kind: required_parameter, has: {field: value, pattern: $_}}}}
         - matches: trap
         - matches: typescript-proxy-trap

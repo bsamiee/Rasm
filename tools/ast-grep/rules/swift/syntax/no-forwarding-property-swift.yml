@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-forwarding-property-swift
 language: swiftlang
 severity: error
 utils:
@@ -58,7 +57,7 @@ utils:
                         - has: {field: result, matches: setter-value}
     host-member:
         any:
-            - has: {kind: modifiers, any: [{has: {kind: attribute, regex: '^@(objc|IBOutlet|IBInspectable|NSManaged)\b'}}, {has: {regex: '^(override|dynamic)$'}}]}
+            - has: {kind: modifiers, any: [{has: {kind: attribute, regex: '^@(objc|IBOutlet|IBInspectable|NSManaged)(?-u:\b)'}}, {has: {regex: '^(override|dynamic)$'}}]}
             - inside: {kind: class_declaration, stopBy: end, has: {kind: modifiers, has: {kind: attribute, regex: '^@objcMembers$'}}}
 rule:
     kind: property_declaration

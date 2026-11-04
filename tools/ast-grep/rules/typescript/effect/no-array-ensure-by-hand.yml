@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-array-ensure-by-hand
 language: tsxlang
 severity: error
 ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
@@ -15,6 +14,6 @@ constraints:
         any:
             - regex: '^((globalThis|window|self)\.)?Array$'
               matches: typescript-global-reference
-            - matches: {effect-module: {name: {regex: '\bArray$'}}}
+            - matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}
 message: '`$CALL` normalizes one `$X` or an array of `$X` into an array by hand'
 note: 'Call `Array.ensure(<value>)` from `effect`'

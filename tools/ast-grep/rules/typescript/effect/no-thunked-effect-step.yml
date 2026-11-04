@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-thunked-effect-step
 language: tsxlang
 severity: error
 rule:
@@ -14,12 +13,12 @@ rule:
                 field: body
                 pattern: $STEP
                 any:
-                    - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(void|never)$'}}}
+                    - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(void|never)$'}}}
                     - kind: identifier
                       matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(void|never)$'}}}
             - inside:
                 kind: arguments
-                inside: {kind: call_expression, has: {field: function, pattern: $COMBINATOR, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(tap|andThen)$'}}}}}
+                inside: {kind: call_expression, has: {field: function, pattern: $COMBINATOR, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(tap|andThen)$'}}}}}
 fix:
     template: ''
     expandEnd: {regex: '^=>$', stopBy: end}

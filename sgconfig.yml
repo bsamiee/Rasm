@@ -3,6 +3,7 @@
 
 ruleDirs: [tools/ast-grep/rules]
 utilDirs: [tools/ast-grep/utils]
+testConfigs: [{testDir: tests/yaml/tools/ast-grep/rules}]
 noIgnore: [hidden]
 languageGlobs:
     xml: ["NuGet.config"]
@@ -10,202 +11,213 @@ languageGlobs:
 # --- [LANGUAGES] ------------------------------------------------------------------------
 
 customLanguages:
-    bashlang:
-        libraryPath: .cache/ast-grep/bash.so
-        languageSymbol: tree_sitter_bash
-        extensions: [bash, bats, cgi, command, env, fcgi, ksh, sh, tmux, tool, zsh]
-        outlineRules: tools/ast-grep/outline/bash.yml
-    csharplang:
-        libraryPath: .cache/ast-grep/csharp.so
-        languageSymbol: tree_sitter_c_sharp
-        extensions: [cs]
-        expandoChar: µ
-        outlineRules: tools/ast-grep/outline/csharp.yml
-    javalang:
-        libraryPath: .cache/ast-grep/java.so
-        languageSymbol: tree_sitter_java
-        extensions: [java]
-        outlineRules: tools/ast-grep/outline/java.yml
-    pythonlang:
-        libraryPath: .cache/ast-grep/python.so
-        languageSymbol: tree_sitter_python
-        extensions: [py, py3, pyi, bzl, bazel]
-        expandoChar: µ
-        outlineRules: tools/ast-grep/outline/python.yml
-    rustlang:
-        libraryPath: .cache/ast-grep/rust.so
-        languageSymbol: tree_sitter_rust
-        extensions: [rs]
-        expandoChar: µ
-        outlineRules: tools/ast-grep/outline/rust.yml
-    sql:
-        libraryPath: .cache/ast-grep/sql.so
-        languageSymbol: tree_sitter_sqlite3
-        extensions: [sql]
-        expandoChar: µ
-        outlineRules: tools/ast-grep/outline/sql.yml
-    swiftlang:
-        libraryPath: .cache/ast-grep/swift.so
-        languageSymbol: tree_sitter_swift
-        extensions: [swift]
-        expandoChar: µ
-        outlineRules: tools/ast-grep/outline/swift.yml
-    tsxlang:
-        libraryPath: .cache/ast-grep/typescript.so
-        languageSymbol: tree_sitter_tsx
-        extensions: [ts, tsx, mts, cts, js, jsx, mjs, cjs]
-        outlineRules: tools/ast-grep/outline/typescript.yml
-    xml:
-        libraryPath: .cache/ast-grep/xml.so
-        extensions: [xml, csproj, props, targets, slnx]
-        expandoChar: x
-        outlineRules: tools/ast-grep/outline/msbuild.yml
+    bashlang: {libraryPath: .cache/ast-grep/bash.so, languageSymbol: tree_sitter_bash, extensions: [bash, bats, cgi, command, env, fcgi, ksh, sh, tmux, tool, zsh], outlineRules: tools/ast-grep/outline/bash.yml}
+    csharplang: {libraryPath: .cache/ast-grep/csharp.so, languageSymbol: tree_sitter_c_sharp, extensions: [cs], expandoChar: µ, outlineRules: tools/ast-grep/outline/csharp.yml}
+    javalang: {libraryPath: .cache/ast-grep/java.so, languageSymbol: tree_sitter_java, extensions: [java], outlineRules: tools/ast-grep/outline/java.yml}
+    pythonlang: {libraryPath: .cache/ast-grep/python.so, languageSymbol: tree_sitter_python, extensions: [py, py3, pyi, bzl, bazel], expandoChar: µ, outlineRules: tools/ast-grep/outline/python.yml}
+    rustlang: {libraryPath: .cache/ast-grep/rust.so, languageSymbol: tree_sitter_rust, extensions: [rs], expandoChar: µ, outlineRules: tools/ast-grep/outline/rust.yml}
+    sql: {libraryPath: .cache/ast-grep/sql.so, languageSymbol: tree_sitter_sqlite3, extensions: [sql], expandoChar: µ, outlineRules: tools/ast-grep/outline/sql.yml}
+    swiftlang: {libraryPath: .cache/ast-grep/swift.so, languageSymbol: tree_sitter_swift, extensions: [swift], expandoChar: µ, outlineRules: tools/ast-grep/outline/swift.yml}
+    tsxlang: {libraryPath: .cache/ast-grep/typescript.so, languageSymbol: tree_sitter_tsx, extensions: [ts, tsx, mts, cts, js, jsx, mjs, cjs], outlineRules: tools/ast-grep/outline/typescript.yml}
+    xml: {libraryPath: .cache/ast-grep/xml.so, extensions: [xml, csproj, props, targets, slnx, svg, plist, entitlements, xcscheme, xsd, xslt, xsl, rng], expandoChar: x, outlineRules: tools/ast-grep/outline/msbuild.yml}
 
 # --- [INJECTIONS] -----------------------------------------------------------------------
 
 languageInjections:
-    - hostLanguage: tsxlang
-      rule:
-        pattern: $CONTENT
-        all:
-            - any:
-                - kind: template_string
-                  all:
-                    - not: {has: {kind: escape_sequence}}
-                    - any:
-                        - inside: {kind: call_expression, field: arguments, has: {field: function, regex: '(?s)(?:^|=>\s*)sql(?:\s*<.*>)?$'}}
-                        - inside: {kind: call_expression, field: arguments, has: {field: function, pattern: sql.withoutTransforms()}}
-                        - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^sql\.unsafe$'}}}
-                - kind: string_fragment
-                  inside:
-                    kind: string
-                    not: {has: {kind: escape_sequence}}
-                    inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^sql\.unsafe$'}}}
-            - not: {matches: postgres-scope}
-      utils:
-        postgres-scope:
-            inside:
-                stopBy: end
-                any:
-                    - {kind: pair, has: {field: key, regex: '^pg$'}, inside: {kind: object, has: {kind: pair, has: {field: key, regex: '^(sqlite|mysql|mssql|clickhouse|orElse)$'}}}}
-                    - {kind: 'variable_declarator, function_declaration, method_definition, class_declaration', has: {field: name, regex: '(?:^|[a-z_])(?:pg|Pg|PG)(?:$|[A-Z_])'}}
-      injected: sql
     - hostLanguage: yaml
+      injected: bashlang
       rule:
-        kind: block_mapping_pair, flow_pair
-        all:
-            - matches: run
-            - has: {field: value, has: {kind: plain_scalar, pattern: $CONTENT, not: {regex: '[\r\n]|\$\{\{'}}}
-            - inside:
-                kind: block_mapping, flow_mapping
-                all:
-                    - inside:
-                        kind: block_node, flow_node
-                        inside:
-                            kind: block_sequence_item, flow_sequence
-                            inside:
-                                kind: block_mapping_pair, flow_pair
-                                has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(steps|"steps"|''steps'')$'}}
-                                inside:
-                                    any:
-                                        - matches: job-map
-                                        - kind: block_mapping, flow_mapping
-                                          all:
-                                            - inside:
-                                                kind: block_node, flow_node
-                                                inside:
-                                                    kind: block_mapping_pair, flow_pair
-                                                    has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(runs|"runs"|''runs'')$'}}
-                                                    inside: {matches: root-map}
-                                            - has:
-                                                kind: block_mapping_pair, flow_pair
-                                                all:
-                                                    - has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(using|"using"|''using'')$'}}
-                                                    - has: {field: value, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(composite|"composite"|''composite'')$'}}
-                                stopBy: {kind: 'block_mapping_pair, flow_pair'}
-                    - any:
-                        - has: {matches: bash-shell}
-                        - all:
-                            - matches: literal-map
-                            - not: {has: {matches: shell}}
-                            - inside:
-                                matches: job-map
-                                stopBy: end
-                                any:
-                                    - has: {matches: bash-defaults}
-                                    - all:
-                                        - matches: literal-map
-                                        - not:
-                                            has:
-                                                matches: defaults
-                                                not:
-                                                    has:
-                                                        field: value
-                                                        has:
-                                                            matches: literal-map
-                                                            not:
-                                                                has:
-                                                                    matches: run
-                                                                    not: {has: {field: value, has: {matches: literal-map, not: {has: {matches: shell}}}}}
-                                        - inside: {matches: root-map, stopBy: end, has: {matches: bash-defaults}}
+        matches: run
+        has: {field: value, has: {kind: plain_scalar, pattern: $CONTENT, not: {regex: '[\r\n]|\$\{\{'}}}
+        inside: {matches: step-map}
       utils:
         literal-map:
             kind: block_mapping, flow_mapping
-            not:
-                has:
-                    kind: block_mapping_pair, flow_pair
-                    has:
-                        field: key
-                        has:
-                            any:
-                                - kind: alias
-                                - kind: double_quote_scalar
-                                  any:
-                                    - has: {kind: escape_sequence}
-                                    - regex: '[\r\n]'
-        root-map:
-            kind: document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)
-        job-map:
+            not: {has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {any: [{kind: alias}, {kind: double_quote_scalar, any: [{has: {kind: escape_sequence}}, {regex: '[\r\n]'}]}]}}}}
+        root-map: {kind: 'document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)'}
+        run: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:run|"run"|''run'')$'}}}
+        shell: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:shell|"shell"|''shell'')$'}}}
+        defaults: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:defaults|"defaults"|''defaults'')$'}}}
+        steps: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:steps|"steps"|''steps'')$'}}}
+        jobs: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:jobs|"jobs"|''jobs'')$'}}, inside: {matches: root-map}}
+        runs: {kind: 'block_mapping_pair, flow_pair', has: {field: key, has: {regex: '^(?:runs|"runs"|''runs'')$'}}, inside: {matches: root-map}}
+        using-composite: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, has: {regex: '^(?:using|"using"|''using'')$'}}}, {has: {field: value, has: {regex: '^(?:composite|"composite"|''composite'')$'}}}]}
+        jobs-map: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {matches: jobs}}}
+        job-map: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: 'block_mapping_pair, flow_pair', inside: {matches: jobs-map}}}}
+        composite-map: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {matches: runs}}, has: {matches: using-composite}}
+        bash-shell:
+            matches: shell
+            has: {field: value, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(?:bash(?: [^\r\n]*)?|"bash(?: [^"\\\r\n]*)?"|''bash(?: [^''\r\n]*)?'')$', not: {regex: '\$\{\{'}}}
+        shell-free-run: {matches: run, has: {field: value, has: {matches: literal-map, not: {has: {matches: shell}}}}}
+        shell-free-defaults: {matches: defaults, has: {field: value, has: {matches: literal-map, not: {has: {matches: run, not: {matches: shell-free-run}}}}}}
+        bash-defaults: {matches: defaults, has: {field: value, has: {matches: literal-map, has: {matches: run, has: {field: value, has: {matches: literal-map, has: {matches: bash-shell}}}}}}}
+        step-map:
             kind: block_mapping, flow_mapping
             inside:
                 kind: block_node, flow_node
                 inside:
-                    kind: block_mapping_pair, flow_pair
-                    inside:
-                        kind: block_mapping, flow_mapping
-                        inside:
-                            kind: block_node, flow_node
-                            inside:
-                                kind: block_mapping_pair, flow_pair
-                                has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(jobs|"jobs"|''jobs'')$'}}
-                                inside: {matches: root-map}
-        run:
-            kind: block_mapping_pair, flow_pair
-            has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(run|"run"|''run'')$'}}
-        shell:
-            kind: block_mapping_pair, flow_pair
-            has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(shell|"shell"|''shell'')$'}}
-        defaults:
-            kind: block_mapping_pair, flow_pair
-            has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(defaults|"defaults"|''defaults'')$'}}
-        bash-shell:
-            all:
-                - matches: shell
-                - has:
-                    field: value
-                    has:
-                        kind: plain_scalar, single_quote_scalar, double_quote_scalar
-                        all:
-                            - regex: '^(?:bash(?: [^\r\n]*)?|"bash(?: [^"\\\r\n]*)?"|''bash(?: [^''\r\n]*)?'')$'
-                            - not: {regex: '\$\{\{'}
-        bash-defaults:
-            all:
-                - matches: defaults
-                - has:
-                    field: value
-                    has:
-                        matches: literal-map
-                        has:
-                            matches: run
-                            has: {field: value, has: {matches: literal-map, has: {matches: bash-shell}}}
-      injected: bashlang
+                    kind: block_sequence_item, flow_sequence
+                    inside: {matches: steps, stopBy: {kind: 'block_mapping_pair, flow_pair'}, any: [{inside: {matches: job-map}}, {inside: {matches: composite-map}}]}
+            any:
+                - has: {matches: bash-shell}
+                - all:
+                    - matches: literal-map
+                    - not: {has: {matches: shell}}
+                    - inside:
+                        matches: job-map
+                        stopBy: end
+                        any:
+                            - has: {matches: bash-defaults}
+                            - all:
+                                - matches: literal-map
+                                - not: {has: {matches: defaults, not: {matches: shell-free-defaults}}}
+                                - inside: {matches: root-map, stopBy: end, has: {matches: bash-defaults}}
+    - hostLanguage: csharplang
+      injected: sql
+      rule:
+        kind: string_literal_content, raw_string_content
+        pattern: $CONTENT
+        inside:
+            kind: string_literal, raw_string_literal
+            not: {has: {kind: escape_sequence}}
+            any:
+                - inside: {kind: argument, nthChild: 1, inside: {kind: argument_list, inside: {kind: object_creation_expression, has: {field: type, regex: '(?:^|\.)SqliteCommand$'}}}}
+                - all:
+                    - inside: {kind: assignment_expression, has: {field: left, regex: '(?:^|\.)CommandText$'}}
+                    - inside:
+                        stopBy: end
+                        kind: compilation_unit
+                        has: {stopBy: end, kind: identifier, regex: '^Sqlite(?:Connection|Command|Transaction|DataReader)$'}
+                        not: {has: {stopBy: end, kind: identifier, regex: '^(?:Npgsql|Sql|DuckDB|MySql|ClickHouse|SnowflakeDb)(?:Connection|Command|DataSource)$'}}
+    - hostLanguage: pythonlang
+      injected: sql
+      rule:
+        kind: string_content
+        pattern: $CONTENT
+        inside:
+            kind: string
+            not: {has: {kind: 'interpolation, escape_sequence', stopBy: end}}
+            any:
+                - {nthChild: 1, inside: {kind: argument_list, matches: sqlite-call}}
+                - {inside: {kind: keyword_argument, has: {field: name, regex: '^sql$'}, inside: {kind: argument_list, matches: sqlite-call}}}
+      utils:
+        sqlite-connect: {kind: call, any: [{pattern: sqlite3.connect($$$)}, {pattern: adbc_driver_sqlite.dbapi.connect($$$)}]}
+        cursor-of:
+            kind: call
+            has:
+                field: function
+                kind: attribute
+                all:
+                    - has: {field: attribute, regex: '^cursor$'}
+                    - has: {field: object, any: [{matches: sqlite-connect}, {kind: identifier, pattern: $C, inside: {stopBy: end, kind: 'function_definition, module', has: {stopBy: end, matches: bound-connection}}}]}
+        sqlite-source: {any: [{matches: sqlite-connect}, {matches: cursor-of}]}
+        bound-receiver:
+            any:
+                - {kind: assignment, all: [{has: {field: left, pattern: $R}}, {has: {field: right, matches: sqlite-source}}]}
+                - {kind: as_pattern, all: [{has: {field: alias, has: {pattern: $R}}}, {any: [{has: {matches: cursor-of}}, {has: {stopBy: end, matches: sqlite-connect}}]}]}
+                - {kind: typed_parameter, all: [{has: {pattern: $R}}, {has: {field: type, regex: '^sqlite3\.(?:Connection|Cursor)$'}}]}
+        bound-connection:
+            any:
+                - {kind: assignment, all: [{has: {field: left, pattern: $C}}, {has: {field: right, matches: sqlite-connect}}]}
+                - {kind: as_pattern, all: [{has: {field: alias, has: {pattern: $C}}}, {has: {stopBy: end, matches: sqlite-connect}}]}
+                - {kind: typed_parameter, all: [{has: {pattern: $C}}, {has: {field: type, regex: '^sqlite3\.Connection$'}}]}
+        sqlite-call:
+            inside:
+                kind: call
+                has:
+                    field: function
+                    kind: attribute
+                    all:
+                        - has: {field: attribute, regex: '^(?:execute|executemany|executescript)$'}
+                        - has:
+                            field: object
+                            any:
+                                - matches: sqlite-source
+                                - kind: identifier
+                                  pattern: $R
+                                  any:
+                                    - inside: {stopBy: end, kind: function_definition, has: {stopBy: end, matches: bound-receiver}}
+                                    - inside: {stopBy: end, kind: module, has: {stopBy: end, matches: bound-receiver}}
+    - hostLanguage: rustlang
+      injected: sql
+      rule:
+        kind: string_content
+        pattern: $CONTENT
+        inside:
+            kind: string_literal, raw_string_literal
+            not: {has: {kind: escape_sequence}}
+            any:
+                - nthChild: 1
+                  inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: sqlx-callee}, matches: sqlite-site}}
+                - nthChild: {position: 1, ofRule: {kind: 'string_literal, raw_string_literal'}}
+                  inside: {kind: token_tree, inside: {kind: macro_invocation, has: {field: macro, matches: sqlx-callee}, matches: sqlite-site}}
+                - nthChild: 1
+                  inside: {kind: arguments, inside: {matches: turso-call}}
+      utils:
+        sqlx-name: {regex: '^(?:query(?:_as|_scalar)?(?:_with|_unchecked)?|raw_sql)$'}
+        sqlx-path: {kind: scoped_identifier, all: [{has: {field: path, regex: '^sqlx$'}}, {has: {field: name, matches: sqlx-name}}]}
+        sqlx-import:
+            kind: identifier
+            matches: sqlx-name
+            pattern: $F
+            inside: {stopBy: end, kind: source_file, has: {kind: use_declaration, has: {field: argument, regex: '^sqlx::', has: {stopBy: end, kind: identifier, pattern: $F}}}}
+        sqlx-callee:
+            any:
+                - matches: sqlx-path
+                - matches: sqlx-import
+                - {kind: generic_function, has: {field: function, any: [{matches: sqlx-path}, {matches: sqlx-import}]}}
+        sqlite-type: {kind: type_identifier, regex: '^Sqlite(?:Pool|Connection)?$'}
+        foreign-type: {kind: type_identifier, regex: '^(?:Pg(?:Pool|Connection)|Postgres|MySql(?:Pool|Connection)?|Any(?:Pool|Connection)?)$'}
+        sqlite-site:
+            any:
+                - has: {field: function, kind: generic_function, has: {field: type_arguments, has: {nthChild: 1, any: [{matches: sqlite-type}, {has: {field: name, matches: sqlite-type}}]}}}
+                - inside:
+                    stopBy: end
+                    kind: function_item
+                    has: {field: parameters, has: {stopBy: end, matches: sqlite-type}}
+                    not: {has: {field: parameters, has: {stopBy: end, matches: foreign-type}}}
+        turso-call:
+            kind: call_expression
+            any:
+                - pattern: $R.execute($SQL, $P)
+                - pattern: $R.query($SQL, $P)
+                - pattern: $R.prepare($SQL)
+            inside:
+                stopBy: end
+                kind: function_item
+                inside: {stopBy: end, kind: source_file, has: {kind: use_declaration, has: {field: argument, regex: '^turso(?:$|[^\p{XID_Continue}])'}}}
+                any:
+                    - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $R}}, {has: {field: type, regex: '(?:^|[^\p{XID_Continue}])Connection$'}}]}}
+                    - has: {field: body, has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $R}}, {has: {field: value, has: {stopBy: end, kind: field_identifier, regex: '^connect$'}}}]}}
+    - hostLanguage: swiftlang
+      injected: sql
+      rule:
+        kind: line_str_text, multi_line_str_text
+        pattern: $CONTENT
+        inside:
+            kind: line_string_literal, multi_line_string_literal
+            not: {has: {kind: 'str_escaped_char, interpolated_expression'}}
+            inside: {kind: value_argument, nthChild: 2, inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, kind: simple_identifier, regex: '^sqlite3_(?:prepare(?:16)?(?:_v[23])?|exec)$'}}}}}
+    - hostLanguage: tsxlang
+      injected: sql
+      rule:
+        pattern: $CONTENT
+        not: {matches: postgres-scope}
+        any:
+            - kind: template_string
+              not: {has: {kind: escape_sequence}}
+              any:
+                - inside: {kind: call_expression, field: arguments, has: {field: function, any: [{pattern: sql}, {pattern: sql.withoutTransforms()}]}}
+                - inside: {matches: unsafe-arguments}
+            - kind: string_fragment
+              inside: {kind: string, not: {has: {kind: escape_sequence}}, inside: {matches: unsafe-arguments}}
+      utils:
+        unsafe-arguments: {kind: arguments, inside: {kind: call_expression, has: {field: function, pattern: sql.unsafe}}}
+        postgres-scope:
+            inside:
+                stopBy: end
+                any:
+                    - {kind: pair, has: {field: key, regex: '^pg$'}, inside: {kind: object, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^onDialect(?:OrElse)?$'}}}}}}
+                    - {kind: program, has: {matches: pg-import}, not: {has: {matches: sqlite-import}}}
+        pg-import: {kind: import_statement, has: {field: source, regex: '^["''](?:@effect/sql-pg(?:lite)?|@electric-sql/pglite(?:-tools)?|@pgsql/[^/"'']+|pgsql-parser)(?:/[^"'']*)?["'']$'}}
+        sqlite-import: {kind: import_statement, has: {field: source, regex: '^["''](?:@effect/sql-(?:sqlite-[a-z]+|libsql)|sqlite-vec|node:sqlite|bun:sqlite)(?:/[^"'']*)?["'']$'}}

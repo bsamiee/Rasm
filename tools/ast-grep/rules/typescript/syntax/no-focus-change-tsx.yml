@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-focus-change-tsx
 language: tsxlang
 severity: error
 files: ['libs/**', 'tools/**', 'plugins/**', 'apps/creative-cloud/**', '.claude/**', '.codex/**']
@@ -9,7 +8,7 @@ utils:
         nthChild: 1
         inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(spawn|spawnSync|execFile|execFileSync)$|^(ChildProcess\.)?make$'}}}
     activating-script:
-        regex: '\bactivate\b|\bset\s+frontmost\b|AXRaise'
+        regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+frontmost(?-u:\b)|AXRaise'
     activating-line:
         all:
             - any:
@@ -19,9 +18,9 @@ utils:
                   nthChild: 1
                   inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(exec|execSync)$'}}}
             - any:
-                - regex: '^[`''"]\s*(/usr/bin/)?open(\s|[`''"])'
-                  not: {regex: '^[`''"]\s*(/usr/bin/)?open(\s+([^-\s]\S*|-[^-\s]\S*|--([^a\s]\S*|a[^r\s]\S*|ar[^g\s]\S*|arg[^s\s]\S*|args\S+|ar|arg|a)?))*?\s+(-[eftFWRnjh]*g[A-Za-z]*|--background)(\s|[`''"])'}
-                - regex: '^[`''"]\s*(/usr/bin/)?osascript\s'
+                - regex: '^[`''"][\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(/usr/bin/)?open([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]|[`''"])'
+                  not: {regex: '^[`''"][\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(/usr/bin/)?open([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+([^-[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|-[^-[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|--([^a[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|a[^r[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|ar[^g[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|arg[^s[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|args[^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+|ar|arg|a)?))*?[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+(-[eftFWRnjh]*g[A-Za-z]*|--background)([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]|[`''"])'}
+                - regex: '^[`''"][\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(/usr/bin/)?osascript[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]'
                   matches: activating-script
 rule:
     kind: call_expression

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-nested-bracket-over-values
 language: csharplang
 severity: error
 files: ['**/rhino/**']
@@ -50,6 +49,6 @@ rule:
     has: {field: function, has: {field: expression, pattern: $VALUES}}
     inside: {stopBy: end, matches: scope-body}
 transform:
-    HEAD: {replace: {source: $VALUES, replace: '(?s)^([@\w.]+).*$', by: '$1'}}
+    HEAD: {replace: {source: $VALUES, replace: '(?s)^([@\p{XID_Continue}.]+).*$', by: '$1'}}
 message: '`$HEAD` opens a second `Bracket` inside a `Bracket` over acquired values'
 note: 'Acquire each value through `use` and close the operation with one `Bracket()`'

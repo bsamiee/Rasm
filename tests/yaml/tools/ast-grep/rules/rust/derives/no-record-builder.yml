@@ -1,0 +1,22 @@
+id: no-record-builder
+valid:
+    - |
+      #[derive(Debug, Default)]
+      struct Options {
+          depth: u32,
+      }
+    - |
+      #[derive(Builder)]
+      struct Id(u32);
+invalid:
+    - |
+      #[derive(Debug, Builder)]
+      struct Options {
+          depth: u32,
+      }
+    - |
+      #[derive(TypedBuilder)]
+      #[builder(doc)]
+      struct Options {
+          depth: u32,
+      }

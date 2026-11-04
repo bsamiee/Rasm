@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-deferred-removal
 language: rustlang
 severity: error
 rule:
@@ -13,9 +12,9 @@ rule:
                 - has: {field: arguments, has: {kind: identifier, regex: '^deprecated$', follows: {regex: '^,$'}}}
             - all:
                 - has: {nthChild: 1, kind: identifier, regex: '^cfg(_attr)?$'}
-                - has: {field: arguments, regex: '^\(\s*(any\s*\(\s*\)|false|not\s*\(\s*all\s*\(\s*\)\s*\))\s*[,)]'}
+                - has: {field: arguments, regex: '^\(\p{White_Space}*(any\p{White_Space}*\(\p{White_Space}*\)|false|not\p{White_Space}*\(\p{White_Space}*all\p{White_Space}*\(\p{White_Space}*\)\p{White_Space}*\))\p{White_Space}*[,)]'}
         - kind: 'function_item, struct_item, enum_item, union_item, const_item, static_item, type_item, trait_item, mod_item, macro_definition'
-          has: {field: name, regex: '^_\w', pattern: $MARK}
+          has: {field: name, regex: '^_\p{XID_Continue}', pattern: $MARK}
           not: {has: {kind: visibility_modifier, regex: '^pub$'}}
 message: '`$MARK` keeps an item in place of finishing its removal'
 note: 'Delete the item and move each consumer to its replacement in one change'

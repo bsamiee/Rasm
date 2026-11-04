@@ -1,0 +1,11 @@
+id: no-redundant-conversion-tsx
+valid:
+    - 'const f = (n: number) => `${n}`;'
+    - 'const f = (name: string) => `${name}!`;'
+    - 'const f = (a: string, b: string) => `${a}${b}`;'
+invalid:
+    - 'const f = (name: string) => `${name}`;'
+    - |
+      function label(text: string) {
+          return `${text}`;
+      }

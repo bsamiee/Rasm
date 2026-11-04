@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-forwarding-function-swift
 language: swiftlang
 severity: error
 utils:
@@ -140,7 +139,7 @@ utils:
 rule:
     not:
         any:
-            - has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}
+            - has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)(?-u:\b)'}}
             - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, has: {kind: modifiers, has: {kind: attribute, regex: '^@resultBuilder$'}}}}
     any:
         - matches: plain-parameters

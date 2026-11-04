@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-discriminant-match
 language: rustlang
 severity: error
 utils:
@@ -26,7 +25,7 @@ utils:
     discriminant-pattern:
         kind: match_pattern
         any:
-            - regex: '^(-?\d\w*|b''(\\.|[^''\\])'')$'
+            - regex: '^(-?[0-9]\p{XID_Continue}*|b''(\\.|[^''\\])'')$'
             - has: {field: condition, kind: binary_expression, all: [{has: {field: operator, regex: '^==$'}}, {has: {field: right, kind: type_cast_expression, has: {field: value, kind: scoped_identifier}}}]}
     self-arm:
         kind: match_arm
@@ -37,8 +36,8 @@ utils:
     fallback-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, regex: '^(_|[a-z_]\w*)$'}
-            - has: {field: value, regex: '^\{?\s*(return\s+)?(Err\s*\(|None\b)'}
+            - has: {field: pattern, kind: match_pattern, regex: '^(_|[a-z_]\p{XID_Continue}*)$'}
+            - has: {field: value, regex: '^\{?\p{White_Space}*(return\p{White_Space}+)?(Err\p{White_Space}*\(|None(?-u:\b))'}
     decode-arms:
         all:
             - has: {kind: match_arm, nthChild: {position: 1, reverse: true, ofRule: {kind: match_arm}}, matches: fallback-arm}

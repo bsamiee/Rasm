@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-native-timer-swift
 language: swiftlang
 severity: error
 ignores: ['tests/swift/fixtures/**']

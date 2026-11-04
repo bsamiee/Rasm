@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-quantized-color-filter
 language: csharplang
 severity: error
 rule:
@@ -13,7 +12,7 @@ rule:
                 kind: argument_list
                 inside:
                     kind: invocation_expression
-                    matches: {csharp-owner-call: {type: {regex: '^(SKColorFilter|SKImageFilter|SKShader)$'}, member: {regex: '^Create\w*$'}}}
+                    matches: {csharp-owner-call: {type: {regex: '^(SKColorFilter|SKImageFilter|SKShader)$'}, member: {regex: '^Create\p{XID_Continue}*$'}}}
                     not: {has: {field: function, regex: 'Lit(Diffuse|Specular)$'}}
 message: '`$CAST` quantizes a float color to 8 bits for a Skia filter or shader'
 note: '`SKColorFilter.CreateColorMatrix` takes floats; `SKShader.CreateColor(color, space)` takes `SKColorF`; lighting filters take `SKColor`'

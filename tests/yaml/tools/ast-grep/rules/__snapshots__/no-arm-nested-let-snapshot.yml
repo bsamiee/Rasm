@@ -1,0 +1,26 @@
+id: no-arm-nested-let
+snapshots:
+  "fn f(x: Option<u32>, cache: &Cache) -> u32 {\n    match x {\n        Some(k) => if let Some(v) = cache.get(k) { v } else { 0 },\n        _ => 0,\n    }\n}\n":
+    labels:
+    - source: Some(k)
+      message: Arm nesting the `if let`
+      style: primary
+      start: 67
+      end: 74
+    - source: _ => 0,
+      message: Catch-all arm the `else` repeats
+      style: secondary
+      start: 134
+      end: 141
+  "fn f(x: Option<u32>, cache: &Cache) -> u32 {\n    match x {\n        Some(k) => {\n            if let Some(v) = cache.get(k) {\n                v\n            } else {\n                0\n            }\n        }\n        _ => 0,\n    }\n}\n":
+    labels:
+    - source: Some(k)
+      message: Arm nesting the `if let`
+      style: primary
+      start: 67
+      end: 74
+    - source: _ => 0,
+      message: Catch-all arm the `else` repeats
+      style: secondary
+      start: 213
+      end: 220

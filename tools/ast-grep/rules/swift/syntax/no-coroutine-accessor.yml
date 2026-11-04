@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-coroutine-accessor
 language: swiftlang
 severity: error
 utils:
@@ -13,7 +12,7 @@ utils:
             - not:
                 has:
                     kind: control_transfer_statement
-                    regex: '^yield\b'
+                    regex: '^yield(?-u:\b)'
                     nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
     called-accessor:
         kind: call_expression

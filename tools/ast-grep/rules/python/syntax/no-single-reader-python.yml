@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-single-reader-python
 language: pythonlang
 severity: error
 utils:
@@ -41,7 +40,7 @@ utils:
         any:
             - inside: {kind: subscript, field: value}
             - inside: {kind: attribute, field: object, has: {field: attribute, regex: '^get$'}, inside: {kind: call, field: function}}
-            - follows: {pattern: $$OPERATOR, regex: '^(not\s+)?in$'}
+            - follows: {pattern: $$OPERATOR, regex: '^(not[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?in$'}
     reference:
         kind: identifier
         pattern: $NAME
@@ -149,7 +148,7 @@ rule:
     any:
         - kind: assignment
           all:
-            - has: {field: left, kind: identifier, pattern: $NAME, not: {regex: '^__\w+__$'}}
+            - has: {field: left, kind: identifier, pattern: $NAME, not: {regex: '^__\p{XID_Continue}+__$'}}
             - not: {has: {field: type, kind: type}}
             - inside:
                 matches: module-statement

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-serialized-suite-without-time-limit
 language: swiftlang
 severity: error
 files: ['tests/swift/**']

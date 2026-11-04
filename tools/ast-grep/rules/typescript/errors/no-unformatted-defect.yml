@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-unformatted-defect
 language: tsxlang
 severity: error
 utils:
     schema-member:
         kind: member_expression
-        has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
+        has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Schema$'}}}}
     defect-schema:
         kind: call_expression
         any:
@@ -58,7 +57,7 @@ utils:
     refinement:
         any:
             - kind: member_expression
-              has: {field: object, matches: {effect-module: {name: {regex: '\bPredicate$'}}}}
+              has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Predicate$'}}}}
             - kind: call_expression
               has: {field: function, matches: schema-member, has: {field: property, regex: '^is$'}}
     rendered:
@@ -75,7 +74,7 @@ utils:
                             field: function
                             any:
                                 - matches: refinement
-                                - matches: {effect-module-member: {module: {regex: '\bFormatter$'}, member: {regex: '^format$'}}}
+                                - matches: {effect-module-member: {module: {regex: '(?-u:\b)Formatter$'}, member: {regex: '^format$'}}}
 rule:
     kind: identifier, member_expression
     pattern: $TEXT

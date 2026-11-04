@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-growth-in-endless-loop-swift
 language: swiftlang
 severity: error
 utils:
@@ -13,8 +12,8 @@ utils:
             has:
                 stopBy: {matches: swift-function-scope}
                 any:
-                    - {kind: control_transfer_statement, regex: '^(return|throw)\b'}
-                    - {kind: control_transfer_statement, regex: '^break\s+\S'}
+                    - {kind: control_transfer_statement, regex: '^(return|throw)(?-u:\b)'}
+                    - {kind: control_transfer_statement, regex: '^break\p{White_Space}+\P{White_Space}'}
                     - kind: control_transfer_statement
                       regex: '^break$'
                       inside: {stopBy: {kind: &loop 'for_statement, while_statement, repeat_while_statement, switch_statement'}, kind: *loop, all: [{matches: endless-condition}]}

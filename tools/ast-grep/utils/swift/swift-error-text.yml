@@ -3,7 +3,7 @@ id: swift-error-text
 language: swiftlang
 utils:
     error-type:
-        regex: '^(?:(?:any|some)\s+)?Swift\.Error$|^Foundation\.NSError$'
+        regex: '^(?:(?:any|some)\p{White_Space}+)?Swift\.Error$|^Foundation\.NSError$'
     error-value:
         any:
             - all:

@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-control-flow-expression-statement
 language: pythonlang
 severity: error
 utils:
     iteration:
         any:
             - kind: generator_expression
-              not: {has: {kind: for_in_clause, regex: '^async\b'}}
+              not: {has: {kind: for_in_clause, regex: '^async(?-u:\b)'}}
             - kind: call
               has:
                 field: function

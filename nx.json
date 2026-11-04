@@ -16,54 +16,11 @@
                         "outputs": [ "{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*", "!{workspaceRoot}/.artifacts/dotnet/obj/*.cs/*", "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/restore.binlog" ]
                     },
                     "grammar": { "dependsOn": [ "grammar:*" ] },
-                    "grammar:typescript": { "options": { "language": "typescript", "scanner": "tree-sitter-typescript/tsx/src/scanner.c" }, "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/{CMakeLists.txt,typescript/**/*}", { "externalDependencies": [ "tree-sitter-javascript", "tree-sitter-typescript" ] } ] },
-                    "grammar:rust": { "options": { "language": "rust" }, "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/{CMakeLists.txt,rust/**/*}", { "externalDependencies": [ "tree-sitter-rust" ] } ] },
-                    "grammar:bash": {
-                        "options": { "language": "bash", "cmakeArguments": "-DSCANNER_COMPILE_OPTIONS:STRING=\"$<$<C_COMPILER_ID:GNU>:-fno-strict-aliasing>\" -DAST_GREP_CONFIG:FILEPATH=\"../../../sgconfig.yml\"" },
-                        "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/{CMakeLists.txt,bash/**/*}", "{workspaceRoot}/sgconfig.yml", { "externalDependencies": [ "tree-sitter-bash" ] }, { "runtime": "yq --version" } ]
-                    },
-                    "grammar:swift": {
-                        "options": { "language": "swift", "cmakeArguments": "-DSCANNER_COMPILE_OPTIONS:STRING=\"$<$<C_COMPILER_FRONTEND_VARIANT:MSVC>:/J>;$<$<AND:$<C_COMPILER_FRONTEND_VARIANT:GNU>,$<C_COMPILER_ID:AppleClang,Clang,GNU>>:-funsigned-char>\"" },
-                        "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/{CMakeLists.txt,swift/**/*}", { "externalDependencies": [ "tree-sitter-swift" ] } ]
-                    },
-                    "grammar:java": { "options": { "language": "java", "parser": "-DGRAMMAR_SOURCE:FILEPATH=\"java/grammar.js\"" }, "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/{CMakeLists.txt,java/**/*}", { "externalDependencies": [ "tree-sitter-java" ] } ] },
-                    "grammar:xml": {
-                        "options": {
-                            "language": "xml",
-                            "parser": "-DPARSER_SOURCE:FILEPATH=\"../../../node_modules/@tree-sitter-grammars/tree-sitter-xml/xml/src/parser.c\" -DSCANNER_SOURCE:FILEPATH=\"../../../node_modules/@tree-sitter-grammars/tree-sitter-xml/xml/src/scanner.c\"",
-                            "cmakeArguments": "-DSCANNER_COMPILE_OPTIONS:STRING=\"$<$<C_COMPILER_ID:GNU>:-fno-strict-aliasing>\""
-                        },
-                        "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/CMakeLists.txt", { "externalDependencies": [ "@tree-sitter-grammars/tree-sitter-xml" ] } ]
-                    },
-                    "grammar:python": {
-                        "options": { "language": "python", "cmakeArguments": "-DSCANNER_COMPILE_OPTIONS:STRING=\"$<$<C_COMPILER_ID:GNU>:-fno-strict-aliasing>\"" },
-                        "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/{CMakeLists.txt,python/**/*}", { "externalDependencies": [ "tree-sitter-python" ] } ]
-                    },
-                    "grammar:sql": {
-                        "options": { "language": "sql", "sourceDirectory": "tools/ast-grep/grammars/sql", "parser": "-DNODE_MODULES_DIR:PATH=\"../../../../node_modules\"" },
-                        "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/{sql,typescript}/**/*", { "externalDependencies": [ "refa", "tree-sitter-javascript", "tree-sitter-sqlite3", "tree-sitter-typescript" ] } ]
-                    },
-                    "grammar:csharp": {
-                        "options": { "language": "csharp", "scanner": "tree-sitter-c-sharp/src/scanner.c", "cmakeArguments": "-DSCANNER_COMPILE_OPTIONS:STRING=\"$<$<C_COMPILER_ID:GNU>:-fno-strict-aliasing>\"" },
-                        "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/{CMakeLists.txt,csharp/**/*}", { "externalDependencies": [ "tree-sitter-c-sharp" ] } ]
-                    },
+                    "grammar:bash": { "options": { "cmakeArguments": "-DAST_GREP_CONFIG:FILEPATH=\"../../../sgconfig.yml\"" }, "inputs": [ "...", "{workspaceRoot}/sgconfig.yml", { "runtime": "yq --version" } ] },
+                    "grammar:swift": { "options": { "cmakeArguments": "-DSCANNER_COMPILE_OPTIONS:STRING=\"$<$<C_COMPILER_FRONTEND_VARIANT:MSVC>:/J>;$<$<AND:$<C_COMPILER_FRONTEND_VARIANT:GNU>,$<C_COMPILER_ID:AppleClang,Clang,GNU>>:-funsigned-char>\"" } },
+                    "grammar:sql": { "options": { "commands": [ "cmake --fresh -S tools/ast-grep/grammars/sql -B .cache/ast-grep/sql -DCMAKE_BUILD_TYPE=Release -DNODE_MODULES_DIR:PATH=\"$NX_WORKSPACE_ROOT/node_modules\"", "cmake --build .cache/ast-grep/sql --config Release" ] } },
+                    "test:grammar": { "dependsOn": [ "test:grammar:*" ] },
                     "outline": { "command": "ast-grep outline --custom-languages allow --color never", "dependsOn": [ "grammar" ] },
-                    "lint:ast-grep:tree": {
-                        "inputs": [
-                            "pythonFiles",
-                            "rustFiles",
-                            "swiftFiles",
-                            "javaFiles",
-                            "yamlFiles",
-                            "{workspaceRoot}/**/*.{bash,bats,cgi,command,env,fcgi,ksh,sh,tmux,tool,zsh}",
-                            "{workspaceRoot}/**/*.cs",
-                            "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}",
-                            "{workspaceRoot}/**/*.{py3,bzl,bazel}",
-                            "{workspaceRoot}/**/*.{xml,csproj,props,targets,slnx}",
-                            "{workspaceRoot}/**/NuGet.config",
-                            "{workspaceRoot}/**/*.sql"
-                        ]
-                    },
                     "typecheck:tsc": {},
                     "typecheck:swift": { "command": "swift build --build-tests --disable-automatic-resolution", "parallelism": false },
                     "typecheck:javac": {
@@ -126,7 +83,7 @@
                     "format:tombi": { "command": "tombi format", "metadata": { "extensions": [ ".toml" ] } },
                     "format:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -conf .config/yamlfmt.yaml", "configurations": { "files": { "command": "yamlfmt -conf .config/yamlfmt.yaml" } }, "metadata": { "extensions": [ ".yaml", ".yml" ] } },
                     "format:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -w --", "configurations": { "files": { "command": "shfmt -w --" } }, "metadata": { "extensions": [ ".sh" ] } },
-                    "check": { "dependsOn": [ "typecheck:*", "lint:*", "test" ] },
+                    "check": { "dependsOn": [ "typecheck:*", "lint:*", "test", "test:ast-grep", "test:grammar" ] },
                     "upgrade": { "dependsOn": [ "upgrade:*", { "projects": [ "tag:language:rust" ], "target": "upgrade:cargo" }, { "projects": [ "tag:build:swiftpm" ], "target": "upgrade:swiftpm" }, { "projects": [ "tag:build:xcode" ], "target": "upgrade:xcode" } ] },
                     "upgrade:dotnet": { "command": "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props" },
                     "upgrade:python": { "executor": "nx:run-commands", "options": { "commands": [ "pixi update", "pixi run --locked -e hdf5 pixi run --locked -e default uv sync --upgrade" ], "parallel": false } },
@@ -166,6 +123,7 @@
         "swift": [ "{workspaceRoot}/{Package.swift,Package.resolved}", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ],
         "xcode": [ "{workspaceRoot}/Xcode.xcconfig" ],
         "swiftlint": [ "{workspaceRoot}/.swiftlint.yml", { "runtime": "swiftlint version" } ],
+        "astGrep": [ "{workspaceRoot}/{mise.toml,sgconfig.yml}", "{workspaceRoot}/**/.{gitignore,ignore}", { "externalDependencies": [] }, { "dependentTasksOutputFiles": "**/*.so", "transitive": true }, { "runtime": "ast-grep --version" } ],
         "pythonFiles": [ "{workspaceRoot}/**/*.{py,pyi}" ],
         "rustFiles": [ "{workspaceRoot}/**/*.rs" ],
         "swiftFiles": [ "{workspaceRoot}/**/*.swift" ],
@@ -177,18 +135,12 @@
     "targetDefaults": {
         "grammar:*": {
             "executor": "nx:run-commands",
-            "options": {
-                "...": true,
-                "commands": [
-                    "cmake -S \"{args.sourceDirectory ?? tools/ast-grep/grammars}\" -B \".cache/ast-grep/{args.language}\" -DCMAKE_BUILD_TYPE=Release {args.parser ?? -DGRAMMAR_SOURCE:FILEPATH=\"{args.language}/grammar.js\" -DSCANNER_SOURCE:FILEPATH=\"../../../node_modules/{args.scanner ?? tree-sitter-{args.language}/src/scanner.c}\"} {args.cmakeArguments}",
-                    "cmake --build \".cache/ast-grep/{args.language}\" --config Release"
-                ],
-                "parallel": false
-            },
-            "inputs": [ "...", { "runtime": "tree-sitter --version" }, { "runtime": "cmake --version" }, { "runtime": "node -p \"[process.version, process.platform, process.arch].join('-')\"" } ],
-            "outputs": [ "{workspaceRoot}/.cache/ast-grep/{options.language}.{so,yml}" ],
-            "cache": true
+            "options": { "parallel": false },
+            "inputs": [ "...", "{workspaceRoot}/tools/ast-grep/grammars/{CMakeLists.txt,compose.c}", { "runtime": "tree-sitter --version" }, { "runtime": "cmake --version" }, { "runtime": "node -p \"[process.version, process.platform, process.arch].join('-')\"" } ],
+            "cache": true,
+            "parallelism": false
         },
+        "test:grammar:*": { "inputs": [ "...", { "dependentTasksOutputFiles": "**/*.so" }, { "runtime": "tree-sitter --version" } ], "cache": true },
         "restore{,:*.cs}": { "command": "dotnet restore \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"", "parallelism": false },
         "build{,:*}": [
             { "cache": true },
@@ -359,11 +311,7 @@
         },
         "lint:*": { "cache": true },
         "rewrite:*": { "dependsOn": [ "grammar" ], "parallelism": false },
-        "lint:ast-grep:*": {
-            "dependsOn": [ "grammar" ],
-            "inputs": [ "...", "{workspaceRoot}/{mise.toml,sgconfig.yml}", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/tools/ast-grep/{rules,utils}/**/*.yml", { "externalDependencies": [] }, { "dependentTasksOutputFiles": "**/*.so", "transitive": true }, { "runtime": "ast-grep --version" } ],
-            "cache": true
-        },
+        "lint:ast-grep:*": { "dependsOn": [ "grammar" ], "inputs": [ "...", "astGrep" ], "cache": true },
         "{typecheck:ty,typecheck:mypy}:*": { "inputs": [ "...", "python" ], "cache": true },
         "lint:refurb*": { "cache": false },
         "lint:ruff:*": { "inputs": [ "python", "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}" ], "cache": true },
@@ -424,6 +372,7 @@
                 "inputs": [ "...", "typescript", "vite", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ],
                 "outputs": [ "{workspaceRoot}/.artifacts/typescript/vitest/{projectRoot}" ]
             },
+            { "filter": { "projects": [ "@rasm/function-hooks" ] }, "dependsOn": [ "...", { "projects": [ "rasm" ], "target": "grammar:bash" } ], "inputs": [ "...", { "dependentTasksOutputFiles": "**/bash.{so,yml}" } ] },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo nextest run --locked --package {projectName}", "inputs": [ "default", "^default", "rust", "nextest" ], "parallelism": false },
             { "filter": { "projects": [ "tag:host:dylint" ] }, "inputs": [ "...", { "runtime": "cargo dylint --version" } ] },
             {

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-reawaited-select-future
 language: rustlang
 severity: error
 utils:
@@ -10,7 +9,7 @@ utils:
             - follows: {kind: mutable_specifier, follows: {regex: '^&$', follows: {regex: '^=$', follows: {kind: identifier, pattern: $VALUE}}}}
               precedes: {regex: '^=>$', precedes: {matches: handler}}
             - follows: {regex: '^=$', follows: {kind: identifier, pattern: $VALUE}}
-              precedes: {regex: '^\.$', precedes: {kind: identifier, regex: '^as_mut$', precedes: {kind: token_tree, regex: '^\(\s*\)$', precedes: {regex: '^=>$', precedes: {matches: handler}}}}}
+              precedes: {regex: '^\.$', precedes: {kind: identifier, regex: '^as_mut$', precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$', precedes: {regex: '^=>$', precedes: {matches: handler}}}}}
     output-write:
         kind: identifier
         pattern: $OUTPUT
@@ -19,7 +18,7 @@ utils:
         any:
             - matches: output-write
             - kind: token_tree
-              regex: '^\{\s*(r#)?\w+\s*=\s*Some\s*\(\s*(r#)?\w+\s*\)\s*;?\s*\}$'
+              regex: '^\{\p{White_Space}*(r#)?\p{XID_Continue}+\p{White_Space}*=\p{White_Space}*Some\p{White_Space}*\(\p{White_Space}*(r#)?\p{XID_Continue}+\p{White_Space}*\)\p{White_Space}*;?\p{White_Space}*\}$'
               has: {matches: output-write}
     awaited:
         kind: await_expression

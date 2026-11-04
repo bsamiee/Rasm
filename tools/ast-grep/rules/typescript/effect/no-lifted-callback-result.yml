@@ -1,14 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-lifted-callback-result
 language: tsxlang
 severity: error
 utils:
     succeed-module:
-        matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Sink|Result)$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)(Effect|Stream|Channel|Sink|Result)$'}}}
     option-module:
-        matches: {effect-module: {name: {regex: '\bOption$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Option$'}}}
     constant-module:
-        matches: {effect-module: {name: {regex: '\b(Effect|Option)$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)(Effect|Option)$'}}}
     lifted-body:
         kind: call_expression, member_expression
         any:
@@ -98,17 +97,17 @@ rule:
                           inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: property, regex: '^andThen$'}}}}
             - not:
                 all:
-                    - has: {field: function, all: [{has: {field: property, regex: '^flatMap$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}]}
+                    - has: {field: function, all: [{has: {field: property, regex: '^flatMap$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}]}
                     - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: lifting-callback, not: {matches: void-callback}}}
         - all:
             - has: {field: function, kind: member_expression, pattern: $M.$F, has: {field: property, regex: '^catch$'}}
             - not: {has: {field: type_arguments, kind: type_arguments}}
             - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: recovering-handler}}
             - any:
-                - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bStream$'}}}}}
+                - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Stream$'}}}}}
                 - all:
                     - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: succeeding-handler}}
-                    - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}
+                    - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}
             - not: {has: {kind: comment, stopBy: end}}
 constraints:
     LIFT: {regex: '^(succeed|fail)$'}

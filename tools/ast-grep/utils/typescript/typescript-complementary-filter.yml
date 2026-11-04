@@ -3,11 +3,11 @@ id: typescript-complementary-filter
 language: tsxlang
 utils:
     list-module:
-        matches: {effect-module: {name: {regex: '\b(Array|Chunk)$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk)$'}}}
     module-object:
-        matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}
     predicate-not:
-        matches: {effect-module-member: {module: {regex: '\bPredicate$'}, member: {regex: '^not$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Predicate$'}, member: {regex: '^not$'}}}
     filtering:
         kind: call_expression
         all:

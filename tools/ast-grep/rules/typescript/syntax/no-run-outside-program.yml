@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-run-outside-program
 language: tsxlang
 severity: error
 ignores: ['**/main.ts', '**/main.tsx', '.codex/hooks/**']

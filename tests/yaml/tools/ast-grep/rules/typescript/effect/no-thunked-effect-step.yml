@@ -1,0 +1,18 @@
+id: no-thunked-effect-step
+valid:
+    - |
+      import { Effect } from "effect";
+      const a = Effect.tap(task, (n) => Effect.log(n));
+    - |
+      import { Effect } from "effect";
+      const a = Effect.tap(task, () => Effect.log("done"));
+    - |
+      import { Effect } from "effect";
+      const a = Effect.tap(task, Effect.void);
+invalid:
+    - |
+      import { Effect } from "effect";
+      const a = Effect.tap(task, () => Effect.void);
+    - |
+      import { Effect } from "effect";
+      const a = Effect.andThen(task, () => Effect.never);

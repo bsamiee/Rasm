@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-promise-outside-boundary
 language: tsxlang
 severity: error
 ignores: ['plugins/function-hooks/**', '.claude/workflows/**']
@@ -103,7 +102,7 @@ utils:
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
     run-promise:
         kind: call_expression
         any:
@@ -120,7 +119,7 @@ utils:
                 - kind: member_expression
                   all:
                     - has: {field: property, regex: '^(promise|tryPromise)$'}
-                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
     conversion-boundary:
         any:
             - kind: arrow_function, function_expression
@@ -208,7 +207,7 @@ transform:
     ITERABLE_HEAD: {replace: {source: $ITERABLE, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
     TRY: {replace: {source: $AWAITED, replace: '(?s)^.+$', by: 'Effect.tryPromise(<thunk>)'}}
     STREAM: {replace: {source: $ITERABLE, replace: '(?s)^.+$', by: 'Stream.fromAsyncIterable'}}
-    MEMBER: {replace: {source: $CALLEE, replace: '(?s)^.*\b(\w+)\W*$', by: '$1'}}
+    MEMBER: {replace: {source: $CALLEE, replace: '(?s)^.*(?-u:\b)([^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)[\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$', by: '$1'}}
     FETCH: {replace: {source: $MEMBER, replace: '^fetch$', by: 'HttpClient'}}
     ALL: {replace: {source: $FETCH, replace: '^all$', by: 'Effect.all'}}
     ALL_SETTLED: {replace: {source: $ALL, replace: '^allSettled$', by: 'Effect.all(<effects>, { mode: "result" })'}}

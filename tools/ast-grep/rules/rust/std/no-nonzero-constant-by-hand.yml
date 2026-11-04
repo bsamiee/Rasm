@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-nonzero-constant-by-hand
 language: rustlang
 severity: error
 utils:
     minimum:
-        regex: '^((::)?(std|core)::num::)?NonZero(::<\w+>)?::MIN$'
+        regex: '^((::)?(std|core)::num::)?NonZero(::<\p{XID_Continue}+>)?::MIN$'
 rule:
     kind: call_expression
     pattern: $COMPUTED
@@ -13,7 +12,7 @@ rule:
         - not: {inside: {kind: field_declaration, stopBy: {kind: 'block, field_declaration'}}}
         - any:
             - all:
-                - has: {field: function, kind: scoped_identifier, regex: '^((::)?(std|core)::num::)?NonZero(::<\w+>)?::saturating_add$'}
+                - has: {field: function, kind: scoped_identifier, regex: '^((::)?(std|core)::num::)?NonZero(::<\p{XID_Continue}+>)?::saturating_add$'}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: minimum}}, {has: {nthChild: 2, kind: integer_literal}}, {not: {has: {nthChild: 3}}}]}
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^saturating_add$'}}, {has: {field: value, matches: minimum}}]}

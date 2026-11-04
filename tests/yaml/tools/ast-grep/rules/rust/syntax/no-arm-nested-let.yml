@@ -1,0 +1,44 @@
+id: no-arm-nested-let
+valid:
+    - |
+      fn f(x: Option<u32>, cache: &Cache) -> u32 {
+          match x {
+              Some(k) => if let Some(v) = cache.get(k) { v } else { 1 },
+              _ => 0,
+          }
+      }
+    - |
+      fn f(x: Option<u32>, cache: &Cache) -> u32 {
+          match x {
+              Some(k) if k > 0 => if let Some(v) = cache.get(k) { v } else { 0 },
+              _ => 0,
+          }
+      }
+    - |
+      fn f(x: Option<Result<u32, ()>>) -> u32 {
+          match x {
+              Some(r) => if let Ok(v) = r { v } else { 0 },
+              _ => 0,
+          }
+      }
+invalid:
+    - |
+      fn f(x: Option<u32>, cache: &Cache) -> u32 {
+          match x {
+              Some(k) => if let Some(v) = cache.get(k) { v } else { 0 },
+              _ => 0,
+          }
+      }
+    - |
+      fn f(x: Option<u32>, cache: &Cache) -> u32 {
+          match x {
+              Some(k) => {
+                  if let Some(v) = cache.get(k) {
+                      v
+                  } else {
+                      0
+                  }
+              }
+              _ => 0,
+          }
+      }

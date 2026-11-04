@@ -8,4 +8,4 @@ rule:
             kind: member_expression
             field: object
             has: {field: property, regex: '^at$'}
-            inside: {kind: call_expression, field: function, has: {field: arguments, regex: '^\(\s*(0|-1)\s*\)$'}}
+            inside: {kind: call_expression, field: function, has: {field: arguments, regex: '^\([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(0|-1)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\)$'}}

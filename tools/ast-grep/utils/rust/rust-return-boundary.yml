@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-return-boundary
+language: rustlang
+rule:
+    kind: 'function_item, closure_expression, async_block, gen_block, const_block'

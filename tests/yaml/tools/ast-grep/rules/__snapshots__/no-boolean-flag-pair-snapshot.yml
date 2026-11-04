@@ -1,0 +1,60 @@
+id: no-boolean-flag-pair
+snapshots:
+  "fn render(flags: [bool; 2]) {}\n":
+    labels:
+    - source: "flags: [bool; 2]"
+      message: First flag
+      style: secondary
+      start: 10
+      end: 26
+    - source: render
+      message: Holds the flags
+      style: primary
+      start: 3
+      end: 9
+  "fn render(text: &str, bold: Option<bool>, italic: bool) {}\n":
+    labels:
+    - source: "bold: Option<bool>"
+      message: First flag
+      style: secondary
+      start: 22
+      end: 40
+    - source: "italic: bool"
+      message: Second flag
+      style: secondary
+      start: 42
+      end: 54
+    - source: render
+      message: Holds the flags
+      style: primary
+      start: 3
+      end: 9
+  "fn split(text: &str) -> (bool, bool) {\n    (text.is_empty(), text.is_ascii())\n}\n":
+    labels:
+    - source: (bool, bool)
+      message: First flag
+      style: secondary
+      start: 24
+      end: 36
+    - source: split
+      message: Holds the flags
+      style: primary
+      start: 3
+      end: 8
+  "struct Style {\n    bold: bool,\n    italic: Option<()>,\n}\n":
+    labels:
+    - source: "bold: bool"
+      message: First flag
+      style: secondary
+      start: 19
+      end: 29
+    - source: "italic: Option<()>"
+      message: Second flag
+      style: secondary
+      start: 35
+      end: 53
+    - source: Style
+      message: Holds the flags
+      style: primary
+      start: 7
+      end: 12

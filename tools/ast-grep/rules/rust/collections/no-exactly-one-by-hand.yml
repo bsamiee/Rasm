@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-exactly-one-by-hand
 language: rustlang
 severity: error
 rule:
@@ -7,6 +6,6 @@ rule:
     pattern: ($I.next(), $I.next())
     inside:
         kind: let_condition
-        has: {field: pattern, kind: tuple_pattern, regex: '^\(\s*Some\(\s*\w+\s*\)\s*,\s*None\s*\)$'}
+        has: {field: pattern, kind: tuple_pattern, regex: '^\(\p{White_Space}*Some\(\p{White_Space}*\p{XID_Continue}+\p{White_Space}*\)\p{White_Space}*,\p{White_Space}*None\p{White_Space}*\)$'}
 message: '`$I` reads two items to test for exactly one'
 note: 'Match `<iterator>.exactly_one()` against `Ok(<item>)` (`use itertools::Itertools as _;`)'

@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-literal-needles-by-hand
 language: rustlang
 severity: error
 utils:
     text-type:
-        regex: '^&?(''\w+\s+)?(mut\s+)?((std::)?(borrow::)?Cow<.*\bstr>|(std::string::)?String|str)$'
+        regex: '^&?(''\p{XID_Continue}+\p{White_Space}+)?(mut\p{White_Space}+)?((std::)?(borrow::)?Cow<.*(?-u:\b)str>|(std::string::)?String|str)$'
     text-call:
         kind: call_expression
         has: {field: function, kind: field_expression, has: {field: field, regex: '^(as_str|trim|trim_start|trim_end|to_lowercase|to_uppercase|to_ascii_lowercase|to_ascii_uppercase|to_string_lossy|to_string)$'}}

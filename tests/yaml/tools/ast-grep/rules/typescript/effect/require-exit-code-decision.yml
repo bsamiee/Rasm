@@ -1,0 +1,28 @@
+id: require-exit-code-decision
+valid:
+    - |
+      async function list(ctx: Ctx) {
+          const { stdout, exitCode } = await ctx.process.run(["ls"]);
+          if (exitCode !== 0) throw new Error("ls failed");
+          return stdout;
+      }
+    - |
+      async function list(ctx: Ctx) {
+          const result = await ctx.process.run(["ls"]);
+          return result.exitCode === 0 ? result.stdout : "";
+      }
+invalid:
+    - |
+      async function list(ctx: Ctx) {
+          const { stdout } = await ctx.process.run(["ls"]);
+          return stdout;
+      }
+    - |
+      async function list(ctx: Ctx) {
+          const result = await ctx.process.run(["ls"]);
+          return result.stdout;
+      }
+    - |
+      async function list(ctx: Ctx) {
+          return (await ctx.process.run(["ls"])).stdout;
+      }

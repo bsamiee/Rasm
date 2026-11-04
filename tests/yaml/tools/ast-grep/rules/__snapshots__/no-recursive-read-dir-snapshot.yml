@@ -1,0 +1,26 @@
+id: no-recursive-read-dir
+snapshots:
+  "fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {\n    for entry in std::fs::read_dir(dir)? {\n        let path = entry?.path();\n        if path.is_dir() {\n            walk(&path, out)?;\n        } else {\n            out.push(path);\n        }\n    }\n    Ok(())\n}\n":
+    labels:
+    - source: walk(&path, out)
+      message: Descends into each entry
+      style: secondary
+      start: 185
+      end: 201
+    - source: std::fs::read_dir(dir)
+      message: Lists one directory level
+      style: primary
+      start: 86
+      end: 108
+  "fn walk(root: PathBuf) -> std::io::Result<Vec<PathBuf>> {\n    let mut queue = vec![root];\n    let mut files = Vec::new();\n    while let Some(dir) = queue.pop() {\n        for entry in fs::read_dir(&dir)? {\n            let path = entry?.path();\n            if path.is_dir() {\n                queue.push(path);\n            } else {\n                files.push(path);\n            }\n        }\n    }\n    Ok(files)\n}\n":
+    labels:
+    - source: queue.push(path)
+      message: Descends into each entry
+      style: secondary
+      start: 290
+      end: 306
+    - source: fs::read_dir(&dir)
+      message: Lists one directory level
+      style: primary
+      start: 183
+      end: 201

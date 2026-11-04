@@ -1,0 +1,365 @@
+================================================================================
+super_expression: member call
+================================================================================
+
+class D: C {
+    override func f() {
+        super.f()
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (class_declaration
+    name: (type_identifier)
+    (inheritance_specifier
+      inherits_from: (user_type
+        (type_identifier)))
+    body: (class_body
+      (function_declaration
+        (modifiers
+          (member_modifier))
+        name: (simple_identifier)
+        body: (function_body
+          (statements
+            (call_expression
+              (navigation_expression
+                target: (super_expression)
+                suffix: (navigation_suffix
+                  suffix: (simple_identifier)))
+              (call_suffix
+                (value_arguments)))))))))
+
+================================================================================
+inheritance_modifier: final
+================================================================================
+
+final class C {}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (class_declaration
+    (modifiers
+      (inheritance_modifier))
+    name: (type_identifier)
+    body: (class_body)))
+
+================================================================================
+diagnostic: warning and sourceLocation
+================================================================================
+
+#warning("w")
+#sourceLocation(file: "a.swift", line: 1)
+#sourceLocation()
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (diagnostic)
+  (diagnostic)
+  (diagnostic))
+
+================================================================================
+tuple_expression: empty
+================================================================================
+
+let u = ()
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (property_declaration
+    (value_binding_pattern)
+    name: (pattern
+      bound_identifier: (simple_identifier))
+    value: (tuple_expression)))
+
+================================================================================
+_simple_user_type: type arguments on a called type
+================================================================================
+
+let v = Set<Int>([1])
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (property_declaration
+    (value_binding_pattern)
+    name: (pattern
+      bound_identifier: (simple_identifier))
+    value: (constructor_expression
+      constructed_type: (user_type
+        (type_identifier)
+        (type_arguments
+          name: (user_type
+            (type_identifier))))
+      (constructor_suffix
+        (value_arguments
+          (value_argument
+            value: (array_literal
+              element: (integer_literal))))))))
+
+================================================================================
+associatedtype_declaration: several inherited types and a default
+================================================================================
+
+protocol P {
+    associatedtype A: Hashable, Sendable = Int
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (protocol_declaration
+    name: (type_identifier)
+    body: (protocol_body
+      (associatedtype_declaration
+        name: (type_identifier)
+        name: (user_type
+          (type_identifier))
+        name: (user_type
+          (type_identifier))
+        name: (user_type
+          (type_identifier))))))
+
+================================================================================
+function_declaration: silgen_name without a body
+================================================================================
+
+@_silgen_name("f") func f()
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    (modifiers
+      (attribute
+        (user_type
+          (type_identifier))
+        (line_string_literal
+          text: (line_str_text))))
+    name: (simple_identifier)))
+
+================================================================================
+_external_function_attribute: extern with arguments
+================================================================================
+
+@_extern(c) public func g() -> Int32
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    (modifiers
+      (attribute
+        (user_type
+          (type_identifier))
+        (simple_identifier))
+      (visibility_modifier))
+    name: (simple_identifier)
+    name: (user_type
+      (type_identifier))))
+
+================================================================================
+getter_specifier and modify_specifier: underscored accessors
+================================================================================
+
+struct S {
+    var y = 0
+    var x: Int {
+        _read { yield y }
+        _modify { yield &y }
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (class_declaration
+    name: (type_identifier)
+    body: (class_body
+      (property_declaration
+        (value_binding_pattern)
+        name: (pattern
+          bound_identifier: (simple_identifier))
+        value: (integer_literal))
+      (property_declaration
+        (value_binding_pattern)
+        name: (pattern
+          bound_identifier: (simple_identifier))
+        (type_annotation
+          name: (user_type
+            (type_identifier)))
+        computed_value: (computed_property
+          (computed_getter
+            (getter_specifier)
+            (statements
+              (control_transfer_statement
+                result: (simple_identifier))))
+          (computed_modify
+            (modify_specifier)
+            (statements
+              (control_transfer_statement
+                result: (prefix_expression
+                  target: (simple_identifier))))))))))
+
+================================================================================
+getter_specifier and modify_specifier: borrow and mutate
+================================================================================
+
+struct S {
+    var y = 0
+    var x: Int {
+        borrow { y }
+        mutate { y }
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (class_declaration
+    name: (type_identifier)
+    body: (class_body
+      (property_declaration
+        (value_binding_pattern)
+        name: (pattern
+          bound_identifier: (simple_identifier))
+        value: (integer_literal))
+      (property_declaration
+        (value_binding_pattern)
+        name: (pattern
+          bound_identifier: (simple_identifier))
+        (type_annotation
+          name: (user_type
+            (type_identifier)))
+        computed_value: (computed_property
+          (computed_getter
+            (getter_specifier)
+            (statements
+              (simple_identifier)))
+          (computed_modify
+            (modify_specifier)
+            (statements
+              (simple_identifier))))))))
+
+================================================================================
+getter_specifier and modify_specifier: yielding borrow and yielding mutate
+================================================================================
+
+struct S {
+    var y = 0
+    var x: Int {
+        yielding borrow { yield y }
+        yielding mutate { yield &y }
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (class_declaration
+    name: (type_identifier)
+    body: (class_body
+      (property_declaration
+        (value_binding_pattern)
+        name: (pattern
+          bound_identifier: (simple_identifier))
+        value: (integer_literal))
+      (property_declaration
+        (value_binding_pattern)
+        name: (pattern
+          bound_identifier: (simple_identifier))
+        (type_annotation
+          name: (user_type
+            (type_identifier)))
+        computed_value: (computed_property
+          (computed_getter
+            (getter_specifier)
+            (statements
+              (control_transfer_statement
+                result: (simple_identifier))))
+          (computed_modify
+            (modify_specifier)
+            (statements
+              (control_transfer_statement
+                result: (prefix_expression
+                  target: (simple_identifier))))))))))
+
+================================================================================
+protocol_property_requirements: borrow and mutate
+================================================================================
+
+protocol P {
+    var x: Int { borrow mutate }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (protocol_declaration
+    name: (type_identifier)
+    body: (protocol_body
+      (protocol_property_declaration
+        name: (pattern
+          (value_binding_pattern)
+          bound_identifier: (simple_identifier))
+        (type_annotation
+          name: (user_type
+            (type_identifier)))
+        (protocol_property_requirements
+          (getter_specifier)
+          (modify_specifier))))))
+
+================================================================================
+computed_init: init accessor
+================================================================================
+
+struct S {
+    var _x: Int
+    var x: Int {
+        @storageRestrictions(initializes: _x)
+        init(initialValue) { _x = initialValue }
+        get { _x }
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (class_declaration
+    name: (type_identifier)
+    body: (class_body
+      (property_declaration
+        (value_binding_pattern)
+        name: (pattern
+          bound_identifier: (simple_identifier))
+        (type_annotation
+          name: (user_type
+            (type_identifier))))
+      (property_declaration
+        (value_binding_pattern)
+        name: (pattern
+          bound_identifier: (simple_identifier))
+        (type_annotation
+          name: (user_type
+            (type_identifier)))
+        computed_value: (computed_property
+          (computed_init
+            (attribute
+              (user_type
+                (type_identifier))
+              (simple_identifier)
+              (simple_identifier))
+            name: (simple_identifier)
+            (statements
+              (assignment
+                target: (directly_assignable_expression
+                  (simple_identifier))
+                result: (simple_identifier))))
+          (computed_getter
+            (getter_specifier)
+            (statements
+              (simple_identifier))))))))

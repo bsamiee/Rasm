@@ -1,0 +1,32 @@
+id: no-ambient-read-tsx
+snapshots:
+  const ids = xs.map(Math.random);:
+    labels:
+    - source: Math.random
+      style: primary
+      start: 19
+      end: 30
+  const stamp = Date();:
+    labels:
+    - source: Date()
+      style: primary
+      start: 14
+      end: 20
+  const started = globalThis.performance.timeOrigin;:
+    labels:
+    - source: globalThis.performance.timeOrigin
+      style: primary
+      start: 16
+      end: 49
+  const t = performance.now();:
+    labels:
+    - source: performance.now
+      style: primary
+      start: 10
+      end: 25
+  "import { randomUUID } from \"node:crypto\";\nconst id = randomUUID();\n":
+    labels:
+    - source: randomUUID
+      style: primary
+      start: 53
+      end: 63

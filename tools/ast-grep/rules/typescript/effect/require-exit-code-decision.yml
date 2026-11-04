@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: require-exit-code-decision
 language: tsxlang
 severity: error
 utils:
@@ -36,7 +35,7 @@ utils:
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^ChildProcessSpawner$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\bChildProcessSpawner$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)ChildProcessSpawner$'}}}}
     spawn-handle:
         kind: yield_expression
         has:
@@ -48,7 +47,7 @@ utils:
                     - has: {field: property, regex: '^spawn$'}
                     - all:
                         - has: {field: property, regex: '^make$'}
-                        - has: {field: object, matches: {effect-module: {name: {regex: '\bChildProcess$'}}}}
+                        - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)ChildProcess$'}}}}
     decision-on-code:
         any:
             - kind: binary_expression, unary_expression
@@ -88,7 +87,7 @@ rule:
                 - inside: {kind: required_parameter, field: pattern, inside: {kind: formal_parameters, inside: {matches: then-callback}}}
                 - inside: {kind: variable_declarator, field: name, has: {field: value, matches: run-result}}
             - any:
-                - not: {has: {kind: 'shorthand_property_identifier_pattern, pair_pattern', regex: '^exitCode\b'}}
+                - not: {has: {kind: 'shorthand_property_identifier_pattern, pair_pattern', regex: '^exitCode(?-u:\b)'}}
                 - all:
                     - has:
                         any:
@@ -131,7 +130,7 @@ rule:
                         - has: {field: value, kind: identifier, pattern: $STREAM}
             - inside: {kind: variable_declarator, field: name, has: {field: value, matches: spawn-handle}}
             - inside: {matches: scope, stopBy: {matches: scope}, has: {stopBy: end, kind: identifier, pattern: $STREAM, matches: consumed}}
-            - not: {has: {kind: 'shorthand_property_identifier_pattern, pair_pattern', regex: '^exitCode\b'}}
+            - not: {has: {kind: 'shorthand_property_identifier_pattern, pair_pattern', regex: '^exitCode(?-u:\b)'}}
         - kind: member_expression
           all:
             - has: {field: property, regex: '^(stdout|stderr|all)$', pattern: $STREAM}

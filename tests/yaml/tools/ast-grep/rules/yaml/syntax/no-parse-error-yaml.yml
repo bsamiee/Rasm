@@ -1,0 +1,11 @@
+id: no-parse-error-yaml
+valid:
+    - 'items: [1, 2]'
+    - |
+      a: 1
+      b: {c: 2}
+invalid:
+    - 'items: [1, 2'
+    - |
+      a: "open
+      b: 2

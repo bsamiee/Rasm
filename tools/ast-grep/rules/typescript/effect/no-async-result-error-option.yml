@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-async-result-error-option
 language: tsxlang
 severity: error
 utils:
     option-render:
         kind: call_expression
         all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^(match|isSome|isNone|map|getOrNull|getOrUndefined|getOrElse)$'}}}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^(match|isSome|isNone|map|getOrNull|getOrUndefined|getOrElse)$'}}}}
             - any:
                 - inside: {kind: jsx_expression, stopBy: {matches: typescript-function-boundary}}
                 - has: {field: arguments, has: {stopBy: end, kind: 'jsx_element, jsx_self_closing_element'}}
@@ -26,7 +25,7 @@ rule:
     kind: call_expression
     pattern: $ERROR
     all:
-        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bAsyncResult$'}, member: {regex: '^error$'}}}}
+        - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)AsyncResult$'}, member: {regex: '^error$'}}}}
         - has: {field: arguments, has: {nthChild: 1, pattern: $RESULT}}
         - any:
             - inside: {kind: arguments, inside: {matches: option-render}}

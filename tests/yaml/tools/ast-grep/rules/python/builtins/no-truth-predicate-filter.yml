@@ -1,0 +1,21 @@
+id: no-truth-predicate-filter
+valid:
+    - filter(None, xs)
+    - 'filter(lambda x: x > 0, xs)'
+    - 'filter(lambda x: y, xs)'
+    - filter(str.strip, xs)
+invalid:
+    - |
+      filter(
+          bool,  # keeps truthy rows
+          xs,
+      )
+    - filter(bool, xs)
+    - 'filter(lambda x: x, xs)'
+    - 'list(filter(lambda x: bool(x), xs))'
+    - filter((bool), xs)
+    - |
+      import itertools
+      import operator
+
+      itertools.filterfalse(operator.truth, xs)

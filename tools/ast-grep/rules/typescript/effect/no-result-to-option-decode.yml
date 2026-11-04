@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-result-to-option-decode
 language: tsxlang
 severity: error
 utils:
@@ -10,13 +9,13 @@ utils:
             field: function
             all:
                 - has: {field: property, regex: '^(decode|encode)(Unknown)?(Result|Exit)$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Schema$'}}}}
     success-getter:
         any:
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^getSuccess$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Result|Option|Exit)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Result|Option|Exit)$'}}}}
             - kind: identifier
               matches: {typescript-import-reference: {source: {regex: '^effect/(Result|Option|Exit)$'}, exported: {regex: '^getSuccess$'}}}
     applied-decoder:

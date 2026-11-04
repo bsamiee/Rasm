@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-filter-in-loop-body-swift
 language: swiftlang
 severity: error
 utils:
@@ -89,7 +88,7 @@ rule:
                     matches: single-if
                     has:
                         kind: if_statement
-                        regex: '^if\s+case\b'
+                        regex: '^if\p{White_Space}+case(?-u:\b)'
                         all:
                             - has: {kind: simple_identifier, pattern: $X, follows: {regex: '^=$'}}
                             - has: {kind: statements, not: {has: {stopBy: end, kind: simple_identifier, pattern: $X}}}
@@ -115,7 +114,7 @@ rule:
                     has:
                         nthChild: 1
                         matches: continue-guard
-                        regex: '^guard\s+case\b'
+                        regex: '^guard\p{White_Space}+case(?-u:\b)'
                         has: {kind: simple_identifier, pattern: $X, follows: {regex: '^=$'}, precedes: {regex: '^else$'}}
             - all:
                 - matches: kept-item

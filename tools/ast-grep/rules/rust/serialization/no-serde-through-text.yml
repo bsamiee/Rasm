@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-serde-through-text
 language: rustlang
 severity: error
 utils:
@@ -11,10 +10,10 @@ utils:
                 - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '(^|::)Serialize$'}}}
             - all:
                 - has: {field: name, regex: '^deserialize$'}
-                - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '(^|::)Deserialize\s*<'}}}
-            - has: {field: type_parameters, regex: '\b(Serializer|Deserializer\s*<)'}
-            - has: {kind: where_clause, regex: '\b(Serializer|Deserializer\s*<)'}
-            - has: {field: parameters, has: {kind: parameter, has: {field: type, regex: '^impl\s+((serde::)?(ser::|de::)?)?(Serializer|Deserializer\s*<)'}}}
+                - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '(^|::)Deserialize\p{White_Space}*<'}}}
+            - has: {field: type_parameters, regex: '(?-u:\b)(Serializer|Deserializer\p{White_Space}*<)'}
+            - has: {kind: where_clause, regex: '(?-u:\b)(Serializer|Deserializer\p{White_Space}*<)'}
+            - has: {field: parameters, has: {kind: parameter, has: {field: type, regex: '^impl\p{White_Space}+((serde::)?(ser::|de::)?)?(Serializer|Deserializer\p{White_Space}*<)'}}}
     text-rendering:
         any:
             - kind: call_expression
@@ -35,11 +34,11 @@ utils:
                 - has: {field: function, regex: '^((serde::)?(ser::)?Serialize::)serialize$'}
                 - has: {field: arguments, has: {nthChild: 1, matches: text-rendering}}
     text-type:
-        regex: '^(String|&\s*(''\w+\s+)?str|(std::borrow::)?Cow<\s*(''\w+\s*,\s*)?str\s*>)$'
+        regex: '^(String|&\p{White_Space}*(''\p{XID_Continue}+\p{White_Space}+)?str|(std::borrow::)?Cow<\p{White_Space}*(''\p{XID_Continue}+\p{White_Space}*,\p{White_Space}*)?str\p{White_Space}*>)$'
     text-read:
         any:
             - kind: call_expression
-              has: {field: function, regex: '^(String|<\s*&\s*(''\w+\s+)?str\s*>|Cow::<\s*str\s*>|<\s*(String|&\s*(''\w+\s+)?str)\s+as\s+((serde::)?(de::)?)?Deserialize(<[^>]*>)?\s*>)::deserialize$'}
+              has: {field: function, regex: '^(String|<\p{White_Space}*&\p{White_Space}*(''\p{XID_Continue}+\p{White_Space}+)?str\p{White_Space}*>|Cow::<\p{White_Space}*str\p{White_Space}*>|<\p{White_Space}*(String|&\p{White_Space}*(''\p{XID_Continue}+\p{White_Space}+)?str)\p{White_Space}+as\p{White_Space}+((serde::)?(de::)?)?Deserialize(<[^>]*>)?\p{White_Space}*>)::deserialize$'}
             - kind: call_expression
               all:
                 - has: {field: function, regex: '^((serde::)?(de::)?Deserialize::)deserialize$'}
@@ -56,7 +55,7 @@ utils:
         kind: function_item
         all:
             - has: {field: name, regex: '^visit_(borrowed_)?str$'}
-            - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '(^|::)Visitor\s*<'}}}
+            - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '(^|::)Visitor\p{White_Space}*<'}}}
             - has: {field: body, has: {stopBy: end, matches: text-parse}}
 rule:
     pattern: $SITE
@@ -72,6 +71,6 @@ rule:
                 - has: {field: body, has: {stopBy: end, matches: text-parse}}
         - matches: parsing-visitor
 transform:
-    HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+    HEAD: {replace: {source: $SITE, replace: '(?s)\p{White_Space}*\{?\p{White_Space}*\n.*$', by: ''}}
 message: '`$HEAD` serializes or deserializes a value through `Display` or `FromStr` text by hand'
 note: 'Derive `serde_with::SerializeDisplay` and `DeserializeFromStr` in place of the impl, or mark a field `#[serde_as(as = "DisplayFromStr")]`'

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-throw-in-factory-validation
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']

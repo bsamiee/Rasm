@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-try-boundary
+language: rustlang
+rule:
+    any:
+        - matches: rust-return-boundary
+        - kind: try_block

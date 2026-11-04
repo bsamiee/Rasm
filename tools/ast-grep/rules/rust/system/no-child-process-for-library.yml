@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-child-process-for-library
 language: rustlang
 severity: error
 utils:
@@ -25,7 +24,7 @@ utils:
     shell-command:
         kind: string_literal
         pattern: $PROGRAM
-        regex: '^"\s*(?:\S*[/\\])?(tar|gzip|gunzip|zip|unzip|7z|7zz|zstd|xz|bzip2|brotli|curl|wget|ssh|scp|sftp|openssl|ffmpeg|ffprobe|magick|convert|vips|pdftotext|pdftoppm|pdftocairo|pdfimages|pdfunite|pdfseparate|pdfinfo|pdffonts|pdfsig|pdfattach|pdfdetach|pdftohtml|pdftk|cpdf|qpdf|mutool|gs|ocrmypdf|tesseract|verapdf|img2pdf|svg2pdf|typst|resvg|rsvg-convert|mmdc|sqlite3|psql|jq|less|more|secret-tool|ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)(?:\.exe)?(?:\s|"$)'
+        regex: '^"\p{White_Space}*(?:\P{White_Space}*[/\\])?(tar|gzip|gunzip|zip|unzip|7z|7zz|zstd|xz|bzip2|brotli|curl|wget|ssh|scp|sftp|openssl|ffmpeg|ffprobe|magick|convert|vips|pdftotext|pdftoppm|pdftocairo|pdfimages|pdfunite|pdfseparate|pdfinfo|pdffonts|pdfsig|pdfattach|pdfdetach|pdftohtml|pdftk|cpdf|qpdf|mutool|gs|ocrmypdf|tesseract|verapdf|img2pdf|svg2pdf|typst|resvg|rsvg-convert|mmdc|sqlite3|psql|jq|less|more|secret-tool|ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)(?:\.exe)?(?:\p{White_Space}|"$)'
         matches: argument-line
     argument-line:
         inside: {stopBy: {kind: call_expression}, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^args?$'}}}
@@ -48,7 +47,7 @@ rewriters:
         pattern: $LINE
         matches: argument-line
       transform:
-        WORD: {replace: {source: $LINE, replace: '^"\s*(?:\S*[/\\])?([^\s"/\\]+?)(?:\.exe)?(?:\s[^"]*)?"$', by: '$1'}}
+        WORD: {replace: {source: $LINE, replace: '^"\p{White_Space}*(?:\P{White_Space}*[/\\])?([^\p{White_Space}"/\\]+?)(?:\.exe)?(?:\p{White_Space}[^"]*)?"$', by: '$1'}}
       fix: $WORD
     - id: path-segment
       rule:

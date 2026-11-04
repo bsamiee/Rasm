@@ -1,0 +1,16 @@
+id: no-field-in-log-message
+valid:
+    - |
+      import { Effect } from "effect";
+      const program = Effect.logInfo("saved");
+    - |
+      import { Effect } from "effect";
+      const program = Effect.annotateLogs(Effect.logInfo("saved"), { id: 1 });
+    - 'console.log({ id: 1 });'
+invalid:
+    - |
+      import { Effect } from "effect";
+      const program = Effect.logInfo("saved", { id: 1 });
+    - |
+      import { Effect } from "effect";
+      const program = Effect.log(["a", "b"]);

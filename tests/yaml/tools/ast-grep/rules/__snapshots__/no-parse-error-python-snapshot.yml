@@ -1,0 +1,15 @@
+id: no-parse-error-python
+snapshots:
+  "def f(:\n    return 1\n":
+    labels:
+    - source: ""
+      message: Token the grammar inserted to recover
+      style: primary
+      start: 6
+      end: 6
+  type a.b = int:
+    labels: []
+  "x = (1, 2":
+    labels: []
+  "x: list[T = int]":
+    labels: []

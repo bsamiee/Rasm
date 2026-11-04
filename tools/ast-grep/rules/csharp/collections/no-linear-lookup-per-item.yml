@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-linear-lookup-per-item
 language: csharplang
 severity: error
 utils:
     sequence-type:
-        regex: '^(IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List|ImmutableArray|ImmutableList|Seq|Lst|Arr|Iterable)\b|\[\]$'
+        regex: '^(IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List|ImmutableArray|ImmutableList|Seq|Lst|Arr|Iterable)(?-u:\b)|\[\]$'
     item:
         any:
             - inside: {stopBy: {kind: &owner 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration, property_declaration, field_declaration'}, kind: foreach_statement, has: {field: left, pattern: $ITEM}}

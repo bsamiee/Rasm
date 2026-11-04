@@ -5,7 +5,7 @@ rule:
     kind: member_access_expression
     all:
         - has: {field: name, regex: '^Items$'}
-        - has: {field: expression, kind: 'identifier, generic_name, qualified_name', regex: '^(global::)?([\w.]+\.)?[A-Z]', pattern: $OWNER}
+        - has: {field: expression, kind: 'identifier, generic_name, qualified_name', regex: '^(global::)?([\p{XID_Continue}.]+\.)?[A-Z]', pattern: $OWNER}
         - not:
             inside:
                 kind: compilation_unit

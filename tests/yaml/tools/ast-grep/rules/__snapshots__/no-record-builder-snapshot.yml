@@ -1,0 +1,26 @@
+id: no-record-builder
+snapshots:
+  "#[derive(Debug, Builder)]\nstruct Options {\n    depth: u32,\n}\n":
+    labels:
+    - source: "#[derive(Debug, Builder)]"
+      message: Generates a builder
+      style: secondary
+      start: 0
+      end: 25
+    - source: Options
+      message: Record built through generated setters
+      style: primary
+      start: 33
+      end: 40
+  "#[derive(TypedBuilder)]\n#[builder(doc)]\nstruct Options {\n    depth: u32,\n}\n":
+    labels:
+    - source: "#[derive(TypedBuilder)]"
+      message: Generates a builder
+      style: secondary
+      start: 0
+      end: 23
+    - source: Options
+      message: Record built through generated setters
+      style: primary
+      start: 47
+      end: 54

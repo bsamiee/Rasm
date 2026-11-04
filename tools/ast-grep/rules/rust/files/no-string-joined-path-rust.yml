@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-string-joined-path-rust
 language: rustlang
 severity: error
 utils:
@@ -32,8 +31,8 @@ utils:
         has:
             field: function
             any:
-                - regex: '(Path(Buf)?::(new|from)|fs::\w+|File::(open|create|create_new))$'
-                - regex: 'OpenOptions[\s\S]*\.open$'
+                - regex: '(Path(Buf)?::(new|from)|fs::\p{XID_Continue}+|File::(open|create|create_new))$'
+                - regex: 'OpenOptions[\p{White_Space}\P{White_Space}]*\.open$'
                 - kind: field_expression
                   all: [{has: {field: field, regex: '^(join|push)$'}}, {has: {field: value, matches: path-name}}]
     pushed-slash:

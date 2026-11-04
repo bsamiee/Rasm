@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-lifted-fin-bind
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -83,7 +82,7 @@ utils:
             - has: {kind: invocation_expression, matches: relift}
     lifted-fin:
         kind: invocation_expression
-        has: {field: function, regex: '(?s)^(global::)?(LanguageExt\.)?IO\s*\.\s*lift\s*<\s*((global::)?LanguageExt\.)?(Fin\s*<.+>|Either\s*<\s*((global::)?LanguageExt\.(Common\.)?)?Error\s*,.+>)\s*>$'}
+        has: {field: function, regex: '(?s)^(global::)?(LanguageExt\.)?IO[\p{White_Space}\x{FEFF}]*\.[\p{White_Space}\x{FEFF}]*lift[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*((global::)?LanguageExt\.)?(Fin[\p{White_Space}\x{FEFF}]*<.+>|Either[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*((global::)?LanguageExt\.(Common\.)?)?Error[\p{White_Space}\x{FEFF}]*,.+>)[\p{White_Space}\x{FEFF}]*>$'}
     lifted-local:
         kind: identifier
         pattern: $LIFTED
@@ -144,7 +143,7 @@ rule:
                     - inside: {kind: query_expression, not: {has: {nthChild: 4}}, has: {kind: select_clause, nthChild: 3, has: {pattern: $X}}}
 constraints:
     IO: {matches: {csharp-type-name: {name: {regex: '^IO$'}}}}
-    FIN: {regex: '(?s)^((global::)?LanguageExt\.)?(Fin\s*<.+>|Either\s*<\s*((global::)?LanguageExt\.(Common\.)?)?Error\s*,.+>)$'}
+    FIN: {regex: '(?s)^((global::)?LanguageExt\.)?(Fin[\p{White_Space}\x{FEFF}]*<.+>|Either[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*((global::)?LanguageExt\.(Common\.)?)?Error[\p{White_Space}\x{FEFF}]*,.+>)$'}
     BIND:
         any:
             - kind: argument

@@ -7,4 +7,6 @@ rule:
         any:
             - kind: 'const_item, static_item, const_block'
             - kind: function_item
-              has: {kind: function_modifiers, regex: '\bconst\b'}
+              has: {kind: function_modifiers, regex: '(?-u:\b)const(?-u:\b)'}
+            - kind: function_item
+              inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item', field: body, has: {field: constness, regex: '^const$'}}}

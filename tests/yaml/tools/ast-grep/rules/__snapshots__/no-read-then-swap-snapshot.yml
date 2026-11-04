@@ -1,0 +1,16 @@
+id: no-read-then-swap
+snapshots:
+  "public sealed class Store {\n    private readonly Atom<int> total = Atom(0);\n    public void Add(int n) {\n        var current = total.Value;\n        total.Swap(_ => current + n);\n    }\n}\n":
+    labels:
+    - source: total.Swap(_ => current + n)
+      message: Writes the atom an earlier read observed
+      style: secondary
+      start: 148
+      end: 176
+  "public sealed class Store {\n    private readonly AtomHashMap<string, int> counts = AtomHashMap<string, int>();\n    public void Seed(string key) {\n        if (!counts.ContainsKey(key)) {\n            counts.Add(key, 0);\n        }\n    }\n}\n":
+    labels:
+    - source: counts.Add(key, 0)
+      message: Writes the atom an earlier read observed
+      style: secondary
+      start: 198
+      end: 216

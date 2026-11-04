@@ -1,58 +1,76 @@
 import rust from 'tree-sitter-rust/grammar.js';
+import { after, before, children, choiceOf, drop, extend, named, optionalOf, reaches, rewrite, symbol, token, widen } from '../derive.js';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const DOLLAR = /^\\\$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const modifiedBounds = ($, original) =>
-    seq(...original.members.map((member) => (member.type === 'FIELD' && member.name === 'trait' ? field('trait', member.content.type === 'PREC' ? prec(member.content.value, choice(member.content.content, $.modified_trait_bound)) : choice(member.content, $.modified_trait_bound)) : member)));
+const located = (rule, matches) => (matches(rule) ? rule : children(rule).reduce((found, part) => found ?? located(part, matches), undefined));
+const replace = (matches, replacement) => ($, original) => rewrite(original, (part) => (matches(part) ? replacement($, part) : part));
+const repeated = (separator) => (rule) => rule.type === 'REPEAT' && reaches(rule, token(separator));
+const closed = (rule) => rule.type === 'SEQ' && symbol('_expression')(rule.members[0]) && symbol('_expression')(rule.members.at(-1));
+const prefixed = (rule) => rule.type === 'SEQ' && token('..')(rule.members[0]);
+const ranged = ({ value, content }, lifted) => {
+    const forms = [
+        [closed, lifted],
+        [prefixed, (level, member) => prec.right(level + 1, member)],
+        [() => true, prec.left],
+    ];
+    return choice(...content.members.map((member) => forms.find(([matches]) => matches(member))[1](value, member)));
+};
+const restricted = replace(symbol('_expression'), ($) => $._restricted_expression);
+const modifiedBounds = widen(named('trait'), ($) => $.modified_trait_bound);
+const boundList = widen(choiceOf(symbol('_type')), ($) => $.modified_trait_bound);
+const constness = optional(field('constness', 'const'));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export default grammar(rust, {
-    name: rust.grammar.name,
-    supertypes: (_, original) => original.filter((rule) => rule.name !== '_declaration_statement'),
-    conflicts: ($, original) => [...original, [$.function_modifiers, $.async_block], [$.function_modifiers, $.trait_item], [$.function_modifiers, $.impl_item, $.trait_item], [$.function_modifiers, $.modified_trait_bound], [$.remaining_field_pattern, $.return_type_parameters]],
+export default extend(rust, {
+    transforms: [widen(choiceOf(token('f64')), 'f16', 'f128')],
+    conflicts: ($, original) => [...original, [$.function_modifiers, $.gen_block], [$.function_modifiers, $.trait_item], [$.function_modifiers, $.impl_item, $.trait_item], [$.function_modifiers, $.modified_trait_bound], [$.remaining_field_pattern, $.return_type_parameters], [$.range_expression, $._restricted_range]],
     rules: {
         _declaration_statement: ($, original) => choice(original, $.trait_alias),
-        function_modifiers: (_, original) => repeat1(choice(original.content, 'safe', 'gen', 'final')),
-        static_item: (_, original) => seq(...original.members.flatMap((member) => (member.type === 'STRING' && member.value === 'static' ? [optional(choice('safe', 'unsafe')), member] : [member]))),
-        field_declaration: ($, original) => seq(...original.members.flatMap((member) => (member.type === 'FIELD' && member.name === 'name' ? [optional($.mut_restriction), optional('unsafe'), member] : [member])), optional(seq('=', field('value', $._expression)))),
-        struct_item: ($, original) => seq(...original.members.map((member) => (member.type === 'CHOICE' && member.members.some((part) => part.type === 'STRING' && part.value === ';') ? choice(member, seq($.where_clause, ';')) : member))),
-        ordered_field_declaration_list: ($) => seq('(', optional(seq($._ordered_field_declaration, repeat(seq(',', $._ordered_field_declaration)), optional(','))), ')'),
-        _ordered_field_declaration: ($) => seq(repeat($.attribute_item), optional($.visibility_modifier), optional($.mut_restriction), field('type', $._type)),
-        base_field_initializer: ($) => seq('..', optional($._expression)),
-        associated_type: ($, original) => seq(optional($.visibility_modifier), original),
-        type_item: ($, original) => seq(...original.members.flatMap((member) => (member.type === 'FIELD' && member.name === 'type_parameters' ? [member, field('bounds', optional($.trait_bounds))] : [member]))),
-        _type: ($, original) => choice(original, $.modified_trait_bound),
-        modified_trait_bound: ($) => seq(choice(seq(choice('const', seq('[', 'const', ']'), seq('~', 'const')), optional('async')), 'async'), field('type', $._trait_bound_type)),
-        _trait_bound_type: ($) => choice($._type_identifier, $.scoped_type_identifier, $.generic_type, $.function_type),
+        function_modifiers: widen(choiceOf(token('async')), 'safe', 'gen', 'final'),
+        static_item: before(token('static'), optional(choice('safe', 'unsafe'))),
+        field_declaration: ($, original) => after(named('type'), optional(seq('=', field('value', $._expression))))($, before(named('name'), optional($.mut_restriction), optional('unsafe'))($, original)),
+        struct_item: widen(choiceOf(token(';')), ($) => seq($.where_clause, ';')),
+        ordered_field_declaration_list: after(optionalOf(symbol('visibility_modifier')), ($) => optional($.mut_restriction)),
+        base_field_initializer: widen(symbol('_expression'), blank()),
+        associated_type: ($, original) => prec(-1, seq(optional($.visibility_modifier), before(token(';'), optional(seq('=', field('default', $._type))))($, original))),
+        trait_bounds: boundList,
+        higher_ranked_trait_bound: widen(named('type'), ($) => $.modified_trait_bound),
+        modified_trait_bound: ($) => seq(choice(seq(field('constness', choice('const', seq('[', 'const', ']'), seq('~', 'const'))), optional(field('asyncness', 'async'))), field('asyncness', 'async')), field('type', $._trait_bound_type)),
+        _trait_bound_type: ($) => choice(located(rust.grammar.rules.impl_item, named('trait')).content, $.function_type),
         abstract_type: modifiedBounds,
         dynamic_type: modifiedBounds,
         trait_alias: ($) => seq(optional($.visibility_modifier), optional('const'), 'trait', field('name', $._type_identifier), field('type_parameters', optional($.type_parameters)), '=', field('bounds', optional($._trait_alias_bounds)), optional($.where_clause), ';'),
-        _trait_alias_bounds: (_) => seq(...rust.grammar.rules.trait_bounds.members.filter((member) => member.type !== 'STRING' || member.value !== ':')),
-        trait_item: ($) =>
-            seq(
-                optional($.visibility_modifier),
-                optional($.impl_restriction),
-                optional('const'),
-                optional('unsafe'),
-                optional('auto'),
-                'trait',
-                field('name', $._type_identifier),
-                field('type_parameters', optional($.type_parameters)),
-                field('bounds', optional($.trait_bounds)),
-                optional($.where_clause),
-                field('body', $.declaration_list),
-            ),
+        _trait_alias_bounds: ($) => drop(token(':'))($, boundList($, rust.grammar.rules.trait_bounds)),
+        trait_item: ($, original) => before(token('trait'), optional('auto'))($, before(optionalOf(token('unsafe')), optional($.impl_restriction), constness)($, original)),
         impl_restriction: ($) => seq('impl', $._restriction),
         mut_restriction: ($) => seq('mut', $._restriction),
         _restriction: ($) => seq('(', choice('crate', 'self', 'super', seq('in', $._path)), ')'),
-        impl_item: (_, original) => seq(optional('const'), original),
-        try_block: ($) => seq('try', optional(seq('bikeshed', field('type', $._type))), field('body', $.block)),
-        async_block: (_, original) => seq(...original.members.flatMap((member) => (member.type === 'STRING' && member.value === 'async' ? [member, optional('gen')] : [member]))),
-        function_type: ($, original) =>
-            seq(...original.members.map((member) => (member.type === 'PREC' ? prec(member.value, seq(...member.content.members.map((part) => (part.type === 'FIELD' && part.name === 'parameters' ? field('parameters', choice(part.content, alias($.return_type_parameters, $.parameters))) : part)))) : member))),
+        impl_item: before(optionalOf(token('unsafe')), constness),
+        range_expression: (_, original) => ranged(original, (value, member) => prec.left(value + 1, member)),
+        _restricted_expression: ($) => choice($._expression_except_range, alias($._restricted_range, $.range_expression)),
+        _restricted_range: () => ranged(rust.grammar.rules.range_expression, (value, member) => prec.dynamic(1, prec.left(value - 1, member))),
+        _condition: restricted,
+        match_expression: restricted,
+        for_expression: restricted,
+        closure_parameters: after(repeated(','), optional(',')),
+        field_pattern: before(optionalOf(token('ref')), ($) => repeat($.attribute_item)),
+        struct_pattern: widen(named('type'), ($) => alias($.generic_type_with_turbofish, $.generic_type)),
+        try_block: ($, original) => replace(symbol('block'), (_, part) => field('body', part))($, after(token('try'), optional(seq('bikeshed', field('type', $._type))))($, original)),
+        gen_block: before(token('gen'), optional('async')),
+        function_type: widen(named('parameters'), ($) => alias($.return_type_parameters, $.parameters)),
         return_type_parameters: (_) => seq('(', '..', ')'),
-        where_predicate: ($, original) => seq(...original.members.map((member) => (member.type === 'FIELD' && member.name === 'left' ? field('left', choice(member.content, $.unit_type, $.function_type)) : member))),
+        where_predicate: widen(
+            named('left'),
+            ($) => $.unit_type,
+            ($) => $.function_type,
+        ),
         _non_special_token: (_, original) => choice(original, '~'),
+        metavariable: (_, original) => seq('$', { ...original, value: original.value.replace(DOLLAR, '') }),
     },
 });

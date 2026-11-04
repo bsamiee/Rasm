@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-ambient-read-through-process
 language: rustlang
 severity: error
 utils:
@@ -10,7 +9,7 @@ utils:
     shell-command:
         kind: string_literal
         pattern: $PROGRAM
-        regex: '^"\s*((printenv|pwd|date|whoami|id|tty|locale)\b|echo\s[^"]*(\$|%\w+%))'
+        regex: '^"\p{White_Space}*((printenv|pwd|date|whoami|id|tty|locale)(?-u:\b)|echo\p{White_Space}[^"]*(\$|%\p{XID_Continue}+%))'
         inside: {stopBy: {kind: call_expression}, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^args?$'}}}
 rule:
     all:

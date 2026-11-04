@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-failure-rebuilding-match
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
 utils:
     typed-none:
         matches: languageext-none-value
-        not: {regex: '^[(\s]*default[\s)]*$'}
+        not: {regex: '^[([\p{White_Space}\x{FEFF}]]*default[[\p{White_Space}\x{FEFF}])]*$'}
     none-arm:
         any:
             - matches: typed-none
@@ -105,7 +104,7 @@ utils:
     member-match:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match(\s*<.+>)?$'}}, {has: {field: expression, pattern: $VALUE}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match([\p{White_Space}\x{FEFF}]*<.+>)?$'}}, {has: {field: expression, pattern: $VALUE}}]}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 3}}}]}
     prelude-match:
         kind: invocation_expression

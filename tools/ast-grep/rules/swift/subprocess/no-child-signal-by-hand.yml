@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-child-signal-by-hand
 language: swiftlang
 severity: error
 rule:
@@ -8,7 +7,7 @@ rule:
     any:
         - all:
             - has: {nthChild: 1, regex: '^((Darwin|Glibc|Musl)\.)?kill$'}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '^-?\(?[\w.]+\.processIdentifier\.value\)?$'}}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '^-?\(?[\p{XID_Continue}.]+\.processIdentifier\.value\)?$'}}}
         - all:
             - pattern: '$EXECUTION.send(signal: .kill)'
             - inside:

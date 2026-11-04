@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-default-behind-nullable-parameter-python
 language: pythonlang
 severity: error
 utils:
@@ -51,7 +50,7 @@ utils:
                 all:
                     - has: {field: value, regex: '\.Union$'}
                     - has: {kind: none}
-            - has: {kind: string, has: {kind: string_content, regex: '\bNone\b'}}
+            - has: {kind: string, has: {kind: string_content, regex: '(?-u:\b)None(?-u:\b)'}}
     signature-default:
         any:
             - matches: python-plain-string

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-truncation-in-factory-validation
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -10,7 +9,7 @@ utils:
         kind: member_access_expression, conditional_access_expression
     bounded-range:
         kind: range_expression
-        regex: '\.\.\s*[^\s^]'
+        regex: '\.\.[\p{White_Space}\x{FEFF}]*[^[\p{White_Space}\x{FEFF}]^]'
     length-argument:
         kind: argument
         any:
@@ -23,20 +22,20 @@ utils:
                 - has:
                     field: function
                     matches: callee
-                    regex: '\.\s*TrimOrNullify$'
+                    regex: '\.[\p{White_Space}\x{FEFF}]*TrimOrNullify$'
                     not: {has: {field: expression, matches: extension-class}}
                 - has: {field: arguments, has: {kind: argument}}
             - all:
                 - has:
                     field: function
                     matches: callee
-                    regex: '\.\s*TrimOrNullify$'
+                    regex: '\.[\p{White_Space}\x{FEFF}]*TrimOrNullify$'
                     has: {field: expression, matches: extension-class}
                 - has: {field: arguments, has: {kind: argument, nthChild: 2}}
     slice-cut:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: callee, regex: '\.\s*(Substring|AsSpan|AsMemory)$'}
+            - has: {field: function, matches: callee, regex: '\.[\p{White_Space}\x{FEFF}]*(Substring|AsSpan|AsMemory)$'}
             - has:
                 field: arguments
                 any:
@@ -45,12 +44,12 @@ utils:
     remove-cut:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: callee, regex: '\.\s*Remove$'}
+            - has: {field: function, matches: callee, regex: '\.[\p{White_Space}\x{FEFF}]*Remove$'}
             - has: {field: arguments, all: [{has: {kind: argument}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     take-cut:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: callee, regex: '\.\s*(Take|TakeLast)(\s*<.+>)?$'}
+            - has: {field: function, matches: callee, regex: '\.[\p{White_Space}\x{FEFF}]*(Take|TakeLast)([\p{White_Space}\x{FEFF}]*<.+>)?$'}
             - has: {field: arguments, has: {kind: argument}}
     range-cut:
         kind: element_access_expression

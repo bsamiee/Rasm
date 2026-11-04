@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-forwarding-function-rust
 language: rustlang
 severity: error
 utils:
@@ -53,7 +52,7 @@ utils:
                 - not: {inside: {kind: parameters, inside: {kind: function_item, has: {field: body, has: {stopBy: end, kind: field_expression, pattern: $F, has: {field: value, kind: identifier, pattern: $X}}}}}}
     plain-attribute:
         kind: attribute_item
-        regex: '^#\[\s*(inline|must_use|track_caller|doc|expect|cfg|cfg_attr|deprecated)\b'
+        regex: '^#\[\p{White_Space}*(inline|must_use|track_caller|doc|expect|cfg|cfg_attr|deprecated)(?-u:\b)'
 rule:
     kind: function_item
     all:
@@ -61,7 +60,7 @@ rule:
         - has: {field: body, matches: forwarding-body}
         - not: {has: {field: body, has: {stopBy: end, kind: call_expression, has: {field: function, any: [{pattern: $NAME}, {pattern: self.$NAME}, {pattern: 'Self::$NAME'}]}}}}
         - any:
-            - not: {has: {kind: function_modifiers, regex: '\basync\b'}}
+            - not: {has: {kind: function_modifiers, regex: '(?-u:\b)async(?-u:\b)'}}
             - has: {field: body, has: {stopBy: end, kind: await_expression}}
         - not: {has: {field: parameters, has: {kind: parameter, has: {field: pattern, pattern: $F}}}}
         - not: {has: {field: parameters, has: {pattern: $_, matches: unforwarded-parameter}}}

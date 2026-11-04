@@ -1,0 +1,21 @@
+id: no-forwarding-module
+valid:
+    - |
+      import { main } from "./main";
+      main(process.argv);
+    - |
+      import { main } from "./main";
+      main();
+      main();
+    - |
+      import { main } from "./main";
+      const x = 1;
+      main();
+invalid:
+    - |
+      import { main } from "./main";
+      main();
+    - |
+      #!/usr/bin/env node
+      import { cli } from "./cli";
+      await cli.run();

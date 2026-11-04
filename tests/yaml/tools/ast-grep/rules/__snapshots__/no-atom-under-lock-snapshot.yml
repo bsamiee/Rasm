@@ -1,0 +1,32 @@
+id: no-atom-under-lock
+snapshots:
+  "public sealed class Counter {\n    private readonly SemaphoreSlim gate = new(1);\n    private readonly Atom<int> count = Atom(0);\n    public async Task Bump() {\n        await gate.WaitAsync();\n        try {\n            count.Swap(x => x + 1);\n        } finally {\n            gate.Release();\n        }\n    }\n}\n":
+    labels:
+    - source: count.Swap(x => x + 1)
+      message: Writes the atom
+      style: primary
+      start: 217
+      end: 239
+    - source: |-
+        {
+                    count.Swap(x => x + 1);
+                }
+      message: Holds the lock
+      style: secondary
+      start: 203
+      end: 250
+  "public sealed class Counter {\n    private readonly object gate = new();\n    private readonly Atom<int> count = Atom(0);\n    public void Bump() {\n        lock (gate) {\n            count.Swap(x => x + 1);\n        }\n    }\n}\n":
+    labels:
+    - source: count.Swap(x => x + 1)
+      message: Writes the atom
+      style: primary
+      start: 179
+      end: 201
+    - source: |-
+        lock (gate) {
+                    count.Swap(x => x + 1);
+                }
+      message: Holds the lock
+      style: secondary
+      start: 153
+      end: 212

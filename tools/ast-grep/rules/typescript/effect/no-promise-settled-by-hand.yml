@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-promise-settled-by-hand
 language: tsxlang
 severity: error
 utils:
@@ -14,13 +13,13 @@ utils:
                 kind: arguments
                 inside:
                     kind: call_expression
-                    has: {field: function, matches: {effect-module-member: {module: {regex: '\b(Effect|Stream)$'}, member: {regex: '^callback$'}}}}
+                    has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)(Effect|Stream)$'}, member: {regex: '^callback$'}}}}
     settle:
         kind: call_expression
         any:
             - has: {field: function, kind: identifier, pattern: $SINK}
             - all:
-                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bQueue$'}, member: {regex: '^(offer|offerUnsafe|offerAll|offerAllUnsafe|end|endUnsafe|fail|failCause|failCauseUnsafe)$'}}}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Queue$'}, member: {regex: '^(offer|offerUnsafe|offerAll|offerAllUnsafe|end|endUnsafe|fail|failCause|failCauseUnsafe)$'}}}}
                 - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $SINK}}
 rule:
     kind: call_expression

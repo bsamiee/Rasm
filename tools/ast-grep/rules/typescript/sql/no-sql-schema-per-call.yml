@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-sql-schema-per-call
 language: tsxlang
 severity: error
 utils:
     sql-client:
-        matches: {effect-module-member: {module: {regex: '\bSqlClient$'}, member: {regex: '^SqlClient$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)SqlClient$'}, member: {regex: '^SqlClient$'}}}
 rule:
     kind: call_expression
     all:
@@ -17,7 +16,7 @@ rule:
                 pattern: $QUERY
                 all:
                     - has: {field: property, regex: '^(findAll|findOne|findOneOption|findNonEmpty|void)$'}
-                    - has: {field: object, matches: {effect-module: {name: {regex: '\bSqlSchema$'}}}}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)SqlSchema$'}}}}
         - any:
             - inside:
                 stopBy: end

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-operation-on-error-record
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -56,7 +55,7 @@ utils:
     guard-factory:
         kind: method_declaration
         all:
-            - has: {field: name, regex: '^Unless\w*$'}
+            - has: {field: name, regex: '^Unless\p{XID_Continue}*$'}
             - has: {field: returns, matches: {csharp-type-name: {name: {regex: '^Fin$'}}}}
             - has:
                 field: body

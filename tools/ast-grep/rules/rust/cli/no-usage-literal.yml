@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-usage-literal
 language: rustlang
 severity: error
 rule:
@@ -7,7 +6,7 @@ rule:
     pattern: $USAGE
     not: {matches: rust-macro-argument}
     any:
-        - regex: '(^[br]*#*"|\\n|\n)\s*(?i:usage)\s*(:|\\n|\n)'
-        - regex: '(^[br]*#*"|\\n|\n)\s*-[A-Za-z0-9],\s+--[a-z][\w-]*'
+        - regex: '(^[br]*#*"|\\n|\n)\p{White_Space}*(?i:usage)\p{White_Space}*(:|\\n|\n)'
+        - regex: '(^[br]*#*"|\\n|\n)\p{White_Space}*-[A-Za-z0-9],\p{White_Space}+--[a-z][\p{XID_Continue}-]*'
 message: '`$USAGE` spells command-line help text by hand'
 note: 'Derive `clap::Parser` on the command with `#[command(about = <text>)]` and `#[arg(help = <text>)]` per argument'

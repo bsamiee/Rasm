@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-ambient-declaration
 language: tsxlang
 severity: error
 utils:
@@ -45,6 +44,6 @@ rule:
             - has: {kind: variable_declarator, not: {has: {field: value, pattern: $_}}}
             - not: {inside: {kind: ambient_declaration, stopBy: end}}
 transform:
-    HEAD: {replace: {source: $DECLARATION, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+    HEAD: {replace: {source: $DECLARATION, replace: '(?s)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\{?[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\n.*$', by: ''}}
 message: '`$HEAD` declares ambient types or values the compiler takes on trust'
 note: 'Import types from their owning package, `paths` mapping, or bundler client types, merge into `interface <Name>`, or decode with `Schema`'

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-growth-in-endless-loop-rust
 language: rustlang
 severity: error
 utils:
@@ -11,10 +10,11 @@ utils:
                 - has: {field: value, kind: range_expression, regex: '\.\.$'}
             - not:
                 any:
-                    - has: {stopBy: {kind: 'closure_expression, function_item, async_block'}, kind: 'return_expression, try_expression'}
+                    - has: {stopBy: {matches: rust-return-boundary}, kind: return_expression}
+                    - has: {stopBy: {matches: rust-try-boundary}, kind: try_expression}
                     - has: {stopBy: {kind: 'closure_expression, function_item, async_block'}, kind: 'break_expression, continue_expression', has: {kind: label}}
                     - has: {stopBy: {kind: 'closure_expression, function_item, async_block, loop_expression, for_expression, while_expression'}, kind: break_expression}
-                    - has: {stopBy: {kind: 'closure_expression, function_item, async_block'}, kind: macro_invocation, has: {kind: token_tree, regex: '\b(break|return)\b'}}
+                    - has: {stopBy: {kind: 'closure_expression, function_item, async_block'}, kind: macro_invocation, has: {kind: token_tree, regex: '(?-u:\b)(break|return)(?-u:\b)'}}
     shrink:
         any:
             - kind: call_expression

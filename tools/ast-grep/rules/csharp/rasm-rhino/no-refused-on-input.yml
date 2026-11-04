@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-refused-on-input
 language: csharplang
 severity: error
 files: ['**/rhino/**']
@@ -56,7 +55,7 @@ rule:
             - matches: {csharp-owner-call: {type: {regex: '^Conversions$'}, member: {regex: '^(NonEmpty|Required)$'}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: input, pattern: $VALUE}}}
         - all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Unless\w*$'}}, {has: {field: expression, matches: {csharp-type-name: {name: {regex: '^Refused$'}}}}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Unless\p{XID_Continue}*$'}}, {has: {field: expression, matches: {csharp-type-name: {name: {regex: '^Refused$'}}}}}]}
             - has:
                 field: arguments
                 has:

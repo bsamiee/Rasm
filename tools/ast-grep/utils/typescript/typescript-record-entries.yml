@@ -5,4 +5,4 @@ rule:
     kind: member_expression
     any:
         - all: [{regex: '^((globalThis|window|self)\.)?Object\.entries$'}, {matches: typescript-global-reference}]
-        - matches: {effect-module-member: {module: {regex: '\bRecord$'}, member: {regex: '^toEntries$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Record$'}, member: {regex: '^toEntries$'}}}

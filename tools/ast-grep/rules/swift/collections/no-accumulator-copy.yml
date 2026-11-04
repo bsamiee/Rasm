@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-accumulator-copy
 language: swiftlang
 severity: error
 utils:
@@ -10,7 +9,7 @@ utils:
         kind: value_argument
         nthChild: 1
         not: {has: {kind: value_argument_label}}
-        has: {field: value, not: {regex: '^(\[|"|(Array|ContiguousArray|Set|Dictionary|String)\b)'}}
+        has: {field: value, not: {regex: '^(\[|"|(Array|ContiguousArray|Set|Dictionary|String)(?-u:\b))'}}
     seeded:
         kind: value_arguments
         all:

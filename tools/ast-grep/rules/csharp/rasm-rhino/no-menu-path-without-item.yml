@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-menu-path-without-item
 language: csharplang
 severity: error
 files: ['**/rhino/**']
@@ -19,7 +18,7 @@ utils:
                 - not: {has: {kind: collection_element, nthChild: 2}}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((LanguageExt\.)?Prelude\.)?(Seq1?|toSeq)(\s*<.+>)?$|^(LanguageExt\.)?Seq\.(singleton|create|createRange)(\s*<.+>)?$'}
+                - has: {field: function, regex: '^((LanguageExt\.)?Prelude\.)?(Seq1?|toSeq)([\p{White_Space}\x{FEFF}]*<.+>)?$|^(LanguageExt\.)?Seq\.(singleton|create|createRange)([\p{White_Space}\x{FEFF}]*<.+>)?$'}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {any: [{matches: menu-name}, {matches: single-path}]}}}
                 - not: {has: {field: arguments, has: {kind: argument, nthChild: 2}}}
             - kind: array_creation_expression, implicit_array_creation_expression

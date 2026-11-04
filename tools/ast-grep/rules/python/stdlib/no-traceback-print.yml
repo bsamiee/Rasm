@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-traceback-print
 language: pythonlang
 severity: error
 utils:
@@ -97,7 +96,7 @@ rule:
           all: [{has: {field: attribute, regex: '^print$'}}, {has: {field: object, matches: exception}}]
         - matches: sink
           all:
-            - inside: {kind: module, stopBy: end, regex: '\b(traceback|format(Exception|Stack))\b'}
+            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)(traceback|format(Exception|Stack))(?-u:\b)'}
             - has: {field: arguments, has: {stopBy: {not: {matches: content}}, kind: 'identifier, call', matches: text}}
 message: '`$USE` writes rendered exception or stack text by hand'
 note: 'Log exceptions, `TracebackException`, or `StackSummary` as `exc_info=<exception>`, current stack as `stack_info=True`'

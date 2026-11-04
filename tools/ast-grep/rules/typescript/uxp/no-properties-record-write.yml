@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-properties-record-write
 language: tsxlang
 severity: error
 utils:
@@ -36,6 +35,6 @@ rule:
                             - {kind: shorthand_property_identifier, regex: '^properties$'}
     inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?indesign$'}}}}
 transform:
-    HEAD: {replace: {source: $WRITE, replace: '(?s)^([^(=]+?)\s*[(=].*$', by: '$1'}}
+    HEAD: {replace: {source: $WRITE, replace: '(?s)^([^(=]+?)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*[(=].*$', by: '$1'}}
 message: '`$HEAD` sets keys through `properties` and drops each refused key with no error'
 note: 'Apply one-key `Object.assign` calls through `Effect.validate`, restoring temporary writes through `Effect.acquireRelease`'

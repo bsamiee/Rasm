@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-fin-in-effect
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
 utils:
     result-type:
-        regex: '^((global::)?LanguageExt\.)?(Fin|Validation|Try)\s*<|^((global::)?LanguageExt\.)?Either\s*<\s*((global::)?LanguageExt\.(Common\.)?)?Error\s*,'
+        regex: '^((global::)?LanguageExt\.)?(Fin|Validation|Try)[\p{White_Space}\x{FEFF}]*<|^((global::)?LanguageExt\.)?Either[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*((global::)?LanguageExt\.(Common\.)?)?Error[\p{White_Space}\x{FEFF}]*,'
     result-argument:
         has:
             kind: type_argument_list

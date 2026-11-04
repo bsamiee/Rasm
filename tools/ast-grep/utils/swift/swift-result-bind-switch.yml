@@ -9,7 +9,7 @@ rule:
         - has:
             kind: switch_entry
             all:
-                - has: {kind: switch_pattern, regex: '^(let\s+)?\.success\b'}
+                - has: {kind: switch_pattern, regex: '^(let\p{White_Space}+)?\.success(?-u:\b)'}
                 - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
                 - not:
                     has:
@@ -22,7 +22,7 @@ rule:
         - has:
             kind: switch_entry
             all:
-                - has: {kind: switch_pattern, regex: '^(let\s+)?\.failure\b'}
+                - has: {kind: switch_pattern, regex: '^(let\p{White_Space}+)?\.failure(?-u:\b)'}
                 - has:
                     kind: statements
                     all:

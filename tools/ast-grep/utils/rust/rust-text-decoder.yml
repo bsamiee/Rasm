@@ -8,4 +8,4 @@ rule:
             - kind: function_item
               has: {field: name, regex: '^(from_str|try_from|parse|parse_ref|visit_str|visit_borrowed_str|visit_string|deserialize)$'}
             - kind: impl_item
-              has: {field: trait, regex: '^((std|core|serde|clap)::(\w+::)*)?(FromStr|TryFrom<|Visitor|Deserialize|ValueEnum|TypedValueParser)'}
+              has: {field: trait, regex: '^((std|core|serde|clap)::(\p{XID_Continue}+::)*)?(FromStr|TryFrom<|Visitor|Deserialize|ValueEnum|TypedValueParser)'}

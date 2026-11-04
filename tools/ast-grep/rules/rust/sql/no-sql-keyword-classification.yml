@@ -1,20 +1,19 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-sql-keyword-classification
 language: rustlang
 severity: error
 utils:
     keyword:
         kind: string_literal
-        regex: '^"(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP|PRAGMA|EXPLAIN)\b[^"]*"$'
+        regex: '^"(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP|PRAGMA|EXPLAIN)(?-u:\b)[^"]*"$'
     any-case-keyword:
         kind: string_literal
-        regex: '(?i)^"(select|insert|update|delete|with|create|alter|drop|pragma|explain)\b[^"]*"$'
+        regex: '(?i)^"(select|insert|update|delete|with|create|alter|drop|pragma|explain)(?-u:\b)[^"]*"$'
     cased:
         kind: call_expression
         has: {field: function, kind: field_expression, has: {field: field, regex: '^to_(ascii_)?(upper|lower)case$'}}
     prefix-range:
         kind: range_expression
-        regex: '^\.\.=?\s*\w+$'
+        regex: '^\.\.=?\p{White_Space}*\p{XID_Continue}+$'
     leading-text:
         any:
             - kind: call_expression

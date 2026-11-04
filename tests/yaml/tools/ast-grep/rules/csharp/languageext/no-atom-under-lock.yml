@@ -1,0 +1,51 @@
+id: no-atom-under-lock
+valid:
+    - |
+      public sealed class Counter {
+          private readonly Atom<int> count = Atom(0);
+          public void Bump() => count.Swap(x => x + 1);
+      }
+    - |
+      public sealed class Counter {
+          private readonly object gate = new();
+          private int count;
+          public void Bump() {
+              lock (gate) {
+                  count++;
+              }
+          }
+      }
+    - |
+      public sealed class Counter {
+          private readonly object gate = new();
+          private readonly Atom<int> count = Atom(0);
+          public void Bump() {
+              lock (gate) {
+                  Later(() => count.Swap(x => x + 1));
+              }
+          }
+      }
+invalid:
+    - |
+      public sealed class Counter {
+          private readonly object gate = new();
+          private readonly Atom<int> count = Atom(0);
+          public void Bump() {
+              lock (gate) {
+                  count.Swap(x => x + 1);
+              }
+          }
+      }
+    - |
+      public sealed class Counter {
+          private readonly SemaphoreSlim gate = new(1);
+          private readonly Atom<int> count = Atom(0);
+          public async Task Bump() {
+              await gate.WaitAsync();
+              try {
+                  count.Swap(x => x + 1);
+              } finally {
+                  gate.Release();
+              }
+          }
+      }

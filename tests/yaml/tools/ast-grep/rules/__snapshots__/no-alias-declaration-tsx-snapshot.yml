@@ -1,0 +1,30 @@
+id: no-alias-declaration-tsx
+snapshots:
+  "function load() {}\nconst read = load;\n":
+    labels:
+    - source: load
+      message: Aliased name
+      style: primary
+      start: 9
+      end: 13
+  "import { Effect } from \"effect\";\nconst { map, flatMap } = Effect;\n":
+    labels:
+    - source: Effect
+      message: Aliased name
+      style: primary
+      start: 9
+      end: 15
+  "interface Foo {}\ntype Bar = Foo;\n":
+    labels:
+    - source: Foo
+      message: Aliased name
+      style: primary
+      start: 28
+      end: 31
+  "type Ids = Array<string>;\nconst f = (x: Ids) => x;\n":
+    labels:
+    - source: Array<string>
+      message: Aliased name
+      style: primary
+      start: 11
+      end: 24

@@ -1,0 +1,134 @@
+#pragma push_macro("tree_sitter_c_sharp_external_scanner_create")
+#pragma push_macro("tree_sitter_c_sharp_external_scanner_destroy")
+#pragma push_macro("tree_sitter_c_sharp_external_scanner_serialize")
+#pragma push_macro("tree_sitter_c_sharp_external_scanner_deserialize")
+#pragma push_macro("tree_sitter_c_sharp_external_scanner_scan")
+#define tree_sitter_c_sharp_external_scanner_create c_sharp_upstream_create
+#define tree_sitter_c_sharp_external_scanner_destroy c_sharp_upstream_destroy
+#define tree_sitter_c_sharp_external_scanner_serialize c_sharp_upstream_serialize
+#define tree_sitter_c_sharp_external_scanner_deserialize c_sharp_upstream_deserialize
+#define tree_sitter_c_sharp_external_scanner_scan c_sharp_upstream_scan
+
+#include "tree-sitter-c-sharp/src/scanner.c"
+
+#pragma pop_macro("tree_sitter_c_sharp_external_scanner_create")
+#pragma pop_macro("tree_sitter_c_sharp_external_scanner_destroy")
+#pragma pop_macro("tree_sitter_c_sharp_external_scanner_serialize")
+#pragma pop_macro("tree_sitter_c_sharp_external_scanner_deserialize")
+#pragma pop_macro("tree_sitter_c_sharp_external_scanner_scan")
+
+#ifndef SCANNER
+#define SCANNER(fn) tree_sitter_c_sharp_external_scanner_##fn
+#endif
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+enum { CONDITIONAL_ACCESS_QUESTION = LAMBDA_PAREN_OPEN + 1 };
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+// --- [CHARACTERS]
+
+static bool is_separator(int32_t character) { return iswspace(character) || character == 0xa0 || character == 0x3000 || character == 0xfeff; }
+
+static bool is_decimal_digit(int32_t character) { return character >= '0' && character <= '9'; }
+
+static bool skip_comment(TSLexer *lexer) {
+    advance(lexer);
+    if (lexer->lookahead == '/') {
+        while (lexer->lookahead != 0 && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
+            advance(lexer);
+        }
+        return true;
+    }
+    if (lexer->lookahead != '*') {
+        return false;
+    }
+    advance(lexer);
+    for (int32_t previous = 0; !(previous == '*' && lexer->lookahead == '/');) {
+        if (lexer->lookahead == 0) {
+            return false;
+        }
+        previous = lexer->lookahead;
+        advance(lexer);
+    }
+    advance(lexer);
+    return true;
+}
+
+static bool skip_trivia(TSLexer *lexer) {
+    while (is_separator(lexer->lookahead)) {
+        advance(lexer);
+    }
+    return lexer->lookahead != '/' || (skip_comment(lexer) && skip_trivia(lexer));
+}
+
+// --- [TOKENS]
+
+static bool recovering(const bool *valid_symbols) {
+    for (int symbol = OPT_SEMI; symbol < CONDITIONAL_ACCESS_QUESTION; symbol++) {
+        if (!valid_symbols[symbol]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool scan_conditional_access_question(TSLexer *lexer) {
+    advance(lexer);
+    lexer->mark_end(lexer);
+    lexer->result_symbol = CONDITIONAL_ACCESS_QUESTION;
+    if (!skip_trivia(lexer) || lexer->lookahead != '.') {
+        return false;
+    }
+    advance(lexer);
+    return !is_decimal_digit(lexer->lookahead);
+}
+
+static bool closes_verbatim(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
+    if (!valid_symbols[INTERPOLATION_END_QUOTE] || !valid_symbols[INTERPOLATION_STRING_CONTENT] || scanner->interpolation_stack.size == 0 || lexer->lookahead != '"') {
+        return false;
+    }
+    Interpolation *interpolation = array_back(&scanner->interpolation_stack);
+    return is_verbatim(interpolation) && !is_raw(interpolation);
+}
+
+static bool scan_verbatim_quotes(Scanner *scanner, TSLexer *lexer) {
+    unsigned count = 0;
+    for (; lexer->lookahead == '"'; count++) {
+        advance(lexer);
+        if (count % 2 == 1) {
+            lexer->mark_end(lexer);
+        }
+    }
+    if (count > 1) {
+        lexer->result_symbol = INTERPOLATION_STRING_CONTENT;
+        return true;
+    }
+    lexer->mark_end(lexer);
+    lexer->result_symbol = INTERPOLATION_END_QUOTE;
+    array_pop(&scanner->interpolation_stack);
+    return true;
+}
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+void *SCANNER(create)(void) { return c_sharp_upstream_create(); }
+
+void SCANNER(destroy)(void *payload) { c_sharp_upstream_destroy(payload); }
+
+unsigned SCANNER(serialize)(void *payload, char *buffer) { return c_sharp_upstream_serialize(payload, buffer); }
+
+void SCANNER(deserialize)(void *payload, const char *buffer, unsigned length) { c_sharp_upstream_deserialize(payload, buffer, length); }
+
+bool SCANNER(scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
+    bool recovery = recovering(valid_symbols);
+    if (!recovery && closes_verbatim(payload, lexer, valid_symbols)) {
+        return scan_verbatim_quotes(payload, lexer);
+    }
+    bool question = valid_symbols[CONDITIONAL_ACCESS_QUESTION] && !recovery;
+    while (question && is_separator(lexer->lookahead)) {
+        skip(lexer);
+    }
+    return question && lexer->lookahead == '?' ? scan_conditional_access_question(lexer) : c_sharp_upstream_scan(payload, lexer, valid_symbols);
+}

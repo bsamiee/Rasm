@@ -1,15 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-growth-in-endless-loop-csharp
 language: csharplang
 severity: error
 utils:
     endless:
         any:
             - {kind: 'while_statement, do_statement', has: {field: condition, regex: '^true$'}}
-            - {kind: for_statement, regex: '^for\s*\(\s*;\s*;\s*\)'}
-            - {kind: while_statement, has: {field: condition, kind: prefix_unary_expression, regex: '^!\s*[\w.]+\.IsCancellationRequested$'}}
+            - {kind: for_statement, regex: '^for[\p{White_Space}\x{FEFF}]*\([\p{White_Space}\x{FEFF}]*;[\p{White_Space}\x{FEFF}]*;[\p{White_Space}\x{FEFF}]*\)'}
+            - {kind: while_statement, has: {field: condition, kind: prefix_unary_expression, regex: '^![\p{White_Space}\x{FEFF}]*[\p{XID_Continue}.]+\.IsCancellationRequested$'}}
             - {kind: while_statement, has: {field: condition, kind: await_expression, has: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(WaitForNextTickAsync|WaitToReadAsync)$'}}}}}
-            - {kind: foreach_statement, regex: '^await\s+foreach', has: {field: right, kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^ReadAllAsync$'}}}}
+            - {kind: foreach_statement, regex: '^await[\p{White_Space}\x{FEFF}]+foreach', has: {field: right, kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^ReadAllAsync$'}}}}
         not: {has: {stopBy: {kind: &scope 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration'}, kind: 'break_statement, return_statement, throw_statement, yield_statement'}}
     grown:
         any:

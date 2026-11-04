@@ -11,8 +11,8 @@ utils:
     factor:
         kind: float_literal
         any:
-            - regex: '^5_?7\.2_?9_?5[\d_]*(_?f(32|64))?$'
-            - regex: '^0\.0_?1_?7_?4_?5_?3[\d_]*(_?f(32|64))?$'
+            - regex: '^5_?7\.2_?9_?5[0-9_]*(_?f(32|64))?$'
+            - regex: '^0\.0_?1_?7_?4_?5_?3[0-9_]*(_?f(32|64))?$'
 rule:
     kind: 'binary_expression, call_expression'
     any:

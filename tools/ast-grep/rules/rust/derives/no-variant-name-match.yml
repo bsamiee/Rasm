@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-variant-name-match
 language: rustlang
 severity: error
 utils:
@@ -9,7 +8,7 @@ utils:
     self-table:
         kind: match_expression
         all:
-            - has: {field: value, regex: '^\*?\s*self$'}
+            - has: {field: value, regex: '^\*?\p{White_Space}*self$'}
             - has: {field: body, not: {has: {kind: match_arm, not: {matches: constant-arm}}}}
     constant-table:
         kind: function_item

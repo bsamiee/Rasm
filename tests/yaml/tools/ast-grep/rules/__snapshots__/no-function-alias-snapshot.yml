@@ -1,0 +1,76 @@
+id: no-function-alias
+snapshots:
+  "SELECT SUBSTRING(a, 1, 2) FROM t;":
+    fixed: SELECT substr(a, 1, 2) FROM t;
+    labels:
+    - source: SUBSTRING
+      style: primary
+      start: 7
+      end: 16
+    - source: SUBSTRING(a, 1, 2)
+      style: secondary
+      start: 7
+      end: 25
+  SELECT ceiling(a) FROM t;:
+    fixed: SELECT ceil(a) FROM t;
+    labels:
+    - source: ceiling
+      style: primary
+      start: 7
+      end: 14
+    - source: ceiling(a)
+      style: secondary
+      start: 7
+      end: 17
+  "SELECT group_concat(a, ',') FROM t;":
+    fixed: SELECT string_agg(a, ',') FROM t;
+    labels:
+    - source: group_concat
+      style: primary
+      start: 7
+      end: 19
+    - source: "','"
+      style: secondary
+      start: 23
+      end: 26
+    - source: a, ','
+      style: secondary
+      start: 20
+      end: 26
+    - source: group_concat(a, ',')
+      style: secondary
+      start: 7
+      end: 27
+  "SELECT if(a, 1, 2) FROM t;":
+    fixed: SELECT iif(a, 1, 2) FROM t;
+    labels:
+    - source: if
+      style: primary
+      start: 7
+      end: 9
+    - source: if(a, 1, 2)
+      style: secondary
+      start: 7
+      end: 18
+  "SELECT ifnull(a, 0) FROM t;":
+    fixed: SELECT coalesce(a, 0) FROM t;
+    labels:
+    - source: ifnull
+      style: primary
+      start: 7
+      end: 13
+    - source: ifnull(a, 0)
+      style: secondary
+      start: 7
+      end: 19
+  "SELECT power(a, 2) FROM t;":
+    fixed: SELECT pow(a, 2) FROM t;
+    labels:
+    - source: power
+      style: primary
+      start: 7
+      end: 12
+    - source: power(a, 2)
+      style: secondary
+      start: 7
+      end: 18

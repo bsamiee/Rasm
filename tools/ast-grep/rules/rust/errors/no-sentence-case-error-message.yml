@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-sentence-case-error-message
 language: rustlang
 severity: error
 rule:
@@ -8,7 +7,7 @@ rule:
     nthChild: 1
     any:
         - regex: '[.!?;:,]"$'
-        - regex: '^"[A-Z][a-z]*\b'
+        - regex: '^"[A-Z][a-z]*(?-u:\b)'
           not: {regex: '^"[A-Z][a-z]*[A-Z0-9]'}
     inside:
         kind: token_tree

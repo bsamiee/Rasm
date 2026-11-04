@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-repeated-literal
 language: rustlang
 severity: error
 utils:
@@ -12,11 +11,11 @@ utils:
             - kind: string_literal
               all:
                 - regex: '^"(?s:.{2,})"$'
-                - regex: '[^\\]\w'
+                - regex: '[^\\]\p{XID_Continue}'
             - kind: raw_string_literal
               all:
                 - regex: '^r#*"(?s:.{2,})"#*$'
-                - regex: '\w'
+                - regex: '\p{XID_Continue}'
     unit-site:
         any:
             - matches: rust-calendar-site

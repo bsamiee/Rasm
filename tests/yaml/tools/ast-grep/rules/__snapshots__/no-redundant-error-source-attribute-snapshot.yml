@@ -1,0 +1,60 @@
+id: no-redundant-error-source-attribute
+snapshots:
+  "#[derive(Debug, thiserror::Error)]\n#[error(\"parse\")]\nstruct ParseFailure {\n    #[source]\n    source: std::num::ParseIntError,\n}\n":
+    fixed: |
+      #[derive(Debug, thiserror::Error)]
+      #[error("parse")]
+      struct ParseFailure {
+          
+          source: std::num::ParseIntError,
+      }
+    labels:
+    - source: "#[source]"
+      style: primary
+      start: 79
+      end: 88
+    - source: source
+      style: secondary
+      start: 93
+      end: 99
+    - source: "source: std::num::ParseIntError"
+      style: secondary
+      start: 93
+      end: 124
+  "#[derive(Debug, thiserror::Error)]\nenum Failure {\n    #[error(\"io\")]\n    Io {\n        #[source]\n        // read failure\n        #[from]\n        cause: std::io::Error,\n    },\n}\n":
+    fixed: |
+      #[derive(Debug, thiserror::Error)]
+      enum Failure {
+          #[error("io")]
+          Io {
+              
+              // read failure
+              #[from]
+              cause: std::io::Error,
+          },
+      }
+    labels:
+    - source: "#[source]"
+      style: primary
+      start: 86
+      end: 95
+    - source: "#[from]"
+      style: secondary
+      start: 128
+      end: 135
+  "#[derive(Debug, thiserror::Error)]\nenum Failure {\n    #[error(\"io\")]\n    Io(#[from] #[source] std::io::Error),\n}\n":
+    fixed: |
+      #[derive(Debug, thiserror::Error)]
+      enum Failure {
+          #[error("io")]
+          Io(#[from]  std::io::Error),
+      }
+    labels:
+    - source: "#[source]"
+      style: primary
+      start: 84
+      end: 93
+    - source: "#[from]"
+      style: secondary
+      start: 76
+      end: 83

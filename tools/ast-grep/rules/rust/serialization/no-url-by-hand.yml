@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-url-by-hand
 language: rustlang
 severity: error
 utils:
     url-text:
         kind: string_literal
-        regex: '^"([A-Za-z][A-Za-z0-9+.-]*|\{[A-Za-z0-9_]*\})://'
+        regex: '^"([A-Za-z][A-Za-z0-9+.-]*|\{\p{XID_Continue}*\})://'
     open-segment:
         kind: string_literal
         regex: '([^/:]/|[?=&])"$'
@@ -30,7 +29,7 @@ utils:
                 kind: token_tree
                 any:
                     - has: {matches: url-text, regex: '://[^"/?]*[/?]([^"]*[^{])?\{[A-Za-z0-9_:}]'}
-                    - has: {kind: string_literal, regex: '[?&][\w.~-]+=\{[A-Za-z0-9_:}]'}
+                    - has: {kind: string_literal, regex: '[?&][\p{XID_Continue}.~-]+=\{[A-Za-z0-9_:}]'}
                     - has: {matches: open-url, not: {nthChild: 1}}
     concatenated-url:
         kind: binary_expression
@@ -75,7 +74,7 @@ utils:
         kind: macro_invocation
         all:
             - matches: formatting
-            - has: {kind: token_tree, has: {kind: string_literal, regex: '%\{\w*:0?2[xX]\}'}}
+            - has: {kind: token_tree, has: {kind: string_literal, regex: '%\{\p{XID_Continue}*:0?2[xX]\}'}}
     pair-split:
         kind: call_expression
         all:

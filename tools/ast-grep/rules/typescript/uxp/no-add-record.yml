@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-add-record
 language: tsxlang
 severity: error
 utils:
@@ -31,7 +30,7 @@ rule:
                 field: object
                 not:
                     any:
-                        - matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}
+                        - matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}
                         - matches: {typescript-collection-receiver: {collection: {regex: '^(Weak)?Set$'}}}
 transform:
     HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}

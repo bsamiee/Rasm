@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-flat-index-split
 language: csharplang
 severity: error
 utils:
@@ -16,7 +15,7 @@ utils:
             - kind: member_access_expression
               all:
                 - has: {field: name, regex: '^(Select|Map|Iter)$'}
-                - has: {field: expression, kind: invocation_expression, regex: '^(\w+\.)?Range\s*\('}
+                - has: {field: expression, kind: invocation_expression, regex: '^(\p{XID_Continue}+\.)?Range[\p{White_Space}\x{FEFF}]*\('}
     quotient:
         kind: binary_expression
         all:

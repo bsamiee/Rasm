@@ -1,0 +1,108 @@
+id: no-result-by-guard-rust
+snapshots:
+  "fn lift(r: Result<u8, Raw>) -> Result<u8, Fault> {\n    if let Err(e) = r {\n        return Err(wrap(try { widen(e)? }));\n    }\n    Ok(0)\n}\n":
+    labels:
+    - source: |-
+        if let Err(e) = r {
+                return Err(wrap(try { widen(e)? }));
+            }
+      style: primary
+      start: 55
+      end: 125
+    - source: |-
+        fn lift(r: Result<u8, Raw>) -> Result<u8, Fault> {
+            if let Err(e) = r {
+                return Err(wrap(try { widen(e)? }));
+            }
+            Ok(0)
+        }
+      style: secondary
+      start: 0
+      end: 137
+    - source: |-
+        {
+            if let Err(e) = r {
+                return Err(wrap(try { widen(e)? }));
+            }
+            Ok(0)
+        }
+      style: secondary
+      start: 49
+      end: 137
+    - source: Err
+      style: secondary
+      start: 62
+      end: 65
+    - source: e
+      style: secondary
+      start: 66
+      end: 67
+    - source: Err(e)
+      style: secondary
+      start: 62
+      end: 68
+    - source: r
+      style: secondary
+      start: 71
+      end: 72
+    - source: let Err(e) = r
+      style: secondary
+      start: 58
+      end: 72
+    - source: Err
+      style: secondary
+      start: 90
+      end: 93
+    - source: e
+      style: secondary
+      start: 111
+      end: 112
+    - source: wrap(try { widen(e)? })
+      style: secondary
+      start: 94
+      end: 117
+    - source: wrap(try { widen(e)? })
+      style: secondary
+      start: 94
+      end: 117
+    - source: Err(wrap(try { widen(e)? }))
+      style: secondary
+      start: 90
+      end: 118
+    - source: return Err(wrap(try { widen(e)? }))
+      style: secondary
+      start: 83
+      end: 118
+    - source: return Err(wrap(try { widen(e)? }));
+      style: secondary
+      start: 83
+      end: 119
+    - source: |-
+        {
+                return Err(wrap(try { widen(e)? }));
+            }
+      style: secondary
+      start: 73
+      end: 125
+    - source: |-
+        if let Err(e) = r {
+                return Err(wrap(try { widen(e)? }));
+            }
+      style: secondary
+      start: 55
+      end: 125
+    - source: r
+      style: secondary
+      start: 71
+      end: 72
+    - source: let Err(e) = r
+      style: secondary
+      start: 58
+      end: 72
+    - source: |-
+        if let Err(e) = r {
+                return Err(wrap(try { widen(e)? }));
+            }
+      style: secondary
+      start: 55
+      end: 125

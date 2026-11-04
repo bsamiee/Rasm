@@ -4,21 +4,21 @@ language: tsxlang
 rule:
     kind: member_expression
     any:
-        - matches: {effect-module-member: {module: {regex: '\bActivity$'}, member: {regex: '^(retry)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\b(AnthropicConfig|OpenAiConfig|OpenRouterConfig|TypeSafeConfig)$'}, member: {regex: '^(withClientTransform)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\b(AnthropicLanguageModel|OpenAiEmbeddingModel|OpenAiLanguageModel|OpenRouterLanguageModel)$'}, member: {regex: '^(withConfigOverride)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\b(AnthropicTelemetry|OpenAiTelemetry|Telemetry)$'}, member: {regex: '^(addGenAIAnnotations)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bArbitrary$'}, member: {regex: '^(filter|filterMap|flatMap|map)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Activity$'}, member: {regex: '^(retry)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)(AnthropicConfig|OpenAiConfig|OpenRouterConfig|TypeSafeConfig)$'}, member: {regex: '^(withClientTransform)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)(AnthropicLanguageModel|OpenAiEmbeddingModel|OpenAiLanguageModel|OpenRouterLanguageModel)$'}, member: {regex: '^(withConfigOverride)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)(AnthropicTelemetry|OpenAiTelemetry|Telemetry)$'}, member: {regex: '^(addGenAIAnnotations)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Arbitrary$'}, member: {regex: '^(filter|filterMap|flatMap|map)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bArgument$'}
+                module: {regex: '(?-u:\b)Argument$'}
                 member:
                     regex: |-
                         (?x)^(atLeast|atMost|between|filter|filterMap|map|mapEffect|mapTryCatch|orElse|orElseResult|variadic|withDefault
                         |withDescription|withFallbackConfig|withFallbackPrompt|withMetavar|withSchema)$
         - matches:
             effect-module-member:
-                module: {regex: '\bArray$'}
+                module: {regex: '(?-u:\b)Array$'}
                 member:
                     regex: |-
                         (?x)^(append|appendAll|bind|bindTo|cartesian|cartesianWith|chop|chunksOf|contains|countBy|dedupeAdjacentWith|dedupeWith
@@ -30,52 +30,52 @@ rule:
                         |takeWhile|takeWhileFilter|union|unionWith|window|zip|zipWith)$
         - matches:
             effect-module-member:
-                module: {regex: '\bAsyncResult$'}
+                module: {regex: '(?-u:\b)AsyncResult$'}
                 member:
                     regex: |-
                         (?x)^(flatMap|getOrElse|map|match|matchWithError|matchWithWaiting|replacePrevious|waiting)$
         - matches:
             effect-module-member:
-                module: {regex: '\bAtom$'}
+                module: {regex: '(?-u:\b)Atom$'}
                 member:
                     regex: |-
                         (?x)^(debounce|getServerValue|initialValue|map|mapResult|modify|optimisticFn|serializable|set|setIdleTTL|setLazy|swr
                         |transform|update|withEquality|withFallback|withLabel|withRefresh|withServerValue)$
-        - matches: {effect-module-member: {module: {regex: '\bAtomRegistry$'}, member: {regex: '^(getResult|mount|toStream|toStreamResult)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)AtomRegistry$'}, member: {regex: '^(getResult|mount|toStream|toStreamResult)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bBigDecimal$'}
+                module: {regex: '(?-u:\b)BigDecimal$'}
                 member:
                     regex: |-
                         (?x)^(between|ceil|clamp|digitAt|divide|divideUnsafe|equals|floor|isGreaterThan|isGreaterThanOrEqualTo|isLessThan
                         |isLessThanOrEqualTo|max|min|multiply|remainder|remainderUnsafe|round|scale|subtract|sum|truncate)$
         - matches:
             effect-module-member:
-                module: {regex: '\bBigInt$'}
+                module: {regex: '(?-u:\b)BigInt$'}
                 member:
                     regex: |-
                         (?x)^(between|clamp|divide|divideUnsafe|gcd|isGreaterThan|isGreaterThanOrEqualTo|isLessThan|isLessThanOrEqualTo|lcm|max|min
                         |multiply|remainder|subtract|sum)$
-        - matches: {effect-module-member: {module: {regex: '\bBoolean$'}, member: {regex: '^(and|eqv|implies|match|nand|nor|or|xor)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\b(BrowserRuntime|BunRuntime|NodeRuntime)$'}, member: {regex: '^(runMain)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\b(BunStream|NodeStream)$'}, member: {regex: '^(pipeThroughDuplex|pipeThroughSimple)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Boolean$'}, member: {regex: '^(and|eqv|implies|match|nand|nor|or|xor)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)(BrowserRuntime|BunRuntime|NodeRuntime)$'}, member: {regex: '^(runMain)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)(BunStream|NodeStream)$'}, member: {regex: '^(pipeThroughDuplex|pipeThroughSimple)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bByteSize$'}
+                module: {regex: '(?-u:\b)ByteSize$'}
                 member:
                     regex: |-
                         (?x)^(between|clamp|divide|equals|isGreaterThan|isGreaterThanOrEqualTo|isLessThan|isLessThanOrEqualTo|max|min|subtract
                         |subtractUnsafe|sum|times|toUnit)$
         - matches:
             effect-module-member:
-                module: {regex: '\b(Cache|ScopedCache)$'}
+                module: {regex: '(?-u:\b)(Cache|ScopedCache)$'}
                 member:
                     regex: |-
                         (?x)^(get|getOption|getSuccess|has|invalidate|invalidateWhen|refresh|set)$
-        - matches: {effect-module-member: {module: {regex: '\bCause$'}, member: {regex: '^(annotate|combine|map)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Cause$'}, member: {regex: '^(annotate|combine|map)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bChannel$'}
+                module: {regex: '(?-u:\b)Channel$'}
                 member:
                     regex: |-
                         (?x)^(acquireRelease|bind|bindTo|buffer|bufferArray|catch|catchCause|catchCauseFilter|catchCauseIf|catchDefect|catchFilter
@@ -86,11 +86,11 @@ rule:
                         |provideService|provideServiceEffect|repeat|retry|runFold|runFoldEffect|runForEach|runForEachWhile|runIntoPubSub
                         |runIntoPubSubArray|runIntoQueue|runIntoQueueArray|scan|scanEffect|schedule|switchMap|tap|tapCause|tapError|toPubSub
                         |toPubSubArray|toPubSubTake|toQueue|toQueueArray|unwrapReason|updateContext|updateService)$
-        - matches: {effect-module-member: {module: {regex: '\bChannelSchema$'}, member: {regex: '^(duplex|duplexUnknown)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bChildProcess$'}, member: {regex: '^(pipeTo|setCwd|setEnv)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)ChannelSchema$'}, member: {regex: '^(duplex|duplexUnknown)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)ChildProcess$'}, member: {regex: '^(pipeTo|setCwd|setEnv)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bChunk$'}
+                module: {regex: '(?-u:\b)Chunk$'}
                 member:
                     regex: |-
                         (?x)^(append|appendAll|chunksOf|contains|difference|drop|dropRight|dropWhile|every|filter|filterMap|filterMapWhile|findFirst
@@ -99,31 +99,31 @@ rule:
                         |splitWhere|take|takeRight|takeWhile|union|zip|zipWith)$
         - matches:
             effect-module-member:
-                module: {regex: '\bCommand$'}
+                module: {regex: '(?-u:\b)Command$'}
                 member:
                     regex: |-
                         (?x)^(annotate|annotateMerge|provide|provideEffect|provideEffectDiscard|provideSync|run|validate|withAlias|withDescription
                         |withExamples|withGlobalFlags|withHandler|withSharedFlags|withShortDescription|withSubcommands)$
-        - matches: {effect-module-member: {module: {regex: '\bConfig$'}, member: {regex: '^(flatMap|map|mapEffect|nested|orElse|withDefault)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bConfigProvider$'}, member: {regex: '^(mapInput|nested|orElse)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bConsole$'}, member: {regex: '^(withGroup|withTime)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Config$'}, member: {regex: '^(flatMap|map|mapEffect|nested|orElse|withDefault)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)ConfigProvider$'}, member: {regex: '^(mapInput|nested|orElse)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Console$'}, member: {regex: '^(withGroup|withTime)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bContext$'}
+                module: {regex: '(?-u:\b)Context$'}
                 member:
                     regex: |-
                         (?x)^(add|addOrOmit|get|getOption|getOrElse|getOrUndefined|getUnsafe|merge)$
         - matches:
             effect-module-member:
-                module: {regex: '\bCookies$'}
+                module: {regex: '(?-u:\b)Cookies$'}
                 member:
                     regex: |-
                         (?x)^(expireCookie|expireCookieUnsafe|get|getValue|merge|mergeIntoArray|remove|set|setAll|setAllCookie|setAllUnsafe
                         |setCookie|setUnsafe|toRequestCookieHeader)$
-        - matches: {effect-module-member: {module: {regex: '\bCron$'}, member: {regex: '^(equals)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Cron$'}, member: {regex: '^(equals)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bDateTime$'}
+                module: {regex: '(?-u:\b)DateTime$'}
                 member:
                     regex: |-
                         (?x)^(add|addDuration|between|clamp|distance|endOf|format|formatIntl|formatLocal|formatUtc|getPart|getPartUtc|isGreaterThan
@@ -132,26 +132,26 @@ rule:
                         |withCurrentZoneNamed|withCurrentZoneOffset|withDate|withDateUtc)$
         - matches:
             effect-module-member:
-                module: {regex: '\bDeferred$'}
+                module: {regex: '(?-u:\b)Deferred$'}
                 member:
                     regex: |-
                         (?x)^(complete|completeWith|die|dieSync|done|fail|failCause|failCauseSync|failSync|interruptWith|into|succeed|sync)$
         - matches:
             effect-module-member:
-                module: {regex: '\bDurableDeferred$'}
+                module: {regex: '(?-u:\b)DurableDeferred$'}
                 member:
                     regex: |-
                         (?x)^(done|fail|failCause|into|succeed|tokenFromExecutionId|tokenFromPayload)$
         - matches:
             effect-module-member:
-                module: {regex: '\bDuration$'}
+                module: {regex: '(?-u:\b)Duration$'}
                 member:
                     regex: |-
                         (?x)^(between|clamp|divide|divideUnsafe|equals|isGreaterThan|isGreaterThanOrEqualTo|isLessThan|isLessThanOrEqualTo|match
                         |matchPair|max|min|subtract|sum|times)$
         - matches:
             effect-module-member:
-                module: {regex: '\bEffect$'}
+                module: {regex: '(?-u:\b)Effect$'}
                 member:
                     regex: |-
                         (?x)^(andThen|annotateLogs|annotateSpans|as|bind|bindTo|cachedInvalidateWithTTL|cachedWithTTL|catch|catchCause
@@ -165,30 +165,30 @@ rule:
                         |tapCauseFilter|tapCauseIf|tapDefect|tapError|tapErrorTag|timeout|timeoutOption|timeoutOrElse|track|trackDefects
                         |trackDuration|trackErrors|trackSuccesses|unwrapReason|updateContext|updateService|validate|when|withErrorReporting
                         |withExecutionPlan|withLogSpan|withLogger|withTracer|withTracerEnabled|withTracerTiming|zip|zipWith)$
-        - matches: {effect-module-member: {module: {regex: '\b(Equivalence|Order)$'}, member: {regex: '^(combine|mapInput)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bExit$'}, member: {regex: '^(map|mapBoth|mapError|match)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bFiber$'}, member: {regex: '^(interruptAllAs|interruptAs|runIn)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bFiberHandle$'}, member: {regex: '^(set|setUnsafe)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bFiberMap$'}, member: {regex: '^(get|getUnsafe|has|hasUnsafe|remove|set|setUnsafe)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bFiberSet$'}, member: {regex: '^(add|addUnsafe)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)(Equivalence|Order)$'}, member: {regex: '^(combine|mapInput)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Exit$'}, member: {regex: '^(map|mapBoth|mapError|match)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Fiber$'}, member: {regex: '^(interruptAllAs|interruptAs|runIn)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)FiberHandle$'}, member: {regex: '^(set|setUnsafe)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)FiberMap$'}, member: {regex: '^(get|getUnsafe|has|hasUnsafe|remove|set|setUnsafe)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)FiberSet$'}, member: {regex: '^(add|addUnsafe)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bFilter$'}
+                module: {regex: '(?-u:\b)Filter$'}
                 member:
                     regex: |-
                         (?x)^(andLeft|andRight|compose|composePassthrough|mapFail|or|zip|zipWith)$
         - matches:
             effect-module-member:
-                module: {regex: '\b(Flag|Param)$'}
+                module: {regex: '(?-u:\b)(Flag|Param)$'}
                 member:
                     regex: |-
                         (?x)^(atLeast|atMost|between|filter|filterMap|map|mapEffect|mapTryCatch|orElse|orElseResult|withAlias|withDefault
                         |withDescription|withFallbackConfig|withFallbackPrompt|withMetavar|withNegation|withOptionalValue|withSchema)$
-        - matches: {effect-module-member: {module: {regex: '\bFunction$'}, member: {regex: '^(compose)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\b(Glob|Ordering)$'}, member: {regex: '^(match)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Function$'}, member: {regex: '^(compose)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)(Glob|Ordering)$'}, member: {regex: '^(match)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bGraph$'}
+                module: {regex: '(?-u:\b)Graph$'}
                 member:
                     regex: |-
                         (?x)^(allShortestPaths|astar|bellmanFord|bfs|complement|compose|degree|dfs|dfsPostOrder|difference|dijkstra|edgesBetween
@@ -196,27 +196,27 @@ rule:
                         |incidentEdges|incomingEdges|inducedSubgraph|intersection|maximumFlow|minimumCut|minimumSpanningForest|mutate
                         |neighborhood|neighbors|neighborsDirected|outDegree|outgoingEdges|predecessors|simplePaths|successors|sum
                         |symmetricDifference|toGraphViz|toMermaid|topo|unweightedDistances)$
-        - matches: {effect-module-member: {module: {regex: '\bGraphQLResolver$'}, member: {regex: '^(request)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bHash$'}, member: {regex: '^(combine)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)GraphQLResolver$'}, member: {regex: '^(request)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Hash$'}, member: {regex: '^(combine)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bHashMap$'}
+                module: {regex: '(?-u:\b)HashMap$'}
                 member:
                     regex: |-
                         (?x)^(every|filter|filterMap|findFirst|flatMap|forEach|get|getHash|getUnsafe|has|hasBy|hasHash|map|modify|modifyAt
                         |modifyHash|mutate|reduce|remove|removeMany|set|setMany|some|union)$
-        - matches: {effect-module-member: {module: {regex: '\bHashRing$'}, member: {regex: '^(add|addMany|has|remove)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)HashRing$'}, member: {regex: '^(add|addMany|has|remove)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\b(HashSet|TxHashSet)$'}
+                module: {regex: '(?-u:\b)(HashSet|TxHashSet)$'}
                 member:
                     regex: |-
                         (?x)^(add|difference|every|filter|has|intersection|isSubset|map|reduce|remove|some|union)$
-        - matches: {effect-module-member: {module: {regex: '\bHeaders$'}, member: {regex: '^(get|has|merge|redact|remove|removeMany|set|setAll)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bHttpApiSecurity$'}, member: {regex: '^(annotate|annotateMerge)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Headers$'}, member: {regex: '^(get|has|merge|redact|remove|removeMany|set|setAll)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)HttpApiSecurity$'}, member: {regex: '^(annotate|annotateMerge)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bHttpClient$'}
+                module: {regex: '(?-u:\b)HttpClient$'}
                 member:
                     regex: |-
                         (?x)^(catch|catchTag|catchTags|filterOrElse|filterOrFail|filterStatus|followRedirects|mapRequest|mapRequestEffect
@@ -224,172 +224,172 @@ rule:
                         |transformResponse|withCircuitBreaker|withCookiesRef|withRateLimiter)$
         - matches:
             effect-module-member:
-                module: {regex: '\bHttpClientRequest$'}
+                module: {regex: '(?-u:\b)HttpClientRequest$'}
                 member:
                     regex: |-
                         (?x)^(accept|appendUrl|appendUrlParam|appendUrlParams|basicAuth|bearerToken|bodyFile|bodyFormData|bodyFormDataRecord
                         |bodyJson|bodyJsonUnsafe|bodyStream|bodyText|bodyUint8Array|bodyUrlParams|compressBody|modify|prependUrl|removeHeader
                         |setBody|setHash|setHeader|setHeaders|setMethod|setUrl|setUrlParam|setUrlParams|updateHeaders|updateUrl|upgrade)$
-        - matches: {effect-module-member: {module: {regex: '\bHttpClientResponse$'}, member: {regex: '^(filterStatus|matchStatus)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bHttpEffect$'}, member: {regex: '^(withPreResponseHandler)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bHttpRouter$'}, member: {regex: '^(prefixPath|prefixRoute)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bHttpServer$'}, member: {regex: '^(serve|serveEffect)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)HttpClientResponse$'}, member: {regex: '^(filterStatus|matchStatus)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)HttpEffect$'}, member: {regex: '^(withPreResponseHandler)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)HttpRouter$'}, member: {regex: '^(prefixPath|prefixRoute)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)HttpServer$'}, member: {regex: '^(serve|serveEffect)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bHttpServerResponse$'}
+                module: {regex: '(?-u:\b)HttpServerResponse$'}
                 member:
                     regex: |-
                         (?x)^(expireCookie|expireCookieUnsafe|mergeCookies|removeCookie|removeHeader|replaceCookies|setBody|setCookie
                         |setCookieUnsafe|setCookies|setCookiesUnsafe|setHeader|setHeaders|setStatus|updateCookies)$
-        - matches: {effect-module-member: {module: {regex: '\bIpNetwork$'}, member: {regex: '^(contains|containsNetwork|overlaps)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)IpNetwork$'}, member: {regex: '^(contains|containsNetwork|overlaps)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bIterable$'}
+                module: {regex: '(?-u:\b)Iterable$'}
                 member:
                     regex: |-
                         (?x)^(append|appendAll|cartesian|cartesianWith|chunksOf|contains|countBy|dedupeAdjacentWith|drop|filter|filterMap
                         |filterMapWhile|findFirst|findLast|flatMap|flatMapNullishOr|forEach|groupBy|groupWith|intersperse|map|prepend
                         |prependAll|reduce|repeat|replicate|scan|some|take|takeWhile|zip|zipWith)$
-        - matches: {effect-module-member: {module: {regex: '\bKeyValueStore$'}, member: {regex: '^(prefix)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)KeyValueStore$'}, member: {regex: '^(prefix)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bLayer$'}
+                module: {regex: '(?-u:\b)Layer$'}
                 member:
                     regex: |-
                         (?x)^(buildWithMemoMap|buildWithScope|catch|catchCause|catchTag|flatMap|merge|provide|provideMerge|tap|tapCause|tapError
                         |updateService)$
-        - matches: {effect-module-member: {module: {regex: '\bLogger$'}, member: {regex: '^(batched|map|toFile)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Logger$'}, member: {regex: '^(batched|map|toFile)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bLogLevel$'}
+                module: {regex: '(?-u:\b)LogLevel$'}
                 member:
                     regex: |-
                         (?x)^(isGreaterThan|isGreaterThanOrEqualTo|isLessThan|isLessThanOrEqualTo)$
-        - matches: {effect-module-member: {module: {regex: '\bMatch$'}, member: {regex: '^(valueTags)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^(valueTags)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bMetric$'}
+                module: {regex: '(?-u:\b)Metric$'}
                 member:
                     regex: |-
                         (?x)^(mapInput|modify|update|withAttributes|withConstantInput)$
-        - matches: {effect-module-member: {module: {regex: '\bModel$'}, member: {regex: '^(extract|fieldEvolve)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bMutableHashMap$'}, member: {regex: '^(forEach|get|has|modify|modifyAt|remove|set)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bMutableHashSet$'}, member: {regex: '^(add|has|remove)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Model$'}, member: {regex: '^(extract|fieldEvolve)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)MutableHashMap$'}, member: {regex: '^(forEach|get|has|modify|modifyAt|remove|set)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)MutableHashSet$'}, member: {regex: '^(add|has|remove)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bMutableRef$'}
+                module: {regex: '(?-u:\b)MutableRef$'}
                 member:
                     regex: |-
                         (?x)^(compareAndSet|getAndSet|getAndUpdate|set|setAndGet|update|updateAndGet)$
-        - matches: {effect-module-member: {module: {regex: '\bNdjson$'}, member: {regex: '^(duplex|duplexSchema|duplexSchemaString|duplexString)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bNetAddress$'}, member: {regex: '^(isFamily|match)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Ndjson$'}, member: {regex: '^(duplex|duplexSchema|duplexSchemaString|duplexString)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)NetAddress$'}, member: {regex: '^(isFamily|match)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bNumber$'}
+                module: {regex: '(?-u:\b)Number$'}
                 member:
                     regex: |-
                         (?x)^(between|clamp|divide|divideUnsafe|isGreaterThan|isGreaterThanOrEqualTo|isLessThan|isLessThanOrEqualTo|max|min|multiply
                         |remainder|round|subtract|sum)$
         - matches:
             effect-module-member:
-                module: {regex: '\bOptic$'}
+                module: {regex: '(?-u:\b)Optic$'}
                 member:
                     regex: |-
                         (?x)^(get|getAll|getResult|modify|modifyAll|replace|replaceResult|set)$
         - matches:
             effect-module-member:
-                module: {regex: '\bOption$'}
+                module: {regex: '(?-u:\b)Option$'}
                 member:
                     regex: |-
                         (?x)^(andThen|as|bind|bindTo|composeK|contains|exists|filter|filterMap|flatMap|flatMapNullishOr|getOrElse|getOrThrowWith|let
                         |liftPredicate|map|match|orElse|orElseResult|orElseSome|partitionMap|product|productMany|reduceCompact|tap|zipLeft
                         |zipRight|zipWith)$
-        - matches: {effect-module-member: {module: {regex: '\bOtelTracer$'}, member: {regex: '^(withSpanContext)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bPartitionedSemaphore$'}, member: {regex: '^(release|take)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bPool$'}, member: {regex: '^(invalidate|reserve|use)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)OtelTracer$'}, member: {regex: '^(withSpanContext)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)PartitionedSemaphore$'}, member: {regex: '^(release|take)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Pool$'}, member: {regex: '^(invalidate|reserve|use)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bPredicate$'}
+                module: {regex: '(?-u:\b)Predicate$'}
                 member:
                     regex: |-
                         (?x)^(and|compose|eqv|hasProperty|implies|isTagged|isTupleOf|isTupleOfAtLeast|mapInput|nand|nor|or|xor)$
         - matches:
             effect-module-member:
-                module: {regex: '\bPrompt$'}
+                module: {regex: '(?-u:\b)Prompt$'}
                 member:
                     regex: |-
                         (?x)^(appendSystem|concat|flatMap|map|prependSystem|setSystem)$
         - matches:
             effect-module-member:
-                module: {regex: '\bPubSub$'}
+                module: {regex: '(?-u:\b)PubSub$'}
                 member:
                     regex: |-
                         (?x)^(end|endUnsafe|publish|publishAll|publishUnsafe|takeBetween|takeUpTo)$
-        - matches: {effect-module-member: {module: {regex: '\bPull$'}, member: {regex: '^(catchDone|matchEffect)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bQueue$'}, member: {regex: '^(fail|failCause|into|offer|offerAll|takeBetween|takeN)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bRandom$'}, member: {regex: '^(withSeed)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bRcMap$'}, member: {regex: '^(get|getOption|has|invalidate|touch)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bReactivity$'}, member: {regex: '^(mutation|query|stream)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Pull$'}, member: {regex: '^(catchDone|matchEffect)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Queue$'}, member: {regex: '^(fail|failCause|into|offer|offerAll|takeBetween|takeN)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Random$'}, member: {regex: '^(withSeed)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)RcMap$'}, member: {regex: '^(get|getOption|has|invalidate|touch)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Reactivity$'}, member: {regex: '^(mutation|query|stream)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bRecord$'}
+                module: {regex: '(?-u:\b)Record$'}
                 member:
                     regex: |-
                         (?x)^(collect|difference|every|filter|filterMap|findFirst|fromIterableBy|fromIterableWith|get|has|intersection|isSubrecord
                         |map|mapEntries|mapKeys|modify|partition|pop|reduce|remove|replace|set|some|union)$
         - matches:
             effect-module-member:
-                module: {regex: '\bRef$'}
+                module: {regex: '(?-u:\b)Ref$'}
                 member:
                     regex: |-
                         (?x)^(getAndSet|getAndUpdate|getAndUpdateSome|modify|modifySome|set|setAndGet|update|updateAndGet|updateSome
                         |updateSomeAndGet)$
-        - matches: {effect-module-member: {module: {regex: '\bRequest$'}, member: {regex: '^(complete|completeEffect|fail|failCause|succeed)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Request$'}, member: {regex: '^(complete|completeEffect|fail|failCause|succeed)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bRequestResolver$'}
+                module: {regex: '(?-u:\b)RequestResolver$'}
                 member:
                     regex: |-
                         (?x)^(around|asCache|batchN|grouped|persisted|race|setDelay|setDelayEffect|withCache|withSpan)$
         - matches:
             effect-module-member:
-                module: {regex: '\bResult$'}
+                module: {regex: '(?-u:\b)Result$'}
                 member:
                     regex: |-
                         (?x)^(andThen|bind|bindTo|filterOrFail|flatMap|fromNullishOr|fromOption|getOrElse|getOrThrowWith|let|liftPredicate|map
                         |mapBoth|mapError|match|orElse|tap|transposeMapOption)$
-        - matches: {effect-module-member: {module: {regex: '\bRpcClient$'}, member: {regex: '^(withHeaders)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)RpcClient$'}, member: {regex: '^(withHeaders)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bSchedule$'}
+                module: {regex: '(?-u:\b)Schedule$'}
                 member:
                     regex: |-
                         (?x)^(addDelay|concat|concatResult|map|modifyDelay|tap|upTo|while)$
-        - matches: {effect-module-member: {module: {regex: '\bSchemaBinary$'}, member: {regex: '^(duplex)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bSchemaGetter$'}, member: {regex: '^(compose|map|run)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bSchemaTransformation$'}, member: {regex: '^(composeTransformation)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bScope$'}, member: {regex: '^(provide|use)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bScopedRef$'}, member: {regex: '^(set)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bSemaphore$'}, member: {regex: '^(release|resize|take|takeIfAvailable|takeScoped)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)SchemaBinary$'}, member: {regex: '^(duplex)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)SchemaGetter$'}, member: {regex: '^(compose|map|run)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)SchemaTransformation$'}, member: {regex: '^(composeTransformation)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Scope$'}, member: {regex: '^(provide|use)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)ScopedRef$'}, member: {regex: '^(set)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Semaphore$'}, member: {regex: '^(release|resize|take|takeIfAvailable|takeScoped)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bSemVer$'}
+                module: {regex: '(?-u:\b)SemVer$'}
                 member:
                     regex: |-
                         (?x)^(between|bump|bumpPremajor|bumpPreminor|bumpPrepatch|bumpPrerelease|clamp|difference|equals|isGreaterThan
                         |isGreaterThanOrEqualTo|isLessThan|isLessThanOrEqualTo|max|min|withBuild|withPrerelease)$
-        - matches: {effect-module-member: {module: {regex: '\bSemVerRange$'}, member: {regex: '^(matches|maxSatisfying|minSatisfying)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)SemVerRange$'}, member: {regex: '^(matches|maxSatisfying|minSatisfying)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bSink$'}
+                module: {regex: '(?-u:\b)Sink$'}
                 member:
                     regex: |-
                         (?x)^(as|catch|catchCause|ensuring|flatMap|map|mapEffect|mapEffectEnd|mapEnd|mapError|mapInput|mapInputArray
                         |mapInputArrayEffect|mapInputEffect|mapLeftover|onExit|orElse|provideContext|provideService|summarized)$
-        - matches: {effect-module-member: {module: {regex: '\bSocket$'}, member: {regex: '^(toChannelString)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Socket$'}, member: {regex: '^(toChannelString)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bStream$'}
+                module: {regex: '(?-u:\b)Stream$'}
                 member:
                     regex: |-
                         (?x)^(aggregate|aggregateWithin|as|bind|bindEffect|bindTo|broadcast|broadcastN|buffer|bufferArray|catch|catchCause
@@ -410,76 +410,76 @@ rule:
                         |zipLeft|zipRight|zipWith|zipWithArray)$
         - matches:
             effect-module-member:
-                module: {regex: '\bString$'}
+                module: {regex: '(?-u:\b)String$'}
                 member:
                     regex: |-
                         (?x)^(at|charAt|charCodeAt|codePointAt|concat|noCase|search|split|stripMarginWith|takeLeft|takeRight)$
         - matches:
             effect-module-member:
-                module: {regex: '\bStruct$'}
+                module: {regex: '(?-u:\b)Struct$'}
                 member:
                     regex: |-
                         (?x)^(assign|evolve|evolveEntries|evolveKeys|get|map|mapOmit|mapPick|omit|pick|renameKeys)$
         - matches:
             effect-module-member:
-                module: {regex: '\b(SubscriptionRef|SynchronizedRef)$'}
+                module: {regex: '(?-u:\b)(SubscriptionRef|SynchronizedRef)$'}
                 member:
                     regex: |-
                         (?x)^(getAndSet|getAndUpdate|getAndUpdateEffect|getAndUpdateSome|getAndUpdateSomeEffect|modify|modifyEffect|modifySome
                         |modifySomeEffect|set|setAndGet|update|updateAndGet|updateAndGetEffect|updateEffect|updateSome|updateSomeAndGet
                         |updateSomeAndGetEffect|updateSomeEffect)$
-        - matches: {effect-module-member: {module: {regex: '\bTransferable$'}, member: {regex: '^(schema)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Transferable$'}, member: {regex: '^(schema)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bTrie$'}
+                module: {regex: '(?-u:\b)Trie$'}
                 member:
                     regex: |-
                         (?x)^(entriesWithPrefix|filter|filterMap|forEach|get|getUnsafe|has|insert|insertMany|keysWithPrefix|longestPrefixOf|map
                         |modify|reduce|remove|removeMany|toEntriesWithPrefix|valuesWithPrefix)$
         - matches:
             effect-module-member:
-                module: {regex: '\bTuple$'}
+                module: {regex: '(?-u:\b)Tuple$'}
                 member:
                     regex: |-
                         (?x)^(appendElement|appendElements|evolve|get|isTupleOf|isTupleOfAtLeast|map|mapOmit|mapPick|omit|pick|renameIndices)$
         - matches:
             effect-module-member:
-                module: {regex: '\bTxChunk$'}
+                module: {regex: '(?-u:\b)TxChunk$'}
                 member:
                     regex: |-
                         (?x)^(append|appendAll|concat|drop|filter|map|modify|prepend|prependAll|set|slice|take|update)$
-        - matches: {effect-module-member: {module: {regex: '\bTxDeferred$'}, member: {regex: '^(done|fail|succeed)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)TxDeferred$'}, member: {regex: '^(done|fail|succeed)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bTxHashMap$'}
+                module: {regex: '(?-u:\b)TxHashMap$'}
                 member:
                     regex: |-
                         (?x)^(every|filter|filterMap|findFirst|flatMap|forEach|get|getHash|has|hasBy|hasHash|map|modify|modifyAt|reduce|remove
                         |removeMany|set|setMany|some|union)$
-        - matches: {effect-module-member: {module: {regex: '\bTxPriorityQueue$'}, member: {regex: '^(offer|offerAll|removeIf|retainIf|takeUpTo)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bTxPubSub$'}, member: {regex: '^(publish|publishAll|releaseSubscriber)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bTxQueue$'}, member: {regex: '^(fail|failCause|offer|offerAll|takeBetween|takeN)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bTxReentrantLock$'}, member: {regex: '^(withLock|withReadLock|withWriteLock)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bTxRef$'}, member: {regex: '^(modify|set|update)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bTxSemaphore$'}, member: {regex: '^(acquireN|releaseN|tryAcquireN)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)TxPriorityQueue$'}, member: {regex: '^(offer|offerAll|removeIf|retainIf|takeUpTo)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)TxPubSub$'}, member: {regex: '^(publish|publishAll|releaseSubscriber)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)TxQueue$'}, member: {regex: '^(fail|failCause|offer|offerAll|takeBetween|takeN)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)TxReentrantLock$'}, member: {regex: '^(withLock|withReadLock|withWriteLock)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)TxRef$'}, member: {regex: '^(modify|set|update)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)TxSemaphore$'}, member: {regex: '^(acquireN|releaseN|tryAcquireN)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bTxSubscriptionRef$'}
+                module: {regex: '(?-u:\b)TxSubscriptionRef$'}
                 member:
                     regex: |-
                         (?x)^(getAndSet|getAndUpdate|modify|set|update|updateAndGet)$
-        - matches: {effect-module-member: {module: {regex: '\bUndefinedOr$'}, member: {regex: '^(getOrThrowWith|map|match)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)UndefinedOr$'}, member: {regex: '^(getOrThrowWith|map|match)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bUrl$'}
+                module: {regex: '(?-u:\b)Url$'}
                 member:
                     regex: |-
                         (?x)^(modifyUrlParams|mutate|setHash|setHost|setHostname|setHref|setPassword|setPathname|setPort|setProtocol|setSearch
                         |setUrlParams|setUsername)$
         - matches:
             effect-module-member:
-                module: {regex: '\bUrlParams$'}
+                module: {regex: '(?-u:\b)UrlParams$'}
                 member:
                     regex: |-
                         (?x)^(append|appendAll|getAll|getFirst|getLast|redact|remove|set|setAll|transform)$
-        - matches: {effect-module-member: {module: {regex: '\bWorkflow$'}, member: {regex: '^(withCompensation)$'}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Workflow$'}, member: {regex: '^(withCompensation)$'}}}

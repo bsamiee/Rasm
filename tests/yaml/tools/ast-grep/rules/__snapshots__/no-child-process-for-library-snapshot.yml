@@ -1,0 +1,117 @@
+id: no-child-process-for-library
+snapshots:
+  "const TOOL: &str = \"/usr/bin/jq\";\n\nfn query() -> std::io::Result<Output> {\n    Command::new(TOOL).arg(\".\").output()\n}\n":
+    labels:
+    - source: Command::new(TOOL)
+      style: primary
+      start: 79
+      end: 97
+    - source: TOOL
+      style: secondary
+      start: 6
+      end: 10
+    - source: "\"/usr/bin/jq\""
+      style: secondary
+      start: 19
+      end: 32
+    - source: "const TOOL: &str = \"/usr/bin/jq\";"
+      style: secondary
+      start: 0
+      end: 33
+    - source: |
+        const TOOL: &str = "/usr/bin/jq";
+        
+        fn query() -> std::io::Result<Output> {
+            Command::new(TOOL).arg(".").output()
+        }
+      style: secondary
+      start: 0
+      end: 118
+    - source: TOOL
+      style: secondary
+      start: 92
+      end: 96
+    - source: TOOL
+      style: secondary
+      start: 92
+      end: 96
+  "fn fetch() -> std::io::Result<Output> {\n    Command::new(\"sh\").arg(\"-c\").arg(\"curl -fsSL https://example.com\").output()\n}\n":
+    labels:
+    - source: Command::new("sh")
+      style: primary
+      start: 44
+      end: 62
+    - source: "\"sh\""
+      style: secondary
+      start: 57
+      end: 61
+    - source: "\"sh\""
+      style: secondary
+      start: 57
+      end: 61
+    - source: |-
+        {
+            Command::new("sh").arg("-c").arg("curl -fsSL https://example.com").output()
+        }
+      style: secondary
+      start: 38
+      end: 121
+    - source: arg
+      style: secondary
+      start: 73
+      end: 76
+    - source: Command::new("sh").arg("-c").arg
+      style: secondary
+      start: 44
+      end: 76
+    - source: Command::new("sh").arg("-c").arg("curl -fsSL https://example.com")
+      style: secondary
+      start: 44
+      end: 110
+    - source: "\"curl -fsSL https://example.com\""
+      style: secondary
+      start: 77
+      end: 109
+    - source: Command::new("sh").arg("-c").arg("curl -fsSL https://example.com").output()
+      style: secondary
+      start: 44
+      end: 119
+  "fn metadata() -> std::io::Result<Output> {\n    Command::new(\"cargo\").args([\"metadata\", \"--format-version\", \"1\"]).output()\n}\n":
+    labels:
+    - source: Command::new("cargo")
+      style: primary
+      start: 47
+      end: 68
+    - source: "\"metadata\""
+      style: secondary
+      start: 75
+      end: 85
+    - source: |-
+        fn metadata() -> std::io::Result<Output> {
+            Command::new("cargo").args(["metadata", "--format-version", "1"]).output()
+        }
+      style: secondary
+      start: 0
+      end: 123
+    - source: "\"cargo\""
+      style: secondary
+      start: 60
+      end: 67
+    - source: "\"cargo\""
+      style: secondary
+      start: 60
+      end: 67
+  "fn unpack(archive: &Path) -> std::io::Result<()> {\n    std::process::Command::new(\"tar\").arg(\"-xf\").arg(archive).status()?;\n    Ok(())\n}\n":
+    labels:
+    - source: std::process::Command::new("tar")
+      style: primary
+      start: 55
+      end: 88
+    - source: "\"tar\""
+      style: secondary
+      start: 82
+      end: 87
+    - source: "\"tar\""
+      style: secondary
+      start: 82
+      end: 87

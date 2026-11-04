@@ -1,0 +1,40 @@
+id: no-fourth-nesting-level-csharp
+snapshots:
+  "class A {\n    int F(int[] xs) {\n        foreach (var x in xs) {\n            if (x > 0) {\n                for (var i = 0; i < x; i++) {\n                    return i > 1 ? i : 0;\n                }\n            }\n        }\n        return 0;\n    }\n}\n":
+    labels:
+    - source: |-
+        foreach (var x in xs) {
+                    if (x > 0) {
+                        for (var i = 0; i < x; i++) {
+                            return i > 1 ? i : 0;
+                        }
+                    }
+                }
+      message: First nesting level
+      style: secondary
+      start: 40
+      end: 218
+    - source: "i > 1 ? i : 0"
+      message: Fourth nesting level
+      style: primary
+      start: 162
+      end: 175
+  "class A {\n    void F(int[] xs) {\n        foreach (var x in xs) {\n            if (x > 0) {\n                while (x > 1) {\n                    if (x > 2) { G(x); }\n                }\n            }\n        }\n    }\n}\n":
+    labels:
+    - source: |-
+        foreach (var x in xs) {
+                    if (x > 0) {
+                        while (x > 1) {
+                            if (x > 2) { G(x); }
+                        }
+                    }
+                }
+      message: First nesting level
+      style: secondary
+      start: 41
+      end: 204
+    - source: if (x > 2) { G(x); }
+      message: Fourth nesting level
+      style: primary
+      start: 142
+      end: 162

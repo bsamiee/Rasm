@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-single-failure-code
 language: csharplang
 severity: error
 files: ['**/rhino/**']
@@ -31,7 +30,7 @@ utils:
     code:
         kind: prefix_unary_expression
         pattern: $CODE
-        regex: '^-\s*[12]$'
+        regex: '^-[\p{White_Space}\x{FEFF}]*[12]$'
 rule:
     any:
         - kind: binary_expression
@@ -43,6 +42,6 @@ rule:
         - kind: is_pattern_expression
           all:
             - has: {field: expression, matches: coded}
-            - has: {field: pattern, regex: '^(not\s+)?-\s*[12]$', has: {stopBy: end, matches: code}}
+            - has: {field: pattern, regex: '^(not[\p{White_Space}\x{FEFF}]+)?-[\p{White_Space}\x{FEFF}]*[12]$', has: {stopBy: end, matches: code}}
 message: '`$MEMBER` result compared with `$CODE` reads the other negative failure code as success'
 note: 'Test `<result> >= 0` for success and `<result> < 0` for failure'

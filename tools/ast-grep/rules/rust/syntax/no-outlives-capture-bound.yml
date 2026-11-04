@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-outlives-capture-bound
 language: rustlang
 severity: error
 utils:
@@ -18,6 +17,6 @@ rule:
         - inside: {stopBy: end, kind: 'function_item, function_signature_item', field: return_type}
         - any:
             - has: {kind: lifetime, pattern: $L, matches: own-lifetime}
-            - has: {kind: generic_type, regex: '^(\w+::)*Captures<', pattern: $L}
+            - has: {kind: generic_type, regex: '^(\p{XID_Continue}+::)*Captures<', pattern: $L}
 message: 'Returned `impl Trait` restates its capture of `$L`'
 note: 'Delete the bound unless callers rely on hidden type outliving `<lifetime>`, and write `+ use<..>` for a narrower capture set'

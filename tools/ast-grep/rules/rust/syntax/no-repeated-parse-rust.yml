@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-repeated-parse-rust
 language: rustlang
 severity: error
 utils:
@@ -19,7 +18,7 @@ utils:
                 - has: {field: arguments, not: {has: {pattern: $_}}}
             - all:
                 - has: {field: function, matches: parser-path}
-                - has: {field: arguments, has: {nthChild: 1, pattern: $INPUT, not: {regex: '^&\s*mut\b'}}, not: {has: {nthChild: 3}}}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $INPUT, not: {regex: '^&\p{White_Space}*mut(?-u:\b)'}}, not: {has: {nthChild: 3}}}
     after-parse:
         inside: {kind: block}
         follows: {stopBy: end, any: [{matches: parse-of}, {has: {stopBy: {kind: block}, matches: parse-of}}]}
@@ -28,7 +27,7 @@ utils:
             kind: 'function_item, closure_expression'
             stopBy: end
             any:
-                - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $INPUT}}, {has: {field: type, regex: 'Parse(Stream|Buffer)\b'}}]}}
+                - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $INPUT}}, {has: {field: type, regex: 'Parse(Stream|Buffer)(?-u:\b)'}}]}}
                 - has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $INPUT}}, {has: {field: value, regex: '\.(fork|lookahead1)\(\)$'}}]}
 rule:
     kind: call_expression

@@ -1,13 +1,12 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-forbidden-encoding-by-hand
 language: tsxlang
 severity: error
 utils:
     getter:
         kind: member_expression
-        matches: {effect-module-member: {module: {regex: '\bSchemaGetter$'}, member: {regex: '^(forbidden|succeed)$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)SchemaGetter$'}, member: {regex: '^(forbidden|succeed)$'}}}
     transformation:
-        matches: {effect-module-member: {module: {regex: '\bSchemaTransformation$'}, member: {regex: '^Transformation$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)SchemaTransformation$'}, member: {regex: '^Transformation$'}}}
     encode-position:
         any:
             - inside: {kind: pair, field: value, has: {field: key, regex: '^encode$'}}

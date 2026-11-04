@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-telemetry-composed-by-hand
 language: rustlang
 severity: error
 ignores: ['libs/rust/services/telemetry/**']
@@ -18,10 +17,10 @@ utils:
                         - inside: {kind: block, stopBy: end, has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $BUILDER}}, {has: {field: value, matches: tracer-builder}}]}}
     tracer-builder:
         any:
-            - regex: '(?s)\b(LogTracer::builder|log_tracer::Builder::(new|default))\(\)'
+            - regex: '(?s)(?-u:\b)(LogTracer::builder|log_tracer::Builder::(new|default))\(\)'
             - all:
-                - regex: '(?s)^\w*Builder::(new|default)\(\)'
-                - inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '(?s)\blog_tracer::.*\bBuilder\b'}}
+                - regex: '(?s)^\p{XID_Continue}*Builder::(new|default)\(\)'
+                - inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '(?s)(?-u:\b)log_tracer::.*(?-u:\b)Builder(?-u:\b)'}}
     global-install:
         kind: scoped_identifier
         regex: '(^|::)global::set_(tracer_provider|meter_provider|text_map_propagator)$'
@@ -32,7 +31,7 @@ utils:
             - all:
                 - any:
                     - {kind: scoped_identifier, regex: '(^|::)panic::update_hook$'}
-                    - matches: {rust-imported-name: {source: {regex: '\bpanic\b'}, name: {regex: '^update_hook$'}}}
+                    - matches: {rust-imported-name: {source: {regex: '(?-u:\b)panic(?-u:\b)'}, name: {regex: '^update_hook$'}}}
                 - not:
                     inside:
                         kind: call_expression
@@ -55,7 +54,7 @@ rule:
             - matches: subscriber-install
             - matches: global-install
             - matches: panic-hook
-            - matches: {rust-imported-name: {source: {regex: '\b(tracing|global|panic)\b'}, name: {regex: '^(set_global_default|set_default|with_default|set_(tracer_provider|meter_provider|text_map_propagator)|set_hook|take_hook)$'}}}
+            - matches: {rust-imported-name: {source: {regex: '(?-u:\b)(tracing|global|panic)(?-u:\b)'}, name: {regex: '^(set_global_default|set_default|with_default|set_(tracer_provider|meter_provider|text_map_propagator)|set_hook|take_hook)$'}}}
         - not: {matches: rust-test-scope}
 message: '`$SITE` installs a subscriber, `LogTracer`, provider, or propagator outside `rasm-telemetry`, or a panic hook dropping the one before it'
 note: 'Start through `rasm_command::run`; keep panic hooks for process lifetime and call their predecessor through `panic::update_hook`'

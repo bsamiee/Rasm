@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-trace-context-by-hand
 language: rustlang
 severity: error
 utils:
     constructed:
         kind: call_expression
-        has: {field: function, kind: scoped_identifier, regex: '(^|::)\w*Propagator::(new|default)$'}
+        has: {field: function, kind: scoped_identifier, regex: '(^|::)\p{XID_Continue}*Propagator::(new|default)$'}
     propagator:
         any:
             - matches: constructed
@@ -23,7 +22,7 @@ utils:
                         - has: {field: pattern, pattern: $LOCAL}
                         - any:
                             - has: {field: value, matches: constructed}
-                            - has: {field: type, regex: '(^|::)\w*Propagator$'}
+                            - has: {field: type, regex: '(^|::)\p{XID_Continue}*Propagator$'}
     local-propagator:
         kind: call_expression
         any:

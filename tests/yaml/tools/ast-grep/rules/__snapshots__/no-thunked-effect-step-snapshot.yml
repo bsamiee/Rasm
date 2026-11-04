@@ -1,0 +1,68 @@
+id: no-thunked-effect-step
+snapshots:
+  "import { Effect } from \"effect\";\nconst a = Effect.andThen(task, () => Effect.never);\n":
+    fixed: |
+      import { Effect } from "effect";
+      const a = Effect.andThen(task,  => Effect.never);
+    labels:
+    - source: ()
+      style: primary
+      start: 64
+      end: 66
+    - source: ()
+      style: secondary
+      start: 64
+      end: 66
+    - source: Effect.never
+      style: secondary
+      start: 70
+      end: 82
+    - source: Effect.andThen
+      style: secondary
+      start: 43
+      end: 57
+    - source: Effect.andThen(task, () => Effect.never)
+      style: secondary
+      start: 43
+      end: 83
+    - source: (task, () => Effect.never)
+      style: secondary
+      start: 57
+      end: 83
+    - source: () => Effect.never
+      style: secondary
+      start: 64
+      end: 82
+  "import { Effect } from \"effect\";\nconst a = Effect.tap(task, () => Effect.void);\n":
+    fixed: |
+      import { Effect } from "effect";
+      const a = Effect.tap(task,  => Effect.void);
+    labels:
+    - source: ()
+      style: primary
+      start: 60
+      end: 62
+    - source: ()
+      style: secondary
+      start: 60
+      end: 62
+    - source: Effect.void
+      style: secondary
+      start: 66
+      end: 77
+    - source: Effect.tap
+      style: secondary
+      start: 43
+      end: 53
+    - source: Effect.tap(task, () => Effect.void)
+      style: secondary
+      start: 43
+      end: 78
+    - source: (task, () => Effect.void)
+      style: secondary
+      start: 53
+      end: 78
+    - source: () => Effect.void
+      style: secondary
+      start: 60
+      end: 77

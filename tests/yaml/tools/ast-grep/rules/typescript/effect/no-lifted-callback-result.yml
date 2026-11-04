@@ -1,0 +1,33 @@
+id: no-lifted-callback-result
+valid:
+    - |
+      import { Effect } from "effect";
+      const a = Effect.map(task, (n) => n + 1);
+    - |
+      import { Effect } from "effect";
+      const a = Effect.flatMap(task, (n) => Effect.succeed(n + 1));
+    - |
+      import { Effect } from "effect";
+      const a = Effect.catch(task, (e) => Effect.fail(new Wrapped(e)));
+    - |
+      import { Effect } from "effect";
+      const a = Effect.andThen(task, async (n) => Effect.succeed(n));
+invalid:
+    - |
+      import { Option } from "effect";
+      const a = Option.flatMap(Option.some(1), (n) => Option.some(n + 1));
+    - |
+      import { Effect } from "effect";
+      const a = Effect.andThen(task, (n) => Effect.succeed(n + 1));
+    - |
+      import { Effect } from "effect";
+      const a = Effect.flatMap(task, () => Effect.void);
+    - |
+      import { Stream } from "effect";
+      const a = Stream.catch(stream, (e) => Stream.fail(e));
+    - |
+      import { Effect } from "effect";
+      const a = Effect.catch(task, (e) => Effect.succeed(0));
+    - |
+      import { Effect } from "effect";
+      const a = task.pipe(Effect.andThen(Effect.succeed));

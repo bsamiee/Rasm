@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-default-comparison
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -10,7 +9,7 @@ utils:
         inside:
             stopBy: end
             has: {kind: type_parameter_list, has: {kind: type_parameter, has: {kind: identifier, pattern: $TP}}}
-            not: {has: {kind: type_parameter_constraints_clause, all: [{has: {kind: identifier, pattern: $TP}}, {has: {kind: type_parameter_constraint, regex: '^I(Number|NumberBase|BinaryInteger|BinaryNumber|FloatingPoint\w*|SignedNumber|UnsignedNumber|AdditiveIdentity)\b'}}]}}
+            not: {has: {kind: type_parameter_constraints_clause, all: [{has: {kind: identifier, pattern: $TP}}, {has: {kind: type_parameter_constraint, regex: '^I(Number|NumberBase|BinaryInteger|BinaryNumber|FloatingPoint\p{XID_Continue}*|SignedNumber|UnsignedNumber|AdditiveIdentity)(?-u:\b)'}}]}}
     struct-parameter:
         matches: type-parameter
         inside:

@@ -1,0 +1,22 @@
+id: no-single-reader-tsx
+valid:
+    - |
+      const limit = 10;
+      export const above = (n: number) => n > limit;
+      export const below = (n: number) => n < limit;
+    - |
+      const limit = compute();
+      export function below(n: number) {
+          return n < limit;
+      }
+invalid:
+    - |
+      const limit = 10;
+      export function below(n: number) {
+          return n < limit;
+      }
+    - |
+      const label = "rows";
+      export class View {
+          readonly title = label;
+      }

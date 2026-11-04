@@ -3,11 +3,11 @@ id: effect-union-member-encode
 language: tsxlang
 utils:
     union:
-        matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^Union$'}}}
     decode-to:
-        matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^decodeTo$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^decodeTo$'}}}
     transform:
-        matches: {effect-module-member: {module: {regex: '\bSchemaTransformation$'}, member: {regex: '^transform$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)SchemaTransformation$'}, member: {regex: '^transform$'}}}
     member-decode-to:
         kind: call_expression
         has: {field: function, matches: decode-to}

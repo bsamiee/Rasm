@@ -4,11 +4,11 @@ language: tsxlang
 utils:
     generator-callee:
         any:
-            - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(gen|fn|fnUntraced)$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(gen|fn|fnUntraced)$'}}}
             - kind: call_expression
               has: {field: function, matches: traced-callee}
     traced-callee:
-        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(fn|fnUntraced)$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(fn|fnUntraced)$'}}}
 rule:
     kind: generator_function
     inside:

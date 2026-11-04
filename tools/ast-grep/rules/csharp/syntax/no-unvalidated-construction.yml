@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-unvalidated-construction
 language: csharplang
 severity: error
 utils:
@@ -80,7 +79,7 @@ rule:
                                             |(System\.Numerics\.)?(Vector[234]|Plane|Quaternion|Matrix3x2|Matrix4x4|Complex|Vector<.+>)
                                             |(System\.Runtime\.Intrinsics\.)?Vector(64|128|256|512)<.+>
                                             |(SixLabors\.ImageSharp\.PixelFormats\.)?(
-                                                (A|Abgr|Argb|Bgr|Bgra|L|La|Rg|Rgb|Rgba)\d+P?
+                                                (A|Abgr|Argb|Bgr|Bgra|L|La|Rg|Rgb|Rgba)[0-9]+P?
                                                 |(Normalized)?(Byte|Short)[24]P?
                                                 |Half(Single|Vector[24]P?)
                                                 |RgbaHalfP?

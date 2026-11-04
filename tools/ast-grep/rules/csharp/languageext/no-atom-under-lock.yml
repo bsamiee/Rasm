@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-atom-under-lock
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -46,7 +45,7 @@ utils:
             - follows:
                 stopBy: end
                 kind: local_declaration_statement
-                regex: '^using\b'
+                regex: '^using(?-u:\b)'
                 has: {stopBy: end, matches: scope-entry}
             - kind: 'block, catch_clause'
               inside: {matches: locked-try}

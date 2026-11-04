@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-groups-by-reduce
 language: tsxlang
 severity: error
 utils:
@@ -12,24 +11,24 @@ utils:
         pattern: $X
         matches: {typescript-local-binding: {owner: {pattern: $REDUCER}}}
     effect-iterable:
-        matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}}}
     effect-record:
-        matches: {effect-module: {name: {regex: '\bRecord$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Record$'}}}
     empty:
         any:
             - kind: object
-              regex: '^\{\s*\}$'
+              regex: '^\{[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\}$'
             - kind: call_expression
               pattern: Object.create(null)
               has: {field: function, matches: typescript-global-reference}
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^empty$'}}, {has: {field: object, matches: effect-record}}]}
-                - has: {field: arguments, regex: '^\(\s*\)$'}
+                - has: {field: arguments, regex: '^\([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\)$'}
             - kind: new_expression
               all:
                 - has: {field: constructor, regex: '^Map$', matches: typescript-global-reference}
-                - not: {has: {field: arguments, not: {regex: '^\(\s*\)$'}}}
+                - not: {has: {field: arguments, not: {regex: '^\([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\)$'}}}
             - kind: parenthesized_expression, as_expression, satisfies_expression
               has: {nthChild: 1, matches: empty}
     bucket:
@@ -159,7 +158,7 @@ utils:
         kind: arrow_function, function_expression
         pattern: $REDUCER
         all:
-            - not: {regex: '^async\b'}
+            - not: {regex: '^async(?-u:\b)'}
             - has:
                 field: parameters
                 all:
@@ -189,7 +188,7 @@ rule:
         - has: {field: function, kind: member_expression, has: {field: property, regex: '^reduce$'}}
         - any:
             - all:
-                - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}}
+                - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: bucketing}}, {has: {nthChild: 2, matches: empty}}, {not: {has: {nthChild: 3}}}]}
             - all:
                 - has: {field: function, has: {field: object, matches: effect-iterable}}

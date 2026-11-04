@@ -1,0 +1,38 @@
+id: no-column-layout-by-hand
+snapshots:
+  "fn show(rows: &[(String, u32)]) {\n    let width = rows.iter().map(|r| r.0.len()).max().unwrap_or(0);\n    for (name, n) in rows {\n        println!(\"{name:width$} {n}\");\n    }\n}\n":
+    labels:
+    - source: println!("{name:width$} {n}")
+      message: Pads by the measured width
+      style: secondary
+      start: 137
+      end: 166
+    - source: rows.iter().map(|r| r.0.len()).max()
+      message: Measures the column
+      style: primary
+      start: 50
+      end: 86
+  "fn show(rows: &[String]) {\n    let mut w = 0;\n    for r in rows {\n        w = w.max(r.len());\n    }\n    for r in rows {\n        eprintln!(\"{r:w$}\");\n    }\n}\n":
+    labels:
+    - source: eprintln!("{r:w$}")
+      message: Pads by the measured width
+      style: secondary
+      start: 128
+      end: 147
+    - source: w = w.max(r.len())
+      message: Measures the column
+      style: primary
+      start: 74
+      end: 92
+  "fn show(rows: &[String]) {\n    let width = rows.iter().fold(0, |w, r| w.max(r.len()));\n    for r in rows {\n        println!(\"{r:>width$}|\");\n    }\n}\n":
+    labels:
+    - source: println!("{r:>width$}|")
+      message: Pads by the measured width
+      style: secondary
+      start: 115
+      end: 139
+    - source: rows.iter().fold(0, |w, r| w.max(r.len()))
+      message: Measures the column
+      style: primary
+      start: 43
+      end: 85

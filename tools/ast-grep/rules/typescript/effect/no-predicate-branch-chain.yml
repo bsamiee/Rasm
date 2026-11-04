@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-predicate-branch-chain
 language: tsxlang
 severity: error
 utils:
     option-member:
-        matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^(orElse|liftPredicate)$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^(orElse|liftPredicate)$'}}}
     lift-member:
         kind: member_expression
         all: [{has: {field: property, regex: '^liftPredicate$'}}, {matches: option-member}]

@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-spinner-for-control
 language: swiftlang
 severity: error
 utils:
     spinner: {matches: {swift-chain-root: {root: {kind: simple_identifier, regex: '^ProgressView$'}}}}
-    control-root: {kind: simple_identifier, regex: '^(\w*(Button|Link|Picker|Field)|Toggle|Menu|TextEditor|Slider|Stepper|ControlGroup)$'}
+    control-root: {kind: simple_identifier, regex: '^(\p{XID_Continue}*(Button|Link|Picker|Field)|Toggle|Menu|TextEditor|Slider|Stepper|ControlGroup)$'}
     control: {matches: {swift-chain-root: {root: {matches: control-root}}}}
     spinner-arm:
         matches: {swift-single-statement: {first: {matches: spinner, pattern: $SPINNER}}}

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-undo-record-call
 language: csharplang
 severity: error
 files: ['apps/rhino/**', 'eng/dotnet/rhino/**', 'libs/dotnet/rhino/Rasm.Rhino/**']

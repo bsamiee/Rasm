@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-interpolated-sql-value-tsx
 language: tsxlang
 severity: error
 utils:
@@ -23,29 +22,29 @@ utils:
                 has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $QUOTER}}, {has: {field: value, has: {stopBy: end, matches: hand-quoted}}}]}
     value-string:
         kind: string
-        regex: '(?is)^.+(?:''|(?:[=<>]|\bvalues\s*\(|\bin\s*\(|\blimit|\boffset)\s*)[''"]$'
+        regex: '(?is)^.+(?:''|(?:[=<>]|(?-u:\b)values[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\(|(?-u:\b)in[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\(|(?-u:\b)limit|(?-u:\b)offset)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*)[''"]$'
 rule:
     any:
         - kind: template_string
           all:
-            - has: {kind: string_fragment, regex: '(?im)^\s*(begin|commit|delete|end|explain|insert|release|replace|rollback|savepoint|select|update|values|with)\b'}
+            - has: {kind: string_fragment, regex: '(?im)^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(begin|commit|delete|end|explain|insert|release|replace|rollback|savepoint|select|update|values|with)(?-u:\b)'}
             - not: {inside: {kind: call_expression, field: arguments}}
-            - not: {has: {kind: string_fragment, regex: '(?m)^\s*\.param(eter)?\b'}}
+            - not: {has: {kind: string_fragment, regex: '(?m)^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\.param(eter)?(?-u:\b)'}}
             - has:
                 kind: template_substitution
                 pattern: $VALUE
                 any:
                     - follows: {kind: string_fragment, regex: "'$"}
                     - all:
-                        - follows: {kind: string_fragment, regex: '(?i)(?:[=<>]|\bvalues\s*\(|\bin\s*\(|\blimit|\boffset)\s*$'}
+                        - follows: {kind: string_fragment, regex: '(?i)(?:[=<>]|(?-u:\b)values[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\(|(?-u:\b)in[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\(|(?-u:\b)limit|(?-u:\b)offset)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}
                         - not: {precedes: {kind: string_fragment, regex: '^\.'}}
-                        - inside: {kind: template_string, regex: '(?i)^`\s*(insert|update|delete|select|with|replace|values)\b'}
+                        - inside: {kind: template_string, regex: '(?i)^`[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(insert|update|delete|select|with|replace|values)(?-u:\b)'}
                     - has: {stopBy: end, matches: quoting}
         - kind: binary_expression
           all:
             - has: {field: operator, regex: '^\+$'}
             - has: {field: right, pattern: $VALUE, not: {kind: 'string, template_string, number'}}
             - has: {field: left, any: [{matches: value-string}, {kind: binary_expression, has: {field: right, matches: value-string}}]}
-            - has: {stopBy: end, kind: string, regex: '(?i)^[''"]\s*(insert|update|delete|select|with|replace|values)\b'}
+            - has: {stopBy: end, kind: string, regex: '(?i)^[''"][\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(insert|update|delete|select|with|replace|values)(?-u:\b)'}
 message: '`$VALUE` splices a value into SQL text'
 note: 'Write the statement as a `sql` tagged template to bind each value as a parameter, `sql(<name>)` for an identifier'

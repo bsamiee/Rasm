@@ -1,0 +1,38 @@
+id: no-stdin-prompt
+snapshots:
+  "fn ask() -> String {\n    print!(\"Name: \");\n    let mut line = String::new();\n    std::io::stdin().read_line(&mut line).unwrap();\n    line\n}\n":
+    labels:
+    - source: "print!(\"Name: \");"
+      message: Prints the prompt
+      style: secondary
+      start: 25
+      end: 42
+    - source: std::io::stdin().read_line(&mut line)
+      message: Reads the answer
+      style: primary
+      start: 81
+      end: 118
+  "use std::io::Write;\n\nfn ask() -> std::io::Result<String> {\n    let mut out = std::io::stdout();\n    write!(out, \"Name: \")?;\n    out.flush()?;\n    let mut line = String::new();\n    std::io::stdin().read_line(&mut line)?;\n    Ok(line)\n}\n":
+    labels:
+    - source: "write!(out, \"Name: \")?;"
+      message: Prints the prompt
+      style: secondary
+      start: 100
+      end: 123
+    - source: std::io::stdin().read_line(&mut line)
+      message: Reads the answer
+      style: primary
+      start: 180
+      end: 217
+  "use std::io::{self, BufRead};\n\nfn ask() -> Option<String> {\n    let input = io::stdin();\n    eprint!(\"Continue? \");\n    input.lock().lines().next()?.ok()\n}\n":
+    labels:
+    - source: eprint!("Continue? ");
+      message: Prints the prompt
+      style: secondary
+      start: 93
+      end: 115
+    - source: input.lock().lines().next()
+      message: Reads the answer
+      style: primary
+      start: 120
+      end: 147

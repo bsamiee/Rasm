@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-refused-conditional
 language: csharplang
 severity: error
 files: ['**/rhino/**']
@@ -56,14 +55,14 @@ utils:
         kind: invocation_expression
         has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
         any:
-            - all: [{has: {field: function, regex: '^Optional(\s*<.+>)?$'}}, {has: {field: arguments, has: {kind: argument, pattern: $CHECKED}}}]
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Map(\s*<.+>)?$'}}, {has: {field: expression, matches: optional-chain}}]}
+            - all: [{has: {field: function, regex: '^Optional([\p{White_Space}\x{FEFF}]*<.+>)?$'}}, {has: {field: arguments, has: {kind: argument, pattern: $CHECKED}}}]
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Map([\p{White_Space}\x{FEFF}]*<.+>)?$'}}, {has: {field: expression, matches: optional-chain}}]}
     null-present:
         any:
             - kind: is_pattern_expression
               all:
                 - has: {field: expression, pattern: $CHECKED}
-                - has: {field: pattern, any: [{regex: '^not\s+null$'}, {regex: '^\{\s*\}$'}]}
+                - has: {field: pattern, any: [{regex: '^not[\p{White_Space}\x{FEFF}]+null$'}, {regex: '^\{[\p{White_Space}\x{FEFF}]*\}$'}]}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^!=$'}
@@ -133,7 +132,7 @@ rule:
                         - all: [{has: {field: consequence, matches: valued-refusal}}, {has: {field: alternative, matches: plain}}]
                         - all: [{has: {field: alternative, matches: absent-refusal}}, {has: {field: consequence, matches: unit-value}}]
                         - all: [{has: {field: consequence, matches: absent-refusal}}, {has: {field: alternative, matches: unit-value}}]
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Refused$'}, member: {regex: '^Unless\w*$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Refused$'}, member: {regex: '^Unless\p{XID_Continue}*$'}}}}
 labels:
     CHECKED: {style: primary, message: 'Condition the guard takes'}
     REFUSAL: {style: secondary, message: 'Refusal the guard builds'}

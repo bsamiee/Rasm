@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-data-first-runner
 language: tsxlang
 severity: error
 utils:
@@ -8,15 +7,15 @@ utils:
         any:
             - all:
                 - has: {field: property, regex: '^runMain$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\b(NodeRuntime|BunRuntime|BrowserRuntime)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(NodeRuntime|BunRuntime|BrowserRuntime)$'}}}}
             - all:
                 - has: {field: property, regex: '^run$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '\bCommand$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Command$'}}}}
     effect-runner:
         kind: member_expression
         all:
             - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
     context-runner:
         kind: call_expression
         all:
@@ -25,7 +24,7 @@ utils:
                 kind: member_expression
                 all:
                     - has: {field: property, regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)With$'}
-                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
             - has: {field: arguments, has: {nthChild: 1}, not: {has: {nthChild: 2}}}
     piped-program:
         kind: call_expression

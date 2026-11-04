@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-fold-over-run-collect
 language: tsxlang
 severity: error
 utils:
@@ -7,7 +6,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^runCollect$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '\bStream$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Stream$'}}}}
     collected:
         any:
             - kind: call_expression
@@ -20,7 +19,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^(head|last|reduce|join)$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}
     fold:
         any:
             - matches: array-fold
@@ -40,7 +39,7 @@ utils:
     fold-step:
         kind: call_expression
         all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^map$'}}}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^map$'}}}}
             - has: {field: arguments, has: {matches: fold, nthChild: {position: 1, reverse: true}}}
     copy:
         any:
@@ -53,7 +52,7 @@ utils:
                         - kind: member_expression
                           all:
                             - has: {field: property, regex: '^fromIterable$'}
-                            - has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected}}, {not: {has: {nthChild: 2}}}]}
             - kind: array
               all:
@@ -67,7 +66,7 @@ rule:
           any:
             - kind: call_expression
               all:
-                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^map$'}}}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^map$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected}}, {has: {nthChild: 2, matches: fold}}]}
             - kind: call_expression
               all:
@@ -77,7 +76,7 @@ rule:
               inside: {kind: arguments}
               precedes: {matches: fold-step, stopBy: {not: {regex: '^,$'}}}
 transform:
-    COPY_SPREAD: {replace: {source: $COPY, replace: '(?s)^\[\s*\.\.\..*$', by: '[...]'}}
+    COPY_SPREAD: {replace: {source: $COPY, replace: '(?s)^\[[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\.\.\..*$', by: '[...]'}}
     COPY_HEAD: {replace: {source: $COPY_SPREAD, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
     FOLD_HEAD: {replace: {source: $FOLD, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: '`$COPY_HEAD$FOLD_HEAD` recomputes by hand what a `Stream` destructor returns'

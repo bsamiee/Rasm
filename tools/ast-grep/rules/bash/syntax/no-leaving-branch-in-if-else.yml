@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-leaving-branch-in-if-else
 language: bashlang
 severity: error
 utils:

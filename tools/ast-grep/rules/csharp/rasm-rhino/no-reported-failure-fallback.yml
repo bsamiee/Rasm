@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-reported-failure-fallback
 language: csharplang
 severity: error
 files: ['**/rhino/**']
@@ -14,11 +13,11 @@ utils:
         any:
             - kind: integer_literal, real_literal, boolean_literal, character_literal, string_literal, verbatim_string_literal, raw_string_literal, null_literal, default_expression
             - kind: prefix_unary_expression
-              regex: '^-\s*[0-9.]+[a-zA-Z]*$'
+              regex: '^-[\p{White_Space}\x{FEFF}]*[0-9.]+[a-zA-Z]*$'
             - kind: identifier
               regex: '^unit$'
             - kind: member_access_expression
-              regex: '^(global::)?[A-Z]\w*(\s*\.\s*[A-Z]\w*)+$'
+              regex: '^(global::)?[A-Z]\p{XID_Continue}*([\p{White_Space}\x{FEFF}]*\.[\p{White_Space}\x{FEFF}]*[A-Z]\p{XID_Continue}*)+$'
             - kind: parenthesized_expression
               has: {matches: static-constant}
     constant:
@@ -44,7 +43,7 @@ utils:
     reported-error:
         kind: argument
         nthChild: 1
-        regex: '^\w+$'
+        regex: '^\p{XID_Continue}+$'
         has: {kind: identifier, pattern: $ERROR}
     reject-call:
         kind: invocation_expression
@@ -178,17 +177,17 @@ rule:
                         - not: {has: {kind: argument, nthChild: 3}}
                         - any:
                             - all:
-                                - has: {kind: argument, regex: '^Fail\s*:', has: {matches: fallback-handler}}
-                                - has: {kind: argument, regex: '^Succ\s*:', has: {matches: identity}}
+                                - has: {kind: argument, regex: '^Fail[\p{White_Space}\x{FEFF}]*:', has: {matches: fallback-handler}}
+                                - has: {kind: argument, regex: '^Succ[\p{White_Space}\x{FEFF}]*:', has: {matches: identity}}
                             - all:
-                                - has: {kind: argument, nthChild: 2, not: {regex: '^\w+\s*:[^:]'}, has: {matches: fallback-handler}}
-                                - has: {kind: argument, nthChild: 1, not: {regex: '^\w+\s*:[^:]'}, has: {matches: identity}}
+                                - has: {kind: argument, nthChild: 2, not: {regex: '^\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[^:]'}, has: {matches: fallback-handler}}
+                                - has: {kind: argument, nthChild: 1, not: {regex: '^\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[^:]'}, has: {matches: identity}}
                             - all:
-                                - has: {kind: argument, regex: '^Fail\s*:', has: {matches: fallback-handler}}
-                                - has: {kind: argument, regex: '^Succ\s*:', has: {matches: discard-value}}
+                                - has: {kind: argument, regex: '^Fail[\p{White_Space}\x{FEFF}]*:', has: {matches: fallback-handler}}
+                                - has: {kind: argument, regex: '^Succ[\p{White_Space}\x{FEFF}]*:', has: {matches: discard-value}}
                             - all:
-                                - has: {kind: argument, nthChild: 2, not: {regex: '^\w+\s*:[^:]'}, has: {matches: fallback-handler}}
-                                - has: {kind: argument, nthChild: 1, not: {regex: '^\w+\s*:[^:]'}, has: {matches: discard-value}}
+                                - has: {kind: argument, nthChild: 2, not: {regex: '^\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[^:]'}, has: {matches: fallback-handler}}
+                                - has: {kind: argument, nthChild: 1, not: {regex: '^\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[^:]'}, has: {matches: discard-value}}
             - all:
                 - matches: run-call
                 - has: {field: function, has: {field: name, regex: '^Run$'}}
@@ -217,7 +216,7 @@ transform:
     EFFECT_HEAD:
         replace:
             source: $EFFECT
-            replace: '(?s)^([@\w.]+).*$'
+            replace: '(?s)^([@\p{XID_Continue}.]+).*$'
             by: '$1'
 message: '`$EFFECT_HEAD$FIN` reports its failure through `Sink.Report`'
 note: 'Call `Session.Run(<effect>, <fallback>)` with the member its `[CallerMemberName]` derives, `<fin>.ToIO()` for a `Fin`'

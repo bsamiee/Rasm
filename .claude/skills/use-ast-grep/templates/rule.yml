@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: <rule-id>
 language: <language>
 severity: error
 files: ["<folder cause covers, key omitted for syntax rules>/**"]

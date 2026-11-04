@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-error-code-by-cast
 language: swiftlang
 severity: error
 utils:
     error-type:
-        regex: '^(Foundation\.)?\w*Error$'
+        regex: '^(Foundation\.)?\p{XID_Continue}*Error$'
     error-cast:
         kind: as_expression
         has: {field: name, matches: error-type}

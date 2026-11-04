@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-annotated-effect-fn
 language: tsxlang
 severity: error
 rule:
@@ -17,13 +16,13 @@ rule:
                         kind: nested_type_identifier
                         all:
                             - has: {field: name, regex: '^Effect$'}
-                            - has: {field: module, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+                            - has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
         - has: {field: name, pattern: $NAME}
         - has:
             field: value
             kind: call_expression
             any:
-                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^fnUntraced$'}}}}
-                - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^fn$'}}}}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^fnUntraced$'}}}}
+                - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^fn$'}}}}}
 message: '`$NAME` restates the parameters and result of its `Effect.fn` body in a function type'
 note: 'Annotate the generator `function* (<parameters>): Effect.fn.Return<A, E, R>` and drop the binding type'

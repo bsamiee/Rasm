@@ -1,0 +1,20 @@
+id: no-parse-error-swift
+snapshots:
+  "func f( {}":
+    labels:
+    - source: ""
+      message: Token the grammar inserted to recover
+      style: primary
+      start: 7
+      end: 7
+  "func f() { switch try { default: break } }":
+    labels: []
+  "let x = Swift::":
+    labels:
+    - source: ""
+      message: Token the grammar inserted to recover
+      style: primary
+      start: 15
+      end: 15
+  "let x: = 1":
+    labels: []

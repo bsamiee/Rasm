@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-restated-native-method
 language: tsxlang
 severity: error
 utils:
     array-module:
-        matches: {effect-module: {name: {regex: '\bArray$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}
     record-module:
-        matches: {effect-module: {name: {regex: '\bRecord$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Record$'}}}
     member:
         kind: member_expression
         all:
@@ -38,7 +37,7 @@ utils:
                         - kind: nested_type_identifier
                           all:
                             - has: {field: name, regex: '^NonEmptyArray$'}
-                            - has: {field: module, matches: {effect-module: {name: {regex: '\bArray$'}}}}
+                            - has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}
     array-base:
         any:
             - kind: array

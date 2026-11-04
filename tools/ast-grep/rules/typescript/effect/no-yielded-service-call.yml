@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-yielded-service-call
 language: tsxlang
 severity: error
 rule:
@@ -11,7 +10,7 @@ rule:
             has:
                 field: object
                 kind: parenthesized_expression
-                has: {nthChild: 1, kind: yield_expression, regex: '^yield\s*\*', has: {nthChild: 1, pattern: $SERVICE, any: [{kind: identifier, regex: '^[A-Z]'}, {kind: member_expression, has: {field: property, regex: '^[A-Z]'}}]}}
-        - inside: {kind: yield_expression, regex: '^yield\s*\*'}
+                has: {nthChild: 1, kind: yield_expression, regex: '^yield[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\*', has: {nthChild: 1, pattern: $SERVICE, any: [{kind: identifier, regex: '^[A-Z]'}, {kind: member_expression, has: {field: property, regex: '^[A-Z]'}}]}}
+        - inside: {kind: yield_expression, regex: '^yield[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\*'}
 message: '`$SERVICE` is yielded whole to call one member'
 note: 'Call `<Service>.use((service) => service.<member>(...))`'

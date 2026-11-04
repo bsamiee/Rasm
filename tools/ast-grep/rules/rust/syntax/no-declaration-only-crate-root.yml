@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-declaration-only-crate-root
 language: rustlang
 severity: error
 files: ['**/lib.rs', '**/main.rs']

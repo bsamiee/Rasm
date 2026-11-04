@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-kvo-initial-by-hand
 language: swiftlang
 severity: error
 utils:
@@ -11,7 +10,7 @@ utils:
                 kind: call_suffix
                 has:
                     kind: value_arguments
-                    not: {has: {kind: value_argument, all: [{has: {field: name, regex: '^options$'}}, {has: {field: value, regex: '\.initial\b'}}]}}
+                    not: {has: {kind: value_argument, all: [{has: {field: name, regex: '^options$'}}, {has: {field: value, regex: '\.initial(?-u:\b)'}}]}}
     handler:
         kind: call_suffix
         has: {kind: lambda_literal, has: {kind: statements, has: {nthChild: 1, pattern: $CHECK}, not: {has: {nthChild: 2}}}}

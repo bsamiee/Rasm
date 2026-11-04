@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-script-source-template
 language: tsxlang
 severity: error
 ignores:
@@ -67,6 +66,6 @@ rule:
                     any:
                         - has: {matches: encoded-entry}
                         - has: {kind: pair, all: [{has: {field: key, regex: '^arguments$'}}, {has: {field: value, kind: object, has: {matches: encoded-entry}}}]}
-            - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^@rasm/automation(/[\w-]+)?$'}}}}
+            - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^@rasm/automation(/[[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]-]+)?$'}}}}
 message: '`$CALLEE` runs a script source built from values'
 note: 'Pass constant source with values in `doScript` `withArguments` or `values` beside `direct`, read through script arguments'

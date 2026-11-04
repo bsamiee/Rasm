@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-function-returning-gen
 language: tsxlang
 severity: error
 utils:
     gen-call:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^gen$'}}, {has: {field: object, pattern: $M, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}]}
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^gen$'}}, {has: {field: object, pattern: $M, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}]}
             - has:
                 field: arguments
                 all:
@@ -16,7 +15,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: arguments, all: [{not: {has: {nthChild: 2}}}, {has: {nthChild: 1, matches: gen-call}}]}
-            - has: {field: function, kind: member_expression, has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Layer|Channel|Sink)$'}}}}}
+            - has: {field: function, kind: member_expression, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Effect|Stream|Layer|Channel|Sink)$'}}}}}
     gen-effect:
         any:
             - matches: gen-call
@@ -26,7 +25,7 @@ utils:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, any: [{matches: gen-call}, {matches: wrapped-gen}]}}]}
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^withSpan$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^withSpan$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}]}
                 - has: {field: arguments, has: {nthChild: 1, matches: gen-call}}
     trailing-gen:
         kind: statement_block
@@ -51,6 +50,6 @@ rule:
         - kind: method_definition
           all:
             - has: {field: body, matches: trailing-gen}
-            - not: {regex: '^(?:(?:static|public|private|protected|override|readonly|async)\s+)*(?:get|set)\s+[\w#\[]'}
+            - not: {regex: '^(?:(?:static|public|private|protected|override|readonly|async)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)*(?:get|set)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+[[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]#\[]'}
 message: 'Function returns `$M.gen` in place of declaring `$M.fn`'
 note: 'Declare `Effect.fnUntraced(<generator>)`; use `Function.flow` for host runners and `Effect.fn(<name>)` for tracing'

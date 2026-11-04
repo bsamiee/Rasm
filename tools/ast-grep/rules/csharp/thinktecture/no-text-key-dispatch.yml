@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-text-key-dispatch
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -33,7 +32,7 @@ utils:
     constant-pattern:
         kind: constant_pattern, or_pattern, parenthesized_pattern
     name-subject:
-        regex: '(\.ToString\(\s*("[GgFf]")?\s*\)|^nameof\s*\(.*\)|Enum\.GetName\b.*)$'
+        regex: '(\.ToString\([\p{White_Space}\x{FEFF}]*("[GgFf]")?[\p{White_Space}\x{FEFF}]*\)|^nameof[\p{White_Space}\x{FEFF}]*\(.*\)|Enum\.GetName(?-u:\b).*)$'
     text-switch:
         any:
             - kind: switch_expression
@@ -53,7 +52,7 @@ utils:
                 - not: {has: {field: value, matches: name-subject}}
     key-read:
         kind: member_access_expression, invocation_expression
-        regex: '^@?\w+\s*\.\s*(Key|ToValue\s*\(\s*\))$'
+        regex: '^@?\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*\.[\p{White_Space}\x{FEFF}]*(Key|ToValue[\p{White_Space}\x{FEFF}]*\([\p{White_Space}\x{FEFF}]*\))$'
     text-operand:
         any:
             - matches: text-constant

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-mutable-binding
 language: swiftlang
 severity: error
 utils:
@@ -14,7 +13,7 @@ utils:
             - matches: derivable-mutation
     empty-value:
         kind: call_expression
-        regex: '^(\[[^\]]*\]|(Array|ContiguousArray|Set|Dictionary|String|Data)(<[^()]*>)?)\(\s*\)$'
+        regex: '^(\[[^\]]*\]|(Array|ContiguousArray|Set|Dictionary|String|Data)(<[^()]*>)?)\(\p{White_Space}*\)$'
     derivable-mutation:
         kind: call_expression
         has:

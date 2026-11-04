@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-field-display
 language: rustlang
 severity: error
 utils:
@@ -21,7 +20,7 @@ utils:
             - kind: macro_invocation
               all:
                 - matches: {rust-std-macro: {name: {regex: '^write$'}}}
-                - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"(?:[^"\\]|\\.)*"(\s*,\s*(\w+\s*=\s*)?&?\s*self\.\w+)*\s*,?\s*\)$'}
+                - has: {kind: token_tree, regex: '^\(\p{White_Space}*\p{XID_Continue}+\p{White_Space}*,\p{White_Space}*"(?:[^"\\]|\\.)*"(\p{White_Space}*,\p{White_Space}*(\p{XID_Continue}+\p{White_Space}*=\p{White_Space}*)?&?\p{White_Space}*self\.\p{XID_Continue}+)*\p{White_Space}*,?\p{White_Space}*\)$'}
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^(write_str|pad)$'}}
@@ -29,7 +28,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^write_fmt$'}}
-                - has: {field: arguments, has: {nthChild: 1, kind: macro_invocation, all: [{matches: {rust-std-macro: {name: {regex: '^format_args$'}}}}, {has: {kind: token_tree, regex: '^\(\s*"(?:[^"\\]|\\.)*"(\s*,\s*(\w+\s*=\s*)?&?\s*self\.\w+)*\s*,?\s*\)$'}}]}}
+                - has: {field: arguments, has: {nthChild: 1, kind: macro_invocation, all: [{matches: {rust-std-macro: {name: {regex: '^format_args$'}}}}, {has: {kind: token_tree, regex: '^\(\p{White_Space}*"(?:[^"\\]|\\.)*"(\p{White_Space}*,\p{White_Space}*(\p{XID_Continue}+\p{White_Space}*=\p{White_Space}*)?&?\p{White_Space}*self\.\p{XID_Continue}+)*\p{White_Space}*,?\p{White_Space}*\)$'}}]}}
     field-forward:
         kind: call_expression
         any:
@@ -42,7 +41,7 @@ utils:
         kind: macro_invocation
         all:
             - matches: {rust-std-macro: {name: {regex: '^write$'}}}
-            - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"(?:[^"\\]|\\.)*"(\s*,\s*[a-z_]\w*)*\s*,?\s*\)$'}
+            - has: {kind: token_tree, regex: '^\(\p{White_Space}*\p{XID_Continue}+\p{White_Space}*,\p{White_Space}*"(?:[^"\\]|\\.)*"(\p{White_Space}*,\p{White_Space}*[a-z_]\p{XID_Continue}*)*\p{White_Space}*,?\p{White_Space}*\)$'}
     variant-arm:
         kind: match_arm
         all:
@@ -51,14 +50,14 @@ utils:
     variant-match:
         kind: match_expression
         all:
-            - has: {field: value, regex: '^\*?\s*self$'}
+            - has: {field: value, regex: '^\*?\p{White_Space}*self$'}
             - not: {has: {field: body, has: {kind: match_arm, not: {matches: variant-arm}}}}
             - has: {field: body, has: {kind: match_arm, has: {field: pattern, has: {nthChild: 1, kind: 'tuple_struct_pattern, struct_pattern'}}}}
     self-destructure:
         kind: let_declaration
         all:
-            - has: {field: pattern, kind: 'struct_pattern, tuple_struct_pattern', regex: '^Self\b'}
-            - has: {field: value, regex: '^\*?\s*self$'}
+            - has: {field: pattern, kind: 'struct_pattern, tuple_struct_pattern', regex: '^Self(?-u:\b)'}
+            - has: {field: value, regex: '^\*?\p{White_Space}*self$'}
     field-statement:
         any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}, {kind: expression_statement, has: {nthChild: 1, any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}]}}]
     binding-statement:

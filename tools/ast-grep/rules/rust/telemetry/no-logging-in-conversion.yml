@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-logging-in-conversion
 language: rustlang
 severity: error
 rule:
@@ -26,7 +25,7 @@ rule:
                         - kind: macro_definition
                           has: {field: name, pattern: $LOG}
                         - kind: use_declaration
-                          regex: '^use\s+(crate|self|super)\b'
+                          regex: '^use\p{White_Space}+(crate|self|super)(?-u:\b)'
                           has: {stopBy: end, kind: identifier, pattern: $LOG}
 message: '`$LOG` emits telemetry inside an `impl $TRAIT`'
 note: 'Delete the event or span and log at each boundary calling `<method>`'

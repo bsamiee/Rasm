@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-variant-name-table
 language: rustlang
 severity: error
 utils:
@@ -8,7 +7,7 @@ utils:
         has: {field: path, kind: identifier, pattern: $E}
     name:
         kind: string_literal
-        regex: '^"[A-Za-z][\w-]*( [\w-]+)*"$'
+        regex: '^"[A-Za-z][\p{XID_Continue}-]*( [\p{XID_Continue}-]+)*"$'
     named-pair:
         kind: tuple_expression
         all:
@@ -26,6 +25,6 @@ rule:
         - not: {has: {kind: tuple_expression, has: {kind: scoped_identifier, pattern: $V}, precedes: {stopBy: end, kind: tuple_expression, has: {kind: scoped_identifier, pattern: $V}}}}
         - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $E}}}
 transform:
-    HEAD: {replace: {source: $TABLE, replace: '(?s)^\[\s*([^\n]*?)\s*\n.*$', by: '[$1 ..]'}}
+    HEAD: {replace: {source: $TABLE, replace: '(?s)^\[\p{White_Space}*([^\n]*?)\p{White_Space}*\n.*$', by: '[$1 ..]'}}
 message: '`$HEAD` pairs each variant of `$E` with its name by hand'
 note: 'Derive `strum::EnumString`, `IntoStaticStr`, and `EnumIter` with `#[strum(serialize = "<text>")]` per variant'

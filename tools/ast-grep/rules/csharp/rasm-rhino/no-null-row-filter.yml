@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-null-row-filter
 language: csharplang
 severity: error
 files: ['**/rhino/**']
@@ -46,7 +45,7 @@ utils:
         inside:
             stopBy: end
             kind: &member 'method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, operator_declaration'
-            has: {stopBy: end, kind: argument, regex: '^(\w+\s*:\s*)?out\s', has: {nthChild: {position: 1, reverse: true}, any: [{kind: declaration_expression, has: {field: name, pattern: $DECLARED}}, {kind: identifier, pattern: $DECLARED}]}}
+            has: {stopBy: end, kind: argument, regex: '^(\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[\p{White_Space}\x{FEFF}]*)?out[\p{White_Space}\x{FEFF}]', has: {nthChild: {position: 1, reverse: true}, any: [{kind: declaration_expression, has: {field: name, pattern: $DECLARED}}, {kind: identifier, pattern: $DECLARED}]}}
     reference-items:
         any:
             - kind: identifier
@@ -128,7 +127,7 @@ utils:
             - kind: is_pattern_expression
               all:
                 - has: {field: expression, pattern: $SLOT}
-                - has: {field: pattern, any: [{regex: '^not\s+null$'}, {regex: '^\{\s*\}$'}]}
+                - has: {field: pattern, any: [{regex: '^not[\p{White_Space}\x{FEFF}]+null$'}, {regex: '^\{[\p{White_Space}\x{FEFF}]*\}$'}]}
             - kind: is_expression
               all:
                 - has: {field: left, pattern: $SLOT}

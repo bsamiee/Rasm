@@ -1,0 +1,62 @@
+id: no-derivable-impl-by-hand
+snapshots:
+  "struct Id { raw: u64 }\n\nimpl std::fmt::Debug for Id {\n    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n        f.debug_struct(\"Id\").field(\"raw\", &self.raw).finish()\n    }\n}\n":
+    labels:
+    - source: |-
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.debug_struct("Id").field("raw", &self.raw).finish()
+            }
+      message: Copies or compares corresponding primitive fields
+      style: secondary
+      start: 58
+      end: 194
+    - source: std::fmt::Debug
+      message: Implemented by hand
+      style: primary
+      start: 29
+      end: 44
+  "struct Id { raw: u64 }\n\nimpl std::hash::Hash for Id {\n    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {\n        std::hash::Hash::hash(&self.raw, state);\n    }\n}\n":
+    labels:
+    - source: |-
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                std::hash::Hash::hash(&self.raw, state);
+            }
+      message: Copies or compares corresponding primitive fields
+      style: secondary
+      start: 58
+      end: 166
+    - source: std::hash::Hash
+      message: Implemented by hand
+      style: primary
+      start: 29
+      end: 44
+  "struct Point { x: i32, y: i32 }\n\nimpl Clone for Point {\n    fn clone(&self) -> Self {\n        Self { x: self.x, y: self.y }\n    }\n}\n":
+    labels:
+    - source: |-
+        fn clone(&self) -> Self {
+                Self { x: self.x, y: self.y }
+            }
+      message: Copies or compares corresponding primitive fields
+      style: secondary
+      start: 60
+      end: 129
+    - source: Clone
+      message: Implemented by hand
+      style: primary
+      start: 38
+      end: 43
+  "struct Point { x: i32, y: i32 }\n\nimpl PartialEq for Point {\n    fn eq(&self, other: &Self) -> bool {\n        self.x == other.x && self.y == other.y\n    }\n}\n":
+    labels:
+    - source: |-
+        fn eq(&self, other: &Self) -> bool {
+                self.x == other.x && self.y == other.y
+            }
+      message: Copies or compares corresponding primitive fields
+      style: secondary
+      start: 64
+      end: 153
+    - source: PartialEq
+      message: Implemented by hand
+      style: primary
+      start: 38
+      end: 47

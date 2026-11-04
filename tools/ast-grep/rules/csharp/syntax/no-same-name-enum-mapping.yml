@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-same-name-enum-mapping
 language: csharplang
 severity: error
 utils:
@@ -166,6 +165,6 @@ rule:
             - has: {nthChild: 1, matches: name-value}
             - has: {kind: switch_expression_arm, has: {nthChild: 1, kind: constant_pattern, has: {kind: string_literal}}}
 transform:
-    HEAD: {replace: {source: $CONVERSION, replace: '(?s)^([@\w.]+).*$', by: '$1'}}
+    HEAD: {replace: {source: $CONVERSION, replace: '(?s)^([@\p{XID_Continue}.]+).*$', by: '$1'}}
 message: '`$HEAD` converts between enums by member name'
 note: 'Delete the same-named copy, or declare a Mapperly mapping with `[MapEnum(EnumMappingStrategy.ByName)]` where both enums stay'

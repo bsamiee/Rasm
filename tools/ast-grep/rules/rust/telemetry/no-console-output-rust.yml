@@ -1,17 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-console-output-rust
 language: rustlang
 severity: error
 utils:
     entry:
         inside: {kind: function_item, stopBy: end, has: {field: name, regex: '^main$'}}
     sink-crate:
-        inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '\b(crossterm|ratatui|termion|console|indicatif|dialoguer|cursive|tui|env_logger|pretty_env_logger|fern|simplelog|simple_logger|tracing_subscriber|tracing_appender|log4rs|flexi_logger|slog_term|anstream|termcolor|owo_colors|colored|yansi)\b'}}
+        inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '(?-u:\b)(crossterm|ratatui|termion|console|indicatif|dialoguer|cursive|tui|env_logger|pretty_env_logger|fern|simplelog|simple_logger|tracing_subscriber|tracing_appender|log4rs|flexi_logger|slog_term|anstream|termcolor|owo_colors|colored|yansi)(?-u:\b)'}}
     handed-over:
         any:
             - inside: {kind: arguments, stopBy: {not: {kind: 'reference_expression, parenthesized_expression'}}, not: {inside: {kind: call_expression, has: {field: function, regex: '(^|::)(Write::(write|write_all|write_fmt|write_vectored|flush)|copy)$'}}}}
             - inside: {kind: field_initializer, field: value, stopBy: {not: {kind: 'reference_expression, parenthesized_expression'}}}
-            - inside: {kind: function_item, stopBy: end, has: {field: return_type, regex: '\b(Stdout|Stderr|StdoutLock|StderrLock|Write)\b'}}
+            - inside: {kind: function_item, stopBy: end, has: {field: return_type, regex: '(?-u:\b)(Stdout|Stderr|StdoutLock|StderrLock|Write)(?-u:\b)'}}
     stream-call:
         kind: call_expression
         all:
@@ -22,7 +21,7 @@ utils:
     stream-token:
         kind: identifier
         regex: '^(stdout|stderr)$'
-        precedes: {kind: token_tree, regex: '^\(\s*\)$'}
+        precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$'}
     stream-macro:
         kind: macro_invocation
         all:

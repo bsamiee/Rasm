@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-nearest-neighbor-scan
 language: rustlang
 severity: error
 utils:
@@ -16,7 +15,7 @@ utils:
             - pattern: $PTS
     distance-closure:
         kind: closure_expression
-        regex: '\.(x|y|z)\b|distance|dist\(|length_squared|hypot|\.sqrt\(\)|powi\(\s*2\s*\)'
+        regex: '\.(x|y|z)(?-u:\b)|distance|dist\(|length_squared|hypot|\.sqrt\(\)|powi\(\p{White_Space}*2\p{White_Space}*\)'
     mapped-distance:
         kind: call_expression
         all:
@@ -34,7 +33,7 @@ rule:
                 - has: {field: function, has: {field: value, any: [{matches: mapped-distance}, {has: {stopBy: end, matches: mapped-distance}}]}}
                 - any:
                     - has: {field: function, has: {field: field, regex: '^(min_by|min_by_key|min)$'}}
-                    - has: {field: arguments, regex: '\bmin\b'}
+                    - has: {field: arguments, regex: '(?-u:\b)min(?-u:\b)'}
         - has: {field: function, has: {field: value, any: [{matches: set-iter}, {has: {stopBy: end, matches: set-iter}}]}}
         - any:
             - inside:

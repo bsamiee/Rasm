@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-extremum-by-sort
 language: tsxlang
 severity: error
 ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
@@ -8,7 +7,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^(sort|sortWith|sortBy)$'}
-            - matches: {effect-module-member: {module: {regex: '\bArray$'}, member: {regex: '^(sort|sortWith|sortBy)$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^(sort|sortWith|sortBy)$'}}}
     sorted:
         kind: call_expression
         any:
@@ -21,7 +20,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^(head|headNonEmpty|last|lastNonEmpty|take|takeRight)$'}
-            - matches: {effect-module-member: {module: {regex: '\bArray$'}, member: {regex: '^(head|headNonEmpty|last|lastNonEmpty|take|takeRight)$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^(head|headNonEmpty|last|lastNonEmpty|take|takeRight)$'}}}
 rule:
     any:
         - kind: call_expression

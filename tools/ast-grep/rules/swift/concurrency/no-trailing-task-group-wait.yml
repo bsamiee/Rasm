@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-trailing-task-group-wait
 language: swiftlang
 severity: error
 utils:
@@ -24,7 +23,7 @@ rule:
     pattern: $WAIT
     all:
         - matches: drain
-        - not: {precedes: {regex: '[\s\S]'}}
+        - not: {precedes: {regex: '[\p{White_Space}\P{White_Space}]'}}
         - inside: {matches: group-body}
         - not:
             follows:

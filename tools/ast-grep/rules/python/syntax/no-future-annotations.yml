@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-future-annotations
 language: pythonlang
 severity: error
 metadata: {python-from: '3.14'}
 rule:
     kind: future_import_statement
     pattern: $IMPORT
-    has: {kind: 'aliased_import, dotted_name', regex: '^annotations\b'}
+    has: {kind: 'aliased_import, dotted_name', regex: '^annotations(?-u:\b)'}
 message: '`$IMPORT` stores annotations as strings'
 note: 'Delete `annotations` from the `__future__` import'

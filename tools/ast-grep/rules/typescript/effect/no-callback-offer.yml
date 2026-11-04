@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-callback-offer
 language: tsxlang
 severity: error
 utils:
     queue-module:
-        matches: {effect-module: {name: {regex: '\bQueue$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Queue$'}}}
     effect-module-object:
-        matches: {effect-module: {name: {regex: '\bEffect$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}
     constructor-call:
         kind: call_expression
         has:

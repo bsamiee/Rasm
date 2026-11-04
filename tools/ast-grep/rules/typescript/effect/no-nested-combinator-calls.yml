@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-nested-combinator-calls
 language: tsxlang
 severity: error
 utils:
@@ -11,13 +10,13 @@ utils:
         has:
             field: function
             kind: member_expression
-            has: {field: object, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}
+            has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}}
     one-argument:
         has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
     step:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, has: {field: object, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$', not: {regex: '\bSchema$'}}}}}}
+            - has: {field: function, kind: member_expression, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$', not: {regex: '(?-u:\b)Schema$'}}}}}}
             - any:
                 - matches: one-argument
                 - has: {field: function, matches: effect-dual-operation}

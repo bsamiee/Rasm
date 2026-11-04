@@ -1,0 +1,28 @@
+id: no-statement-loop-tsx
+valid:
+    - |
+      for await (const x of xs) {
+          f(x);
+      }
+    - xs.forEach(f);
+    - |
+      for (const key in record) {
+          f(key);
+      }
+invalid:
+    - |
+      for (const x of xs) {
+          f(x);
+      }
+    - |
+      while (i < 3) {
+          i++;
+      }
+    - |
+      for (let i = 0; i < 3; i++) {
+          f(i);
+      }
+    - |
+      do {
+          i++;
+      } while (i < 3);

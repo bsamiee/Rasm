@@ -1,0 +1,26 @@
+id: no-join-of-collected-binding
+snapshots:
+  "fn names(xs: &[String]) -> String {\n    let parts = xs.iter().map(|x| x.trim()).collect::<Vec<_>>();\n    parts.join(\"\\n\")\n}\n":
+    labels:
+    - source: parts.join("\n")
+      message: Joins collected items
+      style: primary
+      start: 105
+      end: 121
+    - source: let parts = xs.iter().map(|x| x.trim()).collect::<Vec<_>>();
+      message: Collects items only for the join
+      style: secondary
+      start: 40
+      end: 100
+  "fn names(xs: &[String]) -> String {\n    let parts: Vec<String> = xs.iter().map(|x| x.to_uppercase()).collect();\n    parts.join(\", \")\n}\n":
+    labels:
+    - source: parts.join(", ")
+      message: Joins collected items
+      style: primary
+      start: 116
+      end: 132
+    - source: "let parts: Vec<String> = xs.iter().map(|x| x.to_uppercase()).collect();"
+      message: Collects items only for the join
+      style: secondary
+      start: 40
+      end: 111

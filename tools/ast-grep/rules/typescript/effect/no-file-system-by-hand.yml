@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-file-system-by-hand
 language: tsxlang
 severity: error
 rule:
@@ -15,6 +14,6 @@ rule:
         - inside:
             stopBy: end
             kind: call_expression
-            has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(tryPromise|promise|try|sync)$'}}}}
+            has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(tryPromise|promise|try|sync)$'}}}}
 message: '`$CALL` reaches the file system around the `FileSystem` service'
 note: 'Call the `FileSystem.FileSystem` member, which fails with a `PlatformError` naming the path'

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-forwarding-function-csharp
 language: csharplang
 severity: error
 utils:
@@ -148,7 +147,7 @@ utils:
     mapper-owner:
         kind: identifier
         pattern: $MAPPER
-        regex: '^\w+Mapper$'
+        regex: '^\p{XID_Continue}+Mapper$'
         not: {inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: class_declaration, all: [{has: {field: name, pattern: $MAPPER}}, {not: {matches: {csharp-attributed: {name: {regex: '^Mapper(Attribute)?$'}}}}}]}}}
     boundary-callee:
         kind: member_access_expression
@@ -225,7 +224,7 @@ rule:
                 - has: {kind: explicit_interface_specifier}
                 - all:
                     - kind: method_declaration
-                    - inside: {kind: declaration_list, inside: {has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]\w*$'}}}}}}}
+                    - inside: {kind: declaration_list, inside: {has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]\p{XID_Continue}*$'}}}}}}}
                     - has: {kind: modifier, regex: '^public$'}
                 - matches: trait-member
                 - matches: mapperly-mapping-method

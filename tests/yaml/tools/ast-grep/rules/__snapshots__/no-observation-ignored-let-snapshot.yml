@@ -1,0 +1,29 @@
+id: no-observation-ignored-let
+snapshots:
+  "@Observable\nfinal class Model {\n    @Observation.ObservationIgnored let id = UUID()\n}\n":
+    fixed: |
+      @Observable
+      final class Model {
+           let id = UUID()
+      }
+    labels:
+    - source: "@Observation.ObservationIgnored"
+      style: primary
+      start: 36
+      end: 67
+    - source: let
+      style: secondary
+      start: 68
+      end: 71
+    - source: let
+      style: secondary
+      start: 68
+      end: 71
+    - source: "@Observation.ObservationIgnored let id = UUID()"
+      style: secondary
+      start: 36
+      end: 83
+    - source: "@Observation.ObservationIgnored"
+      style: secondary
+      start: 36
+      end: 67

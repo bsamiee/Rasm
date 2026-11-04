@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-identity-lens-new
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -61,7 +60,7 @@ utils:
             - kind: member_access_expression
               matches: {csharp-owner-member: {type: {regex: '^Prelude$'}, member: {regex: '^identity$'}}}
             - kind: identifier, generic_name
-              regex: '^identity(\s*<.+>)?$'
+              regex: '^identity([\p{White_Space}\x{FEFF}]*<.+>)?$'
               not:
                 inside:
                     stopBy: end

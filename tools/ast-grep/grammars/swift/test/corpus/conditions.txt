@@ -1,0 +1,614 @@
+================================================================================
+condition: if let a = b { }
+================================================================================
+
+func f() {
+    if let a = b { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (simple_identifier))))))
+
+================================================================================
+condition: if let a = b.c { }
+================================================================================
+
+func f() {
+    if let a = b.c { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (navigation_expression
+            target: (simple_identifier)
+            suffix: (navigation_suffix
+              suffix: (simple_identifier))))))))
+
+================================================================================
+condition: if let a = try foo() { }
+================================================================================
+
+func f() {
+    if let a = try foo() { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (try_expression
+            (try_operator)
+            expr: (call_expression
+              (simple_identifier)
+              (call_suffix
+                (value_arguments)))))))))
+
+================================================================================
+condition: if let a = try? foo() { }
+================================================================================
+
+func f() {
+    if let a = try? foo() { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (try_expression
+            (try_operator)
+            expr: (call_expression
+              (simple_identifier)
+              (call_suffix
+                (value_arguments)))))))))
+
+================================================================================
+condition: if let a = try? b { }
+================================================================================
+
+func f() {
+    if let a = try? b { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (try_expression
+            (try_operator)
+            expr: (simple_identifier)))))))
+
+================================================================================
+condition: if let a = try b { }
+================================================================================
+
+func f() {
+    if let a = try b { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (try_expression
+            (try_operator)
+            expr: (simple_identifier)))))))
+
+================================================================================
+condition: if let a = await foo() { }
+================================================================================
+
+func f() {
+    if let a = await foo() { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (await_expression
+            expr: (call_expression
+              (simple_identifier)
+              (call_suffix
+                (value_arguments)))))))))
+
+================================================================================
+condition: if let a = await b { }
+================================================================================
+
+func f() {
+    if let a = await b { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (await_expression
+            expr: (simple_identifier)))))))
+
+================================================================================
+condition: if let a = await b.c { }
+================================================================================
+
+func f() {
+    if let a = await b.c { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (await_expression
+            expr: (navigation_expression
+              target: (simple_identifier)
+              suffix: (navigation_suffix
+                suffix: (simple_identifier)))))))))
+
+================================================================================
+condition: if let a = unsafe foo() { }
+================================================================================
+
+func f() {
+    if let a = unsafe foo() { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (unsafe_expression
+            expr: (call_expression
+              (simple_identifier)
+              (call_suffix
+                (value_arguments)))))))))
+
+================================================================================
+condition: if let a = unsafe b { }
+================================================================================
+
+func f() {
+    if let a = unsafe b { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (unsafe_expression
+            expr: (simple_identifier)))))))
+
+================================================================================
+condition: if let a = unsafe b.c { }
+================================================================================
+
+func f() {
+    if let a = unsafe b.c { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (unsafe_expression
+            expr: (navigation_expression
+              target: (simple_identifier)
+              suffix: (navigation_suffix
+                suffix: (simple_identifier)))))))))
+
+================================================================================
+condition: if let a = unsafe b[0] { }
+================================================================================
+
+func f() {
+    if let a = unsafe b[0] { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (unsafe_expression
+            expr: (call_expression
+              (simple_identifier)
+              (call_suffix
+                (value_arguments
+                  (value_argument
+                    value: (integer_literal)))))))))))
+
+================================================================================
+condition: if try b { }
+================================================================================
+
+func f() {
+    if try b { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (try_expression
+            (try_operator)
+            expr: (simple_identifier)))))))
+
+================================================================================
+condition: if await b { }
+================================================================================
+
+func f() {
+    if await b { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (await_expression
+            expr: (simple_identifier)))))))
+
+================================================================================
+condition: if unsafe b { }
+================================================================================
+
+func f() {
+    if unsafe b { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (unsafe_expression
+            expr: (simple_identifier)))))))
+
+================================================================================
+condition: if unsafe b.c { }
+================================================================================
+
+func f() {
+    if unsafe b.c { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (unsafe_expression
+            expr: (navigation_expression
+              target: (simple_identifier)
+              suffix: (navigation_suffix
+                suffix: (simple_identifier)))))))))
+
+================================================================================
+condition: while let a = await it.next() { }
+================================================================================
+
+func f() {
+    while let a = await it.next() { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (while_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (await_expression
+            expr: (call_expression
+              (navigation_expression
+                target: (simple_identifier)
+                suffix: (navigation_suffix
+                  suffix: (simple_identifier)))
+              (call_suffix
+                (value_arguments)))))))))
+
+================================================================================
+condition: while unsafe p.pointee != 0 { }
+================================================================================
+
+func f() {
+    while unsafe p.pointee != 0 { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (while_statement
+          condition: (unsafe_expression
+            expr: (infix_expression
+              lhs: (navigation_expression
+                target: (simple_identifier)
+                suffix: (navigation_suffix
+                  suffix: (simple_identifier)))
+              op: (custom_operator)
+              rhs: (integer_literal))))))))
+
+================================================================================
+condition: while await b { }
+================================================================================
+
+func f() {
+    while await b { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (while_statement
+          condition: (await_expression
+            expr: (simple_identifier)))))))
+
+================================================================================
+condition: guard let a = unsafe b else { return }
+================================================================================
+
+func f() {
+    guard let a = unsafe b else { return }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (guard_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (unsafe_expression
+            expr: (simple_identifier))
+          (else)
+          (statements
+            (control_transfer_statement)))))))
+
+================================================================================
+condition: let a = unsafe b
+================================================================================
+
+func f() {
+    let a = unsafe b
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (property_declaration
+          (value_binding_pattern)
+          name: (pattern
+            bound_identifier: (simple_identifier))
+          value: (unsafe_expression
+            expr: (simple_identifier)))))))
+
+================================================================================
+condition: let a = unsafe (b)
+================================================================================
+
+func f() {
+    let a = unsafe (b)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (property_declaration
+          (value_binding_pattern)
+          name: (pattern
+            bound_identifier: (simple_identifier))
+          value: (call_expression
+            (simple_identifier)
+            (call_suffix
+              (value_arguments
+                (value_argument
+                  value: (simple_identifier))))))))))
+
+================================================================================
+condition: switch unsafe b { default: break }
+================================================================================
+
+func f() {
+    switch unsafe b { default: break }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (switch_statement
+          expr: (unsafe_expression
+            expr: (simple_identifier))
+          (switch_entry
+            (default_keyword)
+            (statements
+              (control_transfer_statement))))))))
+
+================================================================================
+condition: switch await b { default: break }
+================================================================================
+
+func f() {
+    switch await b { default: break }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (switch_statement
+          expr: (await_expression
+            expr: (simple_identifier))
+          (switch_entry
+            (default_keyword)
+            (statements
+              (control_transfer_statement))))))))
+
+================================================================================
+condition: switch try b { default: break }
+================================================================================
+
+func f() {
+    switch try b { default: break }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (switch_statement
+          expr: (try_expression
+            (try_operator)
+            expr: (simple_identifier))
+          (switch_entry
+            (default_keyword)
+            (statements
+              (control_transfer_statement))))))))
+
+================================================================================
+condition: if let a = consume b { }
+================================================================================
+
+func f() {
+    if let a = consume b { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_declaration
+    name: (simple_identifier)
+    body: (function_body
+      (statements
+        (if_statement
+          condition: (value_binding_pattern)
+          bound_identifier: (simple_identifier)
+          condition: (consume_expression
+            expr: (simple_identifier)))))))

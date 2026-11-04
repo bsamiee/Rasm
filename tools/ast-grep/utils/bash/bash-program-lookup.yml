@@ -6,9 +6,9 @@ utils:
 rule:
     kind: command
     any:
-        - has: {field: name, regex: '^(?:\S+/)?(which|type)$'}
+        - has: {field: name, regex: '^(?:\P{White_Space}+/)?(which|type)$'}
         - all:
-            - has: {field: name, regex: '^(?:\S+/)?hash$'}
+            - has: {field: name, regex: '^(?:\P{White_Space}+/)?hash$'}
             - not: {has: {kind: word, regex: '^-[a-zA-Z]*[rdp]', matches: option}}
         - all:
             - has: {field: name, regex: '^command$'}

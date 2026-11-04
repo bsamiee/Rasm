@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-blocking-call-in-coroutine
 language: pythonlang
 severity: error
 utils:
@@ -22,7 +21,7 @@ utils:
             inside: {kind: generator_expression}
     coroutine:
         any:
-            - inside: {kind: function_definition, regex: '^async\s', stopBy: *evaluation-boundary}
+            - inside: {kind: function_definition, regex: '^async[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]', stopBy: *evaluation-boundary}
             - matches: generator-input
               inside: {kind: generator_expression, matches: coroutine, stopBy: *evaluation-boundary}
             - not: {matches: generator-input}
@@ -30,7 +29,7 @@ utils:
                 kind: generator_expression
                 stopBy: *evaluation-boundary
                 any:
-                    - has: {kind: for_in_clause, regex: '^async\s'}
+                    - has: {kind: for_in_clause, regex: '^async[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]'}
                     - has:
                         kind: await
                         stopBy: {kind: 'function_definition, lambda, class_definition, generator_expression'}
@@ -47,7 +46,7 @@ utils:
 rule:
     kind: call
     all:
-        - inside: {kind: module, stopBy: end, regex: '\b(_?socket|tempfile)\b'}
+        - inside: {kind: module, stopBy: end, regex: '(?-u:\b)(_?socket|tempfile)(?-u:\b)'}
         - has: {field: function, pattern: $CALLEE, matches: blocking-callee}
         - matches: coroutine
         - has: {field: arguments, pattern: $ARGS}

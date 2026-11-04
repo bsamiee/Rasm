@@ -1,0 +1,8 @@
+id: no-identity-lens-new
+valid:
+    - 'var lens = Lens<Person, string>.New(p => p.Name, n => p => p with { Name = n });'
+    - 'var lens = Lens<Person, Person>.New(x => x, v => p => p);'
+    - 'var lens = Lens.identity<Person>();'
+invalid:
+    - 'var lens = Lens<Person, Person>.New(x => x, v => _ => v);'
+    - 'var lens = Lens<Person, Person>.New(Get: identity, Set: v => _ => v);'

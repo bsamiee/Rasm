@@ -1,0 +1,26 @@
+id: no-utf8-length-literal
+valid:
+    - |
+      fn encode(c: char) -> usize {
+          let mut buf = [0u8; char::MAX_LEN_UTF8];
+          c.encode_utf8(&mut buf).len()
+      }
+    - |
+      fn encode(c: char) -> usize {
+          let mut buf = [0u8; 8];
+          c.encode_utf8(&mut buf).len()
+      }
+    - |
+      fn header() -> [u8; 4] {
+          [0u8; 4]
+      }
+invalid:
+    - |
+      fn encode(c: char) -> usize {
+          let mut buf = [0u8; 4];
+          c.encode_utf8(&mut buf).len()
+      }
+    - |
+      fn units(c: char) -> usize {
+          c.encode_utf16(&mut [0u16; 2]).len()
+      }

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-anchored-text-regex
 language: tsxlang
 severity: error
 utils:
@@ -9,7 +8,7 @@ utils:
             - has:
                 field: pattern
                 pattern: $PATTERN
-                regex: '^(?:\^(?:[^\^$\\.*+?()\[\]{}|/]|\\[\^$\\.*+?()\[\]{}|/nrtvf]|\\x[\dA-Fa-f]{2}|\\u(?:[\dA-CEFa-cef][\dA-Fa-f]{3}|[Dd][0-7][\dA-Fa-f]{2}))+|(?:[^\^$\\.*+?()\[\]{}|/]|\\[\^$\\.*+?()\[\]{}|/nrtvf]|\\x[\dA-Fa-f]{2}|\\u(?:[\dA-CEFa-cef][\dA-Fa-f]{3}|[Dd][0-7][\dA-Fa-f]{2}))+\$)$'
+                regex: '^(?:\^(?:[^\^$\\.*+?()\[\]{}|/]|\\[\^$\\.*+?()\[\]{}|/nrtvf]|\\x[0-9A-Fa-f]{2}|\\u(?:[0-9A-CEFa-cef][0-9A-Fa-f]{3}|[Dd][0-7][0-9A-Fa-f]{2}))+|(?:[^\^$\\.*+?()\[\]{}|/]|\\[\^$\\.*+?()\[\]{}|/nrtvf]|\\x[0-9A-Fa-f]{2}|\\u(?:[0-9A-CEFa-cef][0-9A-Fa-f]{3}|[Dd][0-7][0-9A-Fa-f]{2}))+\$)$'
             - not: {has: {field: flags, regex: '[gimy]'}}
     relay:
         kind: lexical_declaration
@@ -80,7 +79,7 @@ rule:
             - has: {field: left, kind: call_expression, has: {field: function, has: {field: property, regex: '^search$'}}}
             - has: {field: left, matches: text-call}
             - any:
-                - all: [{has: {field: operator, regex: '^(!==?|===?|>)$'}}, {has: {field: right, regex: '^-\s*1$'}}]
+                - all: [{has: {field: operator, regex: '^(!==?|===?|>)$'}}, {has: {field: right, regex: '^-[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*1$'}}]
                 - all: [{has: {field: operator, regex: '^(>=|<)$'}}, {has: {field: right, regex: '^0$'}}]
                 - all:
                     - has: {field: operator, regex: '^(!==?|===?)$'}

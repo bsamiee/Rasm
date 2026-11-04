@@ -1,15 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-loop-over-command-substitution
 language: bashlang
 severity: error
 utils:
     line-tool:
         kind: command
         any:
-            - has: {field: name, regex: '^(?:\S*/)?(grep|fgrep|egrep|sed|cat|awk|cut|sort)$'}
+            - has: {field: name, regex: '^(?:\P{White_Space}*/)?(grep|fgrep|egrep|sed|cat|awk|cut|sort)$'}
             - all:
                 - has: {field: name, regex: '^(command|builtin)$'}
-                - has: {kind: word, nthChild: 2, regex: '^(?:\S*/)?(grep|fgrep|egrep|sed|cat|awk|cut|sort)$'}
+                - has: {kind: word, nthChild: 2, regex: '^(?:\P{White_Space}*/)?(grep|fgrep|egrep|sed|cat|awk|cut|sort)$'}
     line-output-substitution:
         kind: command_substitution
         all:
@@ -36,7 +35,7 @@ rule:
                 stopBy: end
                 has:
                     kind: comment
-                    regex: '^#!\s*(\S*/)?(?:env\s+(?:-S\s*|--split-string(?:=|\s+))?)?(sh|dash|ash)(\s|$)'
+                    regex: '^#!\p{White_Space}*(\P{White_Space}*/)?(?:env\p{White_Space}+(?:-S\p{White_Space}*|--split-string(?:=|\p{White_Space}+))?)?(sh|dash|ash)(\p{White_Space}|$)'
                     not: {follows: {stopBy: end, pattern: $_}}
 message: '`for` word-splits and glob-expands `$SUB`'
 note: 'Hold the items in an array, `mapfile -t <items> < <(<command>)` for command output, and loop over `"${<items>[@]}"`'

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: require-abstract-host-subclass
 language: csharplang
 severity: error
 files: ['libs/**/rhino/**']
@@ -8,7 +7,7 @@ utils:
         kind: 'identifier, qualified_name'
         pattern: $HOST
         regex: |-
-            (?x)^(global::)?(Rhino\.[\w.]*\.)?
+            (?x)^(global::)?(Rhino\.[\p{XID_Continue}.]*\.)?
             (Custom(Brep|Curve|Mesh|Point)Object|CustomObjectGrips|UserData|UserDictionary|EtoCollapsibleSection3?
             |CollapsibleSection|ObjectPropertiesPage|PostEffect|VisualAnalysisMode|ObjectManagerExtension|UICommand|FactoryBase
             |RenderContent|RenderMaterial|RenderTexture|TwoColorRenderTexture|RenderEnvironment|RenderMeshProvider

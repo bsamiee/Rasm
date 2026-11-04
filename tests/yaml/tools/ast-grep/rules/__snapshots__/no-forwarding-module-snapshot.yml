@@ -1,0 +1,16 @@
+id: no-forwarding-module
+snapshots:
+  "#!/usr/bin/env node\nimport { cli } from \"./cli\";\nawait cli.run();\n":
+    labels:
+    - source: cli.run()
+      message: Forwarded call
+      style: primary
+      start: 55
+      end: 64
+  "import { main } from \"./main\";\nmain();\n":
+    labels:
+    - source: main()
+      message: Forwarded call
+      style: primary
+      start: 31
+      end: 37

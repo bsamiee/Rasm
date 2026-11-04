@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-option-test-branch
 language: tsxlang
 severity: error
 utils:
@@ -7,7 +6,7 @@ utils:
         any:
             - kind: call_expression
               all:
-                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^is(Some|None)$'}}}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^is(Some|None)$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $OPTION}}, {not: {has: {nthChild: 2}}}]}
             - kind: unary_expression
               all:

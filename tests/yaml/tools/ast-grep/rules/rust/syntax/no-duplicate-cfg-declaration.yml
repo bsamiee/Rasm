@@ -1,0 +1,40 @@
+id: no-duplicate-cfg-declaration
+valid:
+    - |
+      #[cfg(unix)]
+      fn home() -> PathBuf {
+          unix_home()
+      }
+
+      #[cfg(windows)]
+      fn home(user: &str) -> PathBuf {
+          windows_home(user)
+      }
+    - |
+      fn home() -> PathBuf {
+          cfg_select! {
+              unix => unix_home(),
+              windows => windows_home(),
+          }
+      }
+invalid:
+    - |
+      #[cfg(unix)]
+      fn home() -> PathBuf {
+          unix_home()
+      }
+
+      #[cfg(windows)]
+      fn home() -> PathBuf {
+          windows_home()
+      }
+    - |
+      #[cfg(unix)]
+      const SEPARATOR: char = '/';
+      #[cfg(windows)]
+      const SEPARATOR: char = '\\';
+    - |
+      cfg_select! {
+          unix => { type Handle = i32; }
+          windows => { type Handle = isize; }
+      }

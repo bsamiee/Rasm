@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-unescaped-glob-interpolation
 language: pythonlang
 severity: error
 utils:
@@ -27,7 +26,7 @@ utils:
                 - matches: operand
             - pattern: $_L % $_R
               all:
-                - has: {field: left, kind: 'string, concatenated_string', regex: '%[-#0 +]*\d*(\.\d+)?[sra]'}
+                - has: {field: left, kind: 'string, concatenated_string', regex: '%[-#0 +]*[0-9]*(\.[0-9]+)?[sra]'}
                 - has: {field: right, any: [{matches: value}, {kind: tuple, has: {matches: value}}]}
             - kind: call
               all:
@@ -51,7 +50,7 @@ utils:
 rule:
     kind: call
     all:
-        - has: {field: function, regex: '(^|\.)(glob|rglob|full_match|translate|fnmatch|fnmatchcase|filter)$|^\w+$'}
+        - has: {field: function, regex: '(^|\.)(glob|rglob|full_match|translate|fnmatch|fnmatchcase|filter)$|^\p{XID_Continue}+$'}
         - has: {field: function, any: [{matches: glob-callee}, {matches: fnmatch-callee}]}
         - has: {field: arguments, has: {stopBy: {not: {kind: keyword_argument}}, matches: interpolated, all: [{matches: pattern-position}]}}
 message: 'Glob pattern reads `*`, `?`, and `[` in interpolated `$VALUE` as wildcards'

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-interpolated-sql-value-rust
 language: rustlang
 severity: error
 utils:
@@ -7,12 +6,12 @@ utils:
         kind: 'string_literal, raw_string_literal'
         any:
             - regex: |-
-                (?x)^r?\#*"\s*(
-                    SELECT\s|INSERT\s+(OR\s+\w+\s+)?INTO\s|REPLACE\s+INTO\s|UPDATE\s+\S+\s+SET\s|DELETE\s+FROM\s|WITH\s+(RECURSIVE\s+)?\S+\s+AS\s
-                    |CREATE\s+(UNIQUE\s+)?(TABLE|INDEX|VIEW)\s|ALTER\s+TABLE\s|DROP\s+(TABLE|INDEX|VIEW)\s|PRAGMA\s
-                    |select\s[^"]*\bfrom\s|insert\s+(or\s+\w+\s+)?into\s|update\s+\S+\s+set\s|delete\s+from\s|with\s+(recursive\s+)?\S+\s+as\s*\(
+                (?x)^r?\#*"\p{White_Space}*(
+                    SELECT\p{White_Space}|INSERT\p{White_Space}+(OR\p{White_Space}+\p{XID_Continue}+\p{White_Space}+)?INTO\p{White_Space}|REPLACE\p{White_Space}+INTO\p{White_Space}|UPDATE\p{White_Space}+\P{White_Space}+\p{White_Space}+SET\p{White_Space}|DELETE\p{White_Space}+FROM\p{White_Space}|WITH\p{White_Space}+(RECURSIVE\p{White_Space}+)?\P{White_Space}+\p{White_Space}+AS\p{White_Space}
+                    |CREATE\p{White_Space}+(UNIQUE\p{White_Space}+)?(TABLE|INDEX|VIEW)\p{White_Space}|ALTER\p{White_Space}+TABLE\p{White_Space}|DROP\p{White_Space}+(TABLE|INDEX|VIEW)\p{White_Space}|PRAGMA\p{White_Space}
+                    |select\p{White_Space}[^"]*(?-u:\b)from\p{White_Space}|insert\p{White_Space}+(or\p{White_Space}+\p{XID_Continue}+\p{White_Space}+)?into\p{White_Space}|update\p{White_Space}+\P{White_Space}+\p{White_Space}+set\p{White_Space}|delete\p{White_Space}+from\p{White_Space}|with\p{White_Space}+(recursive\p{White_Space}+)?\P{White_Space}+\p{White_Space}+as\p{White_Space}*\(
                 )
-            - regex: '\b(WHERE|AND|OR|SET|VALUES|IN|LIKE|HAVING)\b[^"]*''\{[^{}]*\}'''
+            - regex: '(?-u:\b)(WHERE|AND|OR|SET|VALUES|IN|LIKE|HAVING)(?-u:\b)[^"]*''\{[^{}]*\}'''
     sql-head:
         any:
             - matches: sql-text
