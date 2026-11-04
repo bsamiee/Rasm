@@ -1,23 +1,25 @@
 import { createHash } from 'node:crypto';
-import { homedir } from 'node:os';
 import type { AppleEventValue, Terms } from '@rasm/automation';
 import { Automation } from '@rasm/automation/node';
 import { transformSync } from '@swc/core';
 import { Array, Effect, FileSystem, flow, Option, Path, Record, Result, Schema, SchemaGetter, Stream, String, Struct } from 'effect';
 import jsesc from 'jsesc';
-import { Answered, BOXES, Engine, EngineRequest, HostCase, HostOutcome, Lockdown, Recorded, type Staged, Survey, Surveyed } from '#/acrobat/contract';
+import { Answered, BOXES, Engine, EngineRequest, HostCase, HostOutcome, Install, Recorded, type Rooted, Survey, Surveyed } from '#/acrobat/contract';
 import { engine } from '#/acrobat/engine';
 import { precondition } from '#/acrobat/precondition';
 import { HarnessError } from '#/harness-error';
-import { Launched, printed } from '#/instance';
+import { entitlements, Launched, printed } from '#/instance';
 import { copied } from '#/precondition';
-import { type Batch, type Decoding, filesIn, Harness, inside, installation, type Live } from '#/session';
+import { HOME } from '#/report';
+import { type Batch, type Decoding, filesIn, Harness, inside, installation, LABEL, type Live } from '#/session';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CODES = { suite: 'CARO', script: 'miscdosc', quit: 'aevtquit', menu: 'cmnu', item: 'cmen', title: 'ptit' } as const;
 const ELLIPSIS = /(?:…|\.\.\.)$/u;
+const REQUESTED = { home: HOME, boxes: BOXES };
+const SANDBOX = 'com.apple.security.temporary-exception.files.absolute-path.read-write';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -27,6 +29,7 @@ const Objects = Schema.fromJsonString(Schema.Struct({ qpdf: Schema.Tuple([Schema
 const Linked = Schema.Struct({ value: Schema.Struct({ '/Info': Schema.optionalKey(Schema.String), '/Root': Schema.optionalKey(Schema.String), '/Metadata': Schema.optionalKey(Schema.String) }) }).annotate({ description: 'Indirect references a dictionary holds' });
 const Dictionary = Schema.Struct({ value: JsonObject });
 const Canonical = Schema.fromJsonString(Schema.Array(Schema.Tuple([Schema.String, Schema.Json])));
+const Entitlements = Schema.Struct({ [SANDBOX]: Schema.NonEmptyArray(Schema.NonEmptyString) }).annotate({ description: 'App sandbox entitlements, the absolute-path read-write exception among them' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -48,26 +51,30 @@ const installed = Effect.gen(function* () {
         onNonEmpty: Effect.forEach((row) => installation(row, rows, [])),
     });
 });
-const lockdown = Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
+const install = Effect.fn('install')(function* (live: Live) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const {
+        [SANDBOX]: [sandbox],
+    } = yield* entitlements(live.chosen.app, path.join(live.scratch, 'entitlements.plist'), Entitlements);
     const file = '/Library/Application Support/Adobe/Acrobat/DC/Preferences/FeatureLockDown';
-    return (yield* fs.exists(file))
+    const lockdown = (yield* fs.exists(file))
         ? {
               lockdown: createHash('sha256')
                   .update(yield* fs.readFile(file))
                   .digest('hex'),
           }
         : {};
+    return { sandbox, ...lockdown } satisfies typeof Install.Type;
 });
 
 // --- [CASES]
-const placed = Effect.fn('placed')(function* (decoded: typeof Staged.Type, folder: string, product: string) {
+const placed = Effect.fn('placed')(function* (decoded: typeof Rooted.Type, folder: string, product: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const digits = 16;
-    const sandbox = path.join('/private/tmp/com.adobe.Acrobat.tmp.sbx', `rasm-${createHash('sha256').update(folder).digest('hex').slice(0, digits)}`);
+    const sandbox = path.join(decoded.exception, `${LABEL}-${createHash('sha256').update(folder).digest('hex').slice(0, digits)}`);
     yield* fs.remove(sandbox, { recursive: true, force: true });
     yield* fs.makeDirectory(sandbox, { recursive: true });
-    const { precondition: copy, copies } = yield* copied(decoded, sandbox, product);
+    const { precondition: copy, copies } = yield* copied(Struct.omit(decoded, ['exception']), sandbox, product);
     return { precondition: { ...copy, sandbox }, copies };
 });
 const staged = Effect.fn('staged')(function* (hosted: typeof HostCase.Type) {
@@ -109,7 +116,6 @@ const normalized = Effect.fn('normalized')(function* (file: string) {
 
 // --- [TRANSPORT]
 const lowered = Effect.try({ try: () => transformSync(`var engine = ${engine.toString()};`, { jsc: { target: 'es5', parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } }, isModule: false }).code, catch: HarnessError.refused('engine lowering') });
-const based = () => ({ home: homedir(), boxes: BOXES });
 const got = Effect.fn('got')(function* <S extends Schema.Top & Schema.Decoder<unknown>>(pid: number, direct: AppleEventValue, schema: S) {
     const automation = yield* Automation;
     const { reply } = yield* automation.execute({ pid, command: 'get', arguments: { direct } });
@@ -134,9 +140,9 @@ const answered = Effect.fn('answered')(function* <A>(pid: number, Reply: Decodin
 });
 const surveyed = Effect.fn('surveyed')(function* (pid: number, opened: Option.Option<Schema.Json>) {
     const modal = yield* modalIn(pid);
-    const held = yield* answered(pid, Surveyed, EngineRequest.cases.Survey.make({ ...based(), modal }));
+    const held = yield* answered(pid, Surveyed, EngineRequest.cases.Survey.make({ ...REQUESTED, modal }));
     const { viewer, model } = yield* Effect.mapError(Effect.fromResult(held), ({ reason }) => HarnessError.unavailable(`process ${pid}`)(reason));
-    const host = yield* Effect.orDie(Schema.decodeUnknownEffect(Lockdown)(Option.getOrUndefined(opened)));
+    const host = yield* Effect.orDie(Schema.decodeUnknownEffect(Install)(Option.getOrUndefined(opened)));
     return { model: { ...model, modal }, viewer, host } satisfies typeof Survey.Type;
 });
 const cased = (pid: number, records: string, survey: typeof Survey.Type) =>
@@ -145,7 +151,7 @@ const cased = (pid: number, records: string, survey: typeof Survey.Type) =>
         const line = (entry: typeof Recorded.Type) => Effect.flatMap(Schema.encodeEffect(Recorded)(entry), (encoded) => fs.writeFileString(records, `${encoded}\n`, { flag: 'a' }));
         yield* line({ _tag: 'Started', index });
         const { hosted: held, inputs } = yield* staged(hosted);
-        const answer = yield* answered(pid, Answered, EngineRequest.cases.Case.make({ ...based(), modal: survey.model.modal, signatures: survey.model.signatures, case: held }));
+        const answer = yield* answered(pid, Answered, EngineRequest.cases.Case.make({ ...REQUESTED, modal: survey.model.modal, signatures: survey.model.signatures, case: held }));
         yield* collected(hosted, [...inputs, ...Result.match(answer, { onSuccess: ({ kept }) => kept, onFailure: () => [] })]);
         yield* line({ _tag: 'Finished', outcome: Result.match(answer, { onSuccess: ({ outcome }) => outcome, onFailure: ({ reason }) => HostOutcome.make({ name: hosted.name, completion: { _tag: 'Failed', reason } }) }) });
     });
@@ -170,7 +176,7 @@ const acrobat = Harness({
     refusal: (_, hosted) => (hosted.dialogs === undefined ? Option.none<string>() : Option.some('execDialog answers through windows presses')),
     installed,
     launch: () => Effect.succeed(new Launched({})),
-    opened: () => lockdown,
+    opened: install,
     send,
     quit: (live) => Effect.flatMap(Automation, (automation) => Effect.asVoid(automation.execute({ pid: live.pid, command: CODES.quit, arguments: { saving: { _tag: 'enumerator', name: 'no' } } }))),
     canonical: (file, bytes) => (file.endsWith('.pdf') ? Effect.map(normalized(file), (text) => [text]) : Effect.succeed([bytes])),

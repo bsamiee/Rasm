@@ -26,9 +26,11 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks 
 - Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
 - Root `tsconfig.json` checks project `*.config.ts` and `.storybook/main.ts` files, base `exclude` keeps `${configDir}/*.config.ts` out of projects
 - Library `exports` list `.` and one entry per runtime or dependency (`./node`, `./uxp`), sync generator `barrels` in `tools/nx` writing each `index.ts`
-- `typecheck:neutral` checks root entries with no `types`, `lint:dependency-cruiser` rejects a `node:`, wasm, or `adobe:` module a root `index.ts` reaches
+- `lint:dependency-cruiser` rejects a host module, a package whose installed load chain ships wasm or a Node addon, a runtime package, a stylesheet, or another library entry in a library root entry's static load closure, and any npm package in an `./extendscript` entry's closure
+- Each importer's `typecheck:tsc` checks a root entry's types under its own `lib` and `types`, a hooks plugin's `typecheck:claude` under the engine's types alone and `lint:claude` its load closure through `claude plugin validate`
 - ExtendScript code sits in packages whose programs list `types-for-adobe` alone, a CEP panel program holds `dom` and no ExtendScript globals
-- Package self-imports are extensionless, `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
+- Package self-imports are extensionless where `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
+- Apps whose folders mix `.ts` and `.tsx` map `"#/*": "./*"` and import with extensions
 - `tsc` compiles sibling source under importer options, importers list each typings package and `paths` row it needs
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
 - Project `types` replaces an extended list, a project adding an entry restates the list it extends

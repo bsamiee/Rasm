@@ -1,10 +1,11 @@
 import { Array, Effect, FileSystem, flow, Option, Path, Schema, String, Struct } from 'effect';
 import { Answer, deciding, Halted, Outcome } from '#/results';
-import type { Any } from '#/session';
+import type { Harness } from '#/session';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Fact = ReturnType<typeof facts>['Fact']['Type'];
+type Fact = ReturnType<typeof fact>['Type'];
+type Key = Pick<Fact, 'question' | 'identifier' | 'version' | 'engine' | 'environment'> & Partial<Pick<Fact, 'host' | 'expression' | 'args' | 'precondition'>>;
 type Asking<T> = Pick<Fact, 'identifier' | 'version' | 'environment'> & { readonly engine: T };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -16,11 +17,8 @@ const RUNTIME = /^\S+\.dylib /u;
 
 const Alerted = Schema.Struct({ alerts: Outcome.common.alerts });
 const Interrupted = Schema.TemplateLiteral([Schema.Literals(['crashed', 'hung']), ' ', Schema.String]).annotate({ description: 'Thrown answer of a case that ended or stalled its instance' });
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const facts = (engine: Any) => {
-    const Fact = Schema.Struct({
+const fact = (engine: Harness['Engine']) =>
+    Schema.Struct({
         question: Schema.NonEmptyString.annotate({ description: 'Host behavior asked, matched exactly before any host call' }),
         ...deciding(engine),
         expression: Schema.NonEmptyString,
@@ -29,30 +27,34 @@ const facts = (engine: Any) => {
         answer: Answer,
         asked: Schema.String.annotate({ description: 'ISO 8601 instant of the host call' }),
     });
-    type Key = Pick<typeof Fact.Type, 'question' | 'identifier' | 'version' | 'engine' | 'environment'> & Partial<Pick<typeof Fact.Type, 'host' | 'expression' | 'args' | 'precondition'>>;
-    const same = Schema.toEquivalence(Schema.UndefinedOr(Schema.Json));
-    const Index = Schema.fromJsonString(Schema.Struct({ facts: Schema.Array(Fact) }), { space: 2 });
-    const load = Effect.fn('load')(function* (file: string) {
-        const fs = yield* FileSystem.FileSystem;
-        return yield* fs.readFileString(file).pipe(
-            Effect.flatMap(Schema.decodeEffect(Index)),
-            Effect.map(({ facts: rows }) => rows),
-            Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed([])),
-        );
-    });
-    const matches = (row: Key, key: Key) =>
-        row.question === key.question && row.identifier === key.identifier && row.version === key.version && row.engine === key.engine && same(row.environment, key.environment) && (['host', 'expression', 'args', 'precondition'] as const).every((field) => key[field] === undefined || same(row[field], key[field]));
-    const known = (rows: readonly (typeof Fact.Type)[], key: Key) => Array.findFirst(rows, (row) => matches(row, key));
-    const faulted = (rows: readonly (typeof Fact.Type)[], key: Omit<Key, 'question'>) => Array.findFirst(rows, (row) => 'thrown' in row.answer && Schema.is(Interrupted)(row.answer.thrown) && matches(row, { ...key, question: row.question }));
-    const record = Effect.fn('record')(function* (file: string, made: readonly (typeof Fact.Type)[]) {
-        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const rows = yield* load(file);
-        const replaced = (row: Key) => made.some((next) => matches(row, Struct.pick(next, ['question', 'identifier', 'version', 'engine', 'environment'])) && same(row.host, next.host));
-        yield* fs.makeDirectory(path.dirname(file), { recursive: true });
-        yield* fs.writeFileString(file, `${yield* Schema.encodeEffect(Index)({ facts: [...rows.filter((row) => !replaced(row)), ...made] })}\n`);
-    });
-    return { Fact, load, known, faulted, record };
-};
+const Index = (engine: Harness['Engine']) => Schema.fromJsonString(Schema.Struct({ facts: Schema.Array(fact(engine)) }), { space: 2 }).annotate({ description: 'Facts index of one host under its application folder' });
+const same = Schema.toEquivalence(Schema.UndefinedOr(Schema.Json));
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+// --- [INDEX]
+const matches = (row: Key, key: Key) =>
+    row.question === key.question && row.identifier === key.identifier && row.version === key.version && row.engine === key.engine && same(row.environment, key.environment) && (['host', 'expression', 'args', 'precondition'] as const).every((field) => key[field] === undefined || same(row[field], key[field]));
+const known = (rows: readonly Fact[], key: Key) => Array.findFirst(rows, (row) => matches(row, key));
+const faulted = (rows: readonly Fact[], key: Omit<Key, 'question'>) => Array.findFirst(rows, (row) => 'thrown' in row.answer && Schema.is(Interrupted)(row.answer.thrown) && matches(row, { ...key, question: row.question }));
+const load = Effect.fn('load')(function* (engine: Harness['Engine'], file: string) {
+    const fs = yield* FileSystem.FileSystem;
+    return yield* fs.readFileString(file).pipe(
+        Effect.flatMap(Schema.decodeEffect(Index(engine))),
+        Effect.map(({ facts }) => facts),
+        Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed([])),
+    );
+});
+const record = Effect.fn('record')(function* (engine: Harness['Engine'], file: string, made: readonly Fact[]) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const rows = yield* load(engine, file);
+    const replaced = (row: Key) => made.some((next) => matches(row, Struct.pick(next, ['question', 'identifier', 'version', 'engine', 'environment'])) && same(row.host, next.host));
+    yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+    yield* fs.writeFileString(file, `${yield* Schema.encodeEffect(Index(engine))({ facts: [...rows.filter((row) => !replaced(row)), ...made] })}\n`);
+});
+const Fact = Object.assign(fact, { known, faulted, load, record });
+
+// --- [ANSWERS]
 const answerOf = (row: typeof Outcome.Type): Option.Option<typeof Answer.Type> => {
     const held: Schema.Json = row.value ?? null;
     const value = Option.match(
@@ -80,4 +82,4 @@ const answerOf = (row: typeof Outcome.Type): Option.Option<typeof Answer.Type> =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Asking, answerOf, type Fact, facts };
+export { type Asking, answerOf, Fact };

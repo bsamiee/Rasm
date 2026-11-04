@@ -1,4 +1,4 @@
-import { Array, Option } from 'effect';
+import { Array, Option, Struct } from 'effect';
 import { ChevronDown } from 'lucide-react';
 import { Button, type Key, Label, ListBox, ListBoxItem, Popover, RadioButton, RadioField, RadioGroup, type RadioGroupProps, Select, type SelectProps, SelectValue } from 'react-aria-components';
 import { Field } from '#/field';
@@ -11,7 +11,6 @@ const Choice = <T extends { readonly id: string; readonly label: string; readonl
     options,
     onChange,
     radios,
-    orientation = 'vertical',
     ...props
 }: Omit<Pick<RadioGroupProps, keyof RadioGroupProps & keyof SelectProps<T>>, 'children' | 'className' | 'style' | 'render' | 'value' | 'defaultValue' | 'onChange' | 'validate'> &
     Pick<RadioGroupProps, 'orientation'> & {
@@ -24,7 +23,7 @@ const Choice = <T extends { readonly id: string; readonly label: string; readonl
     }) => {
     const choose = (key: Key | null) => Array.findFirst(options, ({ id }) => id === key).pipe(Option.map(onChange));
     return options.length <= radios ? (
-        <RadioGroup {...props} onChange={choose} orientation={orientation}>
+        <RadioGroup {...props} onChange={choose}>
             <Label>{label}</Label>
             {options.map((option) => (
                 <RadioField isDisabled={option.isDisabled ?? false} key={option.id} value={option.id}>
@@ -34,7 +33,7 @@ const Choice = <T extends { readonly id: string; readonly label: string; readonl
             <Field.Help description={description} />
         </RadioGroup>
     ) : (
-        <Select {...props} onChange={choose}>
+        <Select {...Struct.omit(props, ['orientation'])} onChange={choose}>
             <Label>{label}</Label>
             <Button>
                 <SelectValue />

@@ -6,6 +6,7 @@ utils:
     runner:
         any:
             - matches: {effect-module-member: {module: {regex: '\b(NodeRuntime|BunRuntime|BrowserRuntime)$'}, member: {regex: '^runMain$'}}}
+            - matches: {typescript-import-reference: {source: {regex: '^@effect/platform-[a-z]+/(Node|Bun|Browser)Runtime$'}, exported: {regex: '^runMain$'}}}
             - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^run'}}}
             - matches: {effect-module-member: {module: {regex: '\bManagedRuntime$'}, member: {regex: '^make$'}}}
             - matches: {effect-module-member: {module: {regex: '\bLayer$'}, member: {regex: '^launch$'}}}

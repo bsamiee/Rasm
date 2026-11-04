@@ -1,5 +1,6 @@
 import { CustomProperties } from '@rasm/ui';
 import type { ComponentProps } from 'react';
+import { renderToString } from 'react-dom/server';
 import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-react';
 
@@ -57,4 +58,8 @@ it('keeps braces, semicolons, and markup inside the declaration value', async ()
     const screen = await render(_scoped('Escaped', { '--tone': 'red;--other:1}p{outline:solid}</style><b>' }));
     const style = getComputedStyle(screen.getByText('Escaped').element());
     expect([style.getPropertyValue('--other'), style.outlineStyle, document.querySelectorAll('b').length]).toEqual(['', 'none', 0]);
+});
+it('keeps markup inside the declaration value through server rendering', () => {
+    const parsed = new DOMParser().parseFromString(renderToString(_scoped('Served', { '--tone': '</style><b>' })), 'text/html');
+    expect([parsed.querySelectorAll('b').length, parsed.querySelectorAll('style').length]).toEqual([0, 1]);
 });

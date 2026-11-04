@@ -1,5 +1,5 @@
 import { Adjust, Typeset } from '@rasm/automation';
-import { HostSettings, InDesignModel, inDesignHandlers, type linkInDesign } from '@rasm/indesign/uxp';
+import { InDesignModel, InDesignSettings, inDesignHandlers, type linkInDesign } from '@rasm/indesign/uxp';
 import { Settings } from '@rasm/typography';
 import { Array, Cause, Effect, Function, Number, Option, Record, Schema, Struct } from 'effect';
 
@@ -9,8 +9,8 @@ const SHORTCUT_MULTIPLE = 5;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Steps = Schema.Struct({ kerning: HostSettings.Thousandths, baselineShift: Schema.Finite });
-const elongating = Settings.fields.kashida.schema.isAnyOf(['Tatweel', 'Stretched']);
+const Steps = Schema.Struct({ kerning: InDesignSettings.Thousandths, baselineShift: Schema.Finite });
+const elongating = Settings.Kashida.isAnyOf(['Tatweel', 'Stretched']);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -41,7 +41,7 @@ const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const typesetting = (scripted: ReturnType<typeof linkInDesign>['scripted']) =>
+const typesetting = (scripted: Effect.Success<typeof linkInDesign>['scripted']) =>
     Effect.fnUntraced(function* (root: HTMLElement, fork: (work: Effect.Effect<unknown, unknown>) => void) {
         const { app } = yield* InDesignModel;
         const mode = picker(
@@ -51,9 +51,9 @@ const typesetting = (scripted: ReturnType<typeof linkInDesign>['scripted']) =>
                 Tracking: { horizontal: ({ kerning }) => ({ tracking: kerning }), vertical: ({ baselineShift }) => ({ baselineShift }) },
             } as const satisfies Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, (steps: typeof Steps.Type) => Adjust['deltas']>>),
         );
-        const elongation = picker(Array.map(Struct.keys(Settings.fields.kashida.schema.cases), (tag) => [tag, tag] as const));
-        const width = picker(Record.toEntries(Struct.omit(HostSettings.kashidaWidths, ['None'])));
-        const sets = Array.map(HostSettings.stylisticSets, (tag) => [tag, Object.assign(document.createElement('input'), { type: 'checkbox', title: tag })] as const);
+        const elongation = picker(Array.map(Struct.keys(Settings.Kashida.cases), (tag) => [tag, tag] as const));
+        const width = picker(Record.toEntries(Struct.omit(InDesignSettings.kashidaWidths, ['None'])));
+        const sets = Array.map(InDesignSettings.stylisticSets, (tag) => [tag, Object.assign(document.createElement('input'), { type: 'checkbox', title: tag })] as const);
         const buttons = Record.collect({ '←': { axis: 'horizontal', sign: -1 }, '→': { axis: 'horizontal', sign: 1 }, '↑': { axis: 'vertical', sign: 1 }, '↓': { axis: 'vertical', sign: -1 } } as const, (label, arrow) => [arrow, Object.assign(document.createElement('button'), { textContent: label })] as const);
         const status = document.createElement('div');
         const controls = row(mode.element, ...buttons.map(([, button]) => button), elongation.element, width.element, ...sets.map(([tag, box]) => row(box, Object.assign(document.createElement('span'), { textContent: tag }))));
@@ -62,6 +62,10 @@ const typesetting = (scripted: ReturnType<typeof linkInDesign>['scripted']) =>
                 status.textContent = Cause.pretty(cause);
                 controls.style.display = 'none';
             });
+        const checked =
+            (features: Settings['features']) =>
+            ([tag, box]: (typeof sets)[number]) =>
+                Object.assign(box, { checked: Option.exists(Record.get(features, tag), Number.isGreaterThan(0)) });
         const displayed = ({ kashida, features }: Settings) =>
             Effect.sync(() => {
                 status.textContent = '';
@@ -70,22 +74,17 @@ const typesetting = (scripted: ReturnType<typeof linkInDesign>['scripted']) =>
                 if (elongating(kashida)) {
                     width.show(kashida.lower);
                 }
-                for (const [tag, box] of sets) {
-                    box.checked = Option.exists(Record.get(features, tag), Number.isGreaterThan(0));
-                }
+                sets.forEach(checked(features));
             });
         const acted = <E>(change: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, InDesignModel>) => fork(scripted(Effect.flatMap(change, typesetSelection)).pipe(Effect.matchCauseEffect({ onFailure: failed, onSuccess: displayed })));
         const changed = () => acted(Effect.succeedNone);
         const elongated = ({ kashida }: Settings) => Option.map(Option.all([elongation.read(), width.read()]), ([_tag, lower]) => ({ kashida: _tag === 'None' ? { _tag } : { _tag, lower, upper: lower, fractional: elongating(kashida) && kashida.fractional } }));
-        for (const { element } of [elongation, width]) {
-            element.addEventListener('change', () => acted(Effect.map(typesetSelection(Option.none()), elongated)));
-        }
-        for (const [tag, box] of sets) {
-            box.addEventListener('change', () => acted(Effect.succeedSome({ features: { [tag]: box.checked ? 1 : null } })));
-        }
-        for (const [{ axis, sign }, button] of buttons) {
-            button.addEventListener('click', ({ metaKey, ctrlKey }) => acted(nudged(Option.map(mode.read(), Struct.get(axis)), sign * (metaKey || ctrlKey ? SHORTCUT_MULTIPLE : 1))));
-        }
+        const reshaped = () => acted(Effect.map(typesetSelection(Option.none()), elongated));
+        const toggled = ([tag, box]: (typeof sets)[number]) => box.addEventListener('change', () => acted(Effect.succeedSome({ features: { [tag]: box.checked ? 1 : null } })));
+        const nudging = ([{ axis, sign }, button]: (typeof buttons)[number]) => button.addEventListener('click', ({ metaKey, ctrlKey }) => acted(nudged(Option.map(mode.read(), Struct.get(axis)), sign * (metaKey || ctrlKey ? SHORTCUT_MULTIPLE : 1))));
+        [elongation, width].forEach(({ element }) => element.addEventListener('change', reshaped));
+        sets.forEach(toggled);
+        buttons.forEach(nudging);
         Object.assign(root, { textContent: '' }).style.color = 'var(--uxp-host-text-color)';
         [status, controls].forEach((child) => root.appendChild(child));
         const events = ['afterSelectionChanged', 'afterSelectionAttributeChanged', 'afterContextChanged'] as const;

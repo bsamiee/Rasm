@@ -1,4 +1,5 @@
 import { useAtomSet } from '@effect/atom-react';
+import { Number } from 'effect';
 import { Atom } from 'effect/reactivity';
 import { type ReactNode, useEffect } from 'react';
 import { composeRenderProps, ModalOverlay, type ModalOverlayProps } from 'react-aria-components';
@@ -20,11 +21,11 @@ const Backdrop = Object.assign(
     {
         open: Atom.readable((get) => get(mounted)),
         Counted: ({ children }: { readonly children: ReactNode }) => {
-            const count = useAtomSet(mounted);
+            const adjust = useAtomSet(mounted);
             useEffect(() => {
-                count((open) => open + 1);
-                return () => count((open) => open - 1);
-            }, [count]);
+                adjust(Number.increment);
+                return () => adjust(Number.decrement);
+            }, [adjust]);
             return children;
         },
     },

@@ -83,7 +83,8 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - PDF.js (`pdfjs-dist`) owns PDF inspection, rendering, and sheet viewer
 - `@rasm/media/pdf` `PdfDocument` shares one PDF.js document across every sheet of a PDF, opened for range requests (`disableStream`, `disableAutoFetch`)
 - `@rasm/media/pdf` `PdfViewer.useViewer` renders the sheet preview and the sheet viewer, its `AsyncResult` failure renders the original-file link
-- Sheet previews draw annotations without a text layer, the sheet viewer writes page and scale through `PdfViewer.assign`, rotation through `PdfViewer.rotate`, and restores find highlights when Find reopens
+- Sheet previews draw annotations without a text layer
+- Sheet viewer writes page and scale through `PdfViewer` state `assign`, rotation through `rotate`, and find highlights through `find` when Find reopens
 - Videos take no text track, owners burn captions in and write transcripts as descriptions
 
 ## [06]-[EDITOR]

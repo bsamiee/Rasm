@@ -95,6 +95,17 @@
                         "noExcessiveLinesPerFile": "off",
                         "noJsxLiterals": "off",
                         "noParameterAssign": { "level": "error", "options": { "propertyAssignment": "deny" } },
+                        "noRestrictedGlobals": {
+                            "level": "error",
+                            "options": {
+                                "deniedGlobals": {
+                                    "Buffer": "Import `Buffer` from `node:buffer`, so the load graph sees the host module",
+                                    "clearImmediate": "Import `clearImmediate` from `node:timers`, so the load graph sees the host module",
+                                    "global": "Use `globalThis`",
+                                    "setImmediate": "Import `setImmediate` from `node:timers`, so the load graph sees the host module"
+                                }
+                            }
+                        },
                         "noRestrictedImports": {
                             "level": "error",
                             "options": {
@@ -149,7 +160,7 @@
             }
         },
         {
-            "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/host.ts" ],
+            "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/extendscript.ts" ],
             "linter": {
                 "rules": {
                     "nursery": { "useIncludes": "off", "useModernMathApis": "off", "useStringStartsEndsWith": "off" },

@@ -1,14 +1,11 @@
 {
     "name": "@rasm/aftereffects",
     "private": true,
-    "description": "After Effects requests served from a CEP extension",
+    "description": "After Effects contract and ExtendScript handler serving the shared automation requests",
     "sideEffects": false,
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
-        ".": "./index.ts",
+        ".": "./contract.ts",
         "./extendscript": "./extendscript.ts"
     },
     "dependencies": {

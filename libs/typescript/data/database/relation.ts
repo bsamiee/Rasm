@@ -73,19 +73,12 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
     ) => relation.queries.select({ where, order, limit: Option.fromUndefinedOr(limit), per: Option.fromUndefinedOr(per) });
     static readonly remove = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, where: Selection<F>) => relation.queries.remove(where);
     static readonly search = <F extends Fields, O extends RelationOptions<F> & { readonly search: NonNullable<RelationOptions<F>['search']> }>(relation: Relation<F, O>, text: string, limit: number, marks?: { readonly open: string; readonly close: string }) =>
-        Option.match(relation.queries.search, {
-            onNone: () => Effect.succeed([]),
-            onSome: (find) => find({ text, pattern: `%${text.replaceAll(/[\\%_]/gu, '\\$&')}%`, count: limit, marks: Option.fromUndefinedOr(marks) }),
-        });
-    static readonly withTenant = <F extends Fields, O extends RelationOptions<F> & { readonly tenant: NonNullable<RelationOptions<F>['tenant']> }, A, E, R>(relation: Relation<F, O>, id: F[O['tenant']['column']]['Type'], effect: Effect.Effect<A, E, R>) =>
-        Option.match(relation.tenant, {
-            onNone: () => effect,
-            onSome: Effect.fnUntraced(function* ({ column, setting }: Option.Option.Value<Relation['tenant']>) {
-                const [sql, encoded] = yield* Effect.all([SqlClient.SqlClient, Schema.encodeEffect(column.schema)(id)]);
-                const scoped = sql`SELECT set_config(${setting}, ${globalThis.String(encoded)}, true)`;
-                return yield* sql.withTransaction(Effect.andThen(scoped, effect));
-            }),
-        });
+        Effect.flatMap(Effect.orDie(Effect.fromOption(relation.queries.search)), (find) => find({ text, pattern: `%${text.replaceAll(/[\\%_]/gu, '\\$&')}%`, count: limit, marks: Option.fromUndefinedOr(marks) }));
+    static readonly withTenant = Effect.fnUntraced(function* <F extends Fields, O extends RelationOptions<F> & { readonly tenant: NonNullable<RelationOptions<F>['tenant']> }, A, E, R>(relation: Relation<F, O>, id: F[O['tenant']['column']]['Type'], effect: Effect.Effect<A, E, R>) {
+        const { column, setting } = yield* Effect.orDie(Effect.fromOption(relation.tenant));
+        const [sql, encoded] = yield* Effect.all([SqlClient.SqlClient, Schema.encodeEffect(column.schema)(id)]);
+        return yield* sql.withTransaction(Effect.andThen(sql`SELECT set_config(${setting}, ${globalThis.String(encoded)}, true)`, effect));
+    });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -127,7 +120,7 @@ const definition = <F extends Fields>(fields: F, options: RelationOptions<F>) =>
 
 // --- [QUERIES]
 const selecting = (
-    { sql, owner, prefix, unqualified, reads, keys, flags, where: matching }: ReturnType<typeof Engine.fragments>,
+    { sql, owner, prefix, unqualified, reads, keys, where: matching }: ReturnType<typeof Engine.fragments>,
     columns: Relation['columns'],
     { where, order, limit, per }: { readonly where: Parameters<ReturnType<typeof Engine.fragments>['where']>[0]; readonly order: ReadonlyArray<string | { readonly descending: string }>; readonly limit: Option.Option<number>; readonly per: Option.Option<string> },
 ) => {
@@ -144,7 +137,7 @@ const selecting = (
     return Option.match(Option.all({ count: limit, by: Option.flatMap(per, (field) => Record.get(columns, field)) }), {
         onNone: () => Option.match(limit, { onNone: () => filtered, onSome: (count) => sql`${filtered} LIMIT ${count}` }),
         onSome: ({ count, by }) =>
-            sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(flags.position)} <= ${count} ORDER BY ${sql.csv([sql`t.${sql(by.name)}`, ordering(outer)])}`,
+            sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(Engine.flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(Engine.flags.position)} <= ${count} ORDER BY ${sql.csv([sql`t.${sql(by.name)}`, ordering(outer)])}`,
     });
 };
 const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Relation, 'name' | 'columns' | 'key' | 'search'>) => {
@@ -173,7 +166,7 @@ const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Rela
                             rows,
                             written.filter(({ name, field }) => !(relation.key.includes(name) || kept.includes(field))),
                         )
-                        .pipe(Effect.map(Array.map(({ [context.flags.inserted]: inserted, ...row }) => ({ row, inserted })))),
+                        .pipe(Effect.map(Array.map(({ [Engine.flags.inserted]: inserted, ...row }) => ({ row, inserted })))),
                 ),
         }),
         select: SqlSchema.findAll({

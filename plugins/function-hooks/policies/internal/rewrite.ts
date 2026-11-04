@@ -1,4 +1,4 @@
-import { Option } from '../../monads.ts';
+import { Maybe } from '../../monads.ts';
 import { type Command, parse, type Word } from './command.ts';
 import { argumentGroups, basename, type Invocation, informational, operands } from './invocation.ts';
 import { checkerTarget, launches, optionKeys, projectTargets } from './nx-target.ts';
@@ -37,7 +37,7 @@ const timeoutCommands = async ({ request, system, script: { commands } }: Call):
         ? []
         : limited.map(({ command, from, to, amount, limit }) => {
               const capped = limit > MAX_TIMEOUT ? `capped at ${MAX_TIMEOUT / second}s` : `set to ${amount}`;
-              return editOrRefuse(command, edit(from.span.start, to.span.start, '', Option.some(`timeout is not installed, call timeout ${applied ? capped : 'stays'}`), applied ? Option.some(Math.min(limit, MAX_TIMEOUT)) : Option.none), 'timeout is not installed, remove it');
+              return editOrRefuse(command, edit(from.span.start, to.span.start, '', Maybe.some(`timeout is not installed, call timeout ${applied ? capped : 'stays'}`), applied ? Maybe.some(Math.min(limit, MAX_TIMEOUT)) : Maybe.none), 'timeout is not installed, remove it');
           });
 };
 
@@ -52,10 +52,10 @@ const optionRespellings = (program: string, words: readonly Word[], table: Reado
                 return [];
             }
             if (first === undefined) {
-                return [edit(head.span.start - 1, (taken.at(-1) ?? head).span.end, '', Option.some(`${program} ${head.text} removed${reason}`))];
+                return [edit(head.span.start - 1, (taken.at(-1) ?? head).span.end, '', Maybe.some(`${program} ${head.text} removed${reason}`))];
             }
             const text = first.startsWith('--') ? [first, ...joined].join('=') : `-${kept.map((name) => name.slice(1)).join('')}${joined.join('')}`;
-            return [edit(head.span.start, head.span.end, text, Option.some(`${program} ${head.text} became ${text}`))];
+            return [edit(head.span.start, head.span.end, text, Maybe.some(`${program} ${head.text} became ${text}`))];
         })
         .toArray();
 
@@ -66,7 +66,7 @@ const sdFixes = (invocation: Invocation, [head, ...rest]: readonly Word[]): read
     const breaks = find !== undefined && (find.includes('\n') || (!options.some((name) => name === '-F' || name === '--fixed-strings') && ESCAPED_NEWLINE.test(find)));
     return [
         ...(head === undefined || !breaks || options.some((name) => name === '-A' || name === '--across') ? [] : [edit(head.span.end, head.span.end, ' -A')]),
-        ...(word === undefined || rest.some(({ text }) => text === '--') ? [] : [edit(word.span.start, word.span.start, '-- ', Option.some(`sd -- added before ${word.raw}`))]),
+        ...(word === undefined || rest.some(({ text }) => text === '--') ? [] : [edit(word.span.start, word.span.start, '-- ', Maybe.some(`sd -- added before ${word.raw}`))]),
     ];
 };
 
@@ -87,7 +87,7 @@ const forwardedDuplicates = async (call: Call, invocation: Invocation, words: re
     }
     const [project] = (await projectTargets(call, address.slice(0, cut), root)).values;
     const configured = project?.targets[address.slice(cut + 1)]?.options?.command;
-    const [ran] = configured === undefined ? [] : (await call.parses.getOrInsertComputed(configured, (source) => parse(call.system, source))).toArray().flatMap(({ commands }) => commands.at(-1)?.invocations.slice(-1) ?? []);
+    const [ran] = configured === undefined ? [] : (await call.parses.getOrInsertComputed(configured, (source) => parse(call.system, source))).values.flatMap(({ commands }) => commands.at(-1)?.invocations.slice(-1) ?? []);
     if (ran === undefined) {
         return [];
     }
@@ -96,7 +96,7 @@ const forwardedDuplicates = async (call: Call, invocation: Invocation, words: re
     const groups = argumentGroups(program, words.slice(words.indexOf(separator) + 1).values()).toArray();
     const dropped = groups.filter(({ names, words: group }) => names.length > 0 && optionKeys([program, ...group.map(({ text }) => text)]).isSubsetOf(keys));
     const spelled = dropped.flatMap(({ words: group }) => group.map(({ raw }) => raw)).join(' ');
-    const notice = Option.some(`nx ${spelled} removed, ${address} sets it`);
+    const notice = Maybe.some(`nx ${spelled} removed, ${address} sets it`);
     return dropped.length === groups.length && dropped.length > 0 ? [edit(separator.span.start - 1, (dropped.at(-1)?.words.at(-1) ?? separator).span.end, '', notice)] : dropped.map(({ words: [first, ...taken] }) => edit(first.span.start - 1, (taken.at(-1) ?? first).span.end, '', notice));
 };
 
@@ -123,7 +123,7 @@ const programRewrites = async (call: Call, invocation: Invocation, words: readon
             return optionRespellings(program, rest, { '-a': '', '--all': '', '--noreport': '', '--dirsfirst': '--group-directories-first' });
         case 'refurb': {
             const text = 'python -m tools.refurb';
-            return basename(head.text) === program ? [edit(head.span.start, head.span.end, text, Option.some(`refurb became ${text} to read the mypy cache`))] : [];
+            return basename(head.text) === program ? [edit(head.span.start, head.span.end, text, Maybe.some(`refurb became ${text} to read the mypy cache`))] : [];
         }
         case 'nx':
             return [...nxCacheFlags(invocation, rest), ...(await forwardedDuplicates(call, invocation, words))];
@@ -150,7 +150,7 @@ const commandRewrites = async (call: Call, command: Command): Promise<readonly V
         return route === undefined ? [] : [refuse(`Nested ${route.program} cannot be rewritten, run ${route.text}`)];
     }
     if (route !== undefined) {
-        return [edit(route.start.span.start, tail.span.end, route.text, Option.some(`${route.program} became ${route.text}`))];
+        return [edit(route.start.span.start, tail.span.end, route.text, Maybe.some(`${route.program} became ${route.text}`))];
     }
     const [found] = (await checkerTarget(call, command, last, words)).values;
     if (found === undefined) {
@@ -158,7 +158,7 @@ const commandRewrites = async (call: Call, command: Command): Promise<readonly V
     }
     const { run, args } = found;
     const [start = head] = command.parts[command.invocations.findLastIndex((invocation, at) => at < command.invocations.length - 1 && !launches(invocation)) + 1]?.words ?? [];
-    return [edit(start.span.start, tail.span.end, [`nx run ${run}`, ...args].join(' '), Option.some(`${last[0]} became nx run ${run}`))];
+    return [edit(start.span.start, tail.span.end, [`nx run ${run}`, ...args].join(' '), Maybe.some(`${last[0]} became nx run ${run}`))];
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

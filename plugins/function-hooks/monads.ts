@@ -1,22 +1,18 @@
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Option<A> {
-    static readonly none: Option<never> = new Option<never>([]);
-    static readonly some = <T>(value: T): Option<T> => new Option<T>([value]);
-    static readonly fromNullable = <T>(value: T | null | undefined): Option<T> => (value === null || value === undefined ? Option.none : Option.some(value));
+class Maybe<A> {
+    static readonly none: Maybe<never> = new Maybe<never>([]);
+    static readonly some = <T>(value: T): Maybe<T> => new Maybe<T>([value]);
+    static readonly fromNullable = <T>(value: T | null | undefined): Maybe<T> => (value === null || value === undefined ? Maybe.none : Maybe.some(value));
     readonly values: readonly [] | readonly [A];
 
-    constructor(values: Option<A>['values']) {
+    constructor(values: Maybe<A>['values']) {
         this.values = values;
     }
 
-    toArray(): readonly A[] {
-        return this.values;
-    }
-
-    map<B>(f: (value: A) => B): Option<B> {
+    map<B>(f: (value: A) => B): Maybe<B> {
         const { values } = this;
-        return values.length === 1 ? Option.some(f(values[0])) : Option.none;
+        return values.length === 1 ? Maybe.some(f(values[0])) : Maybe.none;
     }
 
     match<B>(onSome: (value: A) => B, onNone: () => B): B {
@@ -25,30 +21,30 @@ class Option<A> {
     }
 }
 
-class Result<A> {
-    static readonly ok = <T>(value: T): Result<T> => new Result<T>({ kind: 'ok', value });
-    static readonly fault = (...faults: Faults): Result<never> => new Result<never>({ kind: 'fault', faults });
-    static readonly all = <T>(results: readonly Result<T>[]): Result<readonly T[]> => {
+class Outcome<A> {
+    static readonly ok = <T>(value: T): Outcome<T> => new Outcome<T>({ kind: 'ok', value });
+    static readonly fault = (...faults: Faults): Outcome<never> => new Outcome<never>({ kind: 'fault', faults });
+    static readonly all = <T>(results: readonly Outcome<T>[]): Outcome<readonly T[]> => {
         const [first, ...rest] = results.flatMap(({ outcome }) => (outcome.kind === 'fault' ? outcome.faults : []));
-        return first === undefined ? Result.ok(results.flatMap((result) => result.toArray())) : Result.fault(first, ...rest);
+        return first === undefined ? Outcome.ok(results.flatMap((result) => result.values)) : Outcome.fault(first, ...rest);
     };
     readonly outcome: { readonly kind: 'ok'; readonly value: A } | { readonly kind: 'fault'; readonly faults: Faults };
 
-    constructor(outcome: Result<A>['outcome']) {
+    constructor(outcome: Outcome<A>['outcome']) {
         this.outcome = outcome;
     }
 
-    toArray(): readonly A[] {
+    get values(): readonly [] | readonly [A] {
         return this.outcome.kind === 'ok' ? [this.outcome.value] : [];
     }
 
-    map<B>(f: (value: A) => B): Result<B> {
+    map<B>(f: (value: A) => B): Outcome<B> {
         const { outcome } = this;
-        return outcome.kind === 'ok' ? Result.ok(f(outcome.value)) : Result.fault(...outcome.faults);
+        return outcome.kind === 'ok' ? Outcome.ok(f(outcome.value)) : Outcome.fault(...outcome.faults);
     }
 
-    bind<R extends Result<unknown> | Promise<Result<unknown>>>(f: (value: A) => R): R | Result<never> {
-        return this.match<R | Result<never>>(f, (faults) => Result.fault(...faults));
+    bind<R extends Outcome<unknown> | Promise<Outcome<unknown>>>(f: (value: A) => R): R | Outcome<never> {
+        return this.match<R | Outcome<never>>(f, (faults) => Outcome.fault(...faults));
     }
 
     match<B>(onOk: (value: A) => B, onFault: (faults: Faults) => B): B {
@@ -61,6 +57,10 @@ class Result<A> {
 type Fault = { readonly kind: 'exited'; readonly program: string; readonly code: number; readonly output: string } | { readonly kind: 'thrown'; readonly program: string; readonly cause: unknown };
 type Faults = readonly [Fault, ...Fault[]];
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const faultText = (faults: Faults): string => faults.map((fault) => (fault.kind === 'exited' ? [`${fault.program} exited ${fault.code}`, ...(fault.output === '' ? [] : [fault.output])].join('. ') : `${fault.program} failed. ${String(fault.cause)}`)).join('. ');
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Option, Result };
+export { faultText, Maybe, Outcome };

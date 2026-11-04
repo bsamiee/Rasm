@@ -2,7 +2,7 @@ import indesign, { app } from 'adobe:indesign';
 import { JsonObject, Tagged } from '@rasm/harnesses/values';
 import { Array, Iterable, Match, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
 import { owned, preferences } from '#/state';
-import { type Codec, compiled, equal, field, invoked, message, type Node, type Session, scope } from '#/values';
+import { type Codec, compiled, equal, field, invoked, type Members, message, type Session, scope } from '#/values';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -11,11 +11,11 @@ const same = Schema.toEquivalence(Schema.Json);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const given = (fake: unknown, expression: string, doc: unknown, made: Node, statement = false) => {
+const given = (fake: unknown, expression: string, doc: unknown, made: Members, statement = false) => {
     const { keys, values } = scope({ app: fake, doc, made });
     return compiled(keys, statement ? expression : `return (${expression});`)(...values);
 };
-const assign = (fake: unknown, target: string, value: unknown, doc: unknown, made: Node) => {
+const assign = (fake: unknown, target: string, value: unknown, doc: unknown, made: Members) => {
     const at = target.indexOf('[*]');
     const count = at < 0 ? 1 : Number(field(given(fake, target.slice(0, at), doc, made), 'length'));
     Array.fromIterable(
@@ -82,7 +82,7 @@ const state = (codec: Codec, doc: unknown) => {
         links: { names: field(invoked(field(doc, 'links'), 'everyItem', []), 'name'), status: field(invoked(field(doc, 'links'), 'everyItem', []), 'status') },
     });
 };
-const reads = (session: Session, fake: unknown, docs: readonly unknown[], made: Node) => {
+const reads = (session: Session, fake: unknown, docs: readonly unknown[], made: Members) => {
     const [doc] = docs;
     const unit = app.scriptPreferences.measurementUnit;
     const frames = docs.filter((held) => field(held, 'isValid') === true).map((held) => [held, field(field(held, 'viewPreferences'), 'rulerOrigin'), field(held, 'zeroPoint')] as const);
@@ -102,7 +102,7 @@ const reads = (session: Session, fake: unknown, docs: readonly unknown[], made: 
         app.scriptPreferences.measurementUnit = unit;
     }
 };
-const prepare = (fake: unknown, doc: unknown, session: Session, made: Node) => {
+const prepare = (fake: unknown, doc: unknown, session: Session, made: Members) => {
     const { labels = {}, set = [], add = [], steps = [], select = [] } = session.item.precondition;
     Object.entries(labels).forEach(([label, value]) => invoked(doc, 'insertLabel', [label, value]));
     set.forEach(([target, value]) => assign(fake, target, session.codec.revived(value), doc, made));

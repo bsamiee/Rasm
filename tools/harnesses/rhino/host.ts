@@ -1,10 +1,9 @@
-import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { Array, Deferred, Effect, FileSystem, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
+import { Array, Deferred, Effect, FileSystem, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/harness-error';
-import { appeared, Launched, output, Progress, plist, printed } from '#/instance';
-import { failing, lined } from '#/report';
+import { appeared, Launched, output, Progress, plist, printedLines } from '#/instance';
+import { failing, HOME, lined } from '#/report';
 import { Closed, Engine, HostCase, HostOutcome, Info, LoaderRequest, REFUSED, Rows, Sarif, Session, Source, Survey } from '#/rhino/contract';
 import { precondition } from '#/rhino/precondition';
 import { type Batch, Harness, type Installed, type Live } from '#/session';
@@ -15,7 +14,6 @@ type Case = typeof HostCase.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const HOME = homedir();
 const PREFIX = 'com.mcneel.rhinoceros.';
 const HOST = new RegExp(`^${RegExp.escape(PREFIX)}\\d+$`, 'u');
 const HARNESS = 'RASM_HARNESS';
@@ -77,19 +75,17 @@ const LOADER = [
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [PROCESSES]
-const lines = (command: string, args: readonly string[]) => Effect.map(printed(command, args), (text) => Array.fromIterable(String.linesIterator(text)).filter(String.isNonEmpty));
-
 // --- [INSTALLATIONS]
 const installation = Effect.fn('installation')(function* (app: string, info: typeof Info.Type) {
-    const path = yield* Path.Path;
-    const apps = yield* lines('fd', ['--type', 'directory', '--case-sensitive', '--glob', '--no-ignore', '*.app', path.join(app, 'Contents')]);
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const contents = path.join(app, 'Contents');
+    const apps = (yield* fs.glob('**/*.app', { root: contents })).map((inner) => path.join(contents, inner));
     const nested = yield* Effect.forEach(apps, (inner) => plist(inner, Info));
     const helpers = Array.dedupe(nested.map(({ CFBundleIdentifier }) => CFBundleIdentifier)).filter((held) => held !== info.CFBundleIdentifier && held.startsWith(PREFIX));
     return { identifier: info.CFBundleIdentifier, name: info.CFBundleName, app, version: info.CFBundleVersion, helpers } satisfies Installed;
 });
 const installed = Effect.gen(function* () {
-    const bundles = yield* lines('mdfind', [`kMDItemCFBundleIdentifier == '${PREFIX}*'`]);
+    const bundles = yield* printedLines('mdfind', [`kMDItemCFBundleIdentifier == '${PREFIX}*'`]);
     const infos = yield* Effect.forEach(bundles, (bundle) => plist(bundle, Info));
     return yield* Effect.forEach(
         Array.zip(bundles, infos).filter(([, { CFBundleIdentifier }]) => HOST.test(CFBundleIdentifier)),
@@ -151,10 +147,10 @@ const uncompiled = Effect.fn('uncompiled')(function* (log: string, source: strin
     const owned = errors.map(({ ruleId, message, locations }) => {
         const at = locations?.[0]?.physicalLocation;
         const file = at === undefined ? undefined : fileURLToPath(at.artifactLocation.uri);
-        const location = [file, at?.region?.startLine, at?.region?.startColumn].filter(Predicate.isNotUndefined).join(':');
+        const location = [file, at?.region?.startLine, at?.region?.startColumn].filter(Predicate.isNotUndefined);
         return {
-            text: `${location === '' ? '' : `${location}: `}${ruleId ?? ''} ${message.text}`,
-            index: file === source ? Option.map(Option.flatMap(Option.fromUndefinedOr(at?.region?.startLine), spanned(spans)), globalThis.String) : Option.none<string>(),
+            text: `${Array.isReadonlyArrayEmpty(location) ? '' : `${location.join(':')}: `}${ruleId ?? ''} ${message.text}`,
+            index: file === source ? Option.map(Option.flatMap(Option.fromUndefinedOr(at?.region?.startLine), spanned(spans)), String) : Option.none<string>(),
         };
     });
     const foreign = owned.filter(({ index }) => Option.isNone(index)).map(Struct.get('text'));
@@ -166,7 +162,7 @@ const building = (chosen: Installed, folder: string, cases: readonly Case[], plu
     const attempt = Effect.fnUntraced(function* (reasons: Record.ReadonlyRecord<string, string>): Effect.fn.Return<string, HarnessError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner> {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const [source, log] = [path.join(folder, `${ENTRY.type}.cs`), path.join(folder, 'build.sarif')];
-        const { text: generated, spans } = program(cases.map((hosted, index) => Option.match(Record.get(reasons, globalThis.String(index)), { onNone: () => entry(hosted), onSome: (reason) => [`        new Rasm.Harnesses.Rhino.Expressions.Uncompiled(${JSON.stringify(reason)}),`] })));
+        const { text: generated, spans } = program(cases.map((hosted, index) => Option.match(Record.get(reasons, String(index)), { onNone: () => entry(hosted), onSome: (reason) => [`        new Rasm.Harnesses.Rhino.Expressions.Uncompiled(${JSON.stringify(reason)}),`] })));
         yield* fs.writeFileString(source, generated);
         const properties = [`-p:RhinoInstallPath=${chosen.app}`, `-p:HarnessCases="${[source, ...sources].join(';')}"`, `-p:ArtifactsPath=${path.join(folder, 'artifacts')}`, `-p:ErrorLog=${log}%2Cversion=2.1`, ...Option.toArray(Option.map(plugin, (file) => `-p:HarnessPlugIn=${file}`))];
         const { stdout, stderr, code } = yield* output('dotnet', ['build', PROJECT, '-nologo', '-v:q', ...properties, '-t:Build', '-getProperty:TargetPath']);

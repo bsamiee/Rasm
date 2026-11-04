@@ -1,11 +1,12 @@
 import { Array, DateTime, Effect, FileSystem, Number, Option, Order, Path, Record, Schema, Struct, UndefinedOr } from 'effect';
 import { CASES, type Case, expand, scriptOf } from '#/cases';
 import { compare, type Evidence, evidenceOf, type Hosted, pairsOf } from '#/compare';
-import { type Asking, answerOf, type Fact, facts } from '#/facts';
+import { type Asking, answerOf, Fact } from '#/facts';
 import { HarnessError } from '#/harness-error';
-import { phase, record, signing } from '#/log';
+import { record } from '#/log';
 import { planning } from '#/plan';
 import { type Outcome, RESULTS, results } from '#/results';
+import { phase, signing } from '#/run';
 import { type Cased, execute, type Harness, type Installed, installations, type Surveyed } from '#/session';
 import { bury } from '#/values';
 
@@ -23,10 +24,9 @@ const stem = (path: Path.Path, file: string) => path.join(path.dirname(file), pa
 const ancestors = (path: Path.Path, folder: string): readonly string[] => (path.dirname(folder) === folder ? [folder] : [folder, ...ancestors(path, path.dirname(folder))]);
 const loaded = Effect.fn('loaded')(function* (name: string, host: Pick<Harness, 'Engine'>, file: string) {
     const path = yield* Path.Path;
-    const proof = 'proof';
     const product = path.dirname(
         Option.getOrElse(
-            Array.findFirst(ancestors(path, path.dirname(file)), (held) => path.basename(held) === proof),
+            Array.findFirst(ancestors(path, path.dirname(file)), (held) => path.basename(held) === 'proof'),
             () => file,
         ),
     );
@@ -36,28 +36,27 @@ const loaded = Effect.fn('loaded')(function* (name: string, host: Pick<Harness, 
         (at) => path.join(segments.slice(0, at + 2).join(path.sep), 'facts'),
     );
     const index = Option.map(folder, (held) => path.join(held, `${name}-host.json`));
-    const Facts = facts(host.Engine);
-    const indexed = yield* Option.match(index, { onNone: () => Effect.succeed([]), onSome: Facts.load });
-    return { product, Facts, index, indexed, ...(yield* expand(product, file)) };
+    const indexed = yield* Option.match(index, { onNone: () => Effect.succeed([]), onSome: (held) => Fact.load(host.Engine, held) });
+    return { product, index, indexed, ...(yield* expand(product, file)) };
 });
-const surveyOf = <S extends Surveyed>(host: Pick<Harness<S>, 'survey'>, Facts: ReturnType<typeof facts>, indexed: readonly Fact[], asking: Asking<unknown>) =>
-    Option.flatMap(Facts.known(indexed, { ...asking, question: host.survey.question, expression: host.survey.question }), ({ answer }) => ('value' in answer ? Schema.decodeOption(host.survey.Schema)(answer.value) : Option.none()));
+const surveyOf = <S extends Surveyed>(host: Pick<Harness<S>, 'survey'>, indexed: readonly Fact[], asking: Asking<unknown>) =>
+    Option.flatMap(Fact.known(indexed, { ...asking, question: host.survey.question, expression: host.survey.question }), ({ answer }) => ('value' in answer ? Schema.decodeOption(host.survey.Schema)(answer.value) : Option.none()));
 
 // --- [REPORTING]
 const order = (rows: readonly Case[]) => Order.mapInput(Number.Order, ({ name }: typeof Outcome.Type) => rows.findIndex((row) => row.name === name));
 const proved = Effect.fn('proved')(
     function* <S extends Surveyed, C extends Cased, E, P>(name: string, host: Harness<S, C, E, P>, chosen: Installed, file: string, only: readonly string[]) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const { product, Facts, index, indexed, batch, rows: every } = yield* loaded(name, host, file);
+        const { product, index, indexed, batch, rows: every } = yield* loaded(name, host, file);
         const Results = results(host.Engine, host.Outcome);
         yield* Schema.decodeEffect(Schema.Array(Schema.Literals(every.map((row) => row.name))))(only);
         const rows = every.filter((row) => only.length === 0 || only.includes(row.name));
         const engine = yield* Effect.fromResult(host.engine(Array.dedupe(Array.getSomes(rows.map((row) => scriptOf(batch, row))))));
         const asking: Asking<E> = { ...Struct.pick(chosen, ['identifier', 'version', 'environment']), engine };
-        const known = surveyOf(host, Facts, indexed, asking);
+        const known = surveyOf(host, indexed, asking);
         const target = `${stem(path, file)}.${chosen.version}`;
         const scratch = yield* fs.makeTempDirectoryScoped({ prefix: `${name}-harness-` });
-        const { planned, placing, keyOf, windowed } = planning(host, Facts, indexed, asking, product, `${target}.captures`, batch, rows);
+        const { planned, placing, keyOf, windowed } = planning(host, indexed, asking, product, `${target}.captures`, batch, rows);
         const done = yield* execute(host, chosen, scratch, batch.limit, windowed, known, planned);
         const { plan } = done;
         const asked = DateTime.formatIso(yield* DateTime.now);
@@ -105,23 +104,23 @@ const proved = Effect.fn('proved')(
         const made = [...surveyed, ...Array.getSomes(rows.map(factOf))];
         yield* Option.match(
             Option.filter(index, () => made.length > 0),
-            { onNone: () => Effect.void, onSome: (held) => Facts.record(held, made) },
+            { onNone: () => Effect.void, onSome: (held) => Fact.record(host.Engine, held, made) },
         );
         return { mismatches: Option.match(section, { onNone: () => 0, onSome: ({ mismatches }) => mismatches.length }), failed: done.failed } satisfies Verdict;
     },
     Effect.scoped,
     phase('prove'),
 );
-const rejudged = Effect.fn('rejudged')(function* <S extends Surveyed, C extends Cased, E, P>(name: string, host: Harness<S, C, E, P>, { product, Facts, indexed, batch, rows }: Effect.Success<ReturnType<typeof loaded>>, module: string, target: string) {
+const rejudged = Effect.fn('rejudged')(function* <S extends Surveyed, C extends Cased, E, P>(name: string, host: Harness<S, C, E, P>, { product, indexed, batch, rows }: Effect.Success<ReturnType<typeof loaded>>, module: string, target: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const Results = results(host.Engine, host.Outcome);
     const recorded = yield* Effect.flatMap(fs.readFileString(target), Schema.decodeEffect(Results));
     const scratch = yield* fs.makeTempDirectoryScoped({ prefix: `${name}-compare-` });
     const engine = yield* Schema.decodeEffect(host.Engine)(recorded.engine);
     const asking: Asking<E> = { ...Struct.pick(recorded, ['identifier', 'version', 'environment']), engine };
-    const surveyed = Effect.fromOption(surveyOf(host, Facts, indexed, asking), () => HarnessError.unavailable(target)('facts index holds no survey of the recorded release, prove it first'));
+    const surveyed = Effect.fromOption(surveyOf(host, indexed, asking), () => HarnessError.unavailable(target)('facts index holds no survey of the recorded release, prove it first'));
     const installed = Effect.flatMap(host.installed, (listed) => installations(listed, [recorded.version], name));
-    const { planned } = planning(host, Facts, [], asking, product, path.join(scratch, 'captures'), batch, rows);
+    const { planned } = planning(host, [], asking, product, path.join(scratch, 'captures'), batch, rows);
     const hosted = Effect.gen(function* () {
         const [survey, [chosen]] = yield* Effect.all([surveyed, installed]);
         const { sendable } = yield* planned(survey);

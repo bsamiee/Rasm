@@ -1,4 +1,4 @@
-import { Option } from '../monads.ts';
+import { faultText, Maybe } from '../monads.ts';
 import { appRoute, processKills, runningApps } from './internal/apps.ts';
 import { applyEdits, parse, type Script } from './internal/command.ts';
 import { deletes } from './internal/delete.ts';
@@ -16,30 +16,30 @@ import { appPolls, backgroundJobs, foregroundWaits, selfMatches, taskTails, task
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Decision = { readonly kind: 'deny'; readonly reason: string } | { readonly kind: 'allow' } | { readonly kind: 'rewrite'; readonly command: string; readonly notice: Option<string>; readonly timeout: Option<number>; readonly background: boolean };
-type CommandRequest = { readonly kind: 'foreground'; readonly timeout: Option<number> } | { readonly kind: 'background' | 'monitor' | 'plain' };
+type Decision = { readonly kind: 'deny'; readonly reason: string } | { readonly kind: 'allow' } | { readonly kind: 'rewrite'; readonly command: string; readonly notice: Maybe<string>; readonly timeout: Maybe<number>; readonly background: boolean };
+type CommandRequest = { readonly kind: 'foreground'; readonly timeout: Maybe<number> } | { readonly kind: 'background' | 'monitor' | 'plain' };
 
 interface System {
     readonly run: (argv: Invocation, init: { readonly cwd: string; readonly stdin: string }) => Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }>;
     readonly exists: (path: string) => Promise<boolean>;
     readonly read: (path: string) => Promise<string>;
-    readonly environment: (name: string) => Promise<Option<string>>;
+    readonly environment: (name: string) => Promise<Maybe<string>>;
     readonly scanner: string;
     readonly plugin: string;
-    readonly root: Option<string>;
+    readonly root: Maybe<string>;
     readonly cwd: string;
-    readonly home: Option<string>;
+    readonly home: Maybe<string>;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const policyFailure = (detail: string): string => `function-hooks policy did not run. ${detail}`;
 
-const scriptDecision = async (system: System, source: Uint8Array, script: Script, project: string, request: CommandRequest): Promise<Decision> => {
+const scriptDecision = async (system: System, source: Uint8Array, script: Script, request: CommandRequest): Promise<Decision> => {
     const { commands } = script;
     const [apps, writers] = await Promise.all([runningApps(system, commands), taskWriters(system, request, commands)]);
     const routes = new Map((await Promise.all(commands.map(async (each) => (await appRoute(system, request, apps, each)).values.map((route) => [each, route] as const)))).flat());
-    const call: Call = { system, source, script, project, request, apps, writers, routes, projects: new Map(), parses: new Map() };
+    const call: Call = { system, source, script, request, apps, writers, routes, projects: new Map(), parses: new Map() };
     const verdicts = (
         await Promise.all([...[deletes, git, searchRoots, noOpReplacements, inputSources, selfMatches, foregroundWaits, taskTails, backgroundJobs, timeoutCommands, ghidra, projectCopies, pipefail, loopReruns, processKills, appPolls].map((policy) => policy(call)), ...commands.map((each) => commandRewrites(call, each))])
     ).flat();
@@ -58,17 +58,17 @@ const scriptDecision = async (system: System, source: Uint8Array, script: Script
     return {
         kind: 'rewrite',
         command: applyEdits(source, 0, edits),
-        notice: notices.length === 0 ? Option.none : Option.some(notices.join('. ')),
-        timeout: timeouts.length === 0 ? Option.none : Option.some(Math.min(MAX_TIMEOUT, total)),
+        notice: notices.length === 0 ? Maybe.none : Maybe.some(notices.join('. ')),
+        timeout: timeouts.length === 0 ? Maybe.none : Maybe.some(Math.min(MAX_TIMEOUT, total)),
         background: backgrounds.length > 0,
     };
 };
 
-const commandDecision = async (system: System, command: string, project: string, request: CommandRequest): Promise<Decision> => {
+const commandDecision = async (system: System, command: string, request: CommandRequest): Promise<Decision> => {
     const source = new TextEncoder().encode(command);
     return (await parse(system, command)).match<Decision | Promise<Decision>>(
-        (script) => scriptDecision(system, source, script, project, request),
-        (faults) => ({ kind: 'deny', reason: `Command not parsed. ${faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, ...(value.output === '' ? [] : [value.output])].join('. ') : `${value.program} failed. ${String(value.cause)}`)).join('. ')}` }),
+        (script) => scriptDecision(system, source, script, request),
+        (faults) => ({ kind: 'deny', reason: `Command not parsed. ${faultText(faults)}` }),
     );
 };
 

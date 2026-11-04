@@ -6,7 +6,7 @@ import { Settings, type Source } from '@rasm/typography';
 import { Face, Justification, ShapedText } from '@rasm/typography/shaping';
 import { Effect, FileSystem, Option, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
-import type { listening } from '#/features/plugins';
+import type { listening } from '#/libraries';
 import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -61,7 +61,7 @@ const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType
         });
         const shaping = Effect.gen(function* () {
             const found = yield* automation.face({ name });
-            return { ...found, specimen: yield* Effect.flatMap(AvailableFace.source(found), shaped) };
+            return { ...found, specimen: yield* Effect.flatMap(found.source, shaped) };
         });
         return Option.match(chosen, { onNone: () => shaping, onSome: native });
     };

@@ -4,11 +4,11 @@ import { Button, FormValidationContext } from 'react-aria-components';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const standard = SchemaIssue.makeFormatterStandardSchemaV1();
+const standardFormatter = SchemaIssue.makeFormatterStandardSchemaV1();
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const lines = (issue: SchemaIssue.Issue) => standard(issue).issues.map(({ path = [], message }) => ({ path: path.map((segment): PropertyKey => (typeof segment === 'object' ? segment.key : segment)), message }));
+const lines = (issue: SchemaIssue.Issue) => standardFormatter(issue).issues.map(({ path = [], message }) => ({ path: path.map((segment): PropertyKey => (typeof segment === 'object' ? segment.key : segment)), message }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

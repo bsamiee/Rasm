@@ -1,14 +1,11 @@
 {
     "name": "@rasm/illustrator",
     "private": true,
-    "description": "Shared automation requests as Illustrator ExtendScript host code",
+    "description": "Illustrator contract and ExtendScript handler serving the shared automation requests",
     "sideEffects": false,
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
-        ".": "./index.ts",
+        ".": "./contract.ts",
         "./extendscript": "./extendscript.ts"
     },
     "dependencies": {

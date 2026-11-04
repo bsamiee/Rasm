@@ -25,7 +25,9 @@ export { rankItems } from '#/rank-items';
 - Entries of one module point at it, an entry of more modules at `<entry>/index.ts`
 - Modules a consumer loads through `import()` are their own entry, outside every barrel the eager importer reads
 - Barrels hold `export { ... } from` statements alone, one per module, generated from the layout by the `tools/nx` sync generator
-- Root closures type-check with no host types and load no wasm, `adobe:*`, or Node module, a sibling entry holding what does
+- Root closures type-check under each importing runtime, a sibling entry holding what one runtime alone loads
+- Root closures load no host module (`node:*`, `adobe:*`, `cloudflare:*`), package whose load chain ships wasm or a Node addon (`harfbuzzjs`, `vite`), runtime package (`@effect/platform-*`, `@effect/sql-sqlite-node`, the `react-dom` renderers), stylesheet, or other entry of a library
+- `./extendscript` closures load first-party modules alone
 
 ## [02]-[FILES]
 

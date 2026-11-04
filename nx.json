@@ -84,9 +84,16 @@
                     "lint:swiftlint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --quiet" },
                     "lint:nx": {
                         "command": "nx sync:check",
-                        "inputs": [ "typescript", "{workspaceRoot}/{nx.json,Package.swift,Xcode.xcconfig,.swiftlint.yml,biome.json}", "{workspaceRoot}/**/package.json", "{workspaceRoot}/**/*.{ts,tsx}", "{workspaceRoot}/tools/nx/**/*", { "externalDependencies": [ "@ast-grep/napi", "@biomejs/biome" ] } ]
+                        "inputs": [
+                            "typescript",
+                            "{workspaceRoot}/{nx.json,Package.swift,Xcode.xcconfig,.swiftlint.yml,biome.json}",
+                            "{workspaceRoot}/**/package.json",
+                            "{workspaceRoot}/**/hooks/hooks.json",
+                            "{workspaceRoot}/**/*.{ts,tsx}",
+                            "{workspaceRoot}/tools/nx/**/*",
+                            { "externalDependencies": [ "@ast-grep/napi", "@biomejs/biome" ] }
+                        ]
                     },
-                    "lint:dependency-cruiser": { "command": "depcruise --config .config/dependency-cruiser.config.ts libs/typescript", "inputs": [ "typescript", "{workspaceRoot}/.config/dependency-cruiser.config.ts", "{workspaceRoot}/libs/typescript/**/*", { "externalDependencies": [ "dependency-cruiser" ] } ] },
                     "lint:xcprojformatter": { "command": "fd --hidden --glob project.xcproj --exec sh -c 'xcrun xcprojformatter \"$0\" | diff -u \"$0\" -' {}", "inputs": [ "{workspaceRoot}/**/project.xcproj", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ] },
                     "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "inputs": [ "javaFiles", { "externalDependencies": [] }, { "runtime": "google-java-format --version" } ] },
                     "lint:pmd": {
@@ -344,11 +351,10 @@
             },
             { "filter": { "projects": [ "directory:." ] }, "inputs": [ "typescript", "{workspaceRoot}/tsconfig.json", "{workspaceRoot}/**/package.json", "{workspaceRoot}/**/*.{ts,tsx}", "!{workspaceRoot}/{docs,infra,tools/nx}/**" ] }
         ],
-        "typecheck:neutral": {
-            "command": "effect-tsgo tsc@next --pretty false --project tsconfig.neutral.json",
+        "typecheck:claude": {
+            "command": "effect-tsgo tsc@next --pretty false -p tsconfig.claude.json",
             "options": { "cwd": "{projectRoot}" },
-            "inputs": [ "default", "^default", "typescript", { "externalDependencies": [ "@effect/tsgo" ] } ],
-            "syncGenerators": [ "./tools/nx/generators.json:barrels" ],
+            "inputs": [ "typescript", "{projectRoot}/**/*.ts", "{projectRoot}/tsconfig*.json", { "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts", "includeIgnored": true }, { "externalDependencies": [ "@effect/tsgo" ] } ],
             "cache": true
         },
         "lint:*": { "cache": true },
@@ -368,6 +374,7 @@
             "inputs": [ "{workspaceRoot}/.config/squawk.toml", { "dependentTasksOutputFiles": "**/*.sql" }, { "externalDependencies": [] }, { "runtime": "squawk --version" } ],
             "cache": true
         },
+        "lint:claude": { "command": "claude plugin validate {projectRoot}", "inputs": [ "{projectRoot}/**/*", { "externalDependencies": [] }, { "runtime": "claude --version" } ], "cache": true },
         "lint:dylint": { "command": "cargo dylint --fail-on-no-libraries --all --package {projectName} -- --locked --profile dylint", "inputs": [ "default", "^default", "rust", { "input": "lintLibrary", "projects": "tag:host:dylint" }, { "runtime": "cargo dylint --version" } ], "cache": true, "parallelism": false },
         "lint:cargo-modules": { "command": "cargo modules orphans --deny --package {projectName}", "inputs": [ "default", "rust", { "runtime": "cargo modules --version" } ], "cache": true, "parallelism": false },
         "lint:swiftlint": [

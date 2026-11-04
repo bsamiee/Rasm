@@ -8,7 +8,7 @@ import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { PlacementFields } from '#/editor/placement-fields.tsx';
 import { draft, hero, updateEntry } from '#/editor/state.ts';
 import { CompositionGrid } from '#/media/composition-grid.tsx';
-import { choice, compositionLabel, entryTitle, format, options, placementTitle } from '#/media/labels.ts';
+import { choiceLayout, compositionLabel, entryTitle, format, literalOptions, placementTitle } from '#/media/labels.ts';
 import type { Assets } from '#/model/asset.ts';
 import { Alignment, type Composition, CompositionId, type Placement, Scale } from '#/model/placement.ts';
 import type { Entry } from '#/model/portfolio.ts';
@@ -36,8 +36,8 @@ const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof As
         <div className="flex min-w-0 flex-col gap-4.5 outline-none" id={item.id} tabIndex={-1}>
             <CompositionGrid active={true} composition={item} presentation="preview" renderMedia={true} />
             <div className="field-pair">
-                <Choice {...choice} label="Scale" onChange={({ id }) => replace({ ...item, scale: id })} options={options(Scale.literals)} value={item.scale} />
-                <Choice {...choice} label="Alignment" onChange={({ id }) => replace({ ...item, align: id })} options={options(Alignment.literals)} value={item.align} />
+                <Choice {...choiceLayout} label="Scale" onChange={({ id }) => replace({ ...item, scale: id })} options={literalOptions(Scale.literals)} value={item.scale} />
+                <Choice {...choiceLayout} label="Alignment" onChange={({ id }) => replace({ ...item, align: id })} options={literalOptions(Alignment.literals)} value={item.align} />
             </div>
             {fields(first, (next) => (second === undefined ? [next] : [next, second]))}
             {second && fields(second, (next) => [first, next])}

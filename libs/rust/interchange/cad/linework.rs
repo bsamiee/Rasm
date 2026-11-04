@@ -19,7 +19,11 @@ use rasm_linework::{
     Alignment, Dash, DashOffset, DashOffsetError, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Opacity, OpacityError, Path, Pattern, Pen, Placement, Region, Side,
     Target, Tolerance, Visibility, Width, WidthError, cleanup, pages,
 };
-use uom::si::{f64::Length, length::millimeter};
+use uom::si::{
+    f64::{Length, Ratio},
+    length::millimeter,
+    ratio::{percent, ratio},
+};
 use validated::Validated;
 
 use crate::{CadError, Operation, Refusal, Subject, Unit};
@@ -348,11 +352,11 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
                 polygon(&[solid.first_corner, solid.second_corner, solid.fourth_corner, solid.third_corner], frame * curves::ocs(solid.normal, solid.first_corner.z)).and_then(filled),
             EntityType::Point(marker) => {
                 let header = &document.header;
-                let percent = |share: f64| context.view_height * share / 100.0;
+                let viewed = |share: f64| context.view_height * Ratio::new::<percent>(share).get::<ratio>();
                 let size = match header.point_display_size {
                     stated if stated > 0.0 => stated,
-                    stated if stated < 0.0 => percent(-stated),
-                    _ => percent(5.0),
+                    stated if stated < 0.0 => viewed(-stated),
+                    _ => viewed(5.0),
                 };
                 let (center, half, mode, local) = (Point::new(marker.location.x, marker.location.y), size / 2.0, header.point_display_mode, tolerance.into_inner() / frame.spectral_norm());
                 let line = |from: Vec2, to: Vec2| [PathEl::MoveTo(center + from), PathEl::LineTo(center + to)];

@@ -170,8 +170,8 @@ def test_absence_keeps_the_native_expression_singleton() -> None:
     assert Some(1).filter(lambda _: False) is Nothing
 
 
-def test_background_queue_and_deferred_scope_apply_native_writes(acquired: Acquired) -> None:
-    """Background work drains its continuations and a closed deferred scope cannot write again."""
+def test_queue_passes_and_deferred_scope_apply_native_writes(acquired: Acquired) -> None:
+    """Each queue pass advances waiting continuations one step and a closed deferred scope cannot write again."""
 
     class Advance(msgspec.Struct, frozen=True):
         """A request advancing a native scene once on each pass."""
@@ -189,6 +189,10 @@ def test_background_queue_and_deferred_scope_apply_native_writes(acquired: Acqui
         release.callback(bpy.data.scenes.remove, scene)
         scene.frame_set(10)
         assert identity.reports.queued(Advance(scene, 3)) == Ok(None)
+        assert scene.frame_current == 11
+        assert identity.reports.ticked() == 0.0
+        assert scene.frame_current == 12
+        assert identity.reports.ticked() is None
         assert scene.frame_current == 13
         key = identity.identifier("deferred_count")
         scene[key] = 0
@@ -202,10 +206,15 @@ def test_background_queue_and_deferred_scope_apply_native_writes(acquired: Acqui
 
         with identity.reports.deferred(write) as later:
             later()
+            assert scene[key] == 0
+            assert identity.reports.ticked() is None
             assert scene[key] == 1
         later()
+        assert identity.reports.ticked() is None
         assert scene[key] == 1
-        assert Option.of_optional(manager.undo_stack).map(lambda history: (history.active_index, tuple(step.name for step in history.steps))) == before
+        assert Option.of_optional(manager.undo_stack).map(lambda history: (history.active_index, tuple(step.name for step in history.steps))) == before.map(
+            lambda history: (history[0] + 1, (*history[1], "Fixture write"))
+        )
 
 
 def test_resources_and_callback_reports_leave_their_registration_scope(acquired: Acquired) -> None:

@@ -4,7 +4,7 @@ import type { State } from '@rasm/automation';
 import { Array, ByteSize, DateTime, Duration, Effect, FileSystem, type LogLevel, Option, Path, Predicate, Record, Schema, String, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/harness-error';
-import { printed } from '#/instance';
+import { printedLines } from '#/instance';
 import { type Kind, type Messages, messageOf, record, tagOf } from '#/log';
 import type { Halted } from '#/results';
 import type { Harness, Instance } from '#/session';
@@ -30,7 +30,8 @@ interface Linked {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FOLDERS = [`${homedir()}/Library/Logs/DiagnosticReports`, '/Library/Logs/DiagnosticReports'];
+const HOME = homedir();
+const FOLDERS = [`${HOME}/Library/Logs/DiagnosticReports`, '/Library/Logs/DiagnosticReports'];
 const CLOCKS = Duration.seconds(2);
 const LAUNCH = Duration.minutes(1);
 const FIELD = /^(?<key>[A-Z][\w/ ]*?):\s+(?<value>.*\S)/gmu;
@@ -208,8 +209,8 @@ const diagnostics = Effect.fn('diagnostics')(function* (pattern: string, owned: 
 });
 const spun = Effect.fn('spun')(function* (instance: Lifetime, kind: typeof Kind.Type) {
     const window = { start: `${SINCE.format(DateTime.toDateUtc(instance.started))}+0000`, end: `${SINCE.format(DateTime.toDateUtc(DateTime.addDuration(instance.ended, CLOCKS)))}+0000` };
-    const shown = yield* printed('log', ['show', '--style', 'compact', '--predicate', 'subsystem == "com.apple.spindump" OR subsystem == "com.apple.libquit"', '--start', window.start, '--end', window.end]);
-    const kept = Array.fromIterable(String.linesIterator(shown)).filter((line) => line.includes(`[${instance.pid}]`) && !line.includes('not sampling'));
+    const shown = yield* printedLines('log', ['show', '--style', 'compact', '--predicate', 'subsystem == "com.apple.spindump" OR subsystem == "com.apple.libquit"', '--start', window.start, '--end', window.end]);
+    const kept = shown.filter((line) => line.includes(`[${instance.pid}]`) && !line.includes('not sampling'));
     return Array.match(kept, { onEmpty: () => [], onNonEmpty: (lines): readonly Linked[] => [{ kind, at: instance.ended, file: Option.none(), facts: { lines } }] });
 });
 const crashed = Effect.fn('crashed')(function* (pid: number, exit: typeof State.cases.Exited.Type) {
@@ -285,4 +286,4 @@ const linked = (host: Pick<Harness, 'logs'>, instance: Instance) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { crashed, failing, KINDS, type Linked, lifetime, lined, linked, local, type Rule, system, whole };
+export { crashed, failing, HOME, KINDS, type Linked, lifetime, lined, linked, local, type Rule, system, whole };

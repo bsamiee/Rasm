@@ -1,4 +1,4 @@
-import { Option } from '../../monads.ts';
+import { Maybe } from '../../monads.ts';
 import type { System } from '../command-decision.ts';
 import type { Command, Word } from './command.ts';
 import { basename, informational, isInside, operands, resolvePath } from './invocation.ts';
@@ -18,7 +18,7 @@ const LOCK = /^(?<stem>[^/]*?)\.?lock[*~]*$/u;
 
 // --- [PROJECTS]
 
-const projectDir = async ({ environment, home }: System): Promise<Option<string>> => Option.fromNullable((await environment(PROJECT_DIR)).values.flatMap((value) => resolvePath(value, Option.none, home).values)[0]);
+const projectDir = async ({ environment, home }: System): Promise<Maybe<string>> => Maybe.fromNullable((await environment(PROJECT_DIR)).values.flatMap((value) => resolvePath(value, Maybe.none, home).values)[0]);
 
 const serveCommand = (name: string): string => `printf '%s\\n' <program> <script> <argument>... | paste -s - | nc -U "$${PROJECT_DIR}/${name}.sock"`;
 
@@ -65,7 +65,7 @@ const heapOverride = (name: string): string => `${name} overrides the ${ANALYZE_
 const heapAssignment = (command: Command, word: Word): readonly Verdict[] => {
     const [, name] = HEAP_VARIABLE.exec(word.text) ?? [];
     const next = command.words.find(({ span }) => span.start > word.span.start) ?? word;
-    return name === undefined ? [] : [editOrRefuse(command, edit(word.span.start, next.span.start, '', Option.some(`${name} removed, ${ANALYZE_HEADLESS} sets the heap`)), heapOverride(name))];
+    return name === undefined ? [] : [editOrRefuse(command, edit(word.span.start, next.span.start, '', Maybe.some(`${name} removed, ${ANALYZE_HEADLESS} sets the heap`)), heapOverride(name))];
 };
 
 const logFlags = (root: string, words: readonly Word[]): readonly Verdict[] =>
@@ -73,14 +73,14 @@ const logFlags = (root: string, words: readonly Word[]): readonly Verdict[] =>
         const log = quote(`${root}/.artifacts/logs/${file}`);
         const at = words.findIndex(({ text }) => text === flag);
         const [value, tail] = [words[at + 1], words.at(-1)];
-        const notice = Option.some(`${ANALYZE_HEADLESS} logs to .artifacts/logs`);
+        const notice = Maybe.some(`${ANALYZE_HEADLESS} logs to .artifacts/logs`);
         if (at < 0) {
             return tail === undefined ? [] : [edit(tail.span.end, tail.span.end, ` ${flag} ${log}`, notice)];
         }
         return value === undefined || value.raw === log ? [] : [edit(value.span.start, value.span.end, log, notice)];
     });
 
-const headlessRuns = ({ home, root }: System, folder: Option<string>, command: Command): readonly Verdict[] =>
+const headlessRuns = ({ home, root }: System, folder: Maybe<string>, command: Command): readonly Verdict[] =>
     command.invocations.flatMap((invocation, at) => {
         const words = invocation[0] === ANALYZE_HEADLESS ? (command.parts[at]?.words.slice(1) ?? []) : [];
         const [location] = words;
@@ -89,10 +89,10 @@ const headlessRuns = ({ home, root }: System, folder: Option<string>, command: C
             return logs;
         }
         const shared = `"$${PROJECT_DIR}"`;
-        const derived = resolvePath(location.text, command.cwd, home).values.some((place) => folder.toArray().includes(place));
+        const derived = !new Set(folder.values).isDisjointFrom(new Set(resolvePath(location.text, command.cwd, home).values));
         return [
             derived
-                ? editOrRefuse(command, edit(location.span.start, location.span.end, shared, Option.some(`${ANALYZE_HEADLESS} ${location.raw} became ${shared}`)), `${ANALYZE_HEADLESS} project ${location.raw} is ${shared}, pass ${shared}`)
+                ? editOrRefuse(command, edit(location.span.start, location.span.end, shared, Maybe.some(`${ANALYZE_HEADLESS} ${location.raw} became ${shared}`)), `${ANALYZE_HEADLESS} project ${location.raw} is ${shared}, pass ${shared}`)
                 : refuse(`${ANALYZE_HEADLESS} project ${location.raw} is not $${PROJECT_DIR}, pass ${shared}`),
             ...logs,
         ];
@@ -102,7 +102,7 @@ const ghidra = async ({ request, system, script: { commands, assignments } }: Ca
     const runs = commands.filter(({ invocations: chain }) => chain.some((invocation) => invocation[0] === ANALYZE_HEADLESS && !informational(ANALYZE_HEADLESS, operands(invocation).options)));
     const prefixed = commands.flatMap((command) => command.parts.flatMap(({ assigned }) => assigned).map((word) => ({ command, word })));
     const lasting = invocationsOf(runs, ANALYZE_HEADLESS).some((invocation) => operands(invocation).options.includes('-import') || invocation.slice(1).some((word, at) => invocation[at] === '-postScript' && basename(word) === SERVE));
-    const folder = runs.length === 0 ? Option.none : await projectDir(system);
+    const folder = runs.length === 0 ? Maybe.none : await projectDir(system);
     return [
         ...prefixed.flatMap(({ command, word }) => heapAssignment(command, word)),
         ...assignments.flatMap(({ name }) => (HEAP_VARIABLE.test(name) ? [refuse(heapOverride(name))] : [])),

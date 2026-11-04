@@ -1,10 +1,11 @@
 import { Array, Effect, FileSystem, Match, Option, Path, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { answers, type Batch, Call, type Case, Probe, scriptOf } from '#/cases';
-import type { Asking, Fact, facts } from '#/facts';
+import { type Asking, Fact } from '#/facts';
 import { HarnessError } from '#/harness-error';
-import { phase, record, tagOf } from '#/log';
+import { record, tagOf } from '#/log';
 import { merged } from '#/precondition';
 import { type Answer, Outcome } from '#/results';
+import { phase } from '#/run';
 import type { Cased, Decoding, Harness, Plan, Prepared, Surveyed } from '#/session';
 import { prepared } from '#/source';
 import { bury } from '#/values';
@@ -67,16 +68,7 @@ const prepare = <C extends Cased, E, P>(host: Pick<Harness<Surveyed, C, E, P>, '
             onSome: HarnessError.unavailable(row.name),
         });
     });
-const planning = <S extends Surveyed, C extends Cased, E, P>(
-    host: Pick<Harness<S, C, E, P>, 'precondition' | 'placed' | 'Case' | 'refusal' | 'windowed'>,
-    Facts: ReturnType<typeof facts>,
-    indexed: readonly Fact[],
-    asking: Asking<E>,
-    product: string,
-    captures: string,
-    batch: typeof Batch.Type,
-    rows: readonly Case[],
-) => {
+const planning = <S extends Surveyed, C extends Cased, E, P>(host: Pick<Harness<S, C, E, P>, 'precondition' | 'placed' | 'Case' | 'refusal' | 'windowed'>, indexed: readonly Fact[], asking: Asking<E>, product: string, captures: string, batch: typeof Batch.Type, rows: readonly Case[]) => {
     const failed = (row: Case) => (error: HarnessError | Schema.SchemaError) =>
         Effect.andThen(record('Error', 'case ended', { case: row.name, completion: 'Failed', tag: tagOf(error), error: error.message }), Effect.map(Effect.orDie(Schema.decodeEffect(Outcome)({ name: row.name, completion: { _tag: 'Failed', reason: error.message } })), Result.fail));
     const keyOf = (survey: S) => (row: Case) => (row.until === undefined ? Option.map(expressionOf(batch, row), (expression) => ({ ...asking, question: row.name, expression, args: argsOf(row), precondition: authored(batch, row), host: survey.host })) : Option.none());
@@ -90,7 +82,7 @@ const planning = <S extends Surveyed, C extends Cased, E, P>(
         const answered = (row: Case, index: number) =>
             Result.fromOption(
                 Option.map(
-                    Option.flatMap(keyOf(survey)(row), (key) => Option.firstSomeOf([Facts.known(indexed, key), Facts.faulted(indexed, key)])),
+                    Option.flatMap(keyOf(survey)(row), (key) => Option.firstSomeOf([Fact.known(indexed, key), Fact.faulted(indexed, key)])),
                     ({ answer }) => ({ row, index, answer }),
                 ),
                 () => [row, index] as const,

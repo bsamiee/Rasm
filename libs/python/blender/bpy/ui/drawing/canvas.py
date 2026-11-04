@@ -267,9 +267,11 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
             draw_batch(_textured(), configured((shader, UNCLIPPED), partial(shader.uniform_sampler, "image", texture), partial(shader.uniform_float, "color", color)))
 
     def checkered(self, rect: Rect, checker: Checker) -> None:
-        """Draws the transparency checker as indexed cell quads, clipping edge cells to the rectangle."""
+        """Draws the transparency checker as indexed cell quads, clipping edge cells to the rectangle, an empty rectangle holding no cell to draw."""
         size = float(checker.cell)
         left, bottom = np.meshgrid(rect.x + np.arange(math.ceil(rect.width / size)) * size, rect.y + np.arange(math.ceil(rect.height / size)) * size)
+        if not left.size:
+            return
         right, top = np.minimum(left + size, rect.x + rect.width), np.minimum(bottom + size, rect.y + rect.height)
         corners = np.stack((left, bottom, right, bottom, right, top, left, top), axis=-1).reshape(-1, 2).astype(np.float32)
         rows, columns = np.indices(left.shape, sparse=True)

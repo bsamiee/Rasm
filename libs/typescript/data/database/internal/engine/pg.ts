@@ -53,7 +53,6 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly Configuration = Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Names });
 
     // --- [ROWS]
-    static readonly dialect = 'pg';
     static readonly types = { text: 'text', uuid: 'uuid', json: 'jsonb', instant: 'timestamptz(3)', integer: 'bigint', decimal: 'numeric', real: 'double precision', boolean: 'boolean', blob: 'bytea' } as const satisfies Engine['Service']['types'];
     static readonly member: Engine['Service']['member'] = (sql, field) => sql`e.value ->> ${sql.literal(literal(field))}`;
     static readonly element: Engine['Service']['element'] = (sql, { kind }, text) => (kind === 'blob' ? sql`decode(${text}, 'hex')` : sql`(${text})::${sql.literal(Pg.types[kind])}`);
@@ -64,7 +63,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly upsert: Engine['Service']['upsert'] = ({ sql, owner, unqualified, ignore, keys, reads, inserting, flags }, body, set) => {
         const parts = set.map(({ name }) => sql(name));
         const update = sql`ON CONFLICT (${keys(unqualified)}) DO UPDATE SET ${sql.csv(parts.map((part) => sql`${part} = excluded.${part}`))} WHERE (${sql.csv(parts.map((part) => sql`${owner}.${part}`))}) IS DISTINCT FROM (${sql.csv(parts.map((part) => sql`excluded.${part}`))})`;
-        return inserting(body, Array.isReadonlyArrayNonEmpty(parts) ? update : ignore, sql.csv(`WITH (OLD AS "${flags.previous}")`, [reads(unqualified), sql`${sql(flags.previous)} IS NULL AS ${sql(flags.inserted)}`]));
+        return inserting(body, Array.isReadonlyArrayNonEmpty(parts) ? update : ignore, sql`WITH (OLD AS ${sql(flags.previous)}) ${reads(unqualified, sql`${sql(flags.previous)} IS NULL AS ${sql(flags.inserted)}`)}`);
     };
     static readonly ensure: Engine['Service']['ensure'] = ({ sql, owner, unqualified, order, ignore, keys, reads, inserting }, body) => {
         const outer = sql.literal('t.');

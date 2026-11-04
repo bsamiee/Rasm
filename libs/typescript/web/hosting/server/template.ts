@@ -2,20 +2,21 @@ import { load } from 'cheerio/slim';
 import { Cause, Context, Duration, Effect, Exit, Function, Layer, Option, Record, Schema } from 'effect';
 import { HttpServerResponse } from 'effect/http';
 import { renderToReadableStream } from 'react-dom/server';
+import { HostingError } from '#/hosting-error';
 import type { Shell } from '#/shell';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Template extends Context.Service<Template, { readonly template: Effect.Effect<string, Cause.UnknownError> }>()('@rasm/hosting/server/template') {
+class Template extends Context.Service<Template, { readonly template: Effect.Effect<string, HostingError> }>()('@rasm/hosting/server/template') {
     static readonly layer = (assets: { readonly fetch: (request: Request) => Promise<Response> }) =>
         Layer.effect(
             Template,
-            Effect.tryPromise({ try: (signal) => assets.fetch(new Request('http://localhost/', { signal })), catch: failure('template fetch') }).pipe(
+            Effect.tryPromise({ try: (signal) => assets.fetch(new Request('http://localhost/', { signal })), catch: HostingError.template('fetch') }).pipe(
                 Effect.filterOrFail(
                     ({ ok }) => ok,
-                    (response) => new Cause.UnknownError(response, `page template answered ${response.status}`),
+                    ({ status }) => HostingError.template('answer')(status),
                 ),
-                Effect.flatMap((response) => Effect.tryPromise({ try: () => response.text(), catch: failure('template read') })),
+                Effect.flatMap((response) => Effect.tryPromise({ try: () => response.text(), catch: HostingError.template('read') })),
                 Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
                 Effect.bindTo('template'),
             ),
@@ -46,10 +47,6 @@ class Template extends Context.Service<Template, { readonly template: Effect.Eff
         return HttpServerResponse.html(document.html());
     });
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const failure = (step: string) => (cause: unknown) => new Cause.UnknownError(cause, `page ${step} failed`);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

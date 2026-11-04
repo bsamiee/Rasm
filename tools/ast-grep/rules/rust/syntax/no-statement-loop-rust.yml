@@ -41,6 +41,8 @@ utils:
               has: {stopBy: end, kind: identifier, pattern: $STATE}
             - kind: expression_statement
               has: {nthChild: 1, matches: element-write, has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $STATE}}}
+            - kind: expression_statement
+              has: {nthChild: 1, matches: guarded-write, has: {field: condition, has: {stopBy: end, kind: identifier, pattern: $STATE}}}
     guarded-write:
         kind: if_expression
         has: {field: consequence, has: {kind: expression_statement, has: {nthChild: 1, matches: element-write}}}

@@ -26,7 +26,7 @@ const runtime = () => {
         }
         return out;
     };
-    const keys = (value: Readonly<Record<string, unknown>>): string[] => {
+    const recordKeys = (value: Readonly<Record<string, unknown>>): string[] => {
         const found: string[] = [];
         for (const key in value) {
             if (Object.prototype.hasOwnProperty.call(value, key) && value[key] !== undefined) {
@@ -35,9 +35,9 @@ const runtime = () => {
         }
         return found;
     };
-    const read = (value: unknown, key: string): unknown => attempt(() => (isRecord(value) ? value[key] : undefined));
+    const readProperty = (value: unknown, key: string): unknown => attempt(() => (isRecord(value) ? value[key] : undefined));
     const unmatched = (subject: string, query: string, candidates: readonly string[]): Replied<'Unmatched'> => ({ _tag: 'Unmatched', subject, query, candidates });
-    const illegal = (text: string): Replied<'IllegalArgument'> => ({ _tag: 'IllegalArgument', message: text });
+    const illegalArgument = (text: string): Replied<'IllegalArgument'> => ({ _tag: 'IllegalArgument', message: text });
     const escaped = (text: string): string => {
         const hex = 16;
         const digits = -4;
@@ -56,11 +56,11 @@ const runtime = () => {
         if (isList(value)) {
             return `[${map(value, (item) => encoded(item, specifier)).join(',')}]`;
         }
-        return isPlain(value) ? `{${map(keys(value), (key) => `${escaped(key)}:${encoded(value[key], specifier)}`).join(',')}}` : described(value, specifier);
+        return isPlain(value) ? `{${map(recordKeys(value), (key) => `${escaped(key)}:${encoded(value[key], specifier)}`).join(',')}}` : described(value, specifier);
     };
     const described = (value: unknown, specifier: (value: object) => string | undefined): string => {
         const at = isRecord(value) ? specifier(value) : undefined;
-        const [type, name] = [read(read(value, 'reflect'), 'name'), read(value, 'name')];
+        const [type, name] = [readProperty(readProperty(value, 'reflect'), 'name'), readProperty(value, 'name')];
         return at === undefined ? escaped(String(value)) : encoded({ type: typeof type === 'string' ? type : String(value), specifier: at, name: typeof name === 'string' ? name : undefined, valid: true }, specifier);
     };
     const reply = (answer: () => unknown, specifier = (_value: object): string | undefined => undefined, evaluated = (_thrown: unknown): boolean => true): string => {
@@ -70,11 +70,11 @@ const runtime = () => {
             if (isRecord(thrown) && (thrown._tag === 'Unmatched' || thrown._tag === 'IllegalArgument')) {
                 return encoded(thrown, specifier);
             }
-            const line = evaluated(thrown) ? finite(read(thrown, 'line') ?? read(thrown, 'lineNumber')) : undefined;
-            return encoded({ _tag: 'Thrown', message: message(thrown), number: finite(read(thrown, 'number')), line } satisfies Omit<Replied<'Thrown'>, 'number' | 'line'> & Record<'number' | 'line', number | undefined>, specifier);
+            const line = evaluated(thrown) ? finite(readProperty(thrown, 'line') ?? readProperty(thrown, 'lineNumber')) : undefined;
+            return encoded({ _tag: 'Thrown', message: message(thrown), number: finite(readProperty(thrown, 'number')), line } satisfies Omit<Replied<'Thrown'>, 'number' | 'line'> & Record<'number' | 'line', number | undefined>, specifier);
         }
     };
-    return { isRecord, isList, isPlain, finite, message, attempt, map, keys, read, unmatched, illegal, escaped, reply };
+    return { isRecord, isList, isPlain, finite, message, attempt, map, recordKeys, readProperty, unmatched, illegalArgument, escaped, reply };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

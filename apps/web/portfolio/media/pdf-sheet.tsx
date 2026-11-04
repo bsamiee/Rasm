@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import type { MediaError } from '@rasm/media';
 import { PdfDocument, PdfViewer } from '@rasm/media/pdf';
 import { Array, HashSet, Match, Option, Record } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
@@ -8,7 +9,7 @@ import { AnnotationEditorType, AnnotationMode, type PDFDocumentProxy } from 'pdf
 import { LinkTarget, ScrollMode, SpreadMode } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import { useState } from 'react';
 import { Button, Input, SearchField, ToggleButton, Toolbar } from 'react-aria-components';
-import { details, format, sheetLabel } from '#/media/labels.ts';
+import { format, joinDetails, sheetLabel } from '#/media/labels.ts';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
 import { ZoomControls } from '#/media/zoom-controls.tsx';
 import { assetUrl } from '#/model/api.ts';
@@ -18,6 +19,7 @@ import type { Placement } from '#/model/placement.ts';
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sheet = (currentPageNumber: number) => ({ removePageBorders: true, annotationEditorMode: AnnotationEditorType.DISABLE, view: { currentPageNumber, currentScaleValue: 'page-fit', scrollMode: ScrollMode.PAGE, spreadMode: SpreadMode.NONE } }) satisfies Parameters<typeof PdfViewer.useViewer>[1];
+const pdfFailure = Match.type<MediaError['reason']>().pipe(Match.tagsExhaustive({ Protected: () => 'PDF is password protected', Missing: () => 'PDF not found', Unreadable: () => 'Browser cannot read PDF', Unsupported: () => 'Browser cannot read PDF' }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -35,7 +37,7 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                 .onSuccess((state) => (
                     <ZoomControls
                         fit={Record.collect({ 'page-fit': 'Fit page', 'page-width': 'Fit width' } as const, (scale, label) => (
-                            <ToggleButton className="button button-ghost" isSelected={state.currentScaleValue === scale} key={scale} onPress={() => PdfViewer.assign(state, { currentScaleValue: scale })}>
+                            <ToggleButton className="button button-ghost" isSelected={state.currentScaleValue === scale} key={scale} onPress={() => state.assign({ currentScaleValue: scale })}>
                                 {label}
                             </ToggleButton>
                         ))}
@@ -50,10 +52,10 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                             <Button aria-label="Previous sheet" className="button button-ghost min-w-11 px-2" isDisabled={page.number === 1} onPress={() => state.pdfViewer.previousPage()}>
                                 <ChevronLeft className="size-4" />
                             </Button>
-                            <select aria-label="Sheet" className="min-h-11 max-w-48 min-w-0 bg-transparent px-1 font-mono text-xs tabular-nums" onChange={(event) => PdfViewer.assign(state, { currentPageNumber: Number(event.currentTarget.value) })} value={page.number}>
+                            <select aria-label="Sheet" className="min-h-11 max-w-48 min-w-0 bg-transparent px-1 font-mono text-xs tabular-nums" onChange={(event) => state.assign({ currentPageNumber: Number(event.currentTarget.value) })} value={page.number}>
                                 {pages.map(({ label, number }) => (
                                     <option key={number} value={number}>
-                                        {details([`${format.numeral(number, pages.length)} / ${format.numeral(pages.length)}`, label])}
+                                        {joinDetails([`${format.numeral(number, pages.length)} / ${format.numeral(pages.length)}`, label])}
                                     </option>
                                 ))}
                             </select>
@@ -67,14 +69,14 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                                 <ToggleButton className="button button-ghost" isSelected={pan} onChange={setPan}>
                                     Pan
                                 </ToggleButton>
-                                <Button className="button button-ghost" onPress={() => PdfViewer.rotate(state, 1)}>
+                                <Button className="button button-ghost" onPress={() => state.rotate(1)}>
                                     <RotateCw className="size-4" />
                                     Rotate view
                                 </Button>
                             </Toolbar>
                             <p className="hint py-2">Select text to copy. Drag with Pan on or press arrow keys on focused sheet to move</p>
                         </details>
-                        <details className="min-w-0 open:basis-full" onToggle={(event) => (event.currentTarget.open ? PdfViewer.find(state, query, 'highlightallchange') : PdfViewer.closeFind(state))}>
+                        <details className="min-w-0 open:basis-full" onToggle={(event) => (event.currentTarget.open ? state.find(query, 'highlightallchange') : state.closeFind())}>
                             <summary className="min-h-11 cursor-pointer content-center text-sm">Find</summary>
                             <div className="flex flex-wrap items-center gap-2 pb-1">
                                 <SearchField
@@ -82,9 +84,9 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                                     className="border-control-line flex min-w-0 flex-1 basis-40 items-center border"
                                     onChange={(text) => {
                                         setQuery(text);
-                                        PdfViewer.find(state, text, '');
+                                        state.find(text, '');
                                     }}
-                                    onSubmit={() => PdfViewer.find(state, query, 'again')}
+                                    onSubmit={() => state.find(query, 'again')}
                                     value={query}
                                 >
                                     <Input className="min-h-11 w-full min-w-0 bg-transparent px-3 text-base" />
@@ -92,10 +94,10 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                                         Clear
                                     </Button>
                                 </SearchField>
-                                <Button aria-label="Previous match" className="button button-ghost min-w-11 px-3" isDisabled={state.matchesCount.total === 0} onPress={() => PdfViewer.find(state, query, 'again', { findPrevious: true })}>
+                                <Button aria-label="Previous match" className="button button-ghost min-w-11 px-3" isDisabled={state.matchesCount.total === 0} onPress={() => state.find(query, 'again', { findPrevious: true })}>
                                     <ChevronLeft className="size-4" />
                                 </Button>
-                                <Button aria-label="Next match" className="button button-ghost min-w-11 px-3" isDisabled={state.matchesCount.total === 0} onPress={() => PdfViewer.find(state, query, 'again')}>
+                                <Button aria-label="Next match" className="button button-ghost min-w-11 px-3" isDisabled={state.matchesCount.total === 0} onPress={() => state.find(query, 'again')}>
                                     <ChevronRight className="size-4" />
                                 </Button>
                                 <span className="text-muted basis-full text-xs" role="status">
@@ -139,12 +141,12 @@ const SheetPreview = ({ document, page, asset }: { document: PDFDocumentProxy; p
 };
 const PdfSheet = ({ placement, layoutId }: { placement: Extract<typeof Placement.Type, { kind: 'pdf' }>; layoutId: string | undefined }) => {
     const url = assetUrl(placement.asset);
-    const source = PdfDocument({ url, base: import.meta.env.BASE_URL, disableStream: true, disableAutoFetch: true });
+    const source = PdfDocument({ url, disableStream: true, disableAutoFetch: true });
     const retry = useAtomRefresh(source);
     return AsyncResult.builder(useAtomValue(source))
         .onInitialOrWaiting(() => <MediaLoading />)
         .onSuccess((document) => (layoutId === undefined ? <SheetPreview asset={placement.asset} document={document} page={placement.page.number} /> : <SheetViewer document={document} layoutId={layoutId} placement={placement} url={url} />))
-        .onErrorTag('MediaError', ({ reason }) => <MediaFailure asset={placement.asset} message={Record.get<string, string>({ Protected: 'PDF is password protected', Missing: 'PDF not found' }, reason._tag).pipe(Option.getOrElse(() => 'Browser cannot read PDF'))} />)
+        .onErrorTag('MediaError', ({ reason }) => <MediaFailure asset={placement.asset} message={pdfFailure(reason)} />)
         .onFailure(() => <MediaFailure asset={placement.asset} message="PDF failed to load" onRetry={retry} />)
         .exhaustive();
 };

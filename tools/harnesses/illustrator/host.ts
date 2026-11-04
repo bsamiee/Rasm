@@ -4,15 +4,16 @@ import { parse } from 'acorn';
 import { findNodeAt } from 'acorn-walk';
 import { Array, DateTime, Effect, FileSystem, Number, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import jsesc from 'jsesc';
-import { crashes, HOME, REPORTER, uxp } from '#/adobe';
+import { crashes, REPORTER, uxp } from '#/adobe';
+import { EXTENDSCRIPT } from '#/cases';
 import { HarnessError, thrown } from '#/harness-error';
 import { Engine, HostCase, HostOutcome, type Install, PASTEBOARD, Reply, Sent, Survey } from '#/illustrator/contract';
 import { precondition } from '#/illustrator/precondition';
 import { checked, Launched, output, plist } from '#/instance';
 import { copied } from '#/precondition';
-import { failing, lifetime, lined, local, type Rule } from '#/report';
+import { failing, HOME, lifetime, lined, local, type Rule } from '#/report';
 import { type Batch, Harness, type Installed, type Instance, installation, type Live } from '#/session';
-import { assembled, EXTENDSCRIPT, engineOf } from '#/source';
+import { assembled, engineOf } from '#/source';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

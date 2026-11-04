@@ -1,14 +1,14 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "UXP plugin and script entries, manifests, and the socket link Adobe plugins dial",
+    "description": "UXP manifest schema, the UXP plugin and script runtime, and the socket peer Adobe plugins dial",
     "sideEffects": false,
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        ".": "./uxp-manifest.ts",
         "./peer": "./peer.ts",
         "./uxp": "./uxp/index.ts"
     },

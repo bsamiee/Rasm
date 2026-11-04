@@ -29,7 +29,6 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     sequences: Schema.Array(Schema.Struct({ name: Schema.String, seq: Schema.Int })),
 }) {
     // --- [ROWS]
-    static readonly dialect = 'sqlite';
     static readonly types = { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', decimal: 'TEXT', real: 'REAL', boolean: 'INTEGER', blob: 'BLOB' } as const satisfies Engine['Service']['types'];
     static readonly member: Engine['Service']['member'] = (sql, field) => sql`e.value ->> ${sql.literal(literal(`$."${field}"`))}`;
     static readonly element: Engine['Service']['element'] = (sql, { kind }, text) => (kind === 'blob' ? sql`unhex(${text})` : text);
@@ -102,7 +101,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             ...unsupported(owner, 'casefold', all, ({ name, ascii }) => !ascii && folded.includes(name)),
         ];
     };
-    static readonly role: Engine['Service']['role'] = () => Effect.fail(new Cause.IllegalArgumentError(`${Sqlite.dialect} has no role to migrate as`));
+    static readonly role: Engine['Service']['role'] = (sql) => Effect.fail(new Cause.IllegalArgumentError(`${sql.driver} has no role to migrate as`));
     static readonly open: Engine['Service']['open'] = (sql) => sql`PRAGMA optimize = 0x10002`;
     static readonly identities = ({ columns, ...table }: typeof SqliteTable.Type) => {
         const tokens: readonly string[] = table.sql.match(lexemes) ?? [];

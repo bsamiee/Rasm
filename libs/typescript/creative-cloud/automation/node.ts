@@ -10,18 +10,18 @@ import { HostError } from '#/host-error';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const error = Schema.Union([Unmatched, Schema.ErrorInstance()]);
+const Failure = Schema.Union([Unmatched, Schema.ErrorInstance()]);
 const Contract = RpcGroup.make(
     Rpc.make('installations', { success: Schema.Result(Schema.Array(Installation), Schema.ErrorInstance()).annotate({ description: 'On subscribe and each Spotlight update, or discovery error' }), error: Schema.ErrorInstance(), stream: true }),
     Rpc.make('instances', { success: Schema.Array(RunningInstance).annotate({ description: 'On subscribe and each change, exited instances kept until next change' }), stream: true }),
     Rpc.make('applications', { payload: { toOpen: Schema.URL }, success: Schema.Array(Schema.URL).annotate({ description: 'Launch Services applications for file, default first' }) }),
-    Rpc.make('status', { payload: { pid: Pid }, success: State, error }),
+    Rpc.make('status', { payload: { pid: Pid }, success: State, error: Failure }),
     Rpc.make('launch', { payload: { url: Schema.URL }, success: Launched, error: Schema.ErrorInstance() }),
-    Rpc.make('perform', { payload: { pid: Pid, ...Perform.fields }, error }),
+    Rpc.make('perform', { payload: { pid: Pid, ...Perform.fields }, error: Failure }),
     Rpc.make('terms', { payload: { url: Schema.URL }, success: Terms, error: Schema.ErrorInstance() }),
-    Rpc.make('definition', { payload: { url: Schema.URL, kind: Terms.Kind, name: Schema.String }, success: Schema.String, error }),
-    Rpc.make('execute', { payload: { pid: Pid, ...Execute.fields }, success: Execute.Result, error: Schema.Union([HostError, error]) }),
-    Rpc.make('screenshot', { payload: { pid: Pid, ...Screenshot.fields, file: Schema.URL.annotate({ description: 'PNG file written' }) }, success: Screenshot.Result, error }),
+    Rpc.make('definition', { payload: { url: Schema.URL, kind: Terms.Kind, name: Schema.String }, success: Schema.String, error: Failure }),
+    Rpc.make('execute', { payload: { pid: Pid, ...Execute.fields }, success: Execute.Result, error: Schema.Union([HostError, Failure]) }),
+    Rpc.make('screenshot', { payload: { pid: Pid, ...Screenshot.fields, file: Schema.URL.annotate({ description: 'PNG file written' }) }, success: Screenshot.Result, error: Failure }),
     Rpc.make('faces', { success: Schema.Array(AvailableFace) }),
     Rpc.make('face', { payload: { name: AvailableFace.Name }, success: AvailableFace, error: Unmatched }),
 );

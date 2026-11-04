@@ -1,4 +1,4 @@
-import { Array, Data, Duration, Effect, Match, Option, Schema, String, Struct } from 'effect';
+import { Array, Data, Duration, Effect, Match, Option, Schema, String, type Types } from 'effect';
 import { MediaError } from '#/media-error';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -8,7 +8,7 @@ type Inspection = Data.TaggedEnum<{
     Video: { readonly width: number; readonly height: number; readonly duration: Duration.Duration };
     Pdf: { readonly pages: Array.NonEmptyReadonlyArray<{ readonly width: number; readonly height: number; readonly label?: string }> };
 }>;
-type Options = ImageEncodeOptions & { readonly scaling: Scaling; readonly concurrency: number; readonly base: string };
+type Options = ImageEncodeOptions & { readonly scaling: Scaling; readonly concurrency: Types.Concurrency };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -17,12 +17,12 @@ class Scaling extends Schema.Class<Scaling, { readonly brand: unique symbol }>('
         return Math.floor(width / this.ratio);
     }
 }
+const { $is, $match, Image, Video, Pdf } = Data.taggedEnum<Inspection>();
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const { $is, $match, Image, Video, Pdf } = Data.taggedEnum<Inspection>();
 const bitmap = (source: ImageBitmapSource, fail: (cause: unknown) => MediaError, options?: ImageBitmapOptions) => Effect.acquireRelease(Effect.tryPromise({ try: () => createImageBitmap(source, options), catch: fail }), (opened) => Effect.sync(() => opened.close()));
-const image = Effect.fnUntraced(function* (file: File, { scaling, concurrency, ...options }: Options) {
+const image = Effect.fnUntraced(function* (file: File, { scaling, concurrency, ...encoding }: Options) {
     const unsupported = MediaError.of('Unsupported', file.name);
     const source = yield* bitmap(file, MediaError.of('Unreadable', file.name));
     const renditions = yield* Effect.forEach(
@@ -32,7 +32,7 @@ const image = Effect.fnUntraced(function* (file: File, { scaling, concurrency, .
             const canvas = new OffscreenCanvas(resized.width, resized.height);
             const context = yield* Effect.mapError(Effect.fromNullishOr(canvas.getContext('bitmaprenderer')), unsupported);
             context.transferFromImageBitmap(resized);
-            const blob = yield* Effect.tryPromise({ try: () => canvas.convertToBlob(Struct.pick(options, ['type', 'quality'])), catch: unsupported });
+            const blob = yield* Effect.tryPromise({ try: () => canvas.convertToBlob(encoding), catch: unsupported });
             return { width, file: new File([blob], `${width}`, { type: blob.type }) };
         }, Effect.scoped),
         { concurrency },
@@ -71,7 +71,7 @@ const video = (file: File) => {
     );
 };
 const pdf = Effect.fnUntraced(function* (file: File, options: Options) {
-    const { PdfDocument } = yield* Effect.tryPromise(() => import('#/pdf/document'));
+    const { PdfDocument } = yield* Effect.tryPromise(() => import('#/pdf/pdf-document'));
     return Pdf({ pages: yield* PdfDocument.pages(file, options) });
 });
 const Inspection = Object.assign(

@@ -3,16 +3,17 @@ import { Automation } from '@rasm/automation/node';
 import { parse } from 'acorn';
 import { findNodeAt } from 'acorn-walk';
 import { Array, Effect, Option, Result, Schema, String, Struct } from 'effect';
-import { crashes, HOME, REPORTER, uxp } from '#/adobe';
+import { crashes, REPORTER, uxp } from '#/adobe';
 import { HarnessError, thrown } from '#/harness-error';
 import { ENGINES, Encoded, Engine, HostCase, HostOutcome, Reply, Survey } from '#/indesign/contract';
 import { precondition } from '#/indesign/precondition';
 import uxpscript from '#/indesign/uxpscript/script.config';
-import { checked, Launched, plist, printed } from '#/instance';
+import { checked, Launched, plist, printedLines } from '#/instance';
 import { copied } from '#/precondition';
-import type { Rule } from '#/report';
+import { HOME, type Rule } from '#/report';
 import { type Batch, Harness, type Instance, installation, type Live } from '#/session';
 import { assembled, engineOf } from '#/source';
+import manifest from './uxpscript/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -30,7 +31,7 @@ const Bundle = Schema.Struct({ CFBundleName: Schema.String.annotate({ descriptio
 
 // --- [INSTALLATIONS]
 const bundle = Effect.map(
-    Effect.fromOption(Option.fromUndefinedOr(uxpscript.build?.outDir), () => HarnessError.unavailable('@rasm/harnesses-indesign-uxpscript')('script config states no build.outDir')),
+    Effect.fromOption(Option.fromUndefinedOr(uxpscript.build?.outDir), () => HarnessError.unavailable(manifest.name)('script config states no build.outDir')),
     (folder) => pathToFileURL(`${folder}/main.${ENGINES.uxpscript.extensions[0]}`),
 );
 const installed = Effect.gen(function* () {
@@ -60,9 +61,7 @@ const refusal = (held: typeof Engine.Type, hosted: typeof HostCase.Type, binary:
 
 // --- [DIGESTS]
 const unpacked = Effect.fn('unpacked')(function* (file: string) {
-    const entries = Array.fromIterable(String.linesIterator(yield* printed('unzip', ['-Z1', file])))
-        .filter((entry) => entry !== 'META-INF/metadata.xml')
-        .toSorted();
+    const entries = (yield* printedLines('unzip', ['-Z1', file])).filter((entry) => entry !== 'META-INF/metadata.xml').toSorted();
     return Array.zip(entries, yield* Effect.forEach(entries, (entry) => checked('unzip', ['-p', file, entry]))).flat();
 });
 

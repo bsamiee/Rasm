@@ -1,8 +1,7 @@
 import { Schema, Struct } from 'effect';
-import { answers, Expression } from '#/cases';
+import { answers, EXTENDSCRIPT, Expression } from '#/cases';
 import { Assignments, added, additions, Copy, documents, Enumerated, Steps } from '#/precondition';
 import { hostCase, Outcome, Records, recorded, reply, Surveying } from '#/results';
-import { EXTENDSCRIPT } from '#/source';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

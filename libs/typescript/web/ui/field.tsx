@@ -6,13 +6,16 @@ import { CheckboxButton, CheckboxField, type CheckboxFieldProps, FieldError, Inp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Field = Object.assign(
-    ({ label, description, multiline = false, placeholder, ...props }: Omit<TextFieldProps, 'children'> & { readonly label: string; readonly description?: string; readonly multiline?: boolean; readonly placeholder?: string }) => (
-        <TextField {...props}>
-            <Label>{label}</Label>
-            {multiline ? <TextArea placeholder={placeholder} /> : <Input {...(placeholder === undefined ? {} : { placeholder })} />}
-            <Field.Help description={description} />
-        </TextField>
-    ),
+    ({ label, description, multiline = false, placeholder, ...props }: Omit<TextFieldProps, 'children'> & { readonly label: string; readonly description?: string; readonly multiline?: boolean; readonly placeholder?: string }) => {
+        const entry = Record.getSomes({ placeholder: Option.fromUndefinedOr(placeholder) });
+        return (
+            <TextField {...props}>
+                <Label>{label}</Label>
+                {multiline ? <TextArea {...entry} /> : <Input {...entry} />}
+                <Field.Help description={description} />
+            </TextField>
+        );
+    },
     {
         Help: ({ description }: { readonly description?: string | undefined }) => (
             <>

@@ -97,9 +97,10 @@ impl Serialize for Row {
                 map.end()
             }
             Self::Refused => {
+                let hidden = "hidden";
                 let mut map = serializer.serialize_map(Some(1))?;
-                map.serialize_entry("refused", "hidden")?;
-                map.serialize_entry(&Key::Refused, "hidden")?;
+                map.serialize_entry("refused", hidden)?;
+                map.serialize_entry(&Key::Refused, hidden)?;
                 map.end()
             }
         }

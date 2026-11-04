@@ -38,7 +38,7 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
 }) {
     static readonly Choice = Schema.Struct({ cluster: Schema.Int, glyph: Schema.Int, feature: Schema.String }).annotate({ description: 'Alternate glyph of one shaped cluster, feature selecting it in run features' });
     static readonly of = Effect.fn('Layout.of')(function* ({ handle, sfnt, names, tables }: { readonly handle: Face; readonly sfnt: Font; readonly names: Names; readonly tables: typeof Tables.Type }) {
-        const records = yield* Effect.try({ try: () => featureRecords(handle, names), catch: (cause) => TypographyError.make({ subject: 'GSUB FeatureParams', cause }) });
+        const records = yield* Effect.try({ try: () => featureRecords(handle, names), catch: TypographyError.unreadable('GSUB FeatureParams') });
         const substituting = records.filter(({ table, tag }) => table === 'GSUB' && (tag === 'jalt' || CHOOSABLE.test(tag) || STYLISTIC.test(tag)));
         const indexes = Array.dedupe(substituting.flatMap(Struct.get('lookups')));
         const decoded = yield* Option.match(tables.GSUB, { onNone: () => Effect.succeed(Array.empty<typeof Lookup.Type>()), onSome: ({ lookupList }) => Effect.forEach(indexes, (index) => Schema.decodeUnknownEffect(Lookup)(lookupList.get(index))) });

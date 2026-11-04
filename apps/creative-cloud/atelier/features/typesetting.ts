@@ -2,9 +2,9 @@ import { AvailableFace, Kerns, type Runs, Typeset } from '@rasm/automation';
 import { Automation } from '@rasm/automation/node';
 import { progress, Route, registerTool } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
-import { Settings, Symbols } from '@rasm/typography';
+import { Settings } from '@rasm/typography';
 import { Quran } from '@rasm/typography/quran';
-import { Face, Kerning, Word } from '@rasm/typography/shaping';
+import { Face, Kerning, Symbols, Word } from '@rasm/typography/shaping';
 import { Array, Cause, Effect, Equal, FileSystem, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import { AbsolutePath } from '#/absolute-path';
@@ -18,7 +18,7 @@ type Span = (typeof Runs.Result.Type)['runs'][number] & { readonly start: number
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Source = Schema.TaggedUnion({
+const QuranSource = Schema.TaggedUnion({
     Csv: {
         ayahs: AbsolutePath.annotate({ description: 'Ayah CSV path' }),
         surahs: AbsolutePath.annotate({ description: 'Surah CSV path' }),
@@ -51,7 +51,7 @@ const TypesetTool = Tool.make('typeset', {
 const QuranTool = Tool.make('quran', {
     description: 'Reads ayahs of surah or division from CSV files or mushaf, its basmalah a line before ayah 1, each ayah closed by a number mark the named CoreText face draws and each line by separator, change inserts them',
     parameters: Schema.Struct({
-        source: Source,
+        source: QuranSource,
         selection: Quran.Selection,
         face: AvailableFace.Name,
         numberingSystem: Settings.fields.numberingSystem,
@@ -129,8 +129,8 @@ const typeset = Effect.fnUntraced(function* (client: Client, { target, settings 
 
 const typesetting = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType<typeof routes>>) {
     const [automation, files] = yield* Effect.all([Automation, FileSystem.FileSystem]);
-    const faceOf = (name: typeof AvailableFace.Name.Type) => Effect.flatMap(Effect.flatMap(automation.face({ name }), AvailableFace.source), Face.open);
-    const read = Source.match({
+    const faceOf = (name: typeof AvailableFace.Name.Type) => automation.face({ name }).pipe(Effect.flatMap(Struct.get('source')), Effect.flatMap(Face.open));
+    const read = QuranSource.match({
         Csv: ({ ayahs, surahs, columns, riwayah }) => Effect.flatMap(Effect.all({ ayahs: files.readFileString(ayahs), surahs: files.readFileString(surahs) }), (csv) => Quran.decode(csv, columns, riwayah)),
         Mushaf: ({ file, render }) => Effect.flatMap(Effect.transposeOption(Option.map(file, (path) => files.readFileString(path))), (json) => Quran.mushaf(json, render)),
     });

@@ -76,7 +76,7 @@ def test_alpha_display_uses_the_default_even_for_a_render_view_file(editor: _Edi
 
 @pytest.mark.parametrize("render_view", [False, True])
 def test_projection_matches_independent_ocio_operations_and_retains_alpha(editor: _Editor, *, render_view: bool) -> None:
-    """Full associated RGBA agrees with separate exposure, display-view and gamma transforms."""
+    """Full associated RGBA agrees with separate exposure, display-view and gamma transforms to float32 processor rounding."""
     context, _, space, _, image, settings, shown = editor
     config = PyOpenColorIO.GetCurrentConfig()
     display = shown.display_device
@@ -97,7 +97,7 @@ def test_projection_matches_independent_ocio_operations_and_retains_alpha(editor
     config.getProcessor(transforms).getDefaultCPUProcessor().applyRGB(expected)
 
     def matches(pixels: npt.NDArray[np.float32]) -> None:
-        np.testing.assert_array_equal(pixels[..., :3], expected * alpha)
+        np.testing.assert_allclose(pixels[..., :3], expected * alpha, rtol=1e-4)
         np.testing.assert_array_equal(pixels[..., 3:], alpha)
         np.testing.assert_array_equal(associated, original)
 

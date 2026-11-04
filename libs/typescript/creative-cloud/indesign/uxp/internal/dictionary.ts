@@ -1,5 +1,6 @@
 import indesign, { type InDesignDOMObject, type MenuAction } from 'adobe:indesign';
 import { HostError, ObjectModel } from '@rasm/automation';
+import { Unmatched } from '@rasm/search';
 import { Array, Effect, flow, Match, Number, Option, Record, Schema, SchemaGetter, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -7,6 +8,9 @@ import { Array, Effect, flow, Match, Number, Option, Record, Schema, SchemaGette
 const ALTERNATIVE = /\. Can also accept: |, | or /u;
 const OPTIONAL = '. (Optional)';
 const AGGREGATE_FIELD = 'properties';
+const STYLISTIC_SETS = 20;
+const STYLISTIC_SET_ACTION = 0x69_74;
+const STYLISTIC_SET_ACTIONS = { minimum: STYLISTIC_SET_ACTION, maximum: STYLISTIC_SET_ACTION + STYLISTIC_SETS - 1 };
 const READER = `function declared(list, more) {
     var out = [];
     for (var index = 0; index < list.length(); index++) {
@@ -70,20 +74,21 @@ const Declared = Schema.Tuple([Schema.OptionFromNullOr(Schema.String), Schema.Ar
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const unavailableReason = (kind: string, field: string, observed: Option.Option<InDesignDOMObject<unknown>>, writing: boolean): Option.Option<string> =>
-    Match.value({ kind, field, writing, stylistic: !Option.filter(observed, (each): each is MenuAction => each.constructorName === 'MenuAction').pipe(Option.exists(({ id }) => !Number.between(id, { minimum: 0x69_74, maximum: 0x69_87 }))) }).pipe(
+    Match.value({ kind, field, writing, stylistic: !Option.filter(observed, (each): each is MenuAction => each.constructorName === 'MenuAction').pipe(Option.exists(({ id }) => !Number.between(id, STYLISTIC_SET_ACTIONS))) }).pipe(
         Match.when({ kind: Match.is('FindChangeDropShadowSetting', 'FindChangeInnerShadowSetting'), field: Match.is('angle', 'distance', 'xOffset', 'yOffset', AGGREGATE_FIELD) }, () => 'Shadow fields crash native Transparency provider'),
         Match.when({ kind: 'EventListener', field: Match.is('handler', AGGREGATE_FIELD), writing: false }, () => 'Ended UXP context handlers crash InDesign'),
         Match.when({ kind: 'MenuAction', field: Match.is('enabled', 'checked', AGGREGATE_FIELD), writing: false, stylistic: true }, () => 'Stylistic Set state crashes native CharacterPanel provider'),
         Match.option,
     );
-const readDeclaration = (kind: string) =>
+const readDeclaration = (kind: string, candidates: readonly string[]) =>
     Effect.try({ try: (): unknown => indesign.app.doScript(READER, indesign.ScriptLanguage.JAVASCRIPT, [kind]), catch: HostError.refused(`dictionary class ${kind}`) }).pipe(
         Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.OptionFromNullOr(Declared)), Effect.orDie)),
-        Effect.map(Option.map(Struct.evolve({ fields: Record.map((row: (typeof Declaration.Type.fields)[string]) => ({ ...row, unavailable: unavailableReason(kind, row.name, Option.none(), false) })) }))),
+        Effect.flatMap(Effect.fromOption(() => Unmatched.make({ subject: 'class', query: Option.some(kind), candidates }))),
+        Effect.map(Struct.evolve({ fields: Record.map((row: (typeof Declaration.Type.fields)[string]) => ({ ...row, unavailable: unavailableReason(kind, row.name, Option.none(), false) })) })),
     );
 const declaredMember = <S extends typeof ObjectModel.Field | typeof ObjectModel.Method>(schema: S, declared: Record.ReadonlyRecord<string, S['Type']>, { name, settable = false }: { readonly name: string; readonly settable?: boolean }) =>
     Option.match(Record.get(declared, name), { onSome: Effect.succeed, onNone: () => Effect.orDie(Schema.decodeEffect(schema)({ name, settable, parameters: [] })) });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AGGREGATE_FIELD, declaredMember, readDeclaration, unavailableReason };
+export { AGGREGATE_FIELD, declaredMember, readDeclaration, STYLISTIC_SETS, unavailableReason };

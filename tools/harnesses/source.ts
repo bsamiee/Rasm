@@ -11,7 +11,6 @@ interface Mapped {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const EXTENDSCRIPT = ['jsx', 'jsxbin', 'js'] as const;
 const JSXBIN = /(?<quote>["'])(?<literal>@JSXBIN@(?:\\.|(?!\k<quote>)[^\\])*)\k<quote>/su;
 const BYTE_ORDER_MARK = /^\u{FEFF}/u;
 const CONTINUATION = /\\\r?\n/gu;
@@ -83,4 +82,4 @@ const assembled = Effect.fn('assembled')(function* (engine: URL) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assembled, EXTENDSCRIPT, engineOf, type Mapped, prepared };
+export { assembled, engineOf, type Mapped, prepared };

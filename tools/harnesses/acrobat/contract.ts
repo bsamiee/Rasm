@@ -48,7 +48,12 @@ const Staged = Schema.Struct({
 });
 const Placed = Staged.mapFields(
     Struct.assign({
-        sandbox: Schema.String.annotate({ description: 'Case folder under the absolute-path read-write exception of the Acrobat sandbox entitlement, holding the document copies and every file the case writes until they move to the case folder' }),
+        sandbox: Schema.String.annotate({ description: 'Case folder under the sandbox exception holding the document copies and every file the case writes until they move to the case folder' }),
+    }),
+);
+const Rooted = Staged.mapFields(
+    Struct.assign({
+        exception: Schema.NonEmptyString.annotate({ description: 'Absolute-path read-write exception of the app sandbox entitlement the survey states' }),
     }),
 );
 const HostCase = hostCase({ precondition: Placed, folder: Schema.String.annotate({ description: 'Case folder the sandbox files move to after the case' }), ...Struct.omit(answers, ['presses']) });
@@ -64,8 +69,11 @@ const Viewer = Schema.Struct({
     language: Schema.String.annotate({ description: 'app.language, the UI language code' }),
     plugIns: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.Finite, loaded: Schema.Boolean, certified: Schema.Boolean })).annotate({ description: 'app.plugIns, deciding which objects and members exist' }),
 });
-const Lockdown = Schema.Struct({ lockdown: Schema.optionalKey(Schema.String.annotate({ description: 'sha256 of the FeatureLockDown file deciding execMenuItem and launch permissions' })) }).annotate({ description: 'Install state read after launch that decides answers beside the version' });
-const Survey = Schema.Struct({ model: Model, viewer: Viewer, host: Lockdown }).annotate({ description: 'Installation facts the index holds per bundle identifier and version' });
+const Install = Schema.Struct({
+    sandbox: Schema.NonEmptyString.annotate({ description: 'Absolute-path read-write exception of the app sandbox entitlement, the folder case files pass through' }),
+    lockdown: Schema.optionalKey(Schema.String.annotate({ description: 'sha256 of the FeatureLockDown file deciding execMenuItem and launch permissions' })),
+}).annotate({ description: 'Install state read after launch that decides answers beside the version' });
+const Survey = Schema.Struct({ model: Model, viewer: Viewer, host: Install }).annotate({ description: 'Installation facts the index holds per bundle identifier and version' });
 const batch = {
     home: Schema.String.annotate({ description: 'POSIX home folder, found in a host path to read the volume prefix of device-independent paths' }),
     boxes: Schema.Array(Schema.Literals(BOXES)),
@@ -92,4 +100,4 @@ const Answered = replied(Schema.Struct({ outcome: HostOutcome, kept: Schema.Arra
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answered, BOXES, Engine, EngineRequest, HostCase, HostOutcome, Lockdown, Model, Page, Placed, Recorded, Staged, Survey, Surveyed };
+export { Answered, BOXES, Engine, EngineRequest, HostCase, HostOutcome, Install, Model, Page, Placed, Recorded, Rooted, Staged, Survey, Surveyed };

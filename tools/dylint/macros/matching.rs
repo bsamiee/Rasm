@@ -1,5 +1,4 @@
 use core::{iter, ops::ControlFlow};
-use std::collections::VecDeque;
 
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
@@ -162,18 +161,17 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 ExprKind::Binary(operation, left, _) if operator(operation.node) => Some(left),
                 _ => None,
             })
-            .try_fold(VecDeque::new(), |mut patterns, node| {
-                let leaf = match node.kind {
+            .map(|node| {
+                compatible(match node.kind {
                     ExprKind::Binary(operation, _, right) if operator(operation.node) => right,
                     _ => node,
-                };
-                patterns.push_front(compatible(leaf)?);
-                Some(patterns)
-            });
+                })
+            })
+            .collect::<Option<Vec<_>>>();
             let Some(patterns) = patterns else { return };
             let polarity = if negated { "negated " } else { "" };
             span_lint_hir_and_then(cx, CHAINED_MATCHES, expr.hir_id, expr.span, "native pattern tests repeat the same stable subject", |diag| {
-                let patterns = patterns.iter().map(|pattern| snippet(cx, pattern.span, "pattern")).format(" | ");
+                let patterns = patterns.iter().rev().map(|pattern| snippet(cx, pattern.span, "pattern")).format(" | ");
                 diag.help(format!("test `{patterns}` in one {polarity}`matches!` invocation"));
             });
         }

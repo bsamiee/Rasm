@@ -25,12 +25,12 @@ const Member = Schema.Struct({
     members: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.String)),
 }).annotate({ identifier: 'Member' });
 const Described = Member.mapFields(Struct.pick(['name', 'description']));
-const Name = Schema.String.check(Schema.isPattern(/^(?![\s\S]*"\])/u)).annotate({ description: 'Name holding no closing quote and bracket' });
+const SelectorName = Schema.String.check(Schema.isPattern(/^(?![\s\S]*"\])/u)).annotate({ description: 'Name holding no closing quote and bracket' });
 class Reference extends Schema.Class<Reference, { readonly brand: unique symbol }>('Reference')({ type: Schema.String, specifier: Schema.String, name: Schema.OptionFromOptionalKey(Schema.String), valid: Schema.Boolean }) {
     static readonly Selector = Schema.Union([
         Schema.TemplateLiteralParser(['[@id=', Schema.Int, ']']).pipe(Schema.decodeTo(Schema.TaggedStruct('Identified', { id: Schema.Int }), SchemaTransformation.transform({ decode: ([, id]) => ({ _tag: 'Identified', id }) as const, encode: ({ id }) => ['[@id=', id, ']'] as const }))),
         Schema.TemplateLiteralParser(['[', Schema.Int, ']']).pipe(Schema.decodeTo(Schema.TaggedStruct('Indexed', { index: Schema.Int }), SchemaTransformation.transform({ decode: ([, index]) => ({ _tag: 'Indexed', index }) as const, encode: ({ index }) => ['[', index, ']'] as const }))),
-        Schema.TemplateLiteralParser(['[@name="', Name, '"]']).pipe(Schema.decodeTo(Schema.TaggedStruct('Named', { name: Name }), SchemaTransformation.transform({ decode: ([, name]) => ({ _tag: 'Named', name }) as const, encode: ({ name }) => ['[@name="', name, '"]'] as const }))),
+        Schema.TemplateLiteralParser(['[@name="', SelectorName, '"]']).pipe(Schema.decodeTo(Schema.TaggedStruct('Named', { name: SelectorName }), SchemaTransformation.transform({ decode: ([, name]) => ({ _tag: 'Named', name }) as const, encode: ({ name }) => ['[@name="', name, '"]'] as const }))),
     ])
         .annotate({ description: 'Specifier step selector by id, index, or name' })
         .pipe(Schema.toTaggedUnion('_tag'));
@@ -50,7 +50,7 @@ class Open extends Schema.Class<Open, { readonly brand: unique symbol }>('Open')
     static readonly Result = Reference;
 
     get label(): string {
-        return `Open ${named(this.file)}`;
+        return `Open ${basename(this.file)}`;
     }
 }
 class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Render')({
@@ -62,7 +62,7 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
     static readonly Result = Schema.Void;
 
     get label(): string {
-        return `Render ${this.target} to ${named(this.file)}`;
+        return `Render ${this.target} to ${basename(this.file)}`;
     }
 }
 class ObjectModel extends Schema.Class<ObjectModel, { readonly brand: unique symbol }>('ObjectModel')({ name: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Name in any case, absent lists every name' })) }) {
@@ -101,7 +101,7 @@ const Failure = Schema.Union([Unmatched, HostError, IllegalArgument, Schema.Erro
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const named = (file: Open['file']) => decodeURIComponent(file.pathname.slice(file.pathname.lastIndexOf('/') + 1));
+const basename = (file: Open['file']) => decodeURIComponent(file.pathname.slice(file.pathname.lastIndexOf('/') + 1));
 const request = <const Tag extends string, Payload extends Schema.Top & { readonly Result: Schema.Top }>(tag: Tag, payload: Payload) => Rpc.make<Tag, Payload, Payload['Result'], typeof Failure>(tag, { payload, success: payload.Result, error: Failure });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

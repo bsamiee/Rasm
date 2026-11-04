@@ -1,4 +1,4 @@
-import { Option } from '../../monads.ts';
+import { Maybe } from '../../monads.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -29,7 +29,8 @@ interface Program {
     readonly versioned?: true;
     readonly module?: string;
     readonly execs?: readonly string[];
-    readonly walks?: { readonly when?: readonly string[]; readonly paths?: readonly string[]; readonly base?: readonly string[]; readonly before?: readonly string[] };
+    readonly walks?: { readonly when?: readonly string[]; readonly paths?: readonly string[]; readonly base?: readonly string[]; readonly before?: readonly string[]; readonly names?: readonly string[] };
+    readonly removes?: true | readonly string[];
     readonly previews?: readonly [string, ...string[]];
     readonly headless?: readonly string[];
     readonly flags?: readonly string[];
@@ -187,8 +188,6 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         fd: {
             aliases: ['fdfind'],
             valueOptions: [
-                '-e',
-                '--extension',
                 '-t',
                 '--type',
                 '-E',
@@ -218,9 +217,16 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             leading: 1,
             informational: ['-h', '-V'],
             execs: ['-x', '-X', '--exec', '--exec-batch'],
-            walks: { paths: ['--search-path'], base: ['-C', '--base-directory'] },
+            walks: { paths: ['--search-path'], base: ['-C', '--base-directory'], names: ['-e', '--extension'] },
         },
-        find: { aliases: ['gfind'], singleDashLong: true, execs: ['-exec', '-execdir', '-ok', '-okdir'], walks: { before: ['-', '(', '!'] } },
+        find: {
+            aliases: ['gfind'],
+            singleDashLong: true,
+            execs: ['-exec', '-execdir', '-ok', '-okdir'],
+            walks: { before: ['-', '(', '!'], names: ['-name', '-iname', '-path', '-ipath', '-wholename', '-iwholename', '-regex', '-iregex'] },
+            removes: ['-delete'],
+        },
+        rm: { aliases: ['rimraf', 'trash', 'unlink', 'shred'], removes: true },
         tree: { valueOptions: ['-L', '--level', '-I', '--ignore-glob', '-s', '--sort', '-t', '--time', '-w', '--width'], walks: {} },
         du: { valueOptions: ['-B', '-d', '-I', '-t', '-X', '--block-size', '--max-depth', '--threshold', '--exclude', '--exclude-from', '--files0-from', '--time-style'], walks: {} },
         git: { valueOptions: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
@@ -615,7 +621,7 @@ const programRow = (program: string): Program => PROGRAMS.get(programName(progra
 const option = (row: Program, word: string) => {
     const arity = (name: string): number => {
         const key = row.shell !== undefined && row.shell !== 'joined' && name.startsWith('+') ? `-${name.slice(1)}` : name;
-        return row.arities?.[key] ?? ([row.valueOptions, row.bodies, row.code, row.selectors, row.walks?.paths, row.walks?.base].some((listed) => listed?.includes(key) === true) ? 1 : 0);
+        return row.arities?.[key] ?? ([row.valueOptions, row.bodies, row.code, row.selectors, row.walks?.paths, row.walks?.base, row.walks?.names].some((listed) => listed?.includes(key) === true) ? 1 : 0);
     };
     const canonical = (name: string): string => row.modes?.find((aliases) => aliases.includes(name))?.[0] ?? name;
     const cut = word.indexOf('=');
@@ -697,6 +703,7 @@ const operands = (invocation: Invocation) => {
         inputs,
         roots: when?.some((name) => options.includes(name)) === false ? [] : roots,
         base: listed(base),
+        patterns: listed(row.walks?.names),
         bodies: [...(row.shell === 'joined' ? [args.join(' ')] : inputs.slice(0, Number(options.some((name) => row.shell?.includes(name) === true)))), ...(row.bodies === undefined ? [] : inputs), ...listed(row.bodies)],
     };
 };
@@ -722,18 +729,18 @@ const readsStdin = (invocation: Invocation): boolean => {
 
 // --- [PATHS]
 
-const resolvePath = (word: string, cwd: Option<string>, home: Option<string>): Option<string> => {
-    const [expanded = word] = home.map((folder) => word.replace(TILDE, (_match, user: string) => (user === '' ? folder : `${folder.slice(0, folder.lastIndexOf('/'))}/${user}`))).toArray();
-    const [absolute = expanded] = cwd.map((folder) => (expanded.startsWith('/') ? expanded : `${folder}/${expanded}`)).toArray();
+const resolvePath = (word: string, cwd: Maybe<string>, home: Maybe<string>): Maybe<string> => {
+    const [expanded = word] = home.map((folder) => word.replace(TILDE, (_match, user: string) => (user === '' ? folder : `${folder.slice(0, folder.lastIndexOf('/'))}/${user}`))).values;
+    const [absolute = expanded] = cwd.map((folder) => (expanded.startsWith('/') ? expanded : `${folder}/${expanded}`)).values;
     return absolute.startsWith('/')
-        ? Option.some(
+        ? Maybe.some(
               `/${absolute
                   .split('/')
                   .filter((part) => part !== '' && part !== '.')
                   .reduce<readonly string[]>((kept, part) => (part === '..' ? kept.slice(0, -1) : kept.concat(part)), [])
                   .join('/')}`,
           )
-        : Option.none;
+        : Maybe.none;
 };
 
 const basename = (path: string): string => path.replace(DIRNAME, '');

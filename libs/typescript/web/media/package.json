@@ -5,6 +5,7 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
+        "#/pdf/*": "./pdf/*.tsx",
         "#/*": "./*.ts"
     },
     "exports": {

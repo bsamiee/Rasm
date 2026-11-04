@@ -8,7 +8,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        ".": "./contract.ts",
         "./uxp": "./uxp.ts"
     },
     "dependencies": {

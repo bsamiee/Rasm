@@ -6,7 +6,7 @@ import { Button } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { draft, portfolio, updateEntry } from '#/editor/state.ts';
 import { Destination, nextDestination, pendingUploads } from '#/editor/uploader.ts';
-import { choice, details, entryTitle, format, options } from '#/media/labels.ts';
+import { choiceLayout, entryTitle, format, joinDetails, literalOptions } from '#/media/labels.ts';
 import { Entry, type EntryId } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -53,7 +53,7 @@ const EntryFields = ({ entry, titleId }: { readonly entry: typeof Entry.Type; re
             <div className="flex flex-col gap-5 py-3">
                 <div className="field-pair">
                     <Field id={titleId} label="Title" onChange={(title) => update({ title })} value={entry.title} />
-                    <Choice {...choice} label="Entry type" onChange={({ id }) => update({ kind: id })} options={options(Entry.fields.kind.literals)} value={entry.kind} />
+                    <Choice {...choiceLayout} label="Entry type" onChange={({ id }) => update({ kind: id })} options={literalOptions(Entry.fields.kind.literals)} value={entry.kind} />
                 </div>
                 <div className="flex flex-col gap-4.5">
                     <div className="field-pair">
@@ -68,7 +68,7 @@ const EntryFields = ({ entry, titleId }: { readonly entry: typeof Entry.Type; re
                 </div>
                 {entry.cover && (
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
-                        <span className="eyebrow min-w-0 wrap-anywhere">{details(['Cover', entry.cover.asset.name])}</span>
+                        <span className="eyebrow min-w-0 wrap-anywhere">{joinDetails(['Cover', entry.cover.asset.name])}</span>
                         <button className="button button-ghost" onClick={() => setDraft(updateEntry(entry.id, Struct.omit(['cover'])))} type="button">
                             Clear cover
                         </button>

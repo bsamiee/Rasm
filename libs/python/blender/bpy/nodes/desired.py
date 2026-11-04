@@ -117,7 +117,7 @@ class MenuItem(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class MenuItems(ItemContent, frozen=True, kw_only=True):
-    """Ordered Menu Switch items, the content a Menu Switch node holds."""
+    """Ordered Menu Switch items, the content a Menu Switch node holds, an absent selection keeping a native one that names an item and taking the first item otherwise."""
 
     items: tuple[MenuItem, ...]
     selected: MenuItem | None = None
@@ -185,6 +185,8 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
                 answers.append(written(item, ("description",), wanted.description))
             current = (*(identifier for identifier in inventory if identifier in kept), *(identifier for identifier, retained in zip(desired, matched) if retained is None))
             ordered_items(current, desired, switch.enum_items.move)
+            if selection is None and not any(item.name == inputs["Menu"].default_value for item in switch.enum_items):
+                selection = next((item.name for item in switch.enum_items), None)
             if selection is not None:
                 answers.append(written(inputs["Menu"], ("default_value",), selection))
         except (RuntimeError, TypeError, ValueError) as error:

@@ -1,15 +1,14 @@
 // biome-ignore-all lint/suspicious/noTemplateCurlyInString: Bash substitutions are literal test input.
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { expect, it } from '@effect/vitest';
-import { type CommandRequest, commandDecision, Option, type System } from '@rasm/function-hooks';
-import { Config, Duration, Effect, FileSystem, Path, Stream } from 'effect';
+import { type CommandRequest, commandDecision, Maybe, type System } from '@rasm/function-hooks';
+import { Config, Duration, Effect, FileSystem, Option, Path, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { operands } from '#/plugins/function-hooks/policies/internal/invocation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ROOT = new URL('../../../../..', import.meta.url).pathname.replace(/\/$/u, '');
-const foreground: CommandRequest = { kind: 'foreground', timeout: Option.none };
+const foreground: CommandRequest = { kind: 'foreground', timeout: Maybe.none };
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -17,7 +16,7 @@ const hosted = Effect.fn('hosted')(function* (installed: boolean, overrides: Rea
     const [fs, path, home, context] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME'), Effect.context<NodeServices>()]);
     const run = Effect.runPromiseWith(context);
     const plugin = path.join(ROOT, 'plugins', 'function-hooks');
-    const projects: Readonly<Record<string, readonly string[]>> = { '.': ['rasm'], 'plugins/function-hooks': ['@rasm/function-hooks'], 'rasm-mcp': ['rasm-mcp'] };
+    const roots: Readonly<Record<string, string>> = { '.': 'rasm', 'plugins/function-hooks': '@rasm/function-hooks' };
     const targets: Readonly<Record<string, object>> = {
         rasm: {
             'lint:biome': { options: { command: 'biome check --error-on-warnings' } },
@@ -54,11 +53,12 @@ const hosted = Effect.fn('hosted')(function* (installed: boolean, overrides: Rea
             ),
         );
     const spawn: System['run'] = (argv, init) => {
-        const [file, , , tool, , subject, value] = argv;
-        const listed = subject === 'projects' ? (projects[String(argv.at(-1))] ?? []) : { targets: targets[String(value)] ?? {} };
+        const [file, , , tool, , , value] = argv;
+        const name = roots[String(value)] ?? String(value);
+        const shown = targets[name];
         const stubs: Readonly<Record<string, boolean>> = { timeout: true, mise: tool === 'nx' };
-        const output = file === 'timeout' ? '' : JSON.stringify(listed);
-        return stubs[file] === true ? run(Effect.succeed({ exitCode: Number(file === 'timeout' && !installed), stderr: '', stdout: output })) : spawned(argv, init);
+        const output = file === 'timeout' ? '' : JSON.stringify({ name, targets: shown });
+        return stubs[file] === true ? run(Effect.succeed({ exitCode: Number(file === 'timeout' ? !installed : shown === undefined), stderr: '', stdout: output })) : spawned(argv, init);
     };
     const scanner = (yield* Effect.promise(() => spawned(['mise', 'which', 'ast-grep'], { cwd: plugin, stdin: '' }))).stdout.trim();
     const folder = yield* fs.makeTempDirectoryScoped();
@@ -71,15 +71,14 @@ const hosted = Effect.fn('hosted')(function* (installed: boolean, overrides: Rea
                         run: spawn,
                         exists: (entry) => run(fs.exists(entry)),
                         read: (entry) => run(fs.readFileString(entry)),
-                        environment: (name) => run(Effect.map(Config.String(name).pipe(Config.withDefault(undefined)), Option.fromNullable)),
+                        environment: (name) => run(Effect.map(Config.option(Config.String(name)), Option.match({ onNone: () => Maybe.none, onSome: Maybe.some }))),
                         scanner,
                         plugin,
-                        root: Option.some(ROOT),
+                        root: Maybe.some(ROOT),
                         cwd: ROOT,
-                        home: Option.some(home),
+                        home: Maybe.some(home),
                     },
                     command,
-                    'rasm',
                     request,
                 ),
             ),
@@ -114,15 +113,6 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
     const blind = 'Command waits in the foreground, use Monitor or run_in_background';
     const background: CommandRequest = { kind: 'background' };
     const monitor: CommandRequest = { kind: 'monitor' };
-    methods.each([
-        [['ast-grep', 'scan', '--error=no-suppress-all', 'tools'], { inputs: ['scan', 'tools'], values: [['--error', 'no-suppress-all']] }],
-        [['ast-grep', 'outline', '--outline-rules', 'catalog.yml', '--items', 'all', '--view', 'expanded', '--match', '^Item$', '--type', 'class', 'source.ts'], { inputs: ['outline', 'source.ts'] }],
-        [['biome', 'check', 'first.ts', '--', '-second.ts'], { inputs: ['check', 'first.ts', '-second.ts'] }],
-        [['biome', 'check', '--fix'], { options: ['--write'] }],
-        [['ast-grep', 'scan', '-Ui', 'tools'], { options: ['--update-all', '--interactive'] }],
-        [['find', 'tools', '-exec', 'printf', '%s', '{}', ';'], { roots: ['tools'], inner: ['printf', '%s', '{}'] }],
-        [['bash', '-n', '+o', 'noexec', '-c', 'rm -rf .', '-n'], { executesSource: true, inputs: ['rm -rf .', '-n'], values: [['+o', 'noexec']] }],
-    ] as const)('parses native arguments %j', (invocation, expected) => expect(operands(invocation)).toMatchObject(expected));
     methods.effect.each([
         ['timeout 600 cargo clippy -p rasm-mcp 2>&1 | tail -5', 'set -o pipefail; nx run rasm-mcp:typecheck:clippy 2>&1 | tail -5'],
         ['timeout -k 5 2m nx run rasm:check', 'nx run rasm:check'],
@@ -177,16 +167,16 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
         ['caffeinate -i nx run rasm:check', 'nx run rasm:check'],
     ] as const)('rewrites %s', ([command, text]) => decided(command, foreground, false, { kind: 'rewrite', command: text, background: false }));
     methods.effect.each([
-        ['trailing & becomes run_in_background', 'nx run portfolio:serve &', foreground, false, { kind: 'rewrite', command: 'nx run portfolio:serve ', background: true, notice: Option.some('Call runs in the background for &, wait for its completion notice') }],
+        ['trailing & becomes run_in_background', 'nx run portfolio:serve &', foreground, false, { kind: 'rewrite', command: 'nx run portfolio:serve ', background: true, notice: Maybe.some('Call runs in the background for &, wait for its completion notice') }],
         ['trailing & drops in a background call', 'nx run portfolio:serve &', background, false, { kind: 'rewrite', command: 'nx run portfolio:serve ', background: false }],
         [
             'missing timeout becomes call timeout',
             `timeout ${Duration.toSeconds(deadline)} nx run rasm:check`,
             foreground,
             false,
-            { kind: 'rewrite', command: 'nx run rasm:check', timeout: Option.some(Duration.toMillis(deadline)), notice: Option.some(`timeout is not installed, call timeout set to ${Duration.toSeconds(deadline)}`) },
+            { kind: 'rewrite', command: 'nx run rasm:check', timeout: Maybe.some(Duration.toMillis(deadline)), notice: Maybe.some(`timeout is not installed, call timeout set to ${Duration.toSeconds(deadline)}`) },
         ],
-        ['missing timeout over the maximum caps the call timeout', 'timeout 2h nx run rasm:check', foreground, false, { kind: 'rewrite', timeout: Option.some(Duration.toMillis(deadline)), notice: Option.some(`timeout is not installed, call timeout capped at ${Duration.toSeconds(deadline)}s`) }],
+        ['missing timeout over the maximum caps the call timeout', 'timeout 2h nx run rasm:check', foreground, false, { kind: 'rewrite', timeout: Maybe.some(Duration.toMillis(deadline)), notice: Maybe.some(`timeout is not installed, call timeout capped at ${Duration.toSeconds(deadline)}s`) }],
         ['installed timeout stays', `timeout ${Duration.toSeconds(deadline)} nx run rasm:check`, foreground, true, { kind: 'allow' }],
         ['read -t leak becomes sleep in Monitor', 'until test -f done; do read -t 1 x < <(tail -f /dev/null); done', monitor, false, { kind: 'rewrite', command: 'until test -f done; do sleep 1; done' }],
         [

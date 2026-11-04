@@ -33,16 +33,15 @@ const Kind = Schema.Literals(Struct.keys(COLLECTIONS));
 const Step = Schema.TemplateLiteralParser(['/', Schema.String.check(Schema.isPattern(/^\w+$/u)), Reference.Selector, Schema.String]);
 const Identity = Schema.Struct({ id: Schema.Int });
 const Titled = Schema.Struct({ name: Schema.String });
-const Instance = Schema.declare(Predicate.isObjectKeyword);
-const Element = Schema.Struct({
+const Specifiable = Schema.Struct({
     typename: Schema.String,
     id: Schema.OptionFromOptionalKey(Schema.Int),
     name: Schema.OptionFromOptionalKey(Schema.String),
     postScriptName: Schema.OptionFromOptionalKey(Schema.String),
-    document: Schema.OptionFromOptionalKey(Instance),
-    parent: Schema.OptionFromOptionalNullOr(Instance),
+    document: Schema.OptionFromOptionalKey(Schema.ObjectKeyword),
+    parent: Schema.OptionFromOptionalNullOr(Schema.ObjectKeyword),
 });
-const Rendered = Schema.declare((input: unknown): input is Document | Document['layers'][number] => Predicate.hasProperty(input, 'typename') && (input.typename === 'Document' || input.typename === 'Layer'));
+const Renderable = Schema.declare((input: unknown): input is Document | Document['layers'][number] => Predicate.hasProperty(input, 'typename') && (input.typename === 'Document' || input.typename === 'Layer'));
 const Png = Schema.Struct({
     method: Schema.optionalKey(Schema.Enum(constants.PNGMethod)),
     compression: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 9 }))),
@@ -88,7 +87,7 @@ const isolated = (layers: readonly Document['layers'][number][], id: number): Ef
         (layer) => (flattened(layer, 'layer').some((each) => Schema.is(Identity)(each) && each.id === id) ? isolated(layer.layers ?? [], id) : Effect.try({ try: () => Object.assign(layer, { visible: false }), catch: HostError.refused(`visible of layer ${layer.id}`) })),
         { discard: true },
     );
-const rendered = Effect.fnUntraced(function* (longestSide: number, { found, written, options }: { readonly found: typeof Rendered.Type; readonly written: File; readonly options: Option.Option<typeof Png.Type> }, { hostControl }: ExecutionContext) {
+const rendered = Effect.fnUntraced(function* (longestSide: number, { found, written, options }: { readonly found: typeof Renderable.Type; readonly written: File; readonly options: Option.Option<typeof Png.Type> }, { hostControl }: ExecutionContext) {
     const { document, placed } = Match.value(found).pipe(Match.discriminatorsExhaustive('typename')({ Document: (opened) => ({ document: opened, placed: [] }), Layer: (layer) => ({ document: layer.document, placed: [layer] }) }));
     const copy = yield* Effect.tryPromise({ try: () => document.duplicate(), catch: HostError.refused(`duplicate of document ${document.id}`) });
     yield* Effect.tryPromise({ try: () => hostControl.registerAutoCloseDocument(copy.id), catch: HostError.refused(`registerAutoCloseDocument of document ${copy.id}`) });
@@ -119,7 +118,7 @@ const resolve = (path: string, container: object = app): Effect.Effect<object, U
               return yield* resolve(rest, yield* located(container, kind, selector));
           });
 const reference = Effect.fnUntraced(function* (value: object): Effect.fn.Return<Reference, Cause.NoSuchElementError> {
-    const element = yield* Effect.fromOption(Schema.decodeUnknownOption(Element)(value));
+    const element = yield* Effect.fromOption(Schema.decodeUnknownOption(Specifiable)(value));
     const kind = yield* Effect.fromOption(Schema.decodeUnknownOption(Kind)(String.uncapitalize(element.typename)));
     const rooted = COLLECTIONS[kind] in app;
     const container: object = rooted ? app : yield* Effect.fromOption(Option.flatMap(Option.firstSomeOf([element.document, element.parent]), owner));
@@ -167,7 +166,7 @@ const stored = (url: URL, opened: (files: Uxp['Service']['uxp']['storage']['loca
         ),
     );
 const executed = (payload: ExecuteScript, { hostControl }: ExecutionContext) =>
-    app.documents.filter(Predicate.isObjectKeyword).reduce(
+    app.documents.reduce(
         (inner, { id }) =>
             Effect.acquireUseRelease(
                 Effect.tryPromise({ try: () => hostControl.suspendHistory({ documentID: id, name: payload.label }), catch: HostError.refused(`suspendHistory of document ${id}`) }),
@@ -184,7 +183,7 @@ const executed = (payload: ExecuteScript, { hostControl }: ExecutionContext) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const server = Layer.merge(
+const handlers = Layer.merge(
     Photoshop.Contract.toLayer({
         execute_script: (payload) => modal(payload.label, (context) => executed(payload, context)),
         open: ({ file, label }) =>
@@ -196,7 +195,7 @@ const server = Layer.merge(
         render: ({ target, longestSide, options, file, label }) =>
             Effect.all({
                 options: Effect.transposeOption(Option.map(options, Schema.decodeUnknownEffect(Png, { onExcessProperty: 'error' }))),
-                found: resolve(target).pipe(Effect.filterOrFail(Schema.is(Rendered), () => new Cause.IllegalArgumentError(`${target} names no document, layer, or artboard`))),
+                found: resolve(target).pipe(Effect.filterOrFail(Schema.is(Renderable), () => new Cause.IllegalArgumentError(`${target} names no document, layer, or artboard`))),
                 written: stored(file, (files, href) => files.createEntryWithUrl(href, { overwrite: true })),
             }).pipe(Effect.flatMap((prepared) => modal(label, (context) => rendered(longestSide, prepared, context)))),
         object_model: (payload) =>
@@ -216,9 +215,9 @@ const server = Layer.merge(
     }),
     Layer.succeed(Photoshop.DisplayDialogs)((effect) => Effect.scoped(Effect.andThen(Uxp.preserve(app, { displayDialogs: constants.DialogModes.NONE }), effect))),
 );
-const photoshopPeer = Peer.dial(
+const linkPhotoshop = Peer.dial(
     Photoshop.Contract,
-    server,
+    handlers,
     Effect.tryPromise({ try: () => action.batchPlay([{ _obj: 'get', _target: [{ _property: 'executablePath' }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }], {}), catch: HostError.refused('executablePath') }).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Executable)),
         Effect.zip(Path.Path),
@@ -228,4 +227,4 @@ const photoshopPeer = Peer.dial(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { photoshopPeer };
+export { linkPhotoshop };

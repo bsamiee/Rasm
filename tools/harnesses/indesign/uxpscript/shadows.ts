@@ -3,7 +3,7 @@ import indesign, { app, type ScriptLanguage } from 'adobe:indesign';
 import uxp from 'adobe:uxp';
 import { Array, Function, Match, Option, Predicate, Record } from 'effect';
 import { activeOf, type LIVE } from '#/state';
-import { compiled, field, type Node, names, type Session, scope } from '#/values';
+import { compiled, field, type Members, names, type Session, scope } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -55,12 +55,12 @@ const prototypes = (session: Session) => {
 };
 const dialogs = (session: Session): unknown[] => {
     const list: unknown[] = [];
-    const node = (kind: string, owner: unknown, flat: Node[]): Node => {
-        const made: Node = { parent: owner, isValid: true, kind, staticLabel: '', editContents: '', editValue: 0, selectedIndex: 0, stringList: [], checkedState: kind === 'enablingGroups', selectedButton: 0, minWidth: 0 };
+    const node = (kind: string, owner: unknown, flat: Members[]): Members => {
+        const made: Members = { parent: owner, isValid: true, kind, staticLabel: '', editContents: '', editValue: 0, selectedIndex: 0, stringList: [], checkedState: kind === 'enablingGroups', selectedButton: 0, minWidth: 0 };
         const collection = (child: string) => {
             const listed: unknown[] = [];
             return Object.assign(listed, {
-                add: (properties: Node = {}) => {
+                add: (properties: Members = {}) => {
                     const added = Object.assign(node(child, made, flat), properties);
                     Object.assign(made, child === 'radiobuttonControls' && properties.checkedState === true ? { selectedButton: listed.length } : {});
                     listed.push(added);
@@ -79,8 +79,8 @@ const dialogs = (session: Session): unknown[] => {
         );
     };
     return Object.assign(list, {
-        add: (properties: Node = {}) => {
-            const flat: Node[] = [];
+        add: (properties: Members = {}) => {
+            const flat: Members[] = [];
             const dialog = Object.assign(node('dialog', app, flat), { name: '', canCancel: true }, properties);
             Object.assign(dialog, {
                 show: () => {
@@ -129,7 +129,7 @@ const documents = (session: Session) => {
             const [start = 0, end = 0] = [from, to].map((key) => (Predicate.isNumber(key) ? key : position(key)));
             return open().slice(Math.min(start, end), Math.max(start, end) + 1);
         },
-        everyItem: () => shadow({ getElements: () => open() } satisfies Node, (key, value) => (value === undefined ? open().map((doc) => field(doc, key)) : value)),
+        everyItem: () => shadow({ getElements: () => open() } satisfies Members, (key, value) => (value === undefined ? open().map((doc) => field(doc, key)) : value)),
         anyItem: () => at(0),
         firstItem: () => at(0),
         lastItem: () => at(-1),
@@ -139,7 +139,7 @@ const documents = (session: Session) => {
     };
 };
 const menus = (session: Session) => {
-    const menu: Node = { isValid: true };
+    const menu: Members = { isValid: true };
     Object.assign(menu, {
         submenus: { item: () => menu, itemByName: () => menu },
         menuItems: { item: (name: string) => ({ name, isValid: true }), itemByName: (name: string) => ({ name, isValid: true }), add: (action: unknown) => session.record.menus.push({ added: session.codec.encoded(field(action, 'title')) }) },
@@ -148,8 +148,8 @@ const menus = (session: Session) => {
     return {
         scriptMenuActions: {
             add: (title: string) => {
-                const listeners: Node = {};
-                const action: Node = { title, name: title, enabled: true, checked: false, isValid: true, listeners, addEventListener: (type: string, handler: unknown) => Object.assign(listeners, { [type]: handler }), remove: () => Object.assign(action, { isValid: false }) };
+                const listeners: Members = {};
+                const action: Members = { title, name: title, enabled: true, checked: false, isValid: true, listeners, addEventListener: (type: string, handler: unknown) => Object.assign(listeners, { [type]: handler }), remove: () => Object.assign(action, { isValid: false }) };
                 session.actions.push(action);
                 return action;
             },
@@ -166,7 +166,7 @@ const picked = (session: Session, kind: string) => () => {
 };
 const installed = (session: Session) => {
     const queued = <A>(queue: A[], fallback: A): A => queue.shift() ?? fallback;
-    const answering: Node = {
+    const answering: Members = {
         alert: (text: unknown, title: unknown) => session.record.alerts.push(title === undefined ? { text: String(text) } : { text: String(text), title: String(title) }),
         confirm: (text: unknown) => {
             session.record.confirms.push(String(text));
@@ -191,7 +191,7 @@ const installed = (session: Session) => {
         layoutWindows: () => windowed(app.layoutWindows.everyItem().getElements()),
         windows: () => windowed(app.windows.everyItem().getElements()),
     };
-    const own: Node = {
+    const own: Members = {
         dialogs: dialogs(session),
         documents: documents(session),
         scriptPreferences: shadow(

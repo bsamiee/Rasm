@@ -1,6 +1,6 @@
-import { Array, type Config, Console, DateTime, Effect, FileSystem, Formatter, Option, Order, Path, Predicate, Record, Schema, String, Struct } from 'effect';
+import { Array, type Config, Console, DateTime, Effect, FileSystem, Formatter, Option, Order, Path, Predicate, Record, Schema, Struct } from 'effect';
 import { HarnessError } from '#/harness-error';
-import { printed } from '#/instance';
+import { printedLines } from '#/instance';
 import { Field, partition, RECORDS, Signed } from '#/log';
 import { KINDS, type Linked, system } from '#/report';
 
@@ -41,8 +41,7 @@ const Dated = Schema.fromJsonString(Schema.Record(Schema.String, Schema.NullOr(S
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const queried = Effect.fn('queried')(function* (runs: string, statement: string, values: Record.ReadonlyRecord<string, string>) {
-    const text = yield* Effect.mapError(printed('duckdb', ['-no-agent', '-list', '-noheader', '-c', statement], { HARNESS_RUNS: runs, ...Record.mapKeys(values, (key) => `HARNESS_${key.toUpperCase()}`) }), HarnessError.refused(runs));
-    return Array.fromIterable(String.linesIterator(text)).filter(String.isNonEmpty);
+    return yield* Effect.mapError(printedLines('duckdb', ['-no-agent', '-list', '-noheader', '-c', statement], { HARNESS_RUNS: runs, ...Record.mapKeys(values, (key) => `HARNESS_${key.toUpperCase()}`) }), HarnessError.refused(runs));
 });
 const since = Effect.fn('since')(function* (root: Config.Config<string>, host: string, signatures: Array.NonEmptyReadonlyArray<typeof Signed.Type>) {
     const [path, logs] = yield* Effect.all([Path.Path, root]);

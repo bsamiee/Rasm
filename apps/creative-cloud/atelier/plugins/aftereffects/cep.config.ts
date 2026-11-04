@@ -1,7 +1,7 @@
 import { AfterEffects } from '@rasm/aftereffects';
-import { link } from '@rasm/atelier';
+import { atelierLink } from '@rasm/atelier';
 import { cep } from '../../../../../vite.shared.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default cep(import.meta.dirname, AfterEffects, link);
+export default cep(import.meta.dirname, AfterEffects, atelierLink);

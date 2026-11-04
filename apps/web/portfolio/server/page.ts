@@ -15,7 +15,7 @@ const page = HttpRouter.add(
         () => Effect.all({ published: Effect.map(readDocument('published'), Struct.get('data')), session: OwnerAccount.session }, { concurrency: 'unbounded' }),
         Effect.flatMap((bootstrap) => Template.render(shell, bootstrap)),
         Effect.map(OwnerAccount.sessionScoped),
-        Effect.catchTag('UnknownError', unavailable),
+        Effect.catchTag('HostingError', unavailable),
     ),
 );
 

@@ -593,7 +593,10 @@ fn parameters_match(tcx: TyCtxt<'_>, locals: &mut HirIdMap<HirId>, left_id: Body
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-rustc_lint::impl_lint_pass!(FormatArgsCollector => []);
+impl LintPass for FormatArgsCollector {
+    fn name(&self) -> &'static str { "FormatArgsCollector" }
+    fn get_lints(&self) -> LintVec { LintVec::new() }
+}
 
 impl EarlyLintPass for FormatArgsCollector {
     fn check_expr(&mut self, _: &EarlyContext<'_>, expr: &AstExpr) {

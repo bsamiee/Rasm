@@ -97,16 +97,20 @@ utils:
     host-import:
         kind: call_expression
         has: {field: function, kind: import}
+    run-promise-reference:
+        any:
+            - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(runPromise|runPromiseExit)$'}}}
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
     run-promise:
         kind: call_expression
-        has:
-            field: function
-            any:
-                - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(runPromise|runPromiseExit)$'}}}
-                - kind: member_expression
-                  all:
-                    - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
-                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+        any:
+            - has: {field: function, matches: run-promise-reference}
+            - all:
+                - has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
+                - has: {field: arguments, has: {matches: run-promise-reference, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}}}
     promise-call:
         kind: call_expression
         has:

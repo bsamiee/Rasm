@@ -7,13 +7,14 @@ import { r2Store, r2UploadStore } from 'partial-content/r2';
 import { s3Store, s3UploadStore } from 'partial-content/s3';
 import { isUploadDestinationConflictError, isUploadOffsetConflictError, isUploadOverrunError, type PrefixedUploadStore } from 'partial-content/upload';
 import { type ServeContext, type ServeObjectOptions, serveObject } from 'partial-content/web';
+import { HostingError } from '#/hosting-error';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: ObjectStore; readonly uploads: PrefixedUploadStore; readonly delete: (key: string) => Effect.Effect<void, Cause.UnknownError> }>()('@rasm/hosting/server/object-storage/ObjectStorage') {
+class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: ObjectStore; readonly uploads: PrefixedUploadStore; readonly delete: (key: string) => Effect.Effect<void, HostingError> }>()('@rasm/hosting/server/object-storage/ObjectStorage') {
     static readonly r2 = (bucket: R2Bucket) => {
         const uploads = r2UploadStore({ bucket });
-        return Layer.succeed(ObjectStorage, { objects: r2Store({ bucket, reservedPrefix: uploads.uploadPrefix }), uploads, delete: (key) => Effect.tryPromise({ try: () => bucket.delete(key), catch: failure('delete', key) }) });
+        return Layer.succeed(ObjectStorage, { objects: r2Store({ bucket, reservedPrefix: uploads.uploadPrefix }), uploads, delete: (key) => Effect.tryPromise({ try: () => bucket.delete(key), catch: HostingError.storage('delete', key) }) });
     };
     static readonly s3 = Effect.fnUntraced(function* (bucket: string, client: S3ClientConfig = {}) {
         const opened = yield* Effect.acquireRelease(
@@ -24,14 +25,14 @@ class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: O
         return {
             objects: s3Store({ client: opened, bucket, reservedPrefix: uploads.uploadPrefix }),
             uploads,
-            delete: (key: string) => Effect.asVoid(Effect.tryPromise({ try: (signal) => opened.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), { abortSignal: signal }), catch: failure('delete', key) })),
+            delete: (key: string) => Effect.asVoid(Effect.tryPromise({ try: (signal) => opened.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), { abortSignal: signal }), catch: HostingError.storage('delete', key) })),
         };
     }, Layer.effect(ObjectStorage));
     static readonly upload = Effect.fn('ObjectStorage.upload')(function* (object: { readonly key: string; readonly size: ByteSize.ByteSize }) {
         const [{ uploads }, created] = yield* Effect.all([ObjectStorage, Clock.currentTimeMillis]);
         const length = ByteSize.toNumberUnsafe(object.size);
-        const { uploadToken } = yield* Effect.acquireRelease(Effect.tryPromise({ try: (signal) => uploads.createUpload({ key: object.key, length, now: created, signal }), catch: failure('upload', object.key) }), (upload) =>
-            Effect.tryPromise({ try: () => uploads.abortUpload(upload.uploadToken), catch: failure('upload abort', object.key) }).pipe(Effect.ignore({ log: 'Error' })),
+        const { uploadToken } = yield* Effect.acquireRelease(Effect.tryPromise({ try: (signal) => uploads.createUpload({ key: object.key, length, now: created, signal }), catch: HostingError.storage('upload', object.key) }), (upload) =>
+            Effect.tryPromise({ try: () => uploads.abortUpload(upload.uploadToken), catch: HostingError.storage('upload abort', object.key) }).pipe(Effect.ignore({ log: 'Error' })),
         );
         return {
             uploadToken,
@@ -39,35 +40,35 @@ class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: O
                 const [body, now] = yield* Effect.all([Stream.toReadableStreamEffect(content), Clock.currentTimeMillis]);
                 yield* Effect.tryPromise({
                     try: (signal) => uploads.appendChunk(uploadToken, 0, body, { now, maxBytes: length, maxBytesFatal: true, signal }),
-                    catch: (error) => (isUploadOverrunError(error) ? HttpApiError.BadRequest.make() : failure('upload write', object.key)(error)),
+                    catch: uploadFailure('upload write', object.key),
                 });
                 yield* Effect.tryPromise({
                     try: (signal) => uploads.completeUpload(uploadToken, { now, expectedLength: length, signal }),
-                    catch: (error) =>
-                        Match.value(error).pipe(
-                            Match.when(isUploadOffsetConflictError, HttpApiError.BadRequest.make.bind(HttpApiError.BadRequest, {}, undefined)),
-                            Match.when(isUploadDestinationConflictError, HttpApiError.Conflict.make.bind(HttpApiError.Conflict, {}, undefined)),
-                            Match.orElse(failure('upload completion', object.key)),
-                        ),
+                    catch: uploadFailure('upload completion', object.key),
                 });
             }),
         };
     });
     static readonly remove = Effect.fn('ObjectStorage.remove')(function* (key: string, uploadToken: Option.Option<string>) {
         const storage = yield* ObjectStorage;
-        yield* Option.match(uploadToken, { onNone: () => Effect.void, onSome: (token) => Effect.tryPromise({ try: (signal) => storage.uploads.abortUpload(token, { signal }), catch: failure('upload abort', key) }) });
+        yield* Option.match(uploadToken, { onNone: () => Effect.void, onSome: (token) => Effect.tryPromise({ try: (signal) => storage.uploads.abortUpload(token, { signal }), catch: HostingError.storage('upload abort', key) }) });
         yield* storage.delete(key);
     });
     static readonly serve = Effect.fn('ObjectStorage.serve')(function* (object: ServeContext, options: Omit<ServeObjectOptions, 'onError'> = {}) {
         const [{ objects }, request, context] = yield* Effect.all([ObjectStorage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb).pipe(Effect.orDie), Effect.context<never>()]);
-        const served = serveObject(objects, { ...options, onError: (error, { operation, key }) => Effect.logError(Cause.fail(failure(operation, key)(error))).pipe(Effect.runSyncWith(context)) });
+        const served = serveObject(objects, { ...options, onError: (error, { operation, key }) => Effect.logError(Cause.fail(HostingError.storage(operation, key)(error))).pipe(Effect.runSyncWith(context)) });
         return HttpServerResponse.raw(yield* Effect.promise(() => served(request, object)));
     });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const failure = (operation: string, key: string) => (cause: unknown) => new Cause.UnknownError(cause, `object ${key} ${operation} failed`);
+const uploadFailure = (operation: string, key: string) => (error: unknown) =>
+    Match.value(error).pipe(
+        Match.whenOr(isUploadOverrunError, isUploadOffsetConflictError, () => HttpApiError.BadRequest.make()),
+        Match.when(isUploadDestinationConflictError, () => HttpApiError.Conflict.make()),
+        Match.orElse(HostingError.storage(operation, key)),
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -26,9 +26,8 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
     static readonly layer = ({ scheme, retention }: { readonly scheme: typeof Server.Scheme.Type; readonly retention: Duration.Duration }) =>
         Layer.effect(McpServer.McpServer)(
             Effect.gen(function* () {
-                const { uri } = yield* Server;
-                const [server, scope] = yield* Effect.all([McpServer.McpServer, Effect.scope]);
-                const history = yield* executions(uri('executions'), retention, server, scope);
+                const [{ uri }, server, scope] = yield* Effect.all([Server, McpServer.McpServer, Effect.scope]);
+                const history = yield* executions(uri, retention, server, scope);
                 const templates = FindMyWay.make<string>({ ignoreTrailingSlash: true, ignoreDuplicateSlashes: true, caseSensitive: true });
                 yield* Layer.build(instrumented((target) => templates.find('GET', `/${target}`)?.handler ?? target).layerGlobal);
                 const ranking =
@@ -119,9 +118,10 @@ const instrumented = (subject: (target: string) => string) =>
             }),
         }),
     );
-const executions = (uri: string, retention: Duration.Duration, server: McpServer.McpServer['Service'], scope: Scope.Scope) => {
+const executions = (uri: Server['Service']['uri'], retention: Duration.Duration, server: McpServer.McpServer['Service'], scope: Scope.Scope) => {
     const entries = Ref.makeUnsafe(Array.empty<Effect.Effect<(typeof Executions.Type)[number]>>());
-    const descriptor = { uri, name: 'executions', description: `Cancelled or refused state-changing calls that keep running, finished calls drop after one read or ${Duration.format(retention)}`, mimeType: 'application/json' };
+    const name = 'executions';
+    const descriptor = { uri: uri(name), name, description: `Cancelled or refused state-changing calls that keep running, finished calls drop after one read or ${Duration.format(retention)}`, mimeType: 'application/json' };
     const registered = Effect.cached(
         McpServer.registerResource({
             ...descriptor,
@@ -129,7 +129,7 @@ const executions = (uri: string, retention: Duration.Duration, server: McpServer
                 const rows = yield* Ref.get(entries);
                 const read = yield* Effect.all(rows);
                 yield* Ref.update(entries, Array.difference(Array.getSomes(Array.zipWith(rows, read, (row, { result }) => Option.as(result, row)))));
-                return { contents: [{ uri, mimeType: descriptor.mimeType, text: yield* Effect.orDie(Schema.encodeEffect(Executions)(read)) }] };
+                return { contents: [{ uri: descriptor.uri, mimeType: descriptor.mimeType, text: yield* Effect.orDie(Schema.encodeEffect(Executions)(read)) }] };
             }),
         }).pipe(Effect.provideService(McpServer.McpServer, server)),
     );

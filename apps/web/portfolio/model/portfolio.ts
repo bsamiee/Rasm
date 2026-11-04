@@ -1,6 +1,7 @@
 import { Array, Effect, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaParser, Struct } from 'effect';
 import isEmail from 'validator/lib/isEmail.js';
-import { type AssetId, Assets, defaulted } from '#/model/asset.ts';
+import { type AssetId, Assets } from '#/model/asset.ts';
+import { defaulted } from '#/model/defaulted.ts';
 import { Composition, Placement } from '#/model/placement.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------

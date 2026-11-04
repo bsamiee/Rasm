@@ -6,12 +6,11 @@ import { type Entry, EntryId, type Portfolio } from '#/model/portfolio.ts';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Params = Schema.fromURLSearchParams(Schema.Struct({ project: EntryId, composition: Schema.optional(CompositionId) }));
-const Fragment = {
+const UrlFragment = Object.assign((project: typeof EntryId.Type, composition?: typeof CompositionId.Type) => Option.match(Schema.encodeOption(Params)({ project, composition }), { onNone: () => UrlFragment.work, onSome: (params) => `#${params}` }), {
     top: '#top',
     work: '#work',
-    of: (project: typeof EntryId.Type, composition?: typeof CompositionId.Type) => Option.match(Schema.encodeOption(Params)({ project, composition }), { onNone: () => Fragment.work, onSome: (params) => `#${params}` }),
     read: (hash: string) => Schema.decodeOption(Params)(new URLSearchParams(hash.slice(1))),
-} as const;
+} as const);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -27,18 +26,18 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     );
     const [selections, setSelections] = useState<Readonly<Partial<Record<typeof EntryId.Type, typeof CompositionId.Type>>>>({});
     const intersections = useRef(new Set<string>());
-    const located = (target: string) => Option.bind(Fragment.read(target), 'entry', ({ project }) => Array.findFirst(portfolio.entries, ({ id }) => id === project));
+    const located = (target: string) => Option.bind(UrlFragment.read(target), 'entry', ({ project }) => Array.findFirst(portfolio.entries, ({ id }) => id === project));
     const current = located(hash);
     const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
     const selected = (entry: typeof Entry.Type) => first(entry, Option.getOrUndefined(Option.filter(current, (shown) => shown.entry === entry))?.composition ?? selections[entry.id]);
     const write = (method: 'pushState' | 'replaceState', target: string) => {
-        history.scrollRestoration = Option.isSome(Fragment.read(target)) ? 'manual' : 'auto';
+        history.scrollRestoration = Option.isSome(UrlFragment.read(target)) ? 'manual' : 'auto';
         if (location.hash !== target) {
             history[method](null, '', target);
         }
     };
     const select = (project: typeof EntryId.Type, composition: typeof CompositionId.Type | undefined) => {
-        write('pushState', Fragment.of(project, composition));
+        write('pushState', UrlFragment(project, composition));
         if (composition !== undefined) {
             setSelections((value) => ({ ...value, [project]: composition }));
         }
@@ -52,30 +51,30 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     const track = useEffectEvent((records: readonly IntersectionObserverEntry[], entries: readonly (typeof Entry.Type)[]) => {
         records.forEach(({ isIntersecting, target: { id } }) => intersections.current[isIntersecting ? 'add' : 'delete'](id));
         const entry = entries.findLast(({ id }) => intersections.current.has(id));
-        const page = work.current !== null && work.current.getBoundingClientRect().top > line() ? Fragment.top : Fragment.work;
+        const page = work.current !== null && work.current.getBoundingClientRect().top > line() ? UrlFragment.top : UrlFragment.work;
         const held = Option.exists(current, ({ entry: shown }) => {
             const section = document.getElementById(shown.id);
             return section !== null && section.getBoundingClientRect().top < globalThis.innerHeight && Math.ceil(globalThis.scrollY + globalThis.innerHeight) >= document.documentElement.scrollHeight;
         });
         if (foreground && !held) {
-            write('replaceState', entry === undefined ? page : Fragment.of(entry.id, selected(entry)));
+            write('replaceState', entry === undefined ? page : UrlFragment(entry.id, selected(entry)));
         }
     });
     const restore = useEffectEvent((event?: Event) => {
-        if (['', Fragment.top, Fragment.work].includes(location.hash)) {
+        if (['', UrlFragment.top, UrlFragment.work].includes(location.hash)) {
             history.scrollRestoration = 'auto';
             return;
         }
         Option.match(located(location.hash), {
             onNone: () => {
-                write('replaceState', Fragment.work);
+                write('replaceState', UrlFragment.work);
                 work.current?.scrollIntoView({ behavior: 'instant' });
             },
             onSome: ({ entry, composition }) => {
                 if (event === undefined || !Option.exists(current, (shown) => shown.entry.id === entry.id)) {
                     document.getElementById(entry.id)?.scrollIntoView({ behavior: 'instant' });
                 }
-                write('replaceState', Fragment.of(entry.id, first(entry, composition)));
+                write('replaceState', UrlFragment(entry.id, first(entry, composition)));
             },
         });
     });
@@ -115,4 +114,4 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Fragment, useNavigation };
+export { UrlFragment, useNavigation };

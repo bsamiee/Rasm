@@ -14,7 +14,7 @@ import type { Bootstrap } from '#/model/api.ts';
 import type { PortfolioData } from '#/model/portfolio.ts';
 import { sites } from '#/model/sites.ts';
 import { Chapter } from '#/site/chapter.tsx';
-import { Fragment, useNavigation } from '#/site/navigation.ts';
+import { UrlFragment, useNavigation } from '#/site/navigation.ts';
 import { StickyBar, WorkIndex } from '#/site/work-index.tsx';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -45,11 +45,11 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
     }, [requested]);
     return (
         <MotionConfig reducedMotion="user">
-            <a className="bg-background fixed -top-25 left-5 z-100 p-3.75 focus:top-2.5" href={Fragment.work}>
+            <a className="bg-background fixed -top-25 left-5 z-100 p-3.75 focus:top-2.5" href={UrlFragment.work}>
                 Skip to work
             </a>
             <header className="site-header">
-                <a className="site-name" href={Fragment.top}>
+                <a className="site-name" href={UrlFragment.top}>
                     {portfolio.name || 'Portfolio'}
                     <Plus className="text-accent size-9 shrink-0 stroke-2" nonScalingStroke={true} />
                 </a>
@@ -135,7 +135,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                             <div className="flex flex-col items-start gap-4">
                                 <p className="lead empty:hidden">{portfolio.introduction}</p>
                                 {populated && (
-                                    <a className="plain-link gap-1.5 text-sm" href={Fragment.work}>
+                                    <a className="plain-link gap-1.5 text-sm" href={UrlFragment.work}>
                                         View work
                                         <ArrowDown className="size-3" />
                                     </a>
@@ -175,7 +175,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                             Contact
                         </a>
                     )}
-                    <a className="plain-link ml-auto gap-1" href={Fragment.top}>
+                    <a className="plain-link ml-auto gap-1" href={UrlFragment.top}>
                         Back to top
                         <ArrowUp className="size-5" />
                     </a>

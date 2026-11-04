@@ -4,7 +4,7 @@ import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { fromReadable, toReadableNever } from '@effect/platform-node/NodeStream';
 import type { Event } from '@parcel/watcher';
-import { Array, type Cause, Duration, Effect, Fiber, FileSystem, Function, flow, HashMap, HashSet, Iterable, Match, Number, Option, Predicate, Queue, Record, Result, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, type Cause, Config, Duration, Effect, Fiber, FileSystem, Function, flow, HashMap, HashSet, Iterable, Match, Number, Option, Predicate, Queue, Record, Result, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { escape, minimatch } from 'minimatch';
 import {
@@ -45,6 +45,7 @@ import {
     WatchKind,
     WorkDoneProgressCreateRequest,
 } from 'vscode-languageserver-protocol/node';
+import { Exited } from '#/exited';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -68,18 +69,12 @@ const INITIAL = {
     documents: HashMap.empty<string, { readonly item: TextDocumentItem; readonly begun: number }>(),
     published: HashMap.empty<string, PublishDiagnosticsParams>(),
 };
+const REFERENCE = /\$\{(?<name>\w+)\}/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Timeout = (fallback: Duration.Duration) => Schema.Int.check(Schema.isGreaterThan(0)).pipe(Schema.decodeTo(Schema.DurationFromMillis), Schema.withDecodingDefaultTypeKey(Effect.succeed(fallback)));
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class Exited extends Schema.TaggedError<Exited, { readonly brand: unique symbol }>()('Exited', { command: Schema.String, args: Schema.Array(Schema.String), code: Schema.Int }) {
-    override get message(): string {
-        return `${[this.command, ...this.args].join(' ')} exited with code ${this.code}`;
-    }
-}
+const JsonText = Schema.fromJsonString(Schema.Json);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -105,7 +100,11 @@ class LanguageServer {
         requestTimeout: Timeout(Duration.minutes(1)),
     });
 
-    static readonly start = Effect.fn('LanguageServer.start')(function* (root: string, config: typeof LanguageServer.Config.Type) {
+    static readonly start = Effect.fn('LanguageServer.start')(function* (root: string, declared: typeof LanguageServer.Config.Encoded) {
+        const text = yield* Schema.encodeEffect(JsonText)(declared);
+        const names = [...text.matchAll(REFERENCE)].flatMap(({ groups }) => groups?.name ?? []);
+        const variables = yield* Config.all(Record.fromIterableWith(names, (name) => [name, name === 'CLAUDE_PROJECT_DIR' ? Config.succeed(root) : Config.String(name)] as const));
+        const config = yield* Schema.decodeEffect(Schema.fromJsonString(LanguageServer.Config, { reviver: (_key, value: unknown) => (typeof value === 'string' ? Record.reduce(variables, value, (expanded, variable, name) => expanded.replaceAll(`\${${name}}`, variable)) : value) }))(text);
         const fs = yield* FileSystem.FileSystem;
         const folder = resolve(root, config.workspaceFolder);
         const input = new PassThrough();
@@ -337,4 +336,4 @@ const registered = <RO>({ method }: RegistrationType<RO>, registrations: (typeof
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Exited, LanguageServer };
+export { LanguageServer };

@@ -2,21 +2,21 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { type Installation, State } from '@rasm/automation';
 import type { Automation } from '@rasm/automation/node';
-import { Array, ByteSize, Data, DateTime, Deferred, Duration, Effect, Equal, FileSystem, flow, HashMap, Match, Number, Option, Order, Path, type PlatformError, Predicate, Record, Ref, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, ByteSize, Data, DateTime, Deferred, Duration, Effect, Equal, Fiber, FileSystem, flow, HashMap, Match, Number, Option, Order, Path, type PlatformError, Predicate, Record, Ref, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import type { Case } from '#/cases';
 import { HarnessError } from '#/harness-error';
 import { type Asked, type Launched, Observation, Progress, type Spawned, stalled, starts, watched } from '#/instance';
-import { Messages, phase, Run, record, STATES, sample, tagOf } from '#/log';
+import { Messages, record, STATES, tagOf } from '#/log';
 import { crashed, linked, type Rule } from '#/report';
 import { Halted, type hostCase, Outcome, Records } from '#/results';
+import { phase, Run, sample } from '#/run';
 import { assembled, type Mapped } from '#/source';
 import type { JsonObject } from '#/values';
 import npm from './package.json' with { type: 'json' };
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Any = Schema.Codec<unknown, unknown>;
 type Decoding<P> = Schema.Codec<P, unknown, never, unknown>;
 type Services = Automation | ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path | Run;
 type Instance = Pick<Live, 'pid' | 'started' | 'chosen' | 'scratch'> & { readonly ended: DateTime.Utc; readonly owned: readonly string[] };
@@ -500,7 +500,8 @@ const quitted = Effect.fn('quitted')(
     function* (host: Pick<Harness, 'logs' | 'bundle'>, live: Live, limit: Duration.Duration, quit: Effect.Effect<void, Error, Services>) {
         yield* record('Info', 'quit sent', {});
         const waited = SubscriptionRef.changes(live.state).pipe(Stream.filter(Observation.settled), Stream.runHead, Effect.timeoutOption(limit), Effect.map(Option.flatten));
-        const stopped = yield* Effect.result(Effect.raceFirst(waited, Effect.andThen(quit, Effect.never)));
+        const watching = yield* Effect.forkChild(waited, { startImmediately: true });
+        const stopped = yield* Effect.result(Effect.raceFirst(Fiber.join(watching), Effect.andThen(quit, Fiber.join(watching))));
         const exited = Option.flatten(Result.getSuccess(stopped));
         const failed = Result.match(stopped, {
             onFailure: Option.some,
@@ -666,4 +667,4 @@ const rerun = <S extends Surveyed, C extends Cased>(host: Session<S, C>, rebuilt
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Any, type Batch, type Cased, type Decoding, execute, filesIn, Harness, type Installed, type Instance, inside, installation, installations, type Live, type Plan, type Prepared, type Rebuilt, rerun, type Session, type Surveyed };
+export { type Batch, type Cased, type Decoding, execute, filesIn, Harness, type Installed, type Instance, inside, installation, installations, LABEL, type Live, type Plan, type Prepared, type Rebuilt, rerun, type Session, type Surveyed };

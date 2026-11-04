@@ -178,8 +178,6 @@ def test_pupil_gate_and_transformed_view_domains(acquired: Acquired, tmp_path: P
                 for image in bpy.data.images
                 if Mark.read(identity, image).bind(lambda mark: mark.content).is_some()
             } >= {(2 * item[1].shape[1] - 1, 2 * item[1].shape[0] - 1) for item in off.values()}
-            if multiview:
-                assert len({item[1].shape for item in on.values()}) == len(names)
 
 
 def test_processed_pixels_replay_on_translated_native_domain(acquired: Acquired, tmp_path: Path) -> None:

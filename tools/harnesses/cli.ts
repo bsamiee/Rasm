@@ -1,10 +1,10 @@
-import { Array, type Config, Effect, FileSystem, type Layer, Option, Path } from 'effect';
+import { Array, type Config, Effect, FileSystem, Layer, Option, Path } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
 import { CASES } from '#/cases';
 import { HarnessError } from '#/harness-error';
-import { ran } from '#/log';
 import { traced } from '#/query';
 import { RESULTS } from '#/results';
+import { Run, ran, type Sink } from '#/run';
 import { type Cased, type Harness, installations, type Surveyed } from '#/session';
 import { judged, proved, recompared } from '#/verdict';
 
@@ -21,8 +21,9 @@ const targets = (paths: readonly string[]) => Effect.map(Effect.forEach(paths, c
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const cases = Argument.Path('target', { mustExist: true }).pipe(Argument.atLeast(1), Argument.withDescription(`Product folder whose **/*${CASES} files run, or one case file, results written beside each as <name>.<version>${RESULTS}`));
-const cli = <A, E, R>(root: Config.Config<string>, provided: (host: string) => Layer.Layer<A, E, R>) => {
-    const checked = <S extends Surveyed, C extends Cased, X, P>(name: string, hosted: Effect.Effect<Harness<S, C, X, P>, HarnessError>) =>
+const cli = <A, E, R>(root: Config.Config<string>, automation: Layer.Layer<A, E, R>, sink: Sink) => {
+    const provided = (name: string) => Layer.mergeAll(automation, Run.layer(name, root, sink));
+    const compare = <S extends Surveyed, C extends Cased, X, P>(name: string, hosted: Effect.Effect<Harness<S, C, X, P>, HarnessError>) =>
         Command.make(
             'compare',
             { targets: cases, module: Flag.Path('module', { mustExist: true }).pipe(Flag.optional, Flag.withDescription('Module compared in place of the batch module, a distilled module among them')) },
@@ -33,7 +34,7 @@ const cli = <A, E, R>(root: Config.Config<string>, provided: (host: string) => L
                 yield* judged(verdicts.flat(), name);
             }, ran),
         ).pipe(Command.provide(provided(name)));
-    const logs = (name: string) => Command.make('log', {}, () => traced(root, name)).pipe(Command.withDescription(`Prints the current ${name} run's records as JSON Lines with reports linked since it ended, the newest ${name} run of this session or else the newest ${name} run`));
+    const log = (name: string) => Command.make('log', {}, () => traced(root, name)).pipe(Command.withDescription(`Prints the current ${name} run's records as JSON Lines with reports linked since it ended, the newest ${name} run of this session or else the newest ${name} run`));
     const subcommand = <N extends string, S extends Surveyed, C extends Cased, X, P>(name: N, load: () => Promise<{ readonly [K in N]: Effect.Effect<Harness<S, C, X, P>> }>) => {
         const hosted = Effect.flatMap(Effect.tryPromise({ try: load, catch: HarnessError.refused(name) }), (loaded) => loaded[name]);
         return Command.make(
@@ -49,7 +50,7 @@ const cli = <A, E, R>(root: Config.Config<string>, provided: (host: string) => L
                 const verdicts = yield* Effect.forEach(Array.cartesian(files, chosen), ([file, installed]) => Effect.annotateLogs(proved(name, host, installed, file, only), { version: installed.version, proof: file }));
                 yield* judged(verdicts, name);
             }, ran),
-        ).pipe(Command.provide(provided(name)), Command.withSubcommands([checked(name, hosted), logs(name)]));
+        ).pipe(Command.provide(provided(name)), Command.withSubcommands([compare(name, hosted), log(name)]));
     };
     return Command.make('harness').pipe(
         Command.withSubcommands([

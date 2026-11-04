@@ -171,6 +171,7 @@ extension NSRunningApplication {
 
     func states(
         ending exits: AsyncStream<Result<ProcessExit, Errno>>,
+        reporting window: Duration = .seconds(60),
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
         AsyncStream { continuation in
@@ -189,7 +190,7 @@ extension NSRunningApplication {
                 continuation.yield(.exited(exit, report: nil))
                 if case .success(let ended) = exit, ended.detail.contains(.csError) || reportingSignals.contains(ended.status) {
                     continuation.yield(
-                        .exited(exit, report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, within: .seconds(60), clock: clock))
+                        .exited(exit, report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, within: window, clock: clock))
                     )
                 }
                 continuation.finish()

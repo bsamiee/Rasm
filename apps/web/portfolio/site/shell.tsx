@@ -1,7 +1,7 @@
 import { RegistryProvider } from '@effect/atom-react';
 import { Shell } from '@rasm/hosting';
 import { Option, String } from 'effect';
-import { details } from '#/media/labels.ts';
+import { joinDetails } from '#/media/labels.ts';
 import { Bootstrap } from '#/model/api.ts';
 import { Site } from '#/site/site.tsx';
 
@@ -15,7 +15,7 @@ const shell = new Shell({
             <Site {...value} />
         </RegistryProvider>
     ),
-    head: ({ published: { portfolio } }) => ({ title: Option.map(Option.liftPredicate(portfolio.name, String.isNonEmpty), (name) => details([name, 'Architecture'])), meta: { name: { description: Option.liftPredicate(portfolio.introduction, String.isNonEmpty) }, property: {} } }),
+    head: ({ published: { portfolio } }) => ({ title: Option.map(Option.liftPredicate(portfolio.name, String.isNonEmpty), (name) => joinDetails([name, 'Architecture'])), meta: { name: { description: Option.liftPredicate(portfolio.introduction, String.isNonEmpty) }, property: {} } }),
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

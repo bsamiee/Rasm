@@ -5,7 +5,7 @@ import { Match, Option, Predicate, Record, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Node {
+interface Members {
     [key: string]: unknown;
 }
 type Item = typeof HostCase.Type;
@@ -24,7 +24,7 @@ interface Session {
     readonly confirms: boolean[];
     readonly prompts: (string | null)[];
     readonly files: (string | null)[];
-    readonly actions: Node[];
+    readonly actions: Members[];
     readonly dialogs: NonNullable<Item['dialogs']>[number][];
     readonly record: Records;
     value: Option.Option<unknown>;
@@ -84,11 +84,11 @@ const Codec = (enumerations: Batch['enumerations']): Codec => {
 const compiled = (parameters: readonly string[], code: string) =>
     // biome-ignore lint/nursery/noImpliedEval: case data and originals compile inside the host
     new globalThis.Function(...parameters, code);
-const scope = (overrides: Node) => {
+const scope = (overrides: Members) => {
     const inherited = names.filter((name) => !Object.hasOwn(overrides, name));
     return { keys: [...inherited, ...Object.keys(overrides)], values: [...inherited.map((name) => Reflect.get(indesign, name)), ...Object.values(overrides)] };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Batch, Codec, compiled, enumerator, equal, field, type Item, invoked, message, type Node, names, type Session, Strings, scope };
+export { type Batch, Codec, compiled, enumerator, equal, field, type Item, invoked, type Members, message, names, type Session, Strings, scope };

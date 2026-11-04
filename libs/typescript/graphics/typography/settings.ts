@@ -137,7 +137,7 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
         }).pipe(Effect.mapError((issue) => new Schema.SchemaError(issue)));
 
     digits(text: string) {
-        return Option.match(Option.flatMap(this.numberingSystem, Digits.of), { onNone: () => text, onSome: (digits) => digits.format(text) });
+        return Option.match(this.numberingSystem, { onNone: () => text, onSome: (digits) => digits.format(text) });
     }
     lineAlignment(line: { readonly last: boolean; readonly single: boolean }): typeof LineAlignment.Type {
         return Alignment.match(this.alignment, {

@@ -1,7 +1,7 @@
 import { Choice, Field, MenuButton } from '@rasm/ui';
 import { Match, Record, Struct } from 'effect';
 import type { ReactNode } from 'react';
-import { choice, descriptionLabel, details, sheetLabel } from '#/media/labels.ts';
+import { choiceLayout, descriptionLabel, joinDetails, sheetLabel } from '#/media/labels.ts';
 import { Asset, type Assets } from '#/model/asset.ts';
 import { Placement } from '#/model/placement.ts';
 
@@ -26,7 +26,7 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                     const shared = Struct.pick(image, ['kind', 'asset', 'caption', 'alt', 'description']);
                     return (
                         <>
-                            <Choice {...choice} label="Image use" onChange={({ id }) => onChange(id === 'photograph' ? { ...shared, role: id, framing: { mode: 'contain' } } : { ...shared, role: id })} options={imageRoles} value={image.role} />
+                            <Choice {...choiceLayout} label="Image use" onChange={({ id }) => onChange(id === 'photograph' ? { ...shared, role: id, framing: { mode: 'contain' } } : { ...shared, role: id })} options={imageRoles} value={image.role} />
                             {Match.value(image).pipe(
                                 Match.discriminatorsExhaustive('role')({
                                     drawing: () => undefined,
@@ -37,7 +37,7 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                                         ] as const;
                                         return (
                                             <>
-                                                <Choice {...choice} label="Framing" onChange={(option) => onChange({ ...photograph, framing: option.framing })} options={framings} value={framing.mode} />
+                                                <Choice {...choiceLayout} label="Framing" onChange={(option) => onChange({ ...photograph, framing: option.framing })} options={framings} value={framing.mode} />
                                                 {framing.mode === 'cover' && (
                                                     <div className="field-pair">
                                                         {Record.collect({ x: 'Horizontal', y: 'Vertical' } as const, (axis, direction) => (
@@ -62,7 +62,7 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                                 .filter(Asset.guards.image)
                                 .map((asset) => ({ id: asset.id, label: asset.name, asset }))}
                         >
-                            {film.poster === undefined ? 'Choose poster image' : details(['Poster', film.poster.name])}
+                            {film.poster === undefined ? 'Choose poster image' : joinDetails(['Poster', film.poster.name])}
                         </MenuButton>
                         {film.poster && (
                             <button className="button button-ghost self-start" onClick={() => onChange(Struct.omit(film, ['poster']))} type="button">

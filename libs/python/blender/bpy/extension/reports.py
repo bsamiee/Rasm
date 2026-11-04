@@ -3,6 +3,7 @@
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 import functools
+from itertools import product
 from threading import Event, RLock
 from types import MappingProxyType
 from typing import override, Protocol, Self, TYPE_CHECKING
@@ -39,10 +40,12 @@ class _Write(msgspec.Struct, frozen=True, kw_only=True):  # type: ignore[explici
     kwargs: Mapping[str, object]
 
     def advanced(self) -> Outcome[Option[Self]]:
-        """Runs the scoped write, pushing its undo step in GUI sessions."""
+        """Runs the scoped write, pushing its undo step through the first window of GUI sessions, a timer pass holding no screen."""
         applied = self.applied(*self.args, **self.kwargs) if self.scope.is_set() else Ok(Nothing)
-        for message in () if bpy.app.background else applied.default_value(Nothing).to_list():
-            bpy.ops.ed.undo_push(message=message)
+        manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        for message, window in product(applied.default_value(Nothing).to_list(), () if bpy.app.background else tuple(manager.windows)[:1]):
+            with bpy.context.temp_override(window=window):
+                bpy.ops.ed.undo_push(message=message)
         return applied.map(lambda _: Nothing)
 
 
@@ -52,7 +55,7 @@ class _Write(msgspec.Struct, frozen=True, kw_only=True):  # type: ignore[explici
 class Reports(AbstractContextManager["Reports"]):
     """Extension callback faults and queued requests, entered first in registration scope."""
 
-    __slots__ = ("_entries", "_loaded", "_lock", "_pending", "_redraw", "_scope", "_ticked", "logger")
+    __slots__ = ("_entries", "_loaded", "_lock", "_pending", "_redraw", "_scope", "logger", "ticked")
 
     # --- [LIFECYCLE]
 
@@ -64,6 +67,7 @@ class Reports(AbstractContextManager["Reports"]):
         self._lock = RLock()
 
         def ticked() -> float | None:
+            """Advances each waiting request one step outside a locked interface, the timer pass returning 0.0 while requests remain."""
             manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             if manager.is_interface_locked:
                 return 0.0
@@ -79,7 +83,7 @@ class Reports(AbstractContextManager["Reports"]):
                 self._pending.clear()
                 self._entries.clear()
 
-        self._ticked, self._loaded, self._scope = ticked, loaded, ExitStack()
+        self.ticked, self._loaded, self._scope = ticked, loaded, ExitStack()
         self._redraw = self._scope.enter_context(self.deferred(redrawn))
 
     @override
@@ -97,8 +101,8 @@ class Reports(AbstractContextManager["Reports"]):
         self._scope.close()
         with self._lock:
             self._pending.clear()
-            if bpy.app.timers.is_registered(self._ticked):
-                bpy.app.timers.unregister(self._ticked)
+            if bpy.app.timers.is_registered(self.ticked):
+                bpy.app.timers.unregister(self.ticked)
 
     # --- [REPORTING]
 
@@ -154,8 +158,8 @@ class Reports(AbstractContextManager["Reports"]):
             with self._lock:
                 if request not in self._pending:
                     self._pending.append(request)
-                if not bpy.app.timers.is_registered(self._ticked):
-                    bpy.app.timers.register(self._ticked)
+                if not bpy.app.timers.is_registered(self.ticked):
+                    bpy.app.timers.register(self.ticked)
 
     @contextmanager
     def deferred[**P](self, write: Callable[P, Outcome[Option[str]]], /) -> Generator[Callable[P, None]]:

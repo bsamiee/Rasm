@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Path, Schema } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, Record, Schema } from 'effect';
 import { TextFormat } from '#/eng/typescript/text-format';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -13,6 +13,12 @@ const decodeFile = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, strin
     return yield* Effect.flatMap(fs.readFileString(path.join(...segments)), Schema.decodeEffect(schema));
 });
 const manifest = <A>(file: string, schema: Schema.Codec<A, string>) => ({ file, schema, read: (directory: string) => decodeFile(schema, directory, file) });
+const libraryRoot = ({ sideEffects, bin, exports }: typeof Package.schema.Type) => Option.filter(Record.get(exports, '.'), () => Option.contains(sideEffects, false) && Option.isNone(bin));
+const extendScriptEntry = ({ exports }: typeof Package.schema.Type) => Record.get(exports, './extendscript');
+const members = Effect.fnUntraced(function* (root: string, file: string) {
+    const [fs, path, { packages }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Workspace.read(root)]);
+    return Array.flatten(yield* Effect.forEach(packages, (glob) => fs.glob(path.join(glob, file), { root, exclude: ['**/node_modules/**'] }), { concurrency: 'unbounded' }));
+});
 
 // --- [MANIFESTS] -----------------------------------------------------------------------
 
@@ -31,8 +37,11 @@ const Package = manifest(
         }),
     ),
 );
+const Installed = manifest(Package.file, Schema.fromJsonString(Schema.Struct({ dependencies: Strings, peerDependencies: Strings, napi: Schema.OptionFromOptionalKey(Schema.Unknown) })));
+const ClaudeHooks = manifest('hooks/hooks.json', Schema.fromJsonString(Schema.Struct({ modules: Schema.NonEmptyArray(Schema.String) })));
 const Mise = manifest('mise.toml', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ daemons: Schema.Record(Schema.String, Schema.Union([Schema.String, Daemon])) }))));
+const Workspace = manifest('pnpm-workspace.yaml', TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.String) }))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { decodeFile, Mise, Package };
+export { ClaudeHooks, decodeFile, extendScriptEntry, Installed, libraryRoot, Mise, members, Package, Workspace };

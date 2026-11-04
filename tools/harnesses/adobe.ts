@@ -1,12 +1,10 @@
-import { homedir } from 'node:os';
 import { Effect, FileSystem, Path } from 'effect';
 import { HarnessError } from '#/harness-error';
-import { lined, type Rule } from '#/report';
+import { HOME, lined, type Rule } from '#/report';
 import type { Instance } from '#/session';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const HOME = homedir();
 const REPORTER = 'com.adobe.crashreporter';
 const ENTRY = /\n(?=\[)/u;
 const ERROR = /^\[[^\]]*\]\[[^\]]*\]\[Error\]/u;
@@ -24,4 +22,4 @@ const crashes = Effect.fn('crashes')(function* (instance: Instance) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { crashes, HOME, REPORTER, uxp };
+export { crashes, REPORTER, uxp };

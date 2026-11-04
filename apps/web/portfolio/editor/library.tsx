@@ -6,7 +6,7 @@ import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { deleteRequest, draft, hero } from '#/editor/state.ts';
-import { details, entryTitle, format } from '#/media/labels.ts';
+import { entryTitle, format, joinDetails } from '#/media/labels.ts';
 import { MediaFigure } from '#/media/media-figure.tsx';
 import { Asset, type AssetId, type Assets } from '#/model/asset.ts';
 import { Placement } from '#/model/placement.ts';
@@ -65,7 +65,7 @@ const Library = ({
                                 })}
                             </div>
                             <span className="mt-3 block text-sm wrap-anywhere">{asset.name}</span>
-                            <span className="meta-line">{details(summary(asset))}</span>
+                            <span className="meta-line">{joinDetails(summary(asset))}</span>
                         </GridListItem>
                     )}
                 </GridList>
@@ -102,7 +102,7 @@ const Library = ({
                                         Use as hero
                                     </button>
                                 </div>
-                                <p className="hint">{details([...summary(asset), uses.length > 0 ? `Used in ${format.list(uses)}` : undefined])}</p>
+                                <p className="hint">{joinDetails([...summary(asset), uses.length > 0 ? `Used in ${format.list(uses)}` : undefined])}</p>
                                 <details className="hint">
                                     <summary className="min-h-11 cursor-pointer content-center">Deletion</summary>
                                     {uses.length > 0 && <p>Remove its placements and publish before deleting</p>}

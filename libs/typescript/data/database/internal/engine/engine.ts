@@ -11,7 +11,7 @@ import type { Relation } from '#/relation';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Method = Relation['indexes'][number]['method'];
-interface Shape {
+interface Dialect {
     readonly types: Readonly<Record<Kind, string>>;
     readonly member: (sql: SqlClient.SqlClient, field: string) => Statement.Fragment;
     readonly element: (sql: SqlClient.SqlClient, entry: Column, text: Statement.Fragment) => Statement.Fragment;
@@ -58,23 +58,21 @@ interface Shape {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Engine extends Context.Service<Engine, Shape>()('@rasm/database/internal/engine/engine') {
+class Engine extends Context.Service<Engine, Dialect>()('@rasm/database/internal/engine/engine') {
     static readonly flags = { inserted: '#inserted', previous: '#previous', rank: '#rank', highlight: '#highlight', position: '#position' } as const;
-    static readonly layer = Layer.effect(
-        Engine,
-        SqlClient.SqlClient.use((sql) =>
-            sql.onDialectOrElse({
-                sqlite: () => Effect.succeed<Shape>(Sqlite),
-                pg: () =>
-                    Effect.map(
-                        Effect.promise(() => import('#/internal/engine/pg')),
-                        Struct.get('Pg'),
-                    ),
-                orElse: () => Effect.fail(new Cause.IllegalArgumentError(`${sql.driver} has no engine`)),
-            }),
-        ),
+    static readonly make = SqlClient.SqlClient.use((sql) =>
+        sql.onDialectOrElse({
+            sqlite: () => Effect.succeed<Dialect>(Sqlite),
+            pg: () =>
+                Effect.map(
+                    Effect.promise(() => import('#/internal/engine/pg')),
+                    Struct.get('Pg'),
+                ),
+            orElse: () => Effect.fail(new Cause.IllegalArgumentError(`${sql.driver} has no engine`)),
+        }),
     );
-    static readonly fragments = (sql: SqlClient.SqlClient, engine: Shape, { name, columns, key }: Pick<Relation, 'name' | 'columns' | 'key'>) => {
+    static readonly layer = Layer.effect(Engine, Engine.make);
+    static readonly fragments = (sql: SqlClient.SqlClient, engine: Dialect, { name, columns, key }: Pick<Relation, 'name' | 'columns' | 'key'>) => {
         const all = Object.values(columns);
         const written = all.filter(({ projection }) => Option.isNone(projection));
         const [unqualified, owner] = [sql.literal(''), sql`${sql(name)}`];

@@ -122,8 +122,10 @@ it('reorders by keyboard drag and drop from drag button starting at dragged row'
     await userEvent.tab();
     await userEvent.keyboard('{ArrowRight}{ArrowRight}');
     await expect.element(screen.getByRole('button', { name: 'Drag Plan' })).toHaveFocus();
-    await userEvent.keyboard('{Enter}{ArrowDown}{Enter}');
-    expect(order()).toEqual(['section', 'plan', 'detail']);
+    await userEvent.keyboard('{Enter}');
+    await expect.element(screen.getByRole('button', { name: 'Drag Plan' })).not.toHaveFocus();
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(order).toEqual(['section', 'plan', 'detail']);
 });
 it('drops selection of items the owner removes and lists only present targets', async () => {
     const { items } = Default.composed.args;

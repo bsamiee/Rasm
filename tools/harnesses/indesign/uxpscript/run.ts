@@ -6,7 +6,7 @@ import { Array, identity, Match, Option, Predicate, Record, Result, Schema } fro
 import { exported, given, opened, prepare, reads, state } from '#/precondition';
 import { installed } from '#/shadows';
 import { activeOf, differences, globals, pinned, restore, scanned, snapshot, survey } from '#/state';
-import { type Batch, Codec, compiled, field, type Item, invoked, message, type Node, type Session, Strings } from '#/values';
+import { type Batch, Codec, compiled, field, type Item, invoked, type Members, message, type Session, Strings } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ const HEAD = (() => {
         return (lines(error)[0] ?? 1) - 1;
     }
 })();
-const ran = (session: Session, { fake, evaluate }: ReturnType<typeof installed>, docs: readonly unknown[], made: Node) => {
+const ran = (session: Session, { fake, evaluate }: ReturnType<typeof installed>, docs: readonly unknown[], made: Members) => {
     const { item } = session;
     const threw = (error: unknown) => {
         const stack = lines(error).map((line) => ({ line: line - HEAD }));
@@ -77,7 +77,7 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
     const held = pinned(() => snapshot(found, codec));
     const unglobal = globals();
     const leaked: string[] = [];
-    const made: Node = {};
+    const made: Members = {};
     const attempt = (label: string, work: () => void) => {
         try {
             work();

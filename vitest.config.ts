@@ -1,18 +1,13 @@
 import { layer } from '@effect/platform-node/NodeServices';
-import { Array, Config, Effect, FileSystem, flow, Option, Path, Record, Schema } from 'effect';
+import { Array, Config, Effect, FileSystem, flow, Option, Path, Record } from 'effect';
 import { type ConfigEnv, loadConfigFromFile } from 'vite';
 import { mergeConfig, type ViteUserConfig, type ViteUserConfigFnPromise } from 'vitest/config';
-import { decodeFile, Package } from '#/eng/typescript/manifest';
-import { TextFormat } from '#/eng/typescript/text-format';
+import { members, Package, Workspace } from '#/eng/typescript/manifest';
 import { located } from '#/vite.shared';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ROOT = import.meta.dirname;
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Workspace = TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.String) })));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -81,8 +76,8 @@ const vitestProject = (directory: string, config: ViteUserConfig = {}): ViteUser
 
 const rootConfig: () => Promise<ViteUserConfig> = Effect.fnUntraced(
     function* () {
-        const [{ test }, { packages }] = yield* Effect.all([defaults(ROOT), decodeFile(Workspace, ROOT, 'pnpm-workspace.yaml')], { concurrency: 'unbounded' });
-        return { test: { ...test, coverage: { ...test.coverage, include: Array.cartesianWith(packages, test.coverage.include, (glob, pattern) => `${glob}/${pattern}`) }, projects: Array.map(packages, (glob) => `${glob}/vitest.config.ts`) } };
+        const [{ test }, { packages }, projects] = yield* Effect.all([defaults(ROOT), Workspace.read(ROOT), members(ROOT, 'vitest.config.ts')], { concurrency: 'unbounded' });
+        return { test: { ...test, coverage: { ...test.coverage, include: Array.cartesianWith(packages, test.coverage.include, (glob, pattern) => `${glob}/${pattern}`) }, projects } };
     },
     Effect.provide(layer),
     Effect.runPromise,

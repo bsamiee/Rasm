@@ -1,8 +1,8 @@
-import { assign, file, handleEnvelope, illegal, indexed, read, step } from '@rasm/extendscript/extendscript';
+import { assignProperties, fileFromUrl, handleEnvelope, illegalArgument, readProperty, specifierStep } from '@rasm/extendscript/extendscript';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface ObjectType {
+interface Typenames {
     readonly Document: Document;
     readonly Layer: Layer;
     readonly Artboard: Artboard;
@@ -10,33 +10,42 @@ interface ObjectType {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const is = <Name extends keyof ObjectType>(typename: Name, value: unknown): value is ObjectType[Name] => read(value, 'typename') === typename;
-const isPageItem = (value: unknown): value is PageItem => read(value, 'layer') !== undefined && read(value, 'visibleBounds') !== undefined;
+const is = <Typename extends keyof Typenames>(typename: Typename, value: unknown): value is Typenames[Typename] => readProperty(value, 'typename') === typename;
+const isPageItem = (value: unknown): value is PageItem => readProperty(value, 'layer') !== undefined && readProperty(value, 'visibleBounds') !== undefined;
 const owner = (value: unknown): Document | undefined => {
     if (value === undefined || value === app) {
-        return;
-    }
-    return is('Document', value) ? value : owner(read(value, 'parent'));
-};
-const specifier = (value: unknown): string | undefined => {
-    const [document, parent, uuid] = [owner(value), read(value, 'parent'), read(value, 'uuid')];
-    if (document === undefined) {
         return undefined;
     }
-    const reference = step('document', ['fullName', String(document.fullName)]);
-    if (document === value) {
-        return reference;
-    }
-    if (isPageItem(value) && typeof uuid === 'string') {
-        return `${reference}${step('pageItem', ['uuid', uuid])}`;
-    }
-    const { kind, siblings } = is('Artboard', value) ? { kind: 'artboard', siblings: document.artboards } : { kind: 'layer', siblings: is('Document', parent) || is('Layer', parent) ? parent.layers : undefined };
-    for (let index = 0; index < (siblings?.length ?? 0); index += 1) {
-        if (siblings?.[index] === value) {
-            return `${specifier(parent)}${indexed(kind, index)}`;
+    return is('Document', value) ? value : owner(readProperty(value, 'parent'));
+};
+const member = (container: string, kind: string, siblings: Artboards | Layers, value: unknown): string | undefined => {
+    for (let index = 0; index < siblings.length; index += 1) {
+        if (siblings[index] === value) {
+            return `${container}${specifierStep(kind, [index])}`;
         }
     }
     return undefined;
+};
+const specifier = (value: unknown): string | undefined => {
+    const document = owner(value);
+    if (document === undefined) {
+        return undefined;
+    }
+    const [reference, parent, uuid] = [specifierStep('document', ['fullName', String(document.fullName)]), readProperty(value, 'parent'), readProperty(value, 'uuid')];
+    if (value === document) {
+        return reference;
+    }
+    if (isPageItem(value) && typeof uuid === 'string') {
+        return `${reference}${specifierStep('pageItem', ['uuid', uuid])}`;
+    }
+    if (is('Artboard', value)) {
+        return member(reference, 'artboard', document.artboards, value);
+    }
+    if (!(is('Document', parent) || is('Layer', parent))) {
+        return undefined;
+    }
+    const container = specifier(parent);
+    return container === undefined ? undefined : member(container, 'layer', parent.layers, value);
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -54,24 +63,24 @@ export default handleEnvelope({
         },
     },
     specifier,
-    open: ({ file: url }) => app.open(file(url)),
-    render: ({ target, longestSide, options, file: url }, resolve) => {
-        const chain = resolve(target);
+    open: (payload) => app.open(fileFromUrl(payload.file)),
+    render: (payload, resolve) => {
+        const chain = resolve(payload.target);
         const found = chain[chain.length - 1];
         const document = owner(found);
         const bounds = is('Document', found) || isPageItem(found) ? found.visibleBounds : undefined;
         const rect = is('Artboard', found) ? found.artboardRect : bounds;
         if (document === undefined || rect === undefined) {
-            throw illegal(`${target} names a ${String(read(found, 'typename'))} with no bounds`);
+            throw illegalArgument(`${payload.target} names a ${String(readProperty(found, 'typename'))} with no bounds`);
         }
         const percent = 100;
-        const scale = (longestSide / Math.max(rect[2] - rect[0], rect[1] - rect[3])) * percent;
+        const scale = (payload.longestSide / Math.max(rect[2] - rect[0], rect[1] - rect[3])) * percent;
         const { artboards } = document;
         const active = artboards.getActiveArtboardIndex();
         const added = artboards.add(rect);
         artboards.setActiveArtboardIndex(artboards.length - 1);
         try {
-            document.exportFile(file(url), ExportType.PNG24, assign(new ExportOptionsPNG24(), options, { artBoardClipping: true, horizontalScale: scale, verticalScale: scale }));
+            document.exportFile(fileFromUrl(payload.file), ExportType.PNG24, assignProperties(new ExportOptionsPNG24(), payload.options, { artBoardClipping: true, horizontalScale: scale, verticalScale: scale }));
         } finally {
             added.remove();
             artboards.setActiveArtboardIndex(active);

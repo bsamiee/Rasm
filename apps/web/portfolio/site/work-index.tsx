@@ -2,7 +2,7 @@ import { Array, Option } from 'effect';
 import type { ReactNode, Ref } from 'react';
 import { entryTitle, format } from '#/media/labels.ts';
 import type { Portfolio } from '#/model/portfolio.ts';
-import { Fragment, type useNavigation } from '#/site/navigation.ts';
+import { UrlFragment, type useNavigation } from '#/site/navigation.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -10,13 +10,13 @@ const WorkIndex = ({ portfolio, navigation }: { portfolio: typeof Portfolio.Type
     const reveal = (link: HTMLAnchorElement | null) => link?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
     return (
         <nav aria-label="Work index" className="work-index">
-            <a className="eyebrow text-muted hover:text-accent-text min-h-11 self-start pb-5.75" href={Fragment.work}>
+            <a className="eyebrow text-muted hover:text-accent-text min-h-11 self-start pb-5.75" href={UrlFragment.work}>
                 Index
             </a>
             <div className="index-list">
                 {Array.match(portfolio.entries, {
                     onEmpty: () => (
-                        <a className="group index-link" href={Fragment.work}>
+                        <a className="group index-link" href={UrlFragment.work}>
                             <span className="col-span-full">Selected work</span>
                         </a>
                     ),
@@ -25,7 +25,7 @@ const WorkIndex = ({ portfolio, navigation }: { portfolio: typeof Portfolio.Type
                             <a
                                 aria-current={navigation.active === entry.id ? 'location' : undefined}
                                 className="group index-link before:text-accent-text ordinal before:font-mono before:tabular-nums"
-                                href={Fragment.of(entry.id)}
+                                href={UrlFragment(entry.id)}
                                 key={entry.id}
                                 onClick={(event) => {
                                     if (!(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) && event.button === 0) {

@@ -1,0 +1,7 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": [ "claude-code", "claude-code-tools" ]
+    },
+    "include": [ "hooks" ]
+}

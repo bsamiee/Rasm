@@ -1,14 +1,14 @@
 {
     "generators": {
         "deployment-target": {
-            "factory": "./workspace.ts#deploymentTarget",
+            "factory": "./deployment-target.ts#deploymentTarget",
             "schema": "./schema.json",
             "description": "Writes Package.swift macOS deployment target into Xcode.xcconfig and .swiftlint.yml"
         },
         "barrels": {
-            "factory": "./workspace.ts#barrels",
+            "factory": "./barrels.ts#barrels",
             "schema": "./schema.json",
-            "description": "Writes each library's index.ts barrels and tsconfig.neutral.json from its package.json exports and modules"
+            "description": "Writes each library's index.ts barrels from its package.json exports and modules"
         }
     }
 }

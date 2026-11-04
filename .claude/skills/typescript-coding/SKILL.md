@@ -278,15 +278,11 @@ Quantities with a unit are values of their module, a plain number holds a count 
 Packages are libraries, which export values and choose no runtime, or programs, which compose a runtime and run. Modules hold one concept, and a class holds its data with operations reading one instance as methods and getters, statics building or relating instances. Concepts caller data configures are a `Schema.Class` of the data with each use a method:
 - Packages hold their capability and the host facts it detects, app values (names, paths, timeouts, prose) enter as composition root arguments
 - `index.ts` re-exports the modules every importing runtime loads, and a module set needing one runtime or dependency is an entry named for it (`./node`, `./uxp`, `./shaping`)
-- Barrels hold one `export { ... } from` statement per module, the closed `exports` map lists every entry, and an unlisted module stays private
-- Files take their primary export's name in kebab-case, hold sub-concepts only their owner's API uses, and split by concept, never by size
-- Helpers stay unexported beside their reader, and a helper a second module reads moves to a module under `internal/` named for its concern
 - Exported names read correctly beside other packages' names: nouns for owners, verb-noun for functions
 - Union schemas, components, and primary functions hold their variants as members `Object.assign` or an expando sets, `erasableSyntaxOnly` refusing a `namespace`
-- Each package declares one error class in the module named for it, its `reason` union's cases in that module
 - Contracts a second runtime decodes sit in the root entry, both sides importing one module
 - Surface changes edit every consumer in the same change, with no deprecated alias, stability prefix, or internal entry
-- Libraries never call `NodeRuntime.runMain` or provide a platform layer, a program's `main.ts` holding platform layers, configuration, and the run
+- Libraries never call `NodeRuntime.runMain` or provide a platform layer
 - Bundled programs root at their build config, which bundles the package's entry export and defines app values as an `ImportMetaEnv` member
 - App entry modules that only call a package entry restate it
 - Package types pass whole, and consumers read returned host handles and the context a host passes its callback, a re-read from source restating them

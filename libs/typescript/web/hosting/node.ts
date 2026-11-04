@@ -5,7 +5,7 @@ import { Config, ConfigProvider, Effect, Layer, Logger, Record, Result, Schema, 
 import { FetchHttpClient, HttpEffect, HttpRouter, HttpServerResponse, HttpStaticServer } from 'effect/http';
 import { Otlp, OtlpSerialization } from 'effect/observability';
 import { Template } from '#/server/template';
-import { vite } from '#/vite';
+import { nodeBundle } from '#/vite';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,7 +22,7 @@ const Json = Schema.fromJsonString(Schema.Unknown);
 
 const serveNode = Effect.fnUntraced(
     function* <B extends Record.ReadonlyRecord<string, { readonly type: string }>, A, E, R>(config: { readonly name: string; readonly env: B }, app: (env: Schema.Struct<{ [K in keyof B]: Struct.Apply<Field, B[K]> }>['Type']) => Layer.Layer<A, E, R>) {
-        const root = join(import.meta.dirname, vite.layout.assets);
+        const root = join(import.meta.dirname, nodeBundle.layout.assets);
         const [env, files] = yield* Effect.all([
             Config.schema(
                 Schema.Struct(
@@ -49,7 +49,7 @@ const serveNode = Effect.fnUntraced(
     (layer, config) =>
         layer.pipe(
             Layer.provide([
-                layerConfig(createServer, { port: Config.Port(vite.layout.portVariable) }),
+                layerConfig(createServer, { port: Config.Port(nodeBundle.layout.portVariable) }),
                 Otlp.layerFromConfig({ resource: { serviceName: config.name } }).pipe(Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]), Layer.provideMerge(Logger.layer([Logger.consoleJson, Logger.tracerLogger]))),
             ]),
         ),

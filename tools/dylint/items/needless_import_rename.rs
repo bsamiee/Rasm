@@ -124,15 +124,14 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             .chain(PrimTy::ALL.into_iter().map(|primitive| (primitive.name(), Res::PrimTy(primitive))));
         let prelude = scope(tcx, prelude);
         let mut scopes = FxHashMap::default();
-        for item in tcx.hir_free_items().map(|id| tcx.hir_item(id)) {
-            let ItemKind::Use(tree) = item.kind else { continue };
-            if expanded_externally(cx, item.span) || exported(cx, item.owner_id.def_id) || find_attr!(tcx, item.hir_id(), CfgTrace(..)) {
-                continue;
-            }
-            let mut renames = renames(tree, item.hir_id());
-            if renames.is_empty() {
-                continue;
-            }
+        let imports = tcx
+            .hir_free_items()
+            .map(|id| tcx.hir_item(id))
+            .filter_map(|item| if let ItemKind::Use(tree) = item.kind { Some((item, tree)) } else { None })
+            .filter(|(item, _)| !(expanded_externally(cx, item.span) || exported(cx, item.owner_id.def_id) || find_attr!(tcx, item.hir_id(), CfgTrace(..))))
+            .map(|(item, tree)| (item, renames(tree, item.hir_id())))
+            .filter(|(_, renamed)| !renamed.is_empty());
+        for (item, mut renames) in imports {
             let module = tcx.parent_module_from_def_id(item.owner_id.def_id);
             let boundary = tcx.local_def_id_to_hir_id(module.to_local_def_id());
             let mut remove_collisions = |bindings: &FxHashMap<Symbol, Vec<Res>>| {

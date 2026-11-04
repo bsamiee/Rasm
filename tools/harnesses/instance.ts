@@ -1,6 +1,6 @@
 import { constants } from 'node:os';
 import { State } from '@rasm/automation';
-import { Array, ByteSize, Data, DateTime, Duration, Effect, Equivalence, FileSystem, identity, Match, Option, Path, type PlatformError, PubSub, Queue, Record, Result, Schema, Sink, Stream, Struct } from 'effect';
+import { Array, ByteSize, Data, DateTime, Duration, Effect, Equivalence, FileSystem, identity, Match, Option, Path, type PlatformError, PubSub, Queue, Record, Result, Schema, Sink, Stream, String, Struct } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/harness-error';
 import type { Halted } from '#/results';
@@ -49,17 +49,23 @@ const checked = Effect.fn('checked')(function* (command: string, args: readonly 
     return code === 0 ? stdout : yield* HarnessError.unavailable([command, ...args].join(' '))(`exited with code ${code}: ${stderr}`);
 });
 const printed = (command: string, args: readonly string[], env: Record.ReadonlyRecord<string, string> = {}) => Effect.map(checked(command, args, env), (bytes) => new TextDecoder().decode(bytes));
+const printedLines = (command: string, args: readonly string[], env: Record.ReadonlyRecord<string, string> = {}) => Effect.map(printed(command, args, env), (text) => Array.fromIterable(String.linesIterator(text)).filter(String.isNonEmpty));
 const startOf = (line: string) =>
     Array.matchLeft(line.trim().split(SPACES), {
         onEmpty: Option.none,
         onNonEmpty: (pid, started) => Option.zipWith(Schema.decodeOption(Schema.FiniteFromString)(pid), Option.map(DateTime.makeZoned(started.join(' '), { timeZone: DateTime.zoneMakeLocal(), adjustForTimeZone: true }), DateTime.toUtc), (held, at) => [held, at] as const),
     });
-const starts = (selected: readonly string[]) => Effect.map(printed('ps', ['-o', 'pid=,lstart=', ...selected]), (text) => new Map(Array.getSomes(text.split('\n').map(startOf))));
+const starts = (selected: readonly string[]) => Effect.map(printedLines('ps', ['-o', 'pid=,lstart=', ...selected]), (lines) => new Map(Array.getSomes(lines.map(startOf))));
+const converted = <S extends Schema.Top>(file: string, schema: S) => Effect.flatMap(printed('plutil', ['-convert', 'json', '-o', '-', file]), Schema.decodeEffect(Schema.fromJsonString(schema)));
 const plist = Effect.fn('plist')(function* <S extends Schema.Top>(app: string, schema: S) {
     const path = yield* Path.Path;
-    return yield* Schema.decodeEffect(Schema.fromJsonString(schema))(yield* printed('plutil', ['-convert', 'json', '-o', '-', path.join(app, 'Contents', 'Info.plist')]));
+    return yield* converted(path.join(app, 'Contents', 'Info.plist'), schema);
 });
-const sampled = (pid: number, file: string) => Effect.as(checked('sample', [String(pid), '1', '-file', file]), file);
+const entitlements = Effect.fn('entitlements')(function* <S extends Schema.Top>(app: string, file: string, schema: S) {
+    yield* checked('codesign', ['-d', '--entitlements', file, '--xml', app]);
+    return yield* converted(file, schema);
+});
+const sampled = (pid: number, file: string) => Effect.as(checked('sample', [globalThis.String(pid), '1', '-file', file]), file);
 const stalled = Effect.fn('stalled')(function* (sample: string) {
     const lines = (yield* FileSystem.FileSystem.use((fs) => fs.readFileString(sample))).split('\n');
     const block = Array.takeWhile(
@@ -105,7 +111,7 @@ const answerOf = Match.type<Next>().pipe(
     Match.when({ answer: Match.defined }, ({ answer }) => answer),
     Match.option,
 );
-const lines = (command: readonly string[]) =>
+const watchApps = (command: readonly string[]) =>
     Effect.map(ChildProcess.make('watch-apps', command, { stdin: 'ignore', stderr: 'inherit' }), (handle) => ({
         pid: handle.pid,
         lines: handle.stdout.pipe(
@@ -115,7 +121,7 @@ const lines = (command: readonly string[]) =>
             Stream.flattenIterable,
         ),
     }));
-const drained = (command: readonly string[]) => Effect.scoped(Effect.flatMap(lines(command), ({ lines: held }) => Stream.runDrain(held)));
+const drained = (command: readonly string[]) => Effect.scoped(Effect.flatMap(watchApps(command), ({ lines: held }) => Stream.runDrain(held)));
 
 // --- [INSTANCES] -----------------------------------------------------------------------
 
@@ -127,7 +133,7 @@ const Observation = Object.assign(Schema.Struct({ identifier: Schema.String, pid
             Launching: () => 'launching',
             Responding: ({ answering }) => `responding${answering ? ' with a dialog requiring an answer' : ''}`,
             Unresponsive: ({ process, usage, windows }) =>
-                `unresponsive ${process}${usage === undefined ? '' : ` cpu ${Duration.format(usage.cpu)} footprint ${ByteSize.format(usage.footprint)}`}${windows.length === 0 ? '' : `, windows ${windows.map(({ number, title }) => (title === undefined ? String(number) : `${number} "${title}"`)).join(', ')}`}`,
+                `unresponsive ${process}${usage === undefined ? '' : ` cpu ${Duration.format(usage.cpu)} footprint ${ByteSize.format(usage.footprint)}`}${windows.length === 0 ? '' : `, windows ${windows.map(({ number, title }) => (title === undefined ? globalThis.String(number) : `${number} "${title}"`)).join(', ')}`}`,
             Failed: ({ reason }) => `status failed: ${reason}`,
             Exited: ({ signal, status, report, reportFailure }) => `exited with ${signal === undefined ? `status ${status ?? 'unread'}` : `signal ${signal}`}${report === undefined ? '' : `, report ${report.url.href}`}${reportFailure === undefined ? '' : `, ${reportFailure}`}`,
         }),
@@ -166,7 +172,7 @@ class Progress extends Data.Class<{ readonly title: string; readonly buttons: re
 const launching = Effect.fn('launching')(function* (spec: Launched, chosen: Chosen, passing: readonly Progress[], releasing: Releasing) {
     const refused = HarnessError.unavailable(chosen.name);
     const rowsOf = <E, R>(held: Stream.Stream<typeof Instances.Type, E, R>) => Stream.flattenIterable(Stream.mapEffect(held, stamped));
-    const watch = yield* lines(['watch', chosen.app, ...chosen.helpers]);
+    const watch = yield* watchApps(['watch', chosen.app, ...chosen.helpers]);
     const [first, rest] = yield* Stream.peel(watch.lines, Sink.find(Record.has(chosen.identifier)));
     const running = yield* stamped(yield* Effect.fromOption(first, () => refused(`watch ${chosen.app} ended before its first line`)));
     yield* Array.match(Array.getSomes(running.map((row) => Progress.shown(passing, row))), { onEmpty: () => Effect.void, onNonEmpty: (held) => refused(held.join('; ')) });
@@ -179,7 +185,7 @@ const launching = Effect.fn('launching')(function* (spec: Launched, chosen: Chos
     ];
     const subscribed = yield* PubSub.subscribe(yield* Stream.toPubSubTake(rowsOf(rest), { capacity: 'unbounded' }));
     const retain = ({ identifier, pid, state }: typeof Observation.Type) => (identifier === chosen.identifier && State.isAnyOf(['Launching', 'Responding', 'Unresponsive'])(state) && state.created === true ? releasing(drained(['quit', '--pid', `${pid}`])) : Effect.void);
-    const launched = yield* Effect.scoped(Effect.flatMap(lines(['launch', chosen.app, ...flags]), ({ lines: held }) => Stream.runCollect(Stream.tap(rowsOf(held), retain))));
+    const launched = yield* Effect.scoped(Effect.flatMap(watchApps(['launch', chosen.app, ...flags]), ({ lines: held }) => Stream.runCollect(Stream.tap(rowsOf(held), retain))));
     const last = Array.last(launched);
     const ended = Option.filter(last, ({ identifier, state }) => identifier === chosen.identifier && !State.isAnyOf(['Launching'])(state));
     const settled = yield* Effect.fromOption(ended, () => refused(`launch ended ${Option.match(last, { onNone: () => 'with no state', onSome: ({ identifier, pid, state }) => `at ${identifier} ${pid} ${Observation.described(state)}` })}`));
@@ -221,4 +227,4 @@ class Spawned extends Data.TaggedClass('Spawned')<{ readonly command: string; re
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Asked, appeared, checked, Launched, Observation, output, Progress, plist, printed, Spawned, System, sampled, stalled, starts, watched };
+export { type Asked, appeared, checked, entitlements, Launched, Observation, output, Progress, plist, printed, printedLines, Spawned, System, sampled, stalled, starts, watched };

@@ -1,9 +1,9 @@
 import { HostError, Requests } from '@rasm/automation';
 import { Peer } from '@rasm/uxp/peer';
-import { Cause, Console, Effect, flow, Layer, Predicate, Schema, Struct } from 'effect';
+import { Cause, Console, Effect, Function, flow, Layer, Predicate, Schema, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
-import { Completion } from '#/contract';
-import { ExtensionManifest } from '#/manifest';
+import { Completion, Envelope } from '#/contract';
+import { ExtensionManifest } from '#/extension-manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -17,18 +17,22 @@ interface Cep {
 
 const Cep = Schema.Struct({ evalScript: Schema.declare(Predicate.isFunction), getSystemPath: Schema.declare(Predicate.isFunction), getExtensionId: Schema.declare(Predicate.isFunction) });
 const Panel = Schema.Struct({ __adobe_cep__: Schema.declare((host): host is Cep => Schema.is(Cep)(host)) });
-const Envelope = Schema.fromJsonString(Schema.Struct({ tag: Schema.String, label: Schema.String, payload: Schema.Json }));
-const Answer = Schema.Union([Schema.Literal('EvalScript error.'), Schema.fromJsonString(Completion)]);
+const Sent = Function.memoize((rpc: Parameters<typeof Envelope>[0]) => Schema.fromJsonString(Schema.toCodecJson(Envelope(rpc))));
+const Reply = Schema.fromJsonString(Completion);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const served = (cep: Cep) =>
     Effect.fnUntraced(function* <Tag extends Requests['_tag'], Payload extends Requests['payloadSchema'], Success extends Requests['successSchema']>(payload: Payload['Type'], { rpc }: { readonly rpc: Rpc.Rpc<Tag, Payload, Success, Requests['errorSchema']> }) {
-        const encoded = yield* Effect.orDie(Schema.encodeEffect(Schema.toCodecJson(rpc.payloadSchema))(payload));
-        const sent = yield* Effect.orDie(Schema.encodeEffect(Envelope)({ tag: rpc._tag, label: payload.label, payload: encoded }));
-        const reply = yield* Effect.callback<string>((resume) => cep.evalScript(`${ExtensionManifest.global}(${sent.replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029')})`, flow(Effect.succeed, resume)));
-        const answer = yield* Schema.decodeEffect(Answer)(reply).pipe(Effect.filterOrFail(Schema.is(Completion), () => HostError.make({ reason: { _tag: 'Unavailable' }, subject: `${payload.label}: ${ExtensionManifest.script} ${ExtensionManifest.global}` })));
-        return yield* Completion.answered(Schema.toCodecJson(rpc.successSchema), payload.label)(answer);
+        const sent = yield* Effect.orDie(Schema.encodeEffect(Sent(rpc))({ tag: rpc._tag, label: payload.label, payload }));
+        return yield* Effect.callback<string>((resume) => cep.evalScript(`${ExtensionManifest.global}(${sent.replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029')})`, flow(Effect.succeed, resume))).pipe(
+            Effect.filterOrFail(
+                (reply) => reply !== 'EvalScript error.',
+                () => HostError.make({ reason: { _tag: 'Unavailable' }, subject: `${payload.label}: ${ExtensionManifest.script} ${ExtensionManifest.global}` }),
+            ),
+            Effect.flatMap(Schema.decodeEffect(Reply)),
+            Effect.flatMap(Completion.answered(Schema.toCodecJson(rpc.successSchema), payload.label)),
+        );
     });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

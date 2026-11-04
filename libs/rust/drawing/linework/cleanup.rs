@@ -11,7 +11,7 @@ use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _, walk_tree_pr
 use stacksafe::StackSafe;
 use validated::Validated;
 
-use crate::{Element, LineworkError, Path, Region, Side, Tolerance, regions};
+use crate::{Element, Linetype, LineworkError, Path, Pen, Region, Side, Tolerance, regions};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,6 +26,12 @@ impl Cross for Piece {
     type Scalar = f64;
 
     fn line(&self) -> Line<f64> { self.line }
+}
+
+enum Event {
+    Stroke { index: usize, stroke: usize, path: Path, pen: Pen, linetype: Option<Linetype> },
+    Kept(Element),
+    Closed { index: usize, region: Region, keep: Side, count: usize },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -200,63 +206,38 @@ where K: Ord + Send {
         .map(|remaining| Some(remaining).filter(|remaining| !remaining.is_empty()))
         .map_err(LineworkError::from),
     };
-    let mut current = elements.into_iter().enumerate();
-    let mut parents = Vec::new();
-    let mut next = 0_usize;
-    iter::from_fn(|| {
-        loop {
-            match current.next() {
-                Some((index, Element::Stroke { path, pen, linetype })) => {
-                    let stroke = next;
-                    next = next.strict_add(1);
-                    break Some(Either::Left((index, stroke, path, pen, linetype)));
-                }
-                Some((index, Element::Clip { region, keep, elements: grouped })) => {
-                    let grouped = grouped.into_inner();
-                    let count = grouped.len();
-                    parents.push((index, region, keep, count, mem::replace(&mut current, grouped.into_iter().enumerate())));
-                }
-                Some((_, element @ (Element::Fill { .. } | Element::Hatch { .. } | Element::Text { .. } | Element::Glyphs { .. } | Element::Placed { .. }))) =>
-                    break Some(Either::Right(Either::Left(element))),
-                None => {
-                    let Some((index, region, keep, count, parent)) = parents.pop() else { break None };
-                    current = parent;
-                    break Some(Either::Right(Either::Right((index, region, keep, count))));
-                }
-            }
-        }
-    })
-    .collect::<Vec<_>>()
-    .into_par_iter()
-    .map(|event| match event {
-        Either::Left((index, stroke, path, pen, linetype)) => Either::Left(
-            reworked(stroke, path)
-                .map(|outcome| outcome.map(|remaining| Element::Stroke { path: remaining, pen, linetype }))
-                .map_err(|source| LineworkError::Element { index, errors: nev![source.into()] }),
-        ),
-        Either::Right(Either::Left(element)) => Either::Left(Ok(Some(element))),
-        Either::Right(Either::Right(parent)) => Either::Right(parent),
-    })
-    .collect::<Vec<_>>()
-    .into_iter()
-    .fold(Vec::<Result<Option<Element>, LineworkError>>::new(), |mut completed, event| {
-        let outcome = match event {
-            Either::Left(outcome) => outcome,
-            Either::Right((index, region, keep, count)) => completed
-                .drain(completed.len().strict_sub(count)..)
-                .filter_map(Result::transpose)
-                .collect::<Validated<Vec<_>, _>>()
-                .ok()
-                .map(|grouped| (!grouped.is_empty()).then_some(Element::Clip { region, keep, elements: grouped.into() }))
-                .map_err(|errors| LineworkError::Element { index, errors: errors.into_nonempty_iter().map(StackSafe::new).collect() }),
-        };
-        completed.push(outcome);
-        completed
-    })
-    .into_iter()
-    .filter_map(Result::transpose)
-    .collect::<Validated<Vec<_>, _>>()
-    .ok()
+    flattened(elements)
+        .collect::<Vec<_>>()
+        .into_par_iter()
+        .map(|event| match event {
+            Event::Stroke { index, stroke, path, pen, linetype } => Either::Left(
+                reworked(stroke, path)
+                    .map(|outcome| outcome.map(|remaining| Element::Stroke { path: remaining, pen, linetype }))
+                    .map_err(|source| LineworkError::Element { index, errors: nev![source.into()] }),
+            ),
+            Event::Kept(element) => Either::Left(Ok(Some(element))),
+            Event::Closed { index, region, keep, count } => Either::Right((index, region, keep, count)),
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .fold(Vec::<Result<Option<Element>, LineworkError>>::new(), |mut completed, event| {
+            let outcome = match event {
+                Either::Left(outcome) => outcome,
+                Either::Right((index, region, keep, count)) => completed
+                    .drain(completed.len().strict_sub(count)..)
+                    .filter_map(Result::transpose)
+                    .collect::<Validated<Vec<_>, _>>()
+                    .ok()
+                    .map(|grouped| (!grouped.is_empty()).then_some(Element::Clip { region, keep, elements: grouped.into() }))
+                    .map_err(|errors| LineworkError::Element { index, errors: errors.into_nonempty_iter().map(StackSafe::new).collect() }),
+            };
+            completed.push(outcome);
+            completed
+        })
+        .into_iter()
+        .filter_map(Result::transpose)
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
 }
 
 #[must_use]
@@ -291,6 +272,34 @@ pub fn chain(segments: impl IntoIterator<Item = PathSeg>, tolerance: Tolerance) 
             iter::once(PathEl::MoveTo(origin)).chain(run.map(PathSeg::as_path_el)).chain(closed.then_some(PathEl::ClosePath)).collect::<BezPath>()
         })
         .collect()
+}
+
+fn flattened(elements: Vec<Element>) -> impl Iterator<Item = Event> {
+    gen move {
+        let mut current = elements.into_iter().enumerate();
+        let mut parents = Vec::new();
+        let mut next = 0_usize;
+        loop {
+            match current.next() {
+                Some((index, Element::Stroke { path, pen, linetype })) => {
+                    let stroke = next;
+                    next = next.strict_add(1);
+                    yield Event::Stroke { index, stroke, path, pen, linetype };
+                }
+                Some((index, Element::Clip { region, keep, elements: grouped })) => {
+                    let grouped = grouped.into_inner();
+                    let count = grouped.len();
+                    parents.push((index, region, keep, count, mem::replace(&mut current, grouped.into_iter().enumerate())));
+                }
+                Some((_, element @ (Element::Fill { .. } | Element::Hatch { .. } | Element::Text { .. } | Element::Glyphs { .. } | Element::Placed { .. }))) => yield Event::Kept(element),
+                None => {
+                    let Some((index, region, keep, count, parent)) = parents.pop() else { break };
+                    current = parent;
+                    yield Event::Closed { index, region, keep, count };
+                }
+            }
+        }
+    }
 }
 
 fn rebuilt(lines: impl IntoIterator<Item = Line<f64>>, tolerance: Tolerance) -> BezPath {

@@ -8,6 +8,7 @@ type Case = (typeof Batch.Type.cases)[number];
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CASES = '.cases.json';
+const EXTENDSCRIPT = ['jsx', 'jsxbin', 'js'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -83,4 +84,4 @@ const expand = Effect.fn('expand')(function* (product: string, file: string) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answers, Batch, CASES, Call, type Case, Expression, expand, Keywords, Name, Probe, Reads, scriptOf };
+export { answers, Batch, CASES, Call, type Case, EXTENDSCRIPT, Expression, expand, Keywords, Name, Probe, Reads, scriptOf };

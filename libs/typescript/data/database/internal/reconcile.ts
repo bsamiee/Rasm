@@ -18,6 +18,7 @@ interface Live {
 
 const digestBase = 257;
 const digestModulus = 2_147_483_647;
+const encoder = new TextEncoder();
 const referentialActions = ['NO ACTION', 'RESTRICT', 'CASCADE', 'SET NULL', 'SET DEFAULT'] as const;
 const methods = ['btree', 'gin', 'gist', 'brin'] as const;
 
@@ -36,13 +37,12 @@ const constant = ({ kind }: Column, value: string | number) =>
         Match.whenOr('integer', 'real', 'boolean', () => `${value}`),
         Match.orElse(() => literal(`${value}`)),
     );
-const digest = (text: string) => new TextEncoder().encode(text).reduce((hash, byte) => (hash * digestBase + byte) % digestModulus, 0);
+const digest = (text: string) => encoder.encode(text).reduce((hash, byte) => (hash * digestBase + byte) % digestModulus, 0);
 const identifier = (parts: readonly string[]) => {
     const identifierBytes = 63;
     const name = parts.map(String.camelToSnake).join('_');
     const radix = 36;
     const suffix = `_${digest(name).toString(radix)}`;
-    const encoder = new TextEncoder();
     return encoder.encode(name).length <= identifierBytes ? name : `${name.slice(0, encoder.encodeInto(name, new Uint8Array(identifierBytes - suffix.length)).read)}${suffix}`;
 };
 

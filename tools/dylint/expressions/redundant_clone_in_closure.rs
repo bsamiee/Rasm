@@ -7,6 +7,7 @@ use clippy_utils::{
     sym,
     visitors::local_used_once,
 };
+use itertools::Itertools as _;
 use rustc_attr_ir::LangItem;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_errors::Applicability;
@@ -46,18 +47,25 @@ impl<'tcx> Captures<'tcx> {
             context => context.is_some(),
         };
         let mir = if ctfe { tcx.mir_for_ctfe(parent) } else { tcx.optimized_mir(parent) };
-        let mut captures = Self { tcx, mir, borrowed: FxHashMap::default(), closures: LocalDefIdMap::default(), borrowers: PossibleBorrowerMap::new(cx, mir) };
-        for (block, data) in mir.basic_blocks.iter_enumerated() {
-            for (statement_index, statement) in data.statements.iter().enumerate() {
+        let closures: LocalDefIdMap<_> = mir
+            .basic_blocks
+            .iter_enumerated()
+            .flat_map(|(block, data)| data.statements.iter().enumerate().map(move |(statement_index, statement)| (Location { block, statement_index }, statement)))
+            .filter_map(|(location, statement)| {
                 if let Some((target, Rvalue::Aggregate(kind, operands))) = statement.kind.as_assign()
                     && let AggregateKind::Closure(built, _) | AggregateKind::Coroutine(built, _) = **kind
                     && let Some(built) = built.as_local()
                     && let Some(target) = target.as_local()
                 {
-                    captures.closures.entry(built).or_default().push((Location { block, statement_index }, target, operands.raw.as_slice()));
+                    Some((built, (location, target, operands.raw.as_slice())))
+                } else {
+                    None
                 }
-            }
-        }
+            })
+            .into_group_map()
+            .into_iter()
+            .collect();
+        let mut captures = Self { tcx, mir, borrowed: FxHashMap::default(), closures, borrowers: PossibleBorrowerMap::new(cx, mir) };
         captures.visit_body(mir);
         Some(captures)
     }

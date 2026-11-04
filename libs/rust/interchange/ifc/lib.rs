@@ -427,26 +427,15 @@ impl Model {
 
     #[must_use]
     pub fn occurrences(&self, path: &Path) -> Vec<Path> {
-        let (relevant, roots) = {
-            let mut relevant = HashSet::new();
-            let mut roots = Vec::new();
-            let mut pending = match self.holders.get(path) {
-                Some(holders) => holders.iter().rev().map(|(name, holder)| holder.children[name].as_ref()).collect::<Vec<_>>(),
-                None => return Vec::from([path.clone()]),
-            };
-            while let Some(node) = pending.pop() {
-                if relevant.insert(ptr::from_ref(node)) {
-                    match self.holders.get(&node.path) {
-                        Some(holders) => pending.extend(holders.iter().rev().filter(|(name, holder)| ptr::eq(holder.children[name].as_ref(), node)).map(|(_, holder)| holder.as_ref())),
-                        None => roots.push(node),
-                    }
-                }
-            }
-            (relevant, roots)
-        };
+        let Some(holders) = self.holders.get(path) else { return Vec::from([path.clone()]) };
+        let reachable = reached(holders.iter().rev().map(|(name, holder)| holder.children[name].as_ref()), ptr::from_ref, |node: &Composed| {
+            self.holders.get(&node.path).into_iter().flatten().rev().filter(move |(name, holder)| ptr::eq(holder.children[name].as_ref(), node)).map(|(_, holder)| holder.as_ref())
+        })
+        .collect::<Vec<_>>();
+        let relevant = reachable.iter().copied().map(ptr::from_ref).collect::<HashSet<_>>();
         let mut paths = Vec::new();
         let mut names = Vec::new();
-        let mut pending = roots.into_iter().rev().map(|node| Some((node, &node.path, None))).collect::<Vec<_>>();
+        let mut pending = reachable.into_iter().filter(|node| !self.holders.contains_key(&node.path)).rev().map(|node| Some((node, &node.path, None))).collect::<Vec<_>>();
         while let Some(next) = pending.pop() {
             let (node, root) = match next {
                 Some((node, root, Some(name))) => {

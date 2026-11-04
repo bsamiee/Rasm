@@ -177,6 +177,7 @@ def test_single_layer_multilayer_render_retains_prior_layers_and_saved_capture(a
             assert answer == Ok(frozenset({"FINISHED"})), {"requested": requested, "callbacks": tuple(callbacks), "before": before, "after": _render_images(), "reports": identity.reports.entries}
             assert set(callbacks) == {requested}
             assert {layer.name for layer in scene.view_layers if layer.use} == initial.keys()
+            assert identity.reports.ticked() is None
             assert len(observed) == 1, identity.reports.entries
             for pixels in observed[0]:
                 assert pixels.dtype == np.float32
@@ -217,6 +218,7 @@ def test_completed_codes_read_native_png_after_finishing(acquired: Acquired, tmp
             with intermediate(identity, scene):
                 assert native(identity, scene, RenderCall(layer=Some("A"))) == Ok(frozenset({"FINISHED"}))
             assert native(identity, scene, RenderCall(write_still=True, layer=Some("A")), files=Some(lambda produced: Ok(Written.scene(produced, ((target, Nothing),))))) == Ok(frozenset({"FINISHED"}))
+            assert identity.reports.ticked() is None
             assert len(before) == len(observed) == 1, identity.reports.entries
             assert before[0].dtype == observed[0].dtype == np.uint8
             np.testing.assert_array_equal(before[0][..., :3], np.full((*expected.shape[:2], 3), 118, dtype=np.uint8))
@@ -268,6 +270,7 @@ def test_no_write_codes_use_captured_native_settings_and_restore_later_edits(acq
         with Handler(handlers=bpy.app.handlers.render_post, body=edited).held(identity) as held:
             assert held == Ok(None)
             assert native(identity, scene, RenderCall(layer=Some("A"))) == Ok(frozenset({"FINISHED"}))
+        assert identity.reports.ticked() is None
         assert len(observed) == len(later) == 1, identity.reports.entries
         assert len(previews) == int(requested)
         if requested:

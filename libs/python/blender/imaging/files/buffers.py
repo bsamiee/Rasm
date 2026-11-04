@@ -169,15 +169,15 @@ premultiplied: Final = functools.partial(_alpha, OpenImageIO.ImageBufAlgo.premul
 
 
 def applied(operation: PyOpenColorIO.CPUProcessor | Callable[[npt.NDArray[np.float32]], npt.NDArray[np.float32]], values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
-    """Applies OCIO processor or straight-RGB operation to associated colors."""
+    """Applies OCIO processor or straight-RGB operation to the RGB of associated colors, alpha passing through unchanged."""
     straight = unassociated(values)
+    color = np.ascontiguousarray(straight[..., :3])
     match operation:
-        case PyOpenColorIO.CPUProcessor() if straight.shape[-1] == 4:
-            operation.applyRGBA(straight)
         case PyOpenColorIO.CPUProcessor():
-            operation.applyRGB(straight)
+            operation.applyRGB(color)
+            straight[..., :3] = color
         case _:
-            straight[..., :3] = operation(straight[..., :3])
+            straight[..., :3] = operation(color)
     return associated(straight)
 
 

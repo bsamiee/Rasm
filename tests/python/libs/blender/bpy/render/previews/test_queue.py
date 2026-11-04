@@ -203,6 +203,8 @@ def test_native_update_invalidates_before_notice_and_skips_intermediates(acquire
         assert cell.shown(slots[0]) == Nothing
         assert cell.shown(slots[1]) == Some((slots[1], slots[1]))
         assert not cell.published(slots[0], tokens[0], 1)
+        assert invalidating.notices == []
+        assert identity.reports.ticked() is None
         assert invalidating.notices == [(get_ident(), (Nothing, Some((slots[1], slots[1]))))]
 
 

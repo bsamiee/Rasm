@@ -5,7 +5,7 @@
 - Plugins export `createDependencies` beside `createNodes` for undeclared edges, a static edge names its `sourceFile`
 - Nx merges inferred projects sharing a root, each file of one directory adds its targets to one project
 - Workspace plugin markers match a base name, an extension, or `<directory>/<base>` for a generic name (`.storybook/main.ts`)
-- Projects with a `tsconfig.json` and no `package.json` take the nearest package's name joined to their relative path
+- Projects with a `tsconfig.json` and no `package.json` take the nearest package's name joined to their relative path, and the workspace plugin reads their source imports for edges, `analyzeSourceFiles` staying off because Nx resolves `#/` imports through a TypeScript API 7.1 lacks
 - Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
 - Plugins infer each target and tag from project files, `targetDefaults` configure them, `package.json` files hold no `nx` field

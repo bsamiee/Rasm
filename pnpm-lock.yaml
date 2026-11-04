@@ -2354,6 +2354,9 @@ importers:
 
   libs/typescript/creative-cloud/extendscript:
     dependencies:
+      '@rasm/automation':
+        specifier: workspace:*
+        version: link:../automation
       '@rasm/cep':
         specifier: workspace:*
         version: link:../cep

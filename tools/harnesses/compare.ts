@@ -3,9 +3,10 @@ import { Array, type Duration, Effect, identity, Match, Option, Predicate, Recor
 import { type Batch, Call, type Case, Probe } from '#/cases';
 import { answerOf } from '#/facts';
 import { HarnessError, thrown } from '#/harness-error';
-import { phase, record } from '#/log';
+import { record } from '#/log';
 import { argsOf, type Item } from '#/plan';
 import type { Answer, Compare, Outcome } from '#/results';
+import { phase } from '#/run';
 import { type Cased, type Harness, type Installed, type Rebuilt, rerun, type Session, type Surveyed } from '#/session';
 import { bury, JsonObject, revive } from '#/values';
 

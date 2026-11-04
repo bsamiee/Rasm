@@ -9,8 +9,9 @@
         "#/package.json": "./package.json"
     },
     "exports": {
-        ".": "./link.ts"
+        ".": "./atelier-link.ts"
     },
+    "bin": "./main.ts",
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/aftereffects": "workspace:*",

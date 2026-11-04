@@ -1,0 +1,24 @@
+import { AfterEffects } from '@rasm/aftereffects';
+import type { Installation } from '@rasm/automation';
+import { Illustrator } from '@rasm/illustrator';
+import { InDesign } from '@rasm/indesign';
+import { Photoshop } from '@rasm/photoshop';
+import { Peer } from '@rasm/uxp/peer';
+import { Array, Layer } from 'effect';
+import { atelierLink } from '#/atelier-link';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Libraries = InDesign.Contract.merge(Photoshop.Contract);
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const library = (installation: Installation) => Array.findFirst([InDesign, Photoshop, Illustrator, AfterEffects] as const, ({ identifier }) => installation.identifier.startsWith(identifier));
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+const listening = Peer.listen(Libraries, { path: atelierLink.path, middleware: Layer.empty });
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+export { Libraries, library, listening };

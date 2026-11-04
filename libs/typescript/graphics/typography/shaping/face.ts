@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Effect, Equal, Function, flow, Match, Number, Option, Order, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
+import { Array, Effect, Equal, Function, flow, Match, Number, Option, Order, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Variation } from 'harfbuzzjs';
 import { Tag } from '#/internal/tag';
@@ -57,10 +57,9 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
     });
     static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: typeof Source.Type, { variations, size }: typeof Face.Instance.Type = Face.Instance.make({})) {
-        const container = yield* Effect.try({ try: () => create(Buffer.from(data.buffer, data.byteOffset, data.byteLength)), catch: (cause) => TypographyError.make({ subject: Option.getOrElse(selection, () => 'default face'), cause }) });
-        const unsupported = ({ type }: { readonly type: string }) => Effect.fail(new Cause.IllegalArgumentError(`${type} unsupported`));
+        const container = yield* Effect.try({ try: () => create(Buffer.from(data.buffer, data.byteOffset, data.byteLength)), catch: TypographyError.unreadable(Option.getOrElse(selection, () => 'default face')) });
         const fonts = yield* Match.value(container).pipe(
-            Match.whenOr({ type: 'WOFF' }, { type: 'WOFF2' }, unsupported),
+            Match.whenOr({ type: 'WOFF' }, { type: 'WOFF2' }, ({ type }) => Effect.fail(TypographyError.unsupported(`${type} container`))),
             Match.when({ type: 'TTF' }, (single) => Effect.succeed([single])),
             Match.orElse((collection) => Effect.succeed(collection.fonts)),
         );
@@ -134,8 +133,8 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
     glyph(codePoint: number) {
         return Option.fromUndefinedOr(this.font.nominalGlyph(codePoint));
     }
-    has(codePoint: number) {
-        return Option.isSome(this.glyph(codePoint));
+    draws(text: string) {
+        return Array.fromIterable(text).every((character) => Option.isSome(this.glyph(character.codePointAt(0) ?? 0)));
     }
     advance(codePoint: number) {
         return Option.map(this.glyph(codePoint), (glyph) => this.em(this.font.glyphHAdvance(glyph)));

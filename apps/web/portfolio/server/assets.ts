@@ -203,7 +203,7 @@ const upload = HttpApiBuilder.handler(
             return { id: asset.id };
         },
         Effect.scoped,
-        Effect.catchTags({ MultipartError: ({ reason }) => UploadRefused.make({ reason: { _tag: 'Multipart', cause: reason._tag } }), UnknownError: unavailable }),
+        Effect.catchTags({ MultipartError: ({ reason }) => UploadRefused.make({ reason: { _tag: 'Multipart', cause: reason._tag } }), HostingError: unavailable }),
     ),
 );
 const read = HttpApiBuilder.handler(

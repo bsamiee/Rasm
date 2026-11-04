@@ -1,8 +1,8 @@
 import { Array, Cause, Context, Effect, Exit, flow, Option, pipe, Record, Schema, Sink, Stream, Struct, Tuple } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
+import { registerTool } from '#/register-tool';
 import type { Resource } from '#/resource';
 import { Server } from '#/server';
-import { registerTool } from '#/tool';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -64,11 +64,12 @@ const register =
         );
     };
 const complete = <Fields extends Schema.Struct.Fields, Given = Schema.Struct.Type<Fields>>(fields: Fields) => {
+    const none: Partial<Given> = {};
     const decoders = Record.collect(fields, (key) => Schema.decodeUnknownEffect(Schema.toCodecStringTree(Schema.Struct(Struct.pick(fields, [key])))));
     const decode = (resolved: Readonly<Record<string, string>>): Effect.Effect<Partial<Given>, never, Schema.Struct<Fields>['DecodingServices']> =>
         Effect.map(
             Effect.forEach(decoders, (decoder) => Effect.option(decoder(resolved))),
-            (picked) => Object.assign({}, ...Array.getSomes(picked)),
+            (picked) => ({ ...none, ...Object.fromEntries(Array.flatMap(Array.getSomes(picked), Object.entries)) }),
         );
     return <Values, R>(completing: (input: string, given: Partial<Given>) => Effect.Effect<Values, Error, R>) =>
         (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>

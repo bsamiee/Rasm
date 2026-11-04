@@ -2,7 +2,7 @@ import { Effect, Schema, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const VERSION = 5;
+const MANIFEST_VERSION = 5;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -13,10 +13,10 @@ const Icon = Schema.Struct({ width: Schema.Finite, height: Schema.Finite, path: 
 const Entrypoint = Schema.Struct({ id: Schema.String, label: Schema.Union([Schema.String, Schema.StructWithRest(Schema.Struct({ default: Schema.String }), [Schema.Record(Schema.String, Schema.String)])]) });
 
 class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique symbol }>('UxpManifest')({
-    manifestVersion: Schema.tag(VERSION),
+    manifestVersion: Schema.tag(MANIFEST_VERSION),
     id: Schema.String,
     name: Schema.String,
-    version: Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,2}(?:-[\dA-Za-z-]+(?:\.[\dA-Za-z-]+)*)?(?:\+[\dA-Za-z-]+(?:\.[\dA-Za-z-]+)*)?$/u)).annotate({ description: 'major[.minor[.patch]][-prerelease][+build]' }),
+    version: Version,
     main: Schema.optionalKey(Schema.String),
     host: Schema.Struct({ app: Schema.Literals(['ID', 'PS', 'premierepro', 'ame', 'XD']), minVersion: Version, maxVersion: Schema.optionalKey(Version), data: Schema.optionalKey(Schema.Struct({ loadEvent: Schema.Literals(['use', 'startup']) })) }),
     icons: Schema.optionalKey(Schema.Array(Icon)),

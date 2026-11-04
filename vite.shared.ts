@@ -1,7 +1,8 @@
 import { globSync, readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { createRequire, isBuiltin } from 'node:module';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { ExtensionManifest } from '@rasm/cep';
 import { UxpManifest } from '@rasm/uxp';
@@ -60,9 +61,9 @@ const identity = Effect.fnUntraced(function* (directory: string) {
 // --- [BUNDLE]
 
 const bundle = (directory: string, config: UserConfig): UserConfig => mergeConfig({ build: { outDir: located('.artifacts', directory), emptyOutDir: false, rolldownOptions: { experimental: EXPERIMENTAL, output: { codeSplitting: false } } } }, config);
-const bundled = (directory: string, asset: Required<Pick<Rolldown.EmittedAsset, 'fileName' | 'source'>>): UserConfig => {
+const uxpBundle = (directory: string, asset: Required<Pick<Rolldown.EmittedAsset, 'fileName' | 'source'>>): UserConfig => {
     const load = createRequire(import.meta.url);
-    const encoding = load.resolve('@exodus/bytes/encoding-lite.js');
+    const encoding = fileURLToPath(import.meta.resolve('@exodus/bytes/encoding-lite.js'));
     return bundle(directory, {
         build: {
             ssr: join(directory, `${ENTRY}.ts`),
@@ -90,6 +91,15 @@ const bundled = (directory: string, asset: Required<Pick<Rolldown.EmittedAsset, 
             },
         },
         environments: { ssr: { resolve: { noExternal: true, builtins: [HOSTED], conditions: Array.intersection(defaultServerConditions, defaultClientConditions) } } },
+        plugins: [
+            {
+                name: 'hosted',
+                enforce: 'pre',
+                resolveId(this: Rolldown.PluginContext, id: string, importer: string | undefined): undefined {
+                    return isBuiltin(id) ? this.error(`${importer ?? id} imports ${id}, a Node builtin the UXP host lacks`) : undefined;
+                },
+            },
+        ],
     });
 };
 
@@ -111,7 +121,7 @@ const uxp = (directory: string, manifest: Omit<Fields, keyof Effect.Success<Retu
         function* () {
             const [{ origin, define }, release] = yield* Effect.all([dialed(directory, link), identity(directory)], { concurrency: 'unbounded' });
             const source = yield* Effect.orDie(Schema.encodeEffect(UxpManifest.json)(UxpManifest.make({ ...manifest, ...release, main: `${ENTRY}.js`, host: { ...manifest.host, data: { loadEvent: 'startup' } }, requiredPermissions: { ...manifest.requiredPermissions, network: { domains: [origin] } } })));
-            return mergeConfig(bundled(directory, { fileName: UxpManifest.file, source }), { define });
+            return mergeConfig(uxpBundle(directory, { fileName: UxpManifest.file, source }), { define });
         },
         Effect.provide(layer),
         Effect.runPromise,
@@ -137,7 +147,7 @@ const cep = (directory: string, contract: { readonly host: ExtensionManifest['ho
                     client: { build: { target: ExtensionManifest.chromium, rolldownOptions: { input: { [ENTRY]: load.resolve('@rasm/cep/panel') }, output: { entryFileNames: '[name].js', plugins: panel } } } },
                     host: {
                         consumer: 'client',
-                        build: { target: 'esnext', minify: false, rolldownOptions: { input: load.resolve(contract.script), platform: 'neutral', output: { name: ExtensionManifest.global, exports: 'default', entryFileNames: ExtensionManifest.script, plugins: extendscript } } },
+                        build: { target: 'esnext', minify: false, rolldownOptions: { input: load.resolve(contract.script), platform: 'neutral', output: { name: ExtensionManifest.global, exports: 'default', entryFileNames: ExtensionManifest.script, minify: false, plugins: extendscript } } },
                     },
                 },
             });
@@ -145,7 +155,7 @@ const cep = (directory: string, contract: { readonly host: ExtensionManifest['ho
         Effect.provide(layer),
         Effect.runPromise,
     );
-const uxpScript = (directory: string, extension: string): UserConfig => bundled(directory, { fileName: `${ENTRY}.${extension}`, source: `require('./${ENTRY}.js');\n` });
+const uxpScript = (directory: string, extension: string): UserConfig => uxpBundle(directory, { fileName: `${ENTRY}.${extension}`, source: `require('./${ENTRY}.js');\n` });
 const sea = (directory: string, { executable, listen }: { readonly executable: string; readonly listen: string }): UserConfigFnPromise =>
     Effect.fnUntraced(
         function* () {

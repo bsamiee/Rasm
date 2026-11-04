@@ -56,18 +56,17 @@ const sqlIdentifier = refa.NFA.fromTransitionIterator(
 );
 const withoutInitialByteOrderMark = refa.DFA.fromFA(tokenNfa({ type: 'PATTERN', value: `${RegExp.escape(byteOrderMark)}[\\s\\S]*` }));
 withoutInitialByteOrderMark.complement();
-const identifiers = { sql: refa.DFA.fromIntersection(sqlIdentifier, withoutInitialByteOrderMark), host: tokenNfa(tsx.grammar.rules[tsx.grammar.word]) };
-const commonIdentifier = refa.DFA.fromIntersection(identifiers.sql, identifiers.host);
+const sqlWord = refa.DFA.fromIntersection(sqlIdentifier, withoutInitialByteOrderMark);
+const hostWord = tokenNfa(tsx.grammar.rules[tsx.grammar.word]);
+const commonIdentifier = refa.DFA.fromIntersection(sqlWord, hostWord);
 commonIdentifier.minimize();
 const outsideCommon = commonIdentifier.copy();
 outsideCommon.complement();
-const exclusiveIdentifiers = Object.fromEntries(
-    Object.entries(identifiers).map(([name, fa]) => {
-        const exclusive = refa.DFA.fromIntersection(fa, outsideCommon);
-        exclusive.minimize();
-        return [name, patternRule(exclusive)];
-    }),
-);
+const exclusiveIdentifier = (fa) => {
+    const exclusive = refa.DFA.fromIntersection(fa, outsideCommon);
+    exclusive.minimize();
+    return patternRule(exclusive);
+};
 const outsideSqlWhitespace = refa.DFA.fromFA(patternUnion([...sqlite.grammar.extras.filter(({ type }) => type === 'PATTERN'), ...sqlWhitespaceExtras.map((value) => ({ type: 'PATTERN', value: RegExp.escape(value) }))]));
 outsideSqlWhitespace.complement();
 const hostWhitespace = refa.DFA.fromIntersection(patternUnion(hostExtras.PATTERN), outsideSqlWhitespace);
@@ -85,10 +84,10 @@ export default grammar(sqlite, {
     reserved: { host: () => [] },
     word: ($) => $.common_identifier,
     rules: {
-        ...Object.fromEntries(Object.entries(tsx.grammar.rules).map(([name, rule]) => [hostName(name), () => hostRule(rule)])),
+        ...Object.fromEntries(Object.keys(tsx.grammar.rules).map((name) => [hostName(name), () => hostRule(tsx.grammar.rules[name])])),
         common_identifier: () => patternRule(commonIdentifier),
-        _sql_identifier_token: () => exclusiveIdentifiers.sql,
-        _host_identifier_token: () => exclusiveIdentifiers.host,
+        _sql_identifier_token: () => exclusiveIdentifier(sqlWord),
+        _host_identifier_token: () => exclusiveIdentifier(hostWord),
         [sqlite.grammar.word]: ($) => choice(alias(reserved('sql', $.common_identifier), $[sqlite.grammar.word]), alias($._sql_identifier_token, $[sqlite.grammar.word])),
         [hostName(tsx.grammar.word)]: ($) => choice(alias(reserved('host', $.common_identifier), $[hostName(tsx.grammar.word)]), alias($._host_identifier_token, $[hostName(tsx.grammar.word)])),
         host_whitespace: () => patternRule(hostWhitespace),

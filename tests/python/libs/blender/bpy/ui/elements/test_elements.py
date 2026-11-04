@@ -189,6 +189,8 @@ def test_tool_only_commands_register_run_bind_and_release(acquired: Acquired) ->
     manager = bpy.data.window_managers[0]
     window = manager.windows[0]
     area = next(area for area in window.screen.areas if area.type == "VIEW_3D")
+    with bpy.context.temp_override(window=window, area=area):
+        assert called(bpy.ops.wm.tool_set_by_index, {"index": 0, "space_type": "VIEW_3D"}) == Ok(frozenset({"FINISHED"}))
     prior = window.workspace.tools.from_space_view3d_mode("OBJECT", create=False)
     assert prior is not None
     previous = prior.idname

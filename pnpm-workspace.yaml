@@ -376,7 +376,7 @@ catalog:
     package-directory: 8.2.0 # Nearest package directory from existing or generated paths
     shell-quote: 1.12.0 # POSIX shell argument encoding for version-group commands
     '@biomejs/biome': 2.6.4
-    dependency-cruiser: 18.8.0-beta-2 # Module reachability rules over each library root entry
+    dependency-cruiser: 18.8.0-beta-2 # Library root entry load closures, first release driving native TypeScript 7.1
     '@tree-sitter-grammars/tree-sitter-xml': github:tree-sitter-grammars/tree-sitter-xml#5000ae8f22d11fbe93939b05c1e37cf21117162d
     tree-sitter-bash: 0.25.1
     tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit whose grammar holds C# 14 `extension` declarations, newest release 0.23.5 stops at C# 13

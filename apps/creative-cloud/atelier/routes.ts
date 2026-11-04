@@ -6,7 +6,7 @@ import { Peer } from '@rasm/uxp/peer';
 import { Array, Context, Effect, Function, flow, Match, Option, Predicate, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import type { RpcGroup } from 'effect/rpc';
-import { type Libraries, library, type listening } from '#/features/plugins';
+import { type Libraries, library, type listening } from '#/libraries';
 import type { status } from '#/status';
 
 // --- [TYPES] ---------------------------------------------------------------------------

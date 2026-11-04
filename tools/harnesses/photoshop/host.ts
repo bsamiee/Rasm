@@ -2,12 +2,13 @@ import type { Installation } from '@rasm/automation';
 import { Automation } from '@rasm/automation/node';
 import { Effect, FileSystem, Option, Path, Schema } from 'effect';
 import { crashes, REPORTER, uxp } from '#/adobe';
+import { EXTENDSCRIPT } from '#/cases';
 import { checked, Launched, plist, printed } from '#/instance';
 import { Encoded, Engine, HostCase, HostOutcome, type Quit, Reply, SURVEY, Survey } from '#/photoshop/contract';
 import { precondition } from '#/photoshop/precondition';
 import { copied } from '#/precondition';
 import { type Batch, Harness, type Installed, installation, type Live } from '#/session';
-import { assembled, EXTENDSCRIPT, engineOf } from '#/source';
+import { assembled, engineOf } from '#/source';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

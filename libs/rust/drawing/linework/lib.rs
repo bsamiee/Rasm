@@ -1,4 +1,4 @@
-#![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, default_field_values, impl_trait_in_assoc_type)]
+#![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, default_field_values, gen_blocks, impl_trait_in_assoc_type)]
 
 use core::{f64::consts::PI, iter, range::Range};
 use std::sync::Arc;

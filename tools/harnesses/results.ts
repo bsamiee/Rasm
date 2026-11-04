@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Expression, Name, Reads } from '#/cases';
 import { HarnessError } from '#/harness-error';
-import type { Any } from '#/session';
+import type { Harness } from '#/session';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -75,6 +75,7 @@ const Records = Object.assign(Schema.String.annotate({ description: 'Records fil
 const Surveying = Schema.Boolean.annotate({ description: 'Reply carries the installation survey' });
 const Failed = Schema.Struct({ failed: Schema.String.annotate({ description: 'Batch failure before or around the cases' }) });
 const Source = Schema.Struct({ script: Schema.String.annotate({ description: 'Original script path the case answers as the running script' }), code: Schema.String.annotate({ description: 'Prepared source the engine evaluates' }) });
+const Environment = Schema.Record(Schema.String, Schema.String).annotate({ description: 'Environment supplied by the caller that decides startup behavior' });
 const Compare = Schema.Struct({
     module: Schema.String.annotate({ description: 'Rebuilt module the host answers were compared against' }),
     agreed: Schema.Int,
@@ -88,7 +89,7 @@ const deciding = <E extends Schema.Top>(engine: E) => ({
     identifier: Schema.NonEmptyString.annotate({ description: 'Bundle identifier of the installation' }),
     version: Schema.NonEmptyString.annotate({ description: 'Version the installation reports' }),
     engine,
-    environment: Schema.optionalKey(Schema.Record(Schema.String, Schema.String).annotate({ description: 'Environment supplied by the caller that decides startup behavior' })),
+    environment: Schema.optionalKey(Environment),
     host: Schema.optionalKey(Schema.Json.annotate({ description: 'Install state deciding answers beside the version' })),
 });
 const hostCase = <S extends Schema.Struct.Fields>(shared: S) =>
@@ -104,7 +105,7 @@ const reply = <F extends Schema.Struct.Fields>(fields: F) => {
         replied: (subject: string) => (answer: unknown) => Effect.filterOrElse(Schema.decodeUnknownEffect(codec)(answer), Schema.is(header), (held) => Effect.flatMap(Schema.decodeUnknownEffect(Failed)(held), ({ failed }) => HarnessError.unavailable(subject)(failed))),
     });
 };
-const results = (engine: Any, outcome: Schema.Codec<typeof Outcome.Type, unknown>) =>
+const results = (engine: Harness['Engine'], outcome: Schema.Codec<typeof Outcome.Type, unknown>) =>
     Schema.fromJsonString(
         Schema.Struct({
             application: Schema.String.annotate({ description: 'Name the host reports' }),

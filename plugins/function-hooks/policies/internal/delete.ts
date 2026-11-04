@@ -1,8 +1,9 @@
-import { Option } from '../../monads.ts';
+import { faultText, Maybe } from '../../monads.ts';
 import type { System } from '../command-decision.ts';
 import type { Command } from './command.ts';
 import { lockDeletes } from './ghidra.ts';
-import { firstOperand, type Invocation, invocations, isInside, operands, programRow, resolvePath } from './invocation.ts';
+import { enabled, firstOperand, type Invocation, invocations, isInside, operands, programRow, resolvePath } from './invocation.ts';
+import { projectTargets } from './nx-target.ts';
 import { type Call, EXPANSION, edit, editOrRefuse, expanded, refuse, UNRESOLVED_FOLDER, type Verdict } from './verdict.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -13,7 +14,7 @@ const NAME_CHARACTER = /[\p{L}\p{N}]/u;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const deletedPath =
-    (system: System, command: Command, name: string, start: Option<string>, patterns: readonly string[], covered: (word: string) => string) =>
+    (system: System, command: Command, name: string, start: Maybe<string>, patterns: readonly string[], covered: (word: string, top: string) => Promise<string>) =>
     async (word: string): Promise<readonly Verdict[]> => {
         const { root, home } = system;
         const tail = command.parts.at(-1)?.words ?? [];
@@ -27,19 +28,24 @@ const deletedPath =
         if (place === undefined) {
             return [refuse(`${name} ${UNRESOLVED_FOLDER}`)];
         }
-        if (!patterns.some((pattern) => NAME_CHARACTER.test(pattern)) && root.values.some((top) => isInside(top, place))) {
-            return [refuse(covered(path))];
+        const [top] = patterns.some((pattern) => NAME_CHARACTER.test(pattern)) ? [] : root.values.filter((folder) => isInside(folder, place));
+        if (top !== undefined) {
+            return [refuse(await covered(path, top))];
         }
-        const edits = path === word ? [] : spoken.map(({ raw, span, literal }) => editOrRefuse(command, edit(span.start, span.end, literal, Option.some(`${name} ${raw} became ${literal}`)), `${name} ${raw} expands at run time, pass ${literal}`));
+        const edits = path === word ? [] : spoken.map(({ raw, span, literal }) => editOrRefuse(command, edit(span.start, span.end, literal, Maybe.some(`${name} ${raw} became ${literal}`)), `${name} ${raw} expands at run time, pass ${literal}`));
         const [target = place] = resolvePath(path, start, home).values;
         const targets = patterns.length === 0 ? [target] : patterns.map((pattern) => `${target}/${pattern}`);
         return [...edits, ...(await Promise.all(targets.map((candidate) => lockDeletes(system, name, candidate)))).flat()];
     };
 
-const deletes = async ({ system, script: { commands }, project }: Call): Promise<readonly Verdict[]> => {
+const deletes = async (call: Call): Promise<readonly Verdict[]> => {
+    const {
+        system,
+        script: { commands },
+    } = call;
     const removing = (invocation: Invocation): readonly Invocation[] => {
         if (invocation[0] !== 'git') {
-            return ['rm', 'rimraf', 'trash', 'unlink', 'shred'].includes(invocation[0]) ? [invocation] : [];
+            return programRow(invocation[0]).removes === true ? [invocation] : [];
         }
         const [key, ...args] = invocation.slice(firstOperand(invocation));
         return key === 'rm' && !args.includes('--cached') ? [['rm', ...args]] : [];
@@ -50,21 +56,24 @@ const deletes = async ({ system, script: { commands }, project }: Call): Promise
         if (last === undefined) {
             return [];
         }
-        const [program, ...args] = last;
-        const { options, inner, roots, base, leading, values } = operands(last);
+        const [program] = last;
+        const { options, inner, roots, base, leading, patterns } = operands(last);
         const [remover] = removing(last);
         const [feeder] = chain.slice(0, -1).filter(([wrapper]) => programRow(wrapper).stdin === 'always');
         const name = program === 'git' ? 'git rm' : program;
         if (remover !== undefined) {
-            return feeder === undefined ? [...new Set(operands(remover).inputs)].map(deletedPath(system, command, name, cwd, [], (word) => `${name} ${word} covers the repository root, run nx run ${project}:clean`)) : [[refuse(`${name} reads paths from ${feeder[0]}, use fd -X ${name}`)]];
+            const covered = async (word: string, top: string): Promise<string> =>
+                `${name} ${word} covers the repository root, ${(await projectTargets(call, '.', top)).match(
+                    ({ name: project, targets }) => (targets.clean === undefined ? 'name each path inside it' : `run nx run ${project}:clean`),
+                    (faults) => `name each path inside it. ${faultText(faults)}`,
+                )}`;
+            return feeder === undefined ? [...new Set(operands(remover).inputs)].map(deletedPath(system, command, name, cwd, [], covered)) : [[refuse(`${name} reads paths from ${feeder[0]}, use fd -X ${name}`)]];
         }
-        if (!(options.includes('-delete') || invocations(inner).some((launched) => removing(launched).length > 0))) {
+        if (!(enabled(programRow(program).removes, options) || invocations(inner).some((launched) => removing(launched).length > 0))) {
             return [];
         }
-        const tests = ['-name', '-iname', '-path', '-ipath', '-wholename', '-iwholename', '-regex', '-iregex'];
-        const patterns = program === 'find' || program === 'gfind' ? args.flatMap((word, at) => (tests.includes(word) ? args.slice(at + 1, at + 2) : [])) : [...leading, ...values.flatMap(([flag, value]) => (flag === '-e' || flag === '--extension' ? [value] : []))];
         const folder = base.reduce((place, word) => resolvePath(word, place, system.home), cwd);
-        return [...new Set(roots)].map(deletedPath(system, command, program, folder, patterns, (word) => `${program} deletes everything under ${word}, add a -name pattern`));
+        return [...new Set(roots)].map(deletedPath(system, command, program, folder, [...leading, ...patterns], (word) => Promise.resolve(`${program} deletes everything under ${word}, add a -name pattern`)));
     });
     return (await Promise.all(judged)).flat();
 };

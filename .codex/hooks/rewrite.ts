@@ -1,9 +1,8 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { commandDecision, Option, policyFailure, type System } from '@rasm/function-hooks';
-import { Cause, Config, Console, Effect, FileSystem, Match, Path, Schema, Stdio, Stream } from 'effect';
+import { commandDecision, Maybe, policyFailure, type System } from '@rasm/function-hooks';
+import { Cause, Config, Console, Effect, FileSystem, Match, Option, Path, Schema, Stdio, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
-import manifest from '#/package.json' with { type: 'json' };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -24,16 +23,16 @@ Effect.gen(function* () {
         run: (argv, init) => run(spawn(argv, init)),
         exists: (entry) => run(fs.exists(entry)),
         read: (entry) => run(fs.readFileString(entry)),
-        environment: (name) => run(Effect.map(Config.String(name).pipe(Config.withDefault(undefined)), Option.fromNullable)),
+        environment: (name) => run(Effect.map(Config.option(Config.String(name)), Option.match({ onNone: () => Maybe.none, onSome: Maybe.some }))),
         scanner: 'ast-grep',
         plugin: path.join(root, 'plugins', 'function-hooks'),
-        home: Option.some(home),
+        home: Maybe.some(home),
     } satisfies Omit<System, 'cwd' | 'root'>;
     const decision = yield* stdio.stdin.pipe(
         Stream.decodeText,
         Stream.mkString,
         Effect.flatMap(Schema.decodeEffect(Input)),
-        Effect.flatMap(({ cwd, tool_input: { command } }) => Effect.promise(commandDecision.bind(undefined, { ...system, cwd, root: path.relative(root, cwd).startsWith('..') ? Option.none : Option.some(root) }, command, manifest.name, { kind: 'plain' }))),
+        Effect.flatMap(({ cwd, tool_input: { command } }) => Effect.promise(commandDecision.bind(undefined, { ...system, cwd, root: path.relative(root, cwd).startsWith('..') ? Maybe.none : Maybe.some(root) }, command, { kind: 'plain' }))),
         Effect.catchCause((cause) => Effect.succeed({ kind: 'deny' as const, reason: policyFailure(String(Cause.squash(cause))) })),
     );
     yield* Match.value(decision).pipe(

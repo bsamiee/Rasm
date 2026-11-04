@@ -1,26 +1,13 @@
 import type { State } from '@rasm/automation';
-import { Array, Cause, Config, Context, DateTime, Duration, Effect, FileSystem, Filter, type LogLevel, Match, MutableRef, Option, Path, Predicate, Record, Result, Schema, Stdio, String, Struct } from 'effect';
-import { SecureRandom } from 'effect/crypto';
+import { Effect, type LogLevel, Match, Option, type Path, Predicate, type Record, Result, Schema, Struct } from 'effect';
 import { HarnessError } from '#/harness-error';
-import { printed, System, sampled } from '#/instance';
+import { System } from '#/instance';
 import { Halted } from '#/results';
-import type { Live } from '#/session';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Phase = 'run' | 'prove' | 'compare' | 'plan' | 'launch' | 'ready' | 'open' | 'survey' | 'batch' | 'quit' | 'log';
-interface Tally {
-    readonly cases: { readonly ran: number; readonly failed: number; readonly notRun: number };
-    readonly signatures: readonly (typeof Signed.Type)[];
-    readonly instances: readonly { readonly pid: number; readonly started: string; readonly state: keyof typeof STATES; readonly reports: readonly (typeof Kind.Type)[] }[];
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const STATES = { Launching: 'Info', Responding: 'Info', Unresponsive: 'Info', Failed: 'Warn', Exited: 'Info' } as const satisfies { readonly [K in keyof typeof State.cases]: LogLevel.Severity };
 const RECORDS = 'records.jsonl';
-const STAMPED = /(?<high>[\da-f]{8})-(?<low>[\da-f]{4})-7[\da-f]{3}-[\da-f]{4}-[\da-f]{12}$/u;
-const RETAINED = { runs: 200, age: Duration.weeks(1) } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -105,21 +92,10 @@ const Messages = {
     'run ended': Schema.Struct({}),
 };
 const Message = Schema.Literals(Struct.keys(Messages));
-const Counted = Schema.Struct({ level: Schema.String, phase: Schema.String, ...Struct.pick(Field, ['pid', 'started', 'version', 'proof', 'case', 'tag', 'completion', 'cases', 'kind', 'state']) }).annotate({ description: 'Record fields the closing summary tallies' });
 const Signed = Schema.Struct({ ...Struct.pick(Field, ['version', 'proof', 'case']), phase: Schema.String, tag: Schema.String }).annotate({ description: 'Failure signature: where a run failed and what tag it failed with' });
-const signedAlike = Schema.toEquivalence(Signed);
-const session = Config.option(Config.String('CLAUDE_CODE_SESSION_ID'));
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Run extends Context.Service<Run, { readonly folder: string; readonly phase: MutableRef.MutableRef<Phase> }>()('@rasm/harnesses/log/Run') {
-    static readonly Instance = Context.Reference<Option.Option<Pick<Live, 'pid' | 'started'>>>('@rasm/harnesses/log/Run/Instance', { defaultValue: Option.none });
-}
-class Signing extends Context.Service<Signing, true>()('@rasm/harnesses/log/Signing') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [RECORDS]
 const record = <M extends keyof typeof Messages>(level: LogLevel.Severity, message: M, fields: (typeof Messages)[M]['Encoded']) => Effect.annotateLogs(Effect.logWithLevel(level)(message), fields);
 const declared = (message: string, fields: Record.ReadonlyRecord<string, unknown>): Record.ReadonlyRecord<string, unknown> =>
     Option.match(Schema.decodeUnknownOption(Message)(message), {
@@ -136,79 +112,10 @@ const tagOf = Match.type<unknown>().pipe(
 );
 const messageOf = Match.type<unknown>().pipe(
     Match.when(Predicate.isError, ({ message }) => message),
-    Match.orElse((error) => globalThis.String(error)),
+    Match.orElse(String),
 );
-const failed = (label: Phase, cause: Cause.Cause<unknown>) =>
-    Match.value(cause).pipe(
-        Match.when(
-            (held) => Option.isSome(Context.getOption(Cause.annotations(held), Signing)),
-            () => Effect.void,
-        ),
-        Match.when(Cause.hasInterruptsOnly, () => record('Warn', 'failed', { tag: 'Interrupted', error: `${label} interrupted` })),
-        Match.orElse((held) => {
-            const error = Cause.squash(held);
-            return record('Error', 'failed', { tag: tagOf(error), error: Cause.hasDies(held) ? Cause.pretty(held) : messageOf(error) });
-        }),
-    );
-const signing = <E>(cause: Cause.Cause<E>) => Effect.failCause(Cause.annotate(cause, Context.make(Signing, true)));
-const phase =
-    (label: Phase) =>
-    <A, E, R>(self: Effect.Effect<A, E, R>) =>
-        Effect.flatMap(Run, ({ phase: current }) => {
-            const outer = MutableRef.get(current);
-            return Effect.sync(() => MutableRef.set(current, label)).pipe(
-                Effect.andThen(self),
-                Effect.onError((cause) => failed(label, cause)),
-                Effect.catchCause(signing),
-                Effect.ensuring(Effect.sync(() => MutableRef.set(current, outer))),
-            );
-        });
-const counted =
-    (entry: unknown) =>
-    (tally: Tally): Tally =>
-        Option.match(Schema.decodeUnknownOption(Counted)(entry), {
-            onNone: () => tally,
-            onSome: ({ level, phase: at, pid, started, version, proof, case: name, tag, completion, cases, kind, state }) => {
-                const finished = completion !== undefined;
-                const signed = Option.fromUndefinedOr(tag ?? (level === 'Info' ? undefined : completion));
-                const ours = (held: Tally['instances'][number]) => held.pid === pid && held.started === started;
-                const [mine, others] = Array.partition(tally.instances, Filter.fromPredicate(ours));
-                const prior = Array.head(mine);
-                const seen = Option.flatMap(Option.all({ pid: Option.fromUndefinedOr(pid), started: Option.fromUndefinedOr(started) }), (held) =>
-                    Option.map(Option.firstSomeOf([Option.fromUndefinedOr(state), Option.map(prior, Struct.get('state'))]), (current) => ({
-                        ...held,
-                        state: current,
-                        reports: Array.union(Option.match(prior, { onNone: () => [], onSome: Struct.get('reports') }), kind !== undefined && level === 'Warn' ? [kind] : []),
-                    })),
-                );
-                return {
-                    cases: { ran: tally.cases.ran + (finished ? 1 : 0), failed: tally.cases.failed + (finished && level === 'Error' ? 1 : 0), notRun: tally.cases.notRun + (cases ?? []).length },
-                    signatures: Option.match(signed, {
-                        onNone: () => tally.signatures,
-                        onSome: (held) => Array.unionWith(tally.signatures, [{ ...Record.getSomes({ version: Option.fromUndefinedOr(version), proof: Option.fromUndefinedOr(proof), case: Option.fromUndefinedOr(name) }), phase: at, tag: held }], signedAlike),
-                    }),
-                    instances: Option.match(seen, { onNone: () => tally.instances, onSome: (held) => [...others, held] }),
-                };
-            },
-        });
-const sample = (pid: number) => Effect.flatMap(Effect.all([Run, Path.Path]), ([{ folder }, path]) => sampled(pid, path.join(folder, `${pid}.sample.txt`)));
-
-// --- [RUNS]
 const partition = (path: Path.Path, logs: string, host: string, run: string) => path.join(logs, `host=${host}`, `run=${run}`);
-const begun = Effect.fn('begun')(function* (host: string, root: Config.Config<string>) {
-    const [fs, path, run, logs, now] = yield* Effect.all([FileSystem.FileSystem, Path.Path, SecureRandom.SecureRandom.use((random) => random.uuidV7()), root, DateTime.now]);
-    const folder = partition(path, logs, host, run);
-    yield* fs.makeDirectory(folder, { recursive: true });
-    const runs = yield* fs.glob(partition(path, logs, host, '*'));
-    const cutoff = DateTime.subtractDuration(now, RETAINED.age);
-    const born = (held: string) => Option.flatMap(Option.fromNullishOr(STAMPED.exec(held)?.groups), ({ high, low }) => DateTime.make(Number.parseInt(`${high}${low}`, 16)));
-    const stale = runs.filter((held, index) => index < runs.length - RETAINED.runs || Option.exists(born(held), DateTime.isLessThan(cutoff)));
-    yield* Effect.forEach(stale, (held) => fs.remove(held, { recursive: true, force: true }), { discard: true });
-    return { run, folder, file: path.join(folder, RECORDS) };
-});
-const starting = Effect.flatMap(Effect.all([Effect.map(printed('git', ['rev-parse', 'HEAD']), String.trim), Stdio.Stdio.use((stdio) => stdio.args), session]), ([commit, args, owner]) => record('Info', 'run started', { commit, args, session: Option.getOrNull(owner) }));
-const ran = <A, E, R>(self: Effect.Effect<A, E, R>) => starting.pipe(Effect.andThen(self), Effect.tap(record('Info', 'run ended', {})), phase('run'));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { begun, counted, declared, Field, Kind, Messages, messageOf, type Phase, partition, phase, RECORDS, Run, ran, record, Signed, STATES, sample, signing, type Tally, tagOf };
+export { declared, Field, Kind, Messages, messageOf, partition, RECORDS, record, Signed, STATES, tagOf };

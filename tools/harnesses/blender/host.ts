@@ -1,11 +1,11 @@
-import { Array, Config, Deferred, Effect, FileSystem, Match, Option, Path, Schema, String, Struct } from 'effect';
+import { Config, Deferred, Effect, FileSystem, Match, Option, Path, Schema, String, Struct } from 'effect';
 import { Encoded, Engine, HostCase, HostOutcome, type Placed, Reply, SURVEY, Survey, Written } from '#/blender/contract';
 import { precondition } from '#/blender/precondition';
 import type { Case } from '#/cases';
 import { HarnessError } from '#/harness-error';
-import { appeared, Launched, plist, printed, Spawned } from '#/instance';
-import { Run } from '#/log';
+import { appeared, Launched, plist, printed, printedLines, Spawned } from '#/instance';
 import { failing, lined, whole } from '#/report';
+import { Run } from '#/run';
 import { type Batch, Harness, type Installed, type Live, type Rebuilt } from '#/session';
 import { engineOf, prepared } from '#/source';
 import type { JsonObject } from '#/values';
@@ -41,9 +41,9 @@ const identify = Effect.fn('identify')(function* (app: string) {
     return { identifier: CFBundleIdentifier, name: CFBundleName, app, version, helpers: [] } satisfies Installed;
 });
 const installed = Effect.gen(function* () {
-    const [listed, userbase] = yield* Effect.all([printed('mdfind', ['kMDItemCFBundleIdentifier == "org.blenderfoundation.blender"']), Config.option(Config.String('PYTHONUSERBASE'))]);
+    const [listed, userbase] = yield* Effect.all([printedLines('mdfind', ['kMDItemCFBundleIdentifier == "org.blenderfoundation.blender"']), Config.option(Config.String('PYTHONUSERBASE'))]);
     const startup = Option.getOrUndefined(Option.map(userbase, (PYTHONUSERBASE) => ({ environment: { PYTHONUSERBASE } })));
-    return (yield* Effect.forEach(Array.fromIterable(String.linesIterator(listed)).filter(String.isNonEmpty), identify)).map((chosen) => ({ ...chosen, ...startup }));
+    return (yield* Effect.forEach(listed, identify)).map((chosen) => ({ ...chosen, ...startup }));
 });
 
 // --- [SOURCE]

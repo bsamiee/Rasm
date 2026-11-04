@@ -69,12 +69,12 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
     const busy = operation.waiting || deletion.waiting || reloading.waiting;
     const current = state.portfolio.entries.find((item) => item.id === selected);
     const show = (name: 'entries' | 'files' | 'identity') => setTab(`${idPrefix}${name}`);
-    const open = (id: typeof EntryId.Type, view: 'entry' | 'place' = 'entry', target = `${idPrefix}${view}`) => {
+    const open = (id: typeof EntryId.Type, view: 'entry' | 'place' = 'entry', target?: string) => {
         setSelected(id);
         setTarget(Destination.Entry({ id }));
         setWorkspace(view);
         show('entries');
-        focusElement(target);
+        focusElement(target ?? `${idPrefix}${view}`);
     };
     const place = (entryId: typeof EntryId.Type, placed: typeof AssetId.Type) => {
         setAssetId(Option.some(placed));

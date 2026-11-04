@@ -20,7 +20,7 @@ class Adjust extends Schema.Class<Adjust, { readonly brand: unique symbol }>('Ad
         kerning: Schema.optionalKey(Schema.Finite.annotate({ description: 'Em after last base letter, before its marks, negative tightens' })),
         tracking: Schema.optionalKey(Schema.Finite.annotate({ description: 'Em, negative tightens' })),
         baselineShift: Schema.optionalKey(Schema.Finite.annotate({ description: 'Em of each style run point size, up positive' })),
-        marks: Schema.optionalKey(Settings.fields.marks.schema),
+        marks: Schema.optionalKey(Settings.Marks),
     })
         .check(Schema.isMinProperties(1))
         .annotate({ description: 'Added to each style run value' }),

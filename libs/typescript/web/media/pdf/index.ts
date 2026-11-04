@@ -1,4 +1,4 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { PdfDocument } from '#/pdf/document';
-export { PdfViewer } from './viewer.tsx';
+export { PdfDocument } from '#/pdf/pdf-document';
+export { PdfViewer } from '#/pdf/pdf-viewer';

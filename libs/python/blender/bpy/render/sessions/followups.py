@@ -127,11 +127,13 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
         names = self.names
 
         def located(files: tuple[Written, ...]) -> Outcome[tuple[tuple[str, str, str], ...]]:
-            sources: dict[str, tuple[str, str]] = {}
-            for written in files:
-                if scope.layer is None or written.layer == Some(scope.layer):
-                    for output, name in written.passes.items():
-                        sources.setdefault(COMBINED if name == "Image" else name, (written.path, output))
+            routed = [
+                (COMBINED if name == "Image" else name, (written.path, output))
+                for written in files
+                if scope.layer is None or written.layer == Some(scope.layer)
+                for output, name in written.passes.items()
+            ]
+            sources = dict(reversed(routed))
             return accumulated(Option.of_optional(sources.get(name)).map(lambda held: (name, *held)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene), member=name)) for name in names)
 
         def planned(record: str, outputs: str, version: int, copied: OutputPath, found: tuple[tuple[str, str, str], ...]) -> tuple[JobScope, Option[JobScope]]:

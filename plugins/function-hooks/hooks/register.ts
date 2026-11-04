@@ -1,8 +1,9 @@
 import type { EngineInterface, NextBudget, Register } from 'claude-code';
-import { Option } from '../monads.ts';
+import { Maybe } from '../monads.ts';
 import { type CommandRequest, commandDecision, policyFailure, type System } from '../policies/command-decision.ts';
-import { type AppInstance, applyChange, bundleId, type Change, createdPids, logInstances, outputChange, storedInstances, WATCHER } from '../policies/internal/apps.ts';
+import { bundleId, WATCHER } from '../policies/internal/apps.ts';
 import { WORKTREE } from '../policies/internal/git.ts';
+import { type AppInstance, applyChange, type Change, createdPids, logInstances, outputChange, storedInstances } from './app-instance.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -31,11 +32,7 @@ const runningInstances = async ($: EngineInterface, pids: readonly number[]): Pr
         await Promise.all(
             pids.map(async (pid) => {
                 const { exitCode, stdout } = await $.process.run(['lsappinfo', 'info', '-only', 'bundleID', String(pid)]);
-                return exitCode === 0
-                    ? bundleId(stdout)
-                          .toArray()
-                          .map((bundle) => ({ pid, bundle }))
-                    : [];
+                return exitCode === 0 ? bundleId(stdout).values.map((bundle) => ({ pid, bundle })) : [];
             }),
         )
     ).flat();
@@ -98,8 +95,7 @@ const quitSessionInstances = async ($: EngineInterface, session: string, budget:
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const register: Register = (on, options) => {
-    const project = String(options.project);
+const register: Register = (on) => {
     const scanners = new Map<string, Promise<string>>();
     on('tool.call', { tool: 'EnterWorktree' }, (_$, e) => ({ deny: `${e.tool} ${WORKTREE}` }));
     on('tool.call', { tool: 'Agent', isolation: 'worktree' }, (_$, e) => ({ deny: `${e.tool} with isolation ${e.isolation} ${WORKTREE}` }));
@@ -121,16 +117,16 @@ const register: Register = (on, options) => {
             read: (path) => $.fs.read(path),
             environment: async (name) => {
                 const { exitCode, stdout } = await $.process.run(['printenv', name]);
-                return exitCode === 0 ? Option.some(stdout.replace(NEWLINE, '')) : Option.none;
+                return exitCode === 0 ? Maybe.some(stdout.replace(NEWLINE, '')) : Maybe.none;
             },
             scanner,
             plugin: $.plugin.root,
-            root: Option.fromNullable(repo?.root),
+            root: Maybe.fromNullable(repo?.root),
             cwd,
-            home: Option.fromNullable(home),
+            home: Maybe.fromNullable(home),
         };
-        const request: CommandRequest = e.tool === 'Bash' && e.run_in_background !== true ? { kind: 'foreground', timeout: Option.fromNullable(e.timeout) } : { kind: e.tool === 'Bash' ? 'background' : 'monitor' };
-        const decision = await commandDecision(system, e.command, project, request);
+        const request: CommandRequest = e.tool === 'Bash' && e.run_in_background !== true ? { kind: 'foreground', timeout: Maybe.fromNullable(e.timeout) } : { kind: e.tool === 'Bash' ? 'background' : 'monitor' };
+        const decision = await commandDecision(system, e.command, request);
         if (decision.kind === 'deny') {
             return { deny: decision.reason };
         }

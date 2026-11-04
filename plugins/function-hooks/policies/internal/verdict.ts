@@ -1,4 +1,4 @@
-import { Option } from '../../monads.ts';
+import { Maybe, type Outcome } from '../../monads.ts';
 import type { CommandRequest, System } from '../command-decision.ts';
 import type { Command, parse, Script, Word } from './command.ts';
 import { type Invocation, programName, unquote } from './invocation.ts';
@@ -10,19 +10,18 @@ interface Refusal {
     readonly kind: 'refuse';
     readonly reason: string;
 }
-type Verdict = Refusal | { readonly kind: 'edit'; readonly start: number; readonly end: number; readonly text: string; readonly notice: Option<string>; readonly timeout: Option<number> } | { readonly kind: 'background'; readonly notice: string };
+type Verdict = Refusal | { readonly kind: 'edit'; readonly start: number; readonly end: number; readonly text: string; readonly notice: Maybe<string>; readonly timeout: Maybe<number> } | { readonly kind: 'background'; readonly notice: string };
 type Route = Refusal | { readonly kind: 'rewrite'; readonly program: string; readonly start: Word; readonly text: string };
 
 interface Call {
     readonly system: System;
     readonly source: Uint8Array;
     readonly script: Script;
-    readonly project: string;
     readonly request: CommandRequest;
     readonly apps: ReadonlyMap<string, string>;
     readonly writers: ReadonlyMap<string, string>;
     readonly routes: ReadonlyMap<Command, Route>;
-    readonly projects: Map<string, Promise<Option<{ readonly name: string; readonly targets: Readonly<Record<string, Target>> }>>>;
+    readonly projects: Map<string, Promise<Outcome<{ readonly name: string; readonly targets: Readonly<Record<string, Target>> }>>>;
     readonly parses: Map<string, ReturnType<typeof parse>>;
 }
 
@@ -39,7 +38,7 @@ const SHELL_SAFE = /^[\w@%+=:,./-]+$/u;
 
 const refuse = (reason: string): Refusal => ({ kind: 'refuse', reason });
 
-const edit = (start: number, end: number, text: string, notice: Option<string> = Option.none, timeout: Option<number> = Option.none): Verdict => ({ kind: 'edit', start, end, text, notice, timeout });
+const edit = (start: number, end: number, text: string, notice: Maybe<string> = Maybe.none, timeout: Maybe<number> = Maybe.none): Verdict => ({ kind: 'edit', start, end, text, notice, timeout });
 
 const background = (cause: string): Verdict => ({ kind: 'background', notice: `Call runs in the background for ${cause}, wait for its completion notice` });
 

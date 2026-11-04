@@ -7,7 +7,7 @@ import { useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
 import { Destination, nextDestination, pendingUploads, preprocessing, queue, uppy } from '#/editor/uploader.ts';
-import { choice, details, entryTitle, format } from '#/media/labels.ts';
+import { choiceLayout, entryTitle, format, joinDetails } from '#/media/labels.ts';
 import { Asset, type AssetId, type Assets, uploadLimit } from '#/model/asset.ts';
 import type { Entry, EntryId } from '#/model/portfolio.ts';
 
@@ -23,7 +23,7 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
     const [selected, setSelected] = useState<string>();
     const [target, setTarget] = useAtom(nextDestination);
     const key = (value: Destination): string => (Destination.$is('Entry')(value) ? value.id : String.uncapitalize(value._tag));
-    const options = [{ target: Destination.Library(), label: 'Library' }, { target: Destination.Hero(), label: 'Hero (one file)' }, ...entries.map((entry) => ({ target: Destination.Entry({ id: entry.id }), label: details([entryTitle(entry), String.capitalize(entry.kind)]) }))].map((option) => ({
+    const options = [{ target: Destination.Library(), label: 'Library' }, { target: Destination.Hero(), label: 'Hero (one file)' }, ...entries.map((entry) => ({ target: Destination.Entry({ id: entry.id }), label: joinDetails([entryTitle(entry), String.capitalize(entry.kind)]) }))].map((option) => ({
         ...option,
         id: key(option.target),
     }));
@@ -31,12 +31,12 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
         const asset = file.meta.prepared === undefined ? undefined : assets[file.meta.prepared.asset.id];
         const { destination } = file.meta;
         const entry = entries.find((item) => Destination.$is('Entry')(destination) && item.id === destination.id);
-        return file.progress.uploadComplete === true && Asset.guards.pdf(asset) && entry !== undefined ? Result.succeed({ id: file.id, label: details([asset.name, entryTitle(entry)]), entryId: entry.id, assetId: asset.id }) : Result.failVoid;
+        return file.progress.uploadComplete === true && Asset.guards.pdf(asset) && entry !== undefined ? Result.succeed({ id: file.id, label: joinDetails([asset.name, entryTitle(entry)]), entryId: entry.id, assetId: asset.id }) : Result.failVoid;
     });
     const selectedFile = files.find((file) => file.id === selected);
     return (
         <>
-            <Choice {...choice} label="Destination for new files" onChange={(option) => setTarget(option.target)} options={options} value={key(target)} />
+            <Choice {...choiceLayout} label="Destination for new files" onChange={(option) => setTarget(option.target)} options={options} value={key(target)} />
             {files.length > 0 && (
                 <MenuButton onAction={(item) => setSelected(item.id)} options={files.map((item) => ({ id: item.id, label: item.name }))}>
                     File destinations
@@ -47,7 +47,7 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                     <p className="hint mb-2 wrap-anywhere">{selectedFile.name}</p>
                     {selectedFile.progress.uploadStarted === null && selectedFile.meta.prepared === undefined && !Object.values(batches).some((batch) => batch.fileIDs.includes(selectedFile.id)) ? (
                         <Choice
-                            {...choice}
+                            {...choiceLayout}
                             label="File destination"
                             onChange={(option) => uploader.setFileMeta(selectedFile.id, { destination: option.target })}
                             options={options.map((option) => ({ ...option, isDisabled: Destination.$is('Hero')(option.target) && !Destination.$is('Hero')(selectedFile.meta.destination) && pending.some(Destination.$is('Hero')) }))}
@@ -55,7 +55,7 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                         />
                     ) : (
                         <p className="hint">
-                            {details([
+                            {joinDetails([
                                 'Destination',
                                 Array.findFirst(options, (option) => option.id === key(selectedFile.meta.destination)).pipe(
                                     Option.map(Struct.get('label')),
@@ -69,7 +69,7 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
             )}
             <div className="upload-dashboard min-w-0">
                 <p className="hint mb-3">
-                    {details([
+                    {joinDetails([
                         format.list(
                             Asset.mediaTypes.map((type) => type.slice(type.indexOf('/') + 1).toUpperCase()),
                             'disjunction',

@@ -1,4 +1,4 @@
-import { Option } from '../../monads.ts';
+import { Maybe } from '../../monads.ts';
 import { type Command, parse, runJson, type Word } from './command.ts';
 import { argumentGroups, basename, type Invocation, informational, isInside, operands, programName, programRow, resolvePath } from './invocation.ts';
 import { type Call, EXPANSION, invocationsOf, literalArgument, quote } from './verdict.ts';
@@ -39,45 +39,35 @@ const groupTarget = (graph: Readonly<Record<string, Target>>, target: string): s
     return members.includes(target) && (graph[parent]?.options?.args?.length ?? 0) === 0 && !members.some((name) => (graph[name]?.options?.args?.length ?? 0) > 0) ? parent : target;
 };
 
-const projectTargets = ({ system, projects }: Call, named: string, root: string) =>
-    projects.getOrInsertComputed(named, async () => (await runJson<{ readonly targets: Readonly<Record<string, Target>> }>(system, ['mise', 'exec', '--', 'nx', 'show', 'project', named, '--json'], root)).map(({ targets }) => ({ name: named, targets })).match(Option.some, () => Option.none));
+const projectTargets = ({ system, projects }: Call, named: string, root: string) => projects.getOrInsertComputed(named, () => runJson<{ readonly name: string; readonly targets: Readonly<Record<string, Target>> }>(system, ['mise', 'exec', '--', 'nx', 'show', 'project', named, '--json'], root));
 
-const rootRelative = (word: Word, cwd: string, root: string, home: Option<string>): readonly string[] => {
-    const [place] = resolvePath(word.text, Option.some(cwd), home).values;
+const rootRelative = (word: Word, cwd: string, root: string, home: Maybe<string>): readonly string[] => {
+    const [place] = resolvePath(word.text, Maybe.some(cwd), home).values;
     return word.expands || EXPANSION.test(word.raw) || place === undefined || !isInside(place, root) ? [] : [quote(place.slice(root.length + 1) || '.')];
 };
 
 const ownerProject = async (call: Call, selectors: readonly string[], invocation: Invocation, cwd: string, root: string) => {
-    const { system, project } = call;
-    const shown = (named: string) => projectTargets(call, named, root);
+    const { system } = call;
     const [value, ...more] = operands(invocation).values.flatMap(([flag, argument]) => (selectors.includes(flag) ? [argument] : []));
-    const [place] = resolvePath(value ?? '.', Option.some(cwd), system.home).values.filter((path) => isInside(path, root));
-    const located = (path: string): Option<string> => {
+    const [place] = resolvePath(value ?? '.', Maybe.some(cwd), system.home).values.filter((path) => isInside(path, root));
+    const located = (path: string): Maybe<string> => {
         const leaf = basename(path);
         const folder = leaf === 'tsconfig.json' ? path.slice(0, path.lastIndexOf('/')) : path;
-        return folder === path && leaf.lastIndexOf('.') > 0 ? Option.none : Option.some(folder.slice(root.length + 1) || '.');
+        return folder === path && leaf.lastIndexOf('.') > 0 ? Maybe.none : Maybe.some(folder.slice(root.length + 1) || '.');
     };
     if (selectors.length === 0) {
-        return shown(project);
+        return projectTargets(call, '.', root);
     }
     if (more.length > 0) {
-        return Option.none;
+        return Maybe.none;
     }
-    const [pattern] = (place !== undefined && (await system.exists(place)) ? located(place) : Option.fromNullable(value)).values;
-    if (pattern === undefined) {
-        return Option.none;
-    }
-    const [found, guessed] = await Promise.all([runJson<readonly string[]>(system, ['mise', 'exec', '--', 'nx', 'show', 'projects', '--json', '-p', pattern], root), shown(pattern)]);
-    const [name, ...others] = found.toArray().flat();
-    if (name === undefined || others.length > 0) {
-        return Option.none;
-    }
-    return guessed.values.some((candidate) => candidate.name === name) ? guessed : shown(name);
+    const [pattern] = (place !== undefined && (await system.exists(place)) ? located(place) : Maybe.fromNullable(value)).values;
+    return pattern === undefined ? Maybe.none : projectTargets(call, pattern, root);
 };
 
 // --- [RUNS]
 
-const runScope = (invocation: Invocation, subcommanded: boolean, cwd: Option<string>, home: Option<string>) => {
+const runScope = (invocation: Invocation, subcommanded: boolean, cwd: Maybe<string>, home: Maybe<string>) => {
     const cut = invocation.indexOf('--');
     const extra = cut < 0 ? [] : invocation.slice(cut + 1);
     const { inputs } = operands(invocation);
@@ -108,7 +98,7 @@ const checkerRuns = async ({ system, parses }: Call, graph: Readonly<Record<stri
                   .filter(({ text }) => !text.includes('{args'))
             : [];
     });
-    const parsed = (await Promise.all(listed.map(async (configured) => (await parses.getOrInsertComputed(configured.text, (source) => parse(system, source))).toArray().map(({ commands }) => ({ ...configured, commands }))))).flat();
+    const parsed = (await Promise.all(listed.map(async (configured) => (await parses.getOrInsertComputed(configured.text, (source) => parse(system, source))).values.map(({ commands }) => ({ ...configured, commands }))))).flat();
     return parsed
         .flatMap(({ commands, text, ...configured }) =>
             invocationsOf(configured.args.length === 0 ? commands : commands.filter(({ extent, words: configuredWords }) => commands.length === 1 && configuredWords.every(literalArgument) && extent.end - extent.start === new TextEncoder().encode(text.trim()).length), program).map((ran) => ({ ...configured, ran })),
@@ -122,7 +112,7 @@ const forwardedArguments = (program: string, words: readonly Word[], dropped: Re
     return listed.filter(({ names, words: group }, at) => (names.length === 0 ? !subcommand || at !== first : !(new Set(names).isSubsetOf(dropped) || dropped.has(group.map(({ text }) => text).join('=')))));
 };
 
-const checkerTarget = async (call: Call, { cwd, hasInput }: Command, invocation: Invocation, words: readonly Word[]): Promise<Option<{ readonly run: string; readonly args: readonly string[] }>> => {
+const checkerTarget = async (call: Call, { cwd, hasInput }: Command, invocation: Invocation, words: readonly Word[]): Promise<Maybe<{ readonly run: string; readonly args: readonly string[] }>> => {
     const [program] = invocation;
     const { selectors, subcommandless, inert = [], modes = [] } = programRow(program);
     const { home } = call.system;
@@ -130,11 +120,11 @@ const checkerTarget = async (call: Call, { cwd, hasInput }: Command, invocation:
     const [folder] = cwd.values;
     const { options, inputs } = operands(invocation);
     if (selectors === undefined || root === undefined || folder === undefined || !isInside(folder, root) || hasInput || informational(program, options)) {
-        return Option.none;
+        return Maybe.none;
     }
     const [project] = (await ownerProject(call, selectors, invocation, folder, root)).values;
     if (project === undefined) {
-        return Option.none;
+        return Maybe.none;
     }
     const { name, targets } = project;
     const [subcommand] = subcommandless === true ? [] : inputs;
@@ -156,9 +146,8 @@ const checkerTarget = async (call: Call, { cwd, hasInput }: Command, invocation:
     const passed = scoped ? [] : kept.flatMap((item) => item.words).map((word) => (moved ? rootRelative(word, folder, root, home) : [word.raw]));
     const forwarded = [...passed.flat(), ...(moved && !scoped && passed.length === 0 ? [quote(folder.slice(root.length + 1))] : [])];
     const ignored = forwarded.length > 0 && selected.some(({ forwardAllArgs }) => !forwardAllArgs);
-    const uniform = Option.fromNullable(target)
-        .toArray()
-        .flatMap((parent) => groupMembers(targets, parent))
+    const uniform = Maybe.fromNullable(target)
+        .values.flatMap((parent) => groupMembers(targets, parent))
         .every((member) => found.some((ran) => ran.target === member && wanted.isSubsetOf(ran.keys)));
     const widened = forwarded.length > 0 && modes.some(([flag]) => options.includes(flag));
     if (
@@ -172,9 +161,9 @@ const checkerTarget = async (call: Call, { cwd, hasInput }: Command, invocation:
         !coveredBy(places, [root]) ||
         (!scoped && words.some(({ text }) => text === '--'))
     ) {
-        return Option.none;
+        return Maybe.none;
     }
-    return Option.some({ run: `${name}:${target}`, args: forwarded.length === 0 ? [] : [`--args=${quote([targets[target]?.options?.args ?? [], forwarded].flat().join(' '))}`] });
+    return Maybe.some({ run: `${name}:${target}`, args: forwarded.length === 0 ? [] : [`--args=${quote([targets[target]?.options?.args ?? [], forwarded].flat().join(' '))}`] });
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

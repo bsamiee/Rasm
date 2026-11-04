@@ -1,4 +1,4 @@
-import { Array, ByteSize, Context, Effect, type Record, Schema } from 'effect';
+import { Array, ByteSize, Context, type Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -37,10 +37,6 @@ class Assets extends Context.Service<Assets, Record.ReadonlyRecord<typeof AssetI
     static readonly schema = Schema.Record(AssetId, Asset);
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const defaulted = <S extends Schema.Top & Schema.WithoutConstructorDefault>(schema: S, value: S['Type'] & S['Encoded']) => schema.pipe(Schema.withDecodingDefaultKey(Effect.succeed(value)), Schema.withConstructorDefault(Effect.succeed(value)));
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Asset, AssetId, Assets, defaulted, ImageAsset, PdfAsset, Sheet, uploadLimit, VideoAsset };
+export { Asset, AssetId, Assets, ImageAsset, PdfAsset, Sheet, uploadLimit, VideoAsset };

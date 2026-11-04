@@ -18,13 +18,13 @@ const codecs = [
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const pgPool = (config: PgClient.PgPoolConfig) => {
+const pgClient = (config: PgClient.PgPoolConfig) => {
     const types = PgTypes.makeRegistry();
     codecs.forEach(({ oid, binary }) => types.register(oid, { decode: binary, encode: (value: unknown) => PgTypes.encode(value, oid) }));
     return PgClient.layer({ ...config, types });
 };
-const pglite = (config: PgliteClient.PgliteClientConfig.Create) => PgliteClient.layer({ ...config, parsers: { ...config.parsers, ...Record.fromIterableWith(codecs, ({ oid, text }) => [`${oid}`, text]) } });
+const pgliteClient = (config: PgliteClient.PgliteClientConfig.Create) => PgliteClient.layer({ ...config, parsers: { ...config.parsers, ...Record.fromIterableWith(codecs, ({ oid, text }) => [`${oid}`, text]) } });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { pglite, pgPool };
+export { pgClient, pgliteClient };

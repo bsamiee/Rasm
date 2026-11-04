@@ -1,15 +1,10 @@
 import { join } from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
-import { layer } from '@effect/platform-node/NodeServices';
+import { layer } from '@effect/platform-node/NodeFileSystem';
 import { type Page, test } from '@playwright/test';
-import { Effect, FileSystem, Function, Schema } from 'effect';
+import { Cause, Effect, FileSystem, Function, Schema } from 'effect';
 import { createServer } from 'vite';
 import { located, testMode } from '../../../vite.shared.ts';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const PLURAL = new Intl.PluralRules('en');
-const VIOLATIONS: Partial<Record<Intl.LDMLPluralRule, string>> & { readonly other: string } = { one: 'axe violation', other: 'axe violations' };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -17,7 +12,7 @@ const Report = Schema.fromJsonString(Schema.Unknown, { space: 2 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const appTest = (name: string) =>
+const testApp = (name: string) =>
     test.extend<{ readonly baseURL: string }, { readonly origin: string }>({
         origin: [
             // biome-ignore lint/correctness/noEmptyPattern: Playwright reads fixture dependencies from the first parameter's object pattern
@@ -33,7 +28,7 @@ const appTest = (name: string) =>
                     yield* Effect.promise(() => use(origin));
                 }).pipe(
                     Effect.scoped,
-                    Effect.mapError((cause) => new Error(`${name} dev server failed in ${project.name}`, { cause })),
+                    Effect.mapError((cause) => new Cause.UnknownError(cause, `${name} dev server failed in ${project.name}`)),
                     Effect.provide(layer),
                     Effect.runPromise,
                 ),
@@ -47,7 +42,8 @@ const expect = test.expect.extend({
             const { violations } = yield* Effect.promise(() => select(new AxeBuilder({ page })).analyze());
             const report = yield* Schema.encodeEffect(Report)(violations);
             yield* Effect.promise(() => test.info().attach('axe', { body: report, contentType: 'application/json' }));
-            return { name: 'toPassAxe', pass: violations.length === 0, message: () => `${violations.length} ${VIOLATIONS[PLURAL.select(violations.length)] ?? VIOLATIONS.other} at ${page.url()}\n${report}` };
+            const pass = violations.length === 0;
+            return { pass, message: () => (pass ? `${page.url()} passes axe rules` : `${page.url()} violates axe rules ${violations.map(({ id }) => id).join(', ')}\n${report}`) };
         }),
         Effect.runPromise,
     ),
@@ -55,4 +51,4 @@ const expect = test.expect.extend({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { appTest, expect };
+export { expect, testApp };

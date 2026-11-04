@@ -1,4 +1,4 @@
-import { Option } from '../../monads.ts';
+import { Maybe } from '../../monads.ts';
 import type { CommandRequest, System } from '../command-decision.ts';
 import { namedPids, PID, WATCHER, watchAction, watchedApps } from './apps.ts';
 import type { Command } from './command.ts';
@@ -40,7 +40,7 @@ const removedSleeps = ({ request, routes, script: { commands } }: Call): readonl
             return [];
         }
         const [start, end] = next === undefined ? [last?.extent.end ?? command.extent.start, command.extent.end] : [command.extent.start, next.extent.start];
-        return [{ command, verdict: edit(start, end, '', Option.some(`sleep removed, ${WATCHER} prints current states`)) }];
+        return [{ command, verdict: edit(start, end, '', Maybe.some(`sleep removed, ${WATCHER} prints current states`)) }];
     });
 };
 
@@ -49,12 +49,12 @@ const taskNotice = (id: string): string => `Task ${id} notifies on completion, c
 const pollingLoops = ({ request, apps, source, script: { commands } }: Call): readonly string[] => {
     const loopCommands = commands.filter(({ inLoop }) => inLoop);
     const sleeping = loopCommands.some(({ invocations: chain }) => chain.some(([program]) => enabled(programRow(program).timer, [])));
-    const waited = sleeping ? [...new TextDecoder().decode(source).matchAll(TASK_OUTPUTS)].flatMap((match) => Option.fromNullable(match.groups?.id).values) : [];
+    const waited = sleeping ? [...new TextDecoder().decode(source).matchAll(TASK_OUTPUTS)].flatMap((match) => Maybe.fromNullable(match.groups?.id).values) : [];
     const names = invocationSites(loopCommands).flatMap(({ invocation }) =>
         invocation[0] === WATCHER
             ? [watchedApps(invocation)]
             : namedPids(invocation)
-                  .flatMap((pid) => Option.fromNullable(apps.get(pid)).values)
+                  .flatMap((pid) => Maybe.fromNullable(apps.get(pid)).values)
                   .map((bundle) => [bundle]),
     );
     return [...[...new Set(waited)].map(taskNotice), ...names.map((name) => `Loop polls ${name.join(' ') || WATCHER}, ${watchAction(request, name)}`)];
@@ -94,12 +94,12 @@ const taskTails = ({ request, writers, script: { commands } }: Call): readonly V
               const words = command.parts[command.invocations.findIndex(([program]) => program === 'tail')]?.words ?? [];
               const [first, last] = [words[0], words.at(-1)];
               const ended = invocationSites(pipelineNeighbors(commands, index, 1)).some(({ invocation }) => enabled(programRow(invocation[0]).closesInput, operands(invocation).options));
-              const roots = files.flatMap((file) => Option.fromNullable(writers.get(file)).values);
-              const ids = files.flatMap((file) => Option.fromNullable(TASK_OUTPUT.exec(file)?.groups?.id).values).join(' ');
+              const roots = files.flatMap((file) => Maybe.fromNullable(writers.get(file)).values);
+              const ids = files.flatMap((file) => Maybe.fromNullable(TASK_OUTPUT.exec(file)?.groups?.id).values).join(' ');
               if (files.length === 0 || first === undefined || last === undefined || ended) {
                   return [];
               }
-              return roots.length < files.length ? [refuse(taskNotice(ids))] : [edit(first.span.start, first.span.start, '{ '), edit(last.span.end, last.span.end, ` & ${roots.map((pid) => `caffeinate -w ${pid}`).join('; ')}; kill $!; }`, Option.some(`tail ends with task ${ids}`))];
+              return roots.length < files.length ? [refuse(taskNotice(ids))] : [edit(first.span.start, first.span.start, '{ '), edit(last.span.end, last.span.end, ` & ${roots.map((pid) => `caffeinate -w ${pid}`).join('; ')}; kill $!; }`, Maybe.some(`tail ends with task ${ids}`))];
           })
         : [];
 
@@ -126,8 +126,8 @@ const foregroundWaits = (call: Call): readonly Verdict[] => {
             const leaking = program === 'read' && enabled(timer, options) && command.hasInput && nestedIn(commands, command).some(({ inSubstitution }) => inSubstitution);
             return [
                 ...(request.kind === 'foreground' && (holding || command.inBusyLoop) ? [refuse(waitReason)] : []),
-                ...(program === 'caffeinate' && first !== undefined && next !== undefined ? [editOrRefuse(command, edit(first.span.start, next.span.start, '', Option.some(`caffeinate removed, ${next.text} runs directly`)), `caffeinate wraps ${next.text}, run ${next.text} directly`)] : []),
-                ...(leaking && amount !== undefined ? [editOrRefuse(command, edit(command.extent.start, command.extent.end, `sleep ${amount}`, Option.some(`read -t ${amount} became sleep ${amount}`)), `read -t ${amount} leaks its input process, use sleep ${amount}`)] : []),
+                ...(program === 'caffeinate' && first !== undefined && next !== undefined ? [editOrRefuse(command, edit(first.span.start, next.span.start, '', Maybe.some(`caffeinate removed, ${next.text} runs directly`)), `caffeinate wraps ${next.text}, run ${next.text} directly`)] : []),
+                ...(leaking && amount !== undefined ? [editOrRefuse(command, edit(command.extent.start, command.extent.end, `sleep ${amount}`, Maybe.some(`read -t ${amount} became sleep ${amount}`)), `read -t ${amount} leaks its input process, use sleep ${amount}`)] : []),
             ];
         }),
     ];

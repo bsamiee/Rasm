@@ -136,7 +136,9 @@ class InDesignModel extends Context.Service<InDesignModel>()('@rasm/indesign/uxp
                 Match.when(SchemaAST.isSuspend, (node) => picking(node.thunk(), value)),
                 Match.when(SchemaAST.isUnion, (node) => Option.match(Array.findFirst(node.types, fits(value)), { onNone: () => value, onSome: (member) => picking(member, value) })),
                 Match.when(SchemaAST.isArrays, (node) => list(node, value)),
-                Match.when(SchemaAST.isObjects, (node) => (Predicate.isObject(value) && !collection(value) && Array.isReadonlyArrayNonEmpty(node.propertySignatures) ? record(node, value, skipped) : value)),
+                Match.when(SchemaAST.isObjects, (node) =>
+                    Option.match(Option.all([Option.filter(Option.liftPredicate(value, Predicate.isObject), Predicate.not(collection)), Option.liftPredicate(node.propertySignatures, Array.isReadonlyArrayNonEmpty)]), { onNone: () => value, onSome: ([held]) => record(node, held, skipped) }),
+                ),
                 Match.orElse(() => value),
             );
         const plural = new Set(Array.filterMap(exported, ([name, type]) => (Predicate.isFunction(type) && Object.hasOwn(type.prototype, 'everyItem') ? Result.succeed(name) : Result.failVoid)));
@@ -155,8 +157,7 @@ class InDesignModel extends Context.Service<InDesignModel>()('@rasm/indesign/uxp
         const retried = { capacity: exported.length, timeToLive: (exit: Exit.Exit<unknown, unknown>) => (Exit.isFailure(exit) && Option.exists(Cause.findErrorOption(exit.cause), Schema.is(HostError)) ? Duration.zero : Duration.infinity) };
         const declarations = yield* Cache.makeWith(
             Effect.fnUntraced(function* (kind: string) {
-                const found = yield* readDeclaration(kind);
-                const { fields, methods, ...declared } = Option.isSome(found) ? found.value : yield* Unmatched.make({ subject: 'class', query: Option.some(kind), candidates: classes });
+                const { fields, methods, ...declared } = yield* readDeclaration(kind, classes);
                 return {
                     ...declared,
                     fields: Record.map(fields, filled),
@@ -173,7 +174,7 @@ class InDesignModel extends Context.Service<InDesignModel>()('@rasm/indesign/uxp
                 const { fields } = yield* Cache.get(declarations, 'Document');
                 const listed = Array.findFirst(Record.toEntries(fields), flow(Tuple.get(1), Predicate.Struct({ array: Predicate.isTruthy, type: Option.contains(kind) })));
                 const held = Effect.findFirst(Record.toEntries(Record.filter(fields, collectionField)), flow(Tuple.get(1), Struct.get('type'), Option.map(element), Effect.transposeOption, Effect.map(flow(Option.flatten, Option.contains(kind)))));
-                return Option.map(Option.isSome(listed) ? listed : yield* held, Tuple.get(0));
+                return Option.map(yield* Option.match(listed, { onNone: () => held, onSome: Effect.succeedSome }), Tuple.get(0));
             }),
             retried,
         );
@@ -311,7 +312,7 @@ class InDesignModel extends Context.Service<InDesignModel>()('@rasm/indesign/uxp
         };
         return yield* Option.match(located(written), {
             onSome: (found) => Effect.succeed(specifier.root || Option.isSome(specifier.selector) || specifier.property ? found : Array.ensure(found)),
-            onNone: () => (Option.isSome(specifier.end) ? Effect.fail(Unmatched.make({ subject: 'range', query: Option.some(written) })) : Effect.gen(nearest)),
+            onNone: () => Option.match(specifier.end, { onNone: () => Effect.gen(nearest), onSome: () => Effect.fail(Unmatched.make({ subject: 'range', query: Option.some(written) })) }),
         });
     });
     static readonly located = (specifier: Specifier) =>
@@ -389,7 +390,7 @@ class InDesignModel extends Context.Service<InDesignModel>()('@rasm/indesign/uxp
                         Value.plainObject,
                         Effect.fnUntraced(function* (properties: Record.ReadonlyRecord<string, unknown>) {
                             const { declarations } = yield* InDesignModel;
-                            const fields: Record.ReadonlyRecord<string, Typed> = Option.isSome(within) ? (yield* Cache.get(declarations, within.value)).fields : {};
+                            const fields: Record.ReadonlyRecord<string, Typed> = yield* Option.match(within, { onNone: () => Effect.succeed(Record.empty<string, Typed>()), onSome: (kind) => Effect.map(Cache.get(declarations, kind), Struct.get('fields')) });
                             return yield* Effect.all(
                                 Record.map(properties, (each, key) => {
                                     const field = Record.get(fields, key);

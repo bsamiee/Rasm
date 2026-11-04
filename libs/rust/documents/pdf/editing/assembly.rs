@@ -121,6 +121,7 @@ fn selection(source: &Source, pages: Option<&NEVec<usize>>) -> Result<Vec<(usize
 fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, PdfError> {
     const ACROFORM: &str = "AcroForm";
     const DEFAULT_RESOURCES: &str = "DR";
+    const DEST: &str = "Dest";
     const DESTS: &str = "Dests";
     const FIELDS: &str = "Fields";
     const NAMES: &str = "Names";
@@ -135,7 +136,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
         let link = |annotation: &Dictionary| -> Result<Link, lopdf::Error> {
             let structure = &assembly.structure;
             let action = entry(structure, annotation, "A")?.map(Object::as_dict).transpose()?;
-            let destination = match (entry(structure, annotation, "Dest")?, action) {
+            let destination = match (entry(structure, annotation, DEST)?, action) {
                 (Some(destination), _) => Some(destination),
                 (None, Some(action)) if matches!(entry(structure, action, "S")?, Some(Object::Name(kind)) if kind == b"GoTo") => entry(structure, action, "D")?,
                 (None, Some(_) | None) => None,
@@ -173,11 +174,11 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
                 Link::Kept => Some(Ok(element)),
                 Link::Redirected(explicit) => Some(edited(&mut assembly.structure, element, &|annotation| {
                     annotation.remove(b"A");
-                    annotation.set("Dest", explicit.clone());
+                    annotation.set(DEST, explicit.clone());
                 })),
                 Link::Unlinked => Some(edited(&mut assembly.structure, element, &|annotation| {
                     annotation.remove(b"A");
-                    annotation.remove(b"Dest");
+                    annotation.remove(DEST.as_bytes());
                 })),
                 Link::Dropped => None,
             })

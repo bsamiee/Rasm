@@ -1,4 +1,4 @@
-import { Option, Result } from '../../monads.ts';
+import { Maybe, Outcome } from '../../monads.ts';
 import type { System } from '../command-decision.ts';
 import { type Invocation, invocationParts, invocations, isInside, operands, programRow, readsStdin, resolvePath, unquote } from './invocation.ts';
 
@@ -20,7 +20,7 @@ interface Command {
     readonly invocations: readonly Invocation[];
     readonly parts: readonly { readonly assigned: readonly Word[]; readonly words: readonly Word[] }[];
     readonly extent: Span;
-    readonly cwd: Option<string>;
+    readonly cwd: Maybe<string>;
     readonly hasInput: boolean;
     readonly pipesOutput: boolean;
     readonly inSubstitution: boolean;
@@ -46,7 +46,7 @@ interface Binding {
     readonly context: Scope | undefined;
     readonly condition: Span | undefined;
     readonly dynamic: boolean;
-    readonly value: Option<string>;
+    readonly value: Maybe<string>;
 }
 interface Scope {
     readonly hit: Extract<Hit, { readonly ruleId: 'scope' | 'local-scope' | 'function' }>;
@@ -59,7 +59,7 @@ interface Ownership {
 }
 
 type Origin = 'call' | 'body' | 'file';
-type Context = Pick<Command, 'cwd' | 'hasInput' | 'inLoop' | 'origin'> & { readonly visited: ReadonlySet<string>; readonly scanner: Promise<Invocation>; readonly scans: Map<string, Promise<Result<readonly Hit[]>>> };
+type Context = Pick<Command, 'cwd' | 'hasInput' | 'inLoop' | 'origin'> & { readonly visited: ReadonlySet<string>; readonly scanner: Promise<Invocation>; readonly scans: Map<string, Promise<Outcome<readonly Hit[]>>> };
 type Hit = Capture &
     (
         | { readonly ruleId: 'command'; readonly metaVariables: { readonly single: { readonly CMD: Capture }; readonly multi: { readonly ARGS?: readonly Capture[] } } }
@@ -165,18 +165,18 @@ const scanner = async ({ scanner: binary, plugin, read }: System): Promise<Invoc
     return [binary, 'scan', '--config', config, '--stdin', '--custom-languages', 'allow', '--json=compact', '--inline-rules', RULES.map((rule) => JSON.stringify({ language, utils: UTILS, ...rule })).join('\n---\n')];
 };
 
-const runStdout = (system: System, argv: Invocation, init: { readonly cwd: string; readonly stdin: string }): Promise<Result<string>> =>
+const runStdout = (system: System, argv: Invocation, init: { readonly cwd: string; readonly stdin: string }): Promise<Outcome<string>> =>
     system.run(argv, init).then(
-        ({ exitCode, stdout, stderr }) => (exitCode === 0 ? Result.ok(stdout) : Result.fault({ kind: 'exited', program: argv[0], code: exitCode, output: stderr.trim() })),
-        (cause: unknown) => Result.fault({ kind: 'thrown', program: argv[0], cause }),
+        ({ exitCode, stdout, stderr }) => (exitCode === 0 ? Outcome.ok(stdout) : Outcome.fault({ kind: 'exited', program: argv[0], code: exitCode, output: stderr.trim() })),
+        (cause: unknown) => Outcome.fault({ kind: 'thrown', program: argv[0], cause }),
     );
 
-const runJson = async <A>(system: System, argv: Invocation, cwd: string, stdin = ''): Promise<Result<A>> =>
-    (await runStdout(system, argv, { cwd, stdin })).bind((output): Result<A> => {
+const runJson = async <A>(system: System, argv: Invocation, cwd: string, stdin = ''): Promise<Outcome<A>> =>
+    (await runStdout(system, argv, { cwd, stdin })).bind((output): Outcome<A> => {
         try {
-            return Result.ok(JSON.parse(output));
+            return Outcome.ok(JSON.parse(output));
         } catch (cause) {
-            return Result.fault({ kind: 'thrown', program: argv[0], cause });
+            return Outcome.fault({ kind: 'thrown', program: argv[0], cause });
         }
     });
 
@@ -219,24 +219,24 @@ const ownership = (hits: readonly Hit[]): ReadonlyMap<Hit, Ownership> =>
 const resolver = (expansions: readonly Hit[], declarations: readonly Omit<Binding, 'value'>[], calls: readonly Hit[], source: Uint8Array, environment: ReadonlyMap<string, string>, owners: ReadonlyMap<Hit, Ownership>) => {
     const values = new Map<Scope | undefined, Map<string, Binding>>();
     const invalidated = new Map<Scope | undefined, number>();
-    const lookup = (name: string | undefined, scope: Scope | undefined, at: Span): Option<string> => {
+    const lookup = (name: string | undefined, scope: Scope | undefined, at: Span): Maybe<string> => {
         if (name === undefined) {
-            return Option.none;
+            return Maybe.none;
         }
         const frames = lineage(scope);
         const owner = frames.findIndex((frame) => values.get(frame)?.has(name) === true || replies(frame, name));
         const bound = values.get(frames[owner])?.get(name);
         if (owner >= 0 && bound === undefined) {
-            return Option.none;
+            return Maybe.none;
         }
         const changed = invalidated.get(enclosing(scope, 'local-scope'));
         if (changed !== undefined && (bound === undefined || changed > bound.capture.range.byteOffset.end)) {
-            return Option.none;
+            return Maybe.none;
         }
         if (bound === undefined) {
-            return Option.fromNullable(environment.get(name));
+            return Maybe.fromNullable(environment.get(name));
         }
-        return contains(bound.condition, at) ? bound.value : Option.none;
+        return contains(bound.condition, at) ? bound.value : Maybe.none;
     };
     const events = [
         ...expansions.map((hit) => ({ kind: 'expansion' as const, hit, at: hit.range.byteOffset.start })),
@@ -246,9 +246,7 @@ const resolver = (expansions: readonly Hit[], declarations: readonly Omit<Bindin
     const references = events.flatMap((event): readonly (Span & { readonly text: string })[] => {
         if (event.kind === 'expansion') {
             const { hit } = event;
-            return lookup(REFERENCE.exec(hit.text)?.groups?.name, owners.get(hit)?.scope, hit.range.byteOffset)
-                .map((resolved) => ({ ...hit.range.byteOffset, text: resolved }))
-                .toArray();
+            return lookup(REFERENCE.exec(hit.text)?.groups?.name, owners.get(hit)?.scope, hit.range.byteOffset).map((resolved) => ({ ...hit.range.byteOffset, text: resolved })).values;
         }
         if (event.kind === 'call') {
             invalidated.set(enclosing(owners.get(event.hit)?.scope, 'local-scope'), event.at);
@@ -257,10 +255,10 @@ const resolver = (expansions: readonly Hit[], declarations: readonly Omit<Bindin
         const { declaration } = event;
         const { name, capture, scope, dynamic } = declaration;
         const text = capture.text.slice(name.length + 1);
-        const found = (reference: string | undefined) => lookup(reference, declaration.context, capture.range.byteOffset).toArray();
+        const found = (reference: string | undefined) => lookup(reference, declaration.context, capture.range.byteOffset).values;
         const complete = [...text.matchAll(REFERENCES)].every((match) => found(match.groups?.bare ?? match.groups?.braced).length > 0);
         const value = text.replace(REFERENCES, (_match, bare: string | undefined, braced: string | undefined) => found(bare ?? braced).join(''));
-        values.getOrInsertComputed(scope, () => new Map()).set(name, { ...declaration, value: !dynamic && capture.text[name.length] === '=' && complete && LITERAL.test(value) ? Option.some(unquote(value)) : Option.none });
+        values.getOrInsertComputed(scope, () => new Map()).set(name, { ...declaration, value: !dynamic && capture.text[name.length] === '=' && complete && LITERAL.test(value) ? Maybe.some(unquote(value)) : Maybe.none });
         return [];
     });
     return ({ range: { byteOffset } }: Capture): string =>
@@ -273,9 +271,9 @@ const resolver = (expansions: readonly Hit[], declarations: readonly Omit<Bindin
 
 // --- [PARSE]
 
-const parseSource = async (system: System, source: string, context: Context): Promise<Result<Script>> => (await context.scans.getOrInsertComputed(source, async (text) => runJson<readonly Hit[]>(system, await context.scanner, system.plugin, text))).bind((hits) => hitScript(system, source, context, hits));
+const parseSource = async (system: System, source: string, context: Context): Promise<Outcome<Script>> => (await context.scans.getOrInsertComputed(source, async (text) => runJson<readonly Hit[]>(system, await context.scanner, system.plugin, text))).bind((hits) => hitScript(system, source, context, hits));
 
-const hitScript = async (system: System, source: string, context: Context, hits: readonly Hit[]): Promise<Result<Script>> => {
+const hitScript = async (system: System, source: string, context: Context, hits: readonly Hit[]): Promise<Outcome<Script>> => {
     const priority = (hit: Hit): number => Number(hit.ruleId !== 'control') + Number(hit.ruleId !== 'control' && hit.ruleId !== 'chain');
     const sorted = hits.toSorted((left, right) => left.range.byteOffset.start - right.range.byteOffset.start || right.range.byteOffset.end - left.range.byteOffset.end || priority(left) - priority(right));
     const owners = ownership(sorted);
@@ -313,8 +311,8 @@ const hitScript = async (system: System, source: string, context: Context, hits:
         return [binding, ...(uncertain ? [{ ...binding, scope: process, dynamic: true }] : [])];
     });
     const assigned = new Set([...declarations.filter(({ scope, condition, dynamic }) => scope === undefined && condition === undefined && !dynamic).map(({ name }) => name), 'PWD', 'OLDPWD', 'SHLVL', '_']);
-    const referenced = [...new Set([...expansions, ...declarations.map(({ capture }) => capture)].flatMap(({ text }) => [...text.matchAll(REFERENCES)].flatMap((match) => Option.fromNullable(match.groups?.bare ?? match.groups?.braced).toArray())))].filter((name) => !assigned.has(name));
-    const environment = new Map((await Promise.all(referenced.map(async (name) => (await system.environment(name)).toArray().map((value) => [name, value] as const)))).flat());
+    const referenced = [...new Set([...expansions, ...declarations.map(({ capture }) => capture)].flatMap(({ text }) => [...text.matchAll(REFERENCES)].flatMap((match) => Maybe.fromNullable(match.groups?.bare ?? match.groups?.braced).values)))].filter((name) => !assigned.has(name));
+    const environment = new Map((await Promise.all(referenced.map(async (name) => (await system.environment(name)).values.map((value) => [name, value] as const)))).flat());
     const functions = new Set(sorted.flatMap((hit) => (hit.ruleId === 'function' ? [hit.metaVariables.single.NAME.text] : [])));
     const calls = sorted.filter((hit) => {
         if (hit.ruleId !== 'command') {
@@ -365,8 +363,8 @@ const hitScript = async (system: System, source: string, context: Context, hits:
             ];
         })
         .toArray();
-    const directories = new Map<Scope | undefined, { readonly value: Option<string>; readonly condition: Span | undefined }>([[undefined, { value: context.cwd, condition: undefined }]]);
-    const directoryAt = (scope: Scope | undefined, at: Span): Option<string> => {
+    const directories = new Map<Scope | undefined, { readonly value: Maybe<string>; readonly condition: Span | undefined }>([[undefined, { value: context.cwd, condition: undefined }]]);
+    const directoryAt = (scope: Scope | undefined, at: Span): Maybe<string> => {
         const frames = lineage(scope);
         const known = frames.findIndex((frame) => directories.has(frame));
         const stored = directories.get(frames[known]);
@@ -375,14 +373,14 @@ const hitScript = async (system: System, source: string, context: Context, hits:
             .toReversed()
             .reduce(
                 (value, frame) => {
-                    const inherited = frame?.hit.ruleId === 'function' ? Option.none : value;
+                    const inherited = frame?.hit.ruleId === 'function' ? Maybe.none : value;
                     directories.set(frame, { value: inherited, condition: undefined });
                     return inherited;
                 },
-                stored !== undefined && contains(stored.condition, at) ? stored.value : Option.none,
+                stored !== undefined && contains(stored.condition, at) ? stored.value : Maybe.none,
             );
     };
-    const entered = (folder: Option<string>, target: string | undefined): Option<string> => (target === undefined || target.includes('$') || DIR_STACK.test(target) ? Option.none : resolvePath(target, folder, system.home));
+    const entered = (folder: Maybe<string>, target: string | undefined): Maybe<string> => (target === undefined || target.includes('$') || DIR_STACK.test(target) ? Maybe.none : resolvePath(target, folder, system.home));
     const timeline = entries
         .flatMap((part) => [
             { part, at: part.hit.range.byteOffset.start, effect: false },
@@ -399,11 +397,11 @@ const hitScript = async (system: System, source: string, context: Context, hits:
             return [{ stdin: part.stdin, command: { ...part.command, cwd } }];
         }
         if ((current && part.cdTargets.length > 0) || unknown) {
-            directories.set(scope, { value: unknown || owner?.chain === undefined ? Option.none : part.cdTargets.reduce(entered, cwd), condition: owner?.chain });
+            directories.set(scope, { value: unknown || owner?.chain === undefined ? Maybe.none : part.cdTargets.reduce(entered, cwd), condition: owner?.chain });
         }
         return [];
     });
-    const nested = Result.all(await Promise.all(cwdEntries.flatMap(({ stdin, command: { invocations: chain, parts, cwd, hasInput, inLoop } }) => parseNested(system, chain, parts.at(-1)?.words[0], stdin, { ...context, cwd, hasInput, inLoop }))));
+    const nested = Outcome.all(await Promise.all(cwdEntries.flatMap(({ stdin, command: { invocations: chain, parts, cwd, hasInput, inLoop } }) => parseNested(system, chain, parts.at(-1)?.words[0], stdin, { ...context, cwd, hasInput, inLoop }))));
     return nested.map((scripts) => ({
         commands: [...cwdEntries.map(({ command }) => command), ...scripts.flatMap(({ commands }) => commands)],
         jobs: [...sorted.flatMap((hit) => (hit.ruleId === 'background' ? [{ ...hit.range.byteOffset, origin: context.origin }] : [])), ...scripts.flatMap(({ jobs }) => jobs)],
@@ -411,18 +409,18 @@ const hitScript = async (system: System, source: string, context: Context, hits:
     }));
 };
 
-const parseFile = async (system: System, file: string, context: Context): Promise<Result<Script>> => {
+const parseFile = async (system: System, file: string, context: Context): Promise<Outcome<Script>> => {
     const [tracked, [text]] = await Promise.all([
-        Promise.all(system.root.toArray().flatMap((root) => (isInside(file, root) ? [runStdout(system, ['git', 'ls-files', '--error-unmatch', '--', file], { cwd: root, stdin: '' })] : []))),
+        Promise.all(system.root.values.flatMap((root) => (isInside(file, root) ? [runStdout(system, ['git', 'ls-files', '--error-unmatch', '--', file], { cwd: root, stdin: '' })] : []))),
         system.read(file).then(
             (read) => [read],
             () => [],
         ),
     ]);
-    return tracked.some((result) => result.toArray().length > 0) || text === undefined ? Result.ok({ commands: [], jobs: [], assignments: [] }) : parseSource(system, text, { ...context, origin: 'file', visited: new Set([...context.visited, file]) });
+    return tracked.some((result) => result.values.length > 0) || text === undefined ? Outcome.ok({ commands: [], jobs: [], assignments: [] }) : parseSource(system, text, { ...context, origin: 'file', visited: new Set([...context.visited, file]) });
 };
 
-const parseNested = (system: System, chain: readonly Invocation[], head: Word | undefined, stdin: readonly string[], context: Context): readonly Promise<Result<Script>>[] =>
+const parseNested = (system: System, chain: readonly Invocation[], head: Word | undefined, stdin: readonly string[], context: Context): readonly Promise<Outcome<Script>>[] =>
     chain.slice(-1).flatMap((last) => {
         const { shell } = programRow(last[0]);
         const { options, inputs, inner, executesSource } = operands(last);
@@ -432,11 +430,11 @@ const parseNested = (system: System, chain: readonly Invocation[], head: Word | 
         const bodies = [last, ...invocations(inner)].flatMap((invocation) => [...operands(invocation).bodies, ...(programRow(invocation[0]).shell !== undefined && readsStdin(invocation) ? stdin : [])]);
         const script = [head].flatMap((word) => (word !== undefined && !word.expands && word.text.includes('/') && SCRIPT.test(word.text) ? [word.text] : []));
         const sourced = shell === undefined || shell === 'joined' ? script : inputs.slice(0, Number(!options.some((name) => shell.includes(name))));
-        const files = sourced.flatMap((path) => resolvePath(path, context.cwd, system.home).toArray()).filter((file) => !context.visited.has(file));
+        const files = sourced.flatMap((path) => resolvePath(path, context.cwd, system.home).values).filter((file) => !context.visited.has(file));
         return [...bodies.map((body) => parseSource(system, body, { ...context, origin: context.origin === 'file' ? 'file' : 'body' })), ...files.map((file) => parseFile(system, file, context))];
     });
 
-const parse = (system: System, command: string): Promise<Result<Script>> => parseSource(system, command, { cwd: resolvePath(system.cwd, Option.none, Option.none), hasInput: false, inLoop: false, origin: 'call', visited: new Set(), scanner: scanner(system), scans: new Map() });
+const parse = (system: System, command: string): Promise<Outcome<Script>> => parseSource(system, command, { cwd: resolvePath(system.cwd, Maybe.none, Maybe.none), hasInput: false, inLoop: false, origin: 'call', visited: new Set(), scanner: scanner(system), scans: new Map() });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

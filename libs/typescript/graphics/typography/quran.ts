@@ -28,12 +28,12 @@ class Ayah extends Schema.Class<Ayah, { readonly brand: unique symbol }>('Ayah')
     text: Schema.String,
     basmalah: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Unnumbered basmalah the mushaf prints before the ayah' })),
 }) {
-    marked(separator: string, face: Pick<Face, 'has'>, settings: Pick<Settings, 'digits'>): Effect.Effect<string, Unmatched> {
+    marked(separator: string, face: Pick<Face, 'draws'>, settings: Pick<Settings, 'digits'>): Effect.Effect<string, Unmatched> {
         const mark = settings.digits(ayahMark(this.number));
         const forms = [mark, `\u{FD3F}${mark.slice(AYAH_MARK.length)}\u{FD3E}`];
         return Effect.map(
             Effect.fromOption(
-                Array.findFirst(forms, (form) => Array.fromIterable(form).every((character) => face.has(character.codePointAt(0) ?? 0))),
+                Array.findFirst(forms, (form) => face.draws(form)),
                 () => Unmatched.make({ subject: 'ayah mark the face draws', query: Option.some(String(this.number)), candidates: forms }),
             ),
             (form) =>
@@ -89,7 +89,7 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         lines: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Break text where printed lines break' })),
     }).annotate({ description: 'Mushaf text rendering, ayah marks set against the face' });
     static readonly mushaf = Effect.fn('Quran.mushaf')(function* (json: Option.Option<string> = Option.none(), render: typeof Quran.Render.Type = {}, tables: readonly SurahNames[] = NAMES) {
-        const mushaf = yield* Effect.tryPromise({ try: () => Promise.resolve(Option.match(json, { onNone: Mushaf.hafs, onSome: Mushaf.fromJson })), catch: (cause) => TypographyError.make({ subject: 'mushaf', cause }) });
+        const mushaf = yield* Effect.tryPromise({ try: () => Promise.resolve(Option.match(json, { onNone: Mushaf.hafs, onSome: Mushaf.fromJson })), catch: TypographyError.unreadable('mushaf') });
         const keys = { bazzi: 'Bazzi', duri: 'Douri', hafs: 'Hafs', qalun: 'Qalun', shubah: 'Shuba', susi: 'Sousi', warsh: 'Warsh' } as const satisfies Record.ReadonlyRecord<string, RiwayaName>;
         const [, riwayah] = yield* Unmatched.single(Record.toEntries(keys), 'mushaf key', Option.some(mushaf.key), ([key]) => Array.of(key));
         const encoded = (surah: Mushaf['surahs'][number]) => {
@@ -118,7 +118,7 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
             Part: (part) => counted(this, part),
         });
     }
-    text(selection: typeof Quran.Selection.Type, separator: string, face: Pick<Face, 'has'>, settings: Pick<Settings, 'digits'>) {
+    text(selection: typeof Quran.Selection.Type, separator: string, face: Pick<Face, 'draws'>, settings: Pick<Settings, 'digits'>) {
         return this.select(selection).pipe(Effect.flatMap(Effect.forEach((ayah) => ayah.marked(separator, face, settings))), Effect.map(Array.join('')));
     }
 }

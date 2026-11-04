@@ -1,4 +1,4 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Completion, type Envelope } from '#/contract';
-export { ExtensionManifest } from '#/manifest';
+export { Completion, Envelope } from '#/contract';
+export { ExtensionManifest } from '#/extension-manifest';

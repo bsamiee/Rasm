@@ -91,13 +91,9 @@ const uppy = Atom.make((get) => {
     get.addFinalizer(() => uploader.destroy());
     return uploader;
 }).pipe(Atom.keepAlive);
-const preparationMessage = Match.type<{ readonly error: unknown; readonly type: string }>().pipe(
-    Match.when({ error: { _tag: 'MediaError', reason: { _tag: 'Protected' } } }, () => 'PDF is password protected. Remove it and add unlocked export'),
-    Match.when({ error: { _tag: 'MediaError', reason: { _tag: 'Unsupported' } } }, () => 'Browser cannot resize image. Retry in another browser'),
-    Match.when({ error: { _tag: 'UnknownError' } }, () => 'Browser cannot read file. Retry or add it again'),
-    Match.when({ error: { _tag: 'SchemaError', message: Match.string } }, ({ error: { message } }) => `${message}. Remove it and add new export`),
-    Match.when({ type: Match.is(...PdfAsset.fields.mime.literals) }, () => 'Browser cannot read PDF. Remove it and add new export'),
-    Match.when({ type: Match.is(...VideoAsset.fields.mime.literals) }, () => 'Browser cannot play video. Remove it and add H.264 MP4 or VP9 WebM export'),
+const unreadableMessage = Match.type<string>().pipe(
+    Match.when(Match.is(...PdfAsset.fields.mime.literals), () => 'Browser cannot read PDF. Remove it and add new export'),
+    Match.when(Match.is(...VideoAsset.fields.mime.literals), () => 'Browser cannot play video. Remove it and add H.264 MP4 or VP9 WebM export'),
     Match.orElse(() => 'Browser cannot read image. Remove it and add new export'),
 );
 const prepare = Effect.fnUntraced(
@@ -115,7 +111,25 @@ const prepare = Effect.fnUntraced(
         );
         return { [uploadField.asset]: yield* Schema.encodeEffect(Asset.json)(asset), prepared: { asset, compositions }, [uploadField.renditions]: renditions };
     },
-    (effect, { type }) => Effect.mapError(effect, (error) => new Cause.UnknownError(error, preparationMessage({ error, type }))),
+    (effect, { type }) =>
+        Effect.mapError(
+            effect,
+            (error) =>
+                new Cause.UnknownError(
+                    error,
+                    Match.valueTags(error, {
+                        MediaError: ({ reason }) =>
+                            Match.valueTags(reason, {
+                                Protected: () => 'PDF is password protected. Remove it and add unlocked export',
+                                Unsupported: () => 'Browser cannot resize image. Retry in another browser',
+                                Unreadable: () => unreadableMessage(type),
+                                Missing: () => unreadableMessage(type),
+                            }),
+                        SchemaError: ({ message }) => `${message}. Remove it and add new export`,
+                        UnknownError: () => 'Browser cannot read file. Retry or add it again',
+                    }),
+                ),
+        ),
 );
 const preprocessing = Atom.runtime(SecureRandom.layerWebCrypto)
     .atom((get) => preprocessUploads(get(uppy), prepare, { concurrency: 2, message: 'Reading file' }))
